@@ -12,6 +12,13 @@ from lawvm.tools import dump
 from lawvm.tools import source_dump
 
 
+def _finlex_corpus_available() -> bool:
+    from lawvm.corpus_store import _archive_is_populated, resolve_farchive_path
+
+    path, _rule = resolve_farchive_path("finlex.farchive")
+    return _archive_is_populated(path)
+
+
 def _install_fake_farchive(
     monkeypatch: pytest.MonkeyPatch,
     archive_type: type[object],
@@ -59,6 +66,10 @@ def test_dump_apply_replays_quietly(monkeypatch, capsys) -> None:
     assert "APPLY" in out
 
 
+@pytest.mark.skipif(
+    not _finlex_corpus_available(),
+    reason="populated finlex.farchive not available",
+)
 def test_dump_fi_extract_and_normalize_use_replay_state_context(capsys) -> None:
     """Regression: context-aware dump repairs need ReplayState lookup helpers."""
     for stage in ("extract", "normalize"):

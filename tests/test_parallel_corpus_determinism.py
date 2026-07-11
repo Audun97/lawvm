@@ -26,6 +26,10 @@ from lawvm.tools._parallel_corpus import project_corpus_parallel, _make_shards
 from tests.fixtures.parallel_corpus_projector import _fake_projector
 
 _PROJECTOR_REF = ("tests.fixtures.parallel_corpus_projector", "_fake_projector")
+_STORE_FACTORY_REF = (
+    "tests.fixtures.parallel_corpus_projector",
+    "_none_store_factory",
+)
 
 
 def _expected_serial(statute_ids: List[str]) -> tuple[list, list]:
@@ -56,6 +60,7 @@ def test_parallel_matches_serial_order(workers: int) -> None:
         serial_projector=_fake_projector,
         store=None,
         workers=workers,
+        store_factory_ref=_STORE_FACTORY_REF,
     )
 
     expected_rows, expected_diags = _expected_serial(statute_ids)
@@ -109,6 +114,7 @@ def test_workers_capped_to_max(monkeypatch: pytest.MonkeyPatch) -> None:
         serial_projector=_fake_projector,
         store=None,
         workers=64,  # far above the cap
+        store_factory_ref=_STORE_FACTORY_REF,
     )
 
     assert seen, "executor was never created"

@@ -21,7 +21,6 @@ the writer-logic level here; a real-corpus end-to-end build is in
 from __future__ import annotations
 
 import hashlib
-from pathlib import Path
 from typing import Any, List, cast
 
 import pytest
@@ -36,6 +35,13 @@ from lawvm.finland.apply_resolved_op import (
 )
 from lawvm.finland.ops import AmendmentOp, ResolvedOp
 from lawvm.finland.statute import ReplayState
+
+
+def _finlex_corpus_available() -> bool:
+    from lawvm.corpus_store import _archive_is_populated, resolve_farchive_path
+
+    path, _rule = resolve_farchive_path("finlex.farchive")
+    return _archive_is_populated(path)
 
 
 # ---------------------------------------------------------------------------
@@ -243,6 +249,10 @@ def _read_jsonl(path: Any) -> list[dict[str, Any]]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
 
 
+@pytest.mark.skipif(
+    not _finlex_corpus_available(),
+    reason="populated finlex.farchive not available",
+)
 def test_certificate_flips_to_certified_anchor_when_verified(
     monkeypatch: Any, tmp_path: Any
 ) -> None:
@@ -299,6 +309,10 @@ def test_certificate_flips_to_certified_anchor_when_verified(
     verify_bundle(out)
 
 
+@pytest.mark.skipif(
+    not _finlex_corpus_available(),
+    reason="populated finlex.farchive not available",
+)
 def test_certificate_keeps_fail_loud_when_anchor_does_not_verify(
     monkeypatch: Any, tmp_path: Any
 ) -> None:
@@ -332,8 +346,8 @@ def test_certificate_keeps_fail_loud_when_anchor_does_not_verify(
 
 
 @pytest.mark.skipif(
-    not Path("data/finlex.farchive").exists(),
-    reason="data/finlex.farchive not present; skipping real-corpus test",
+    not _finlex_corpus_available(),
+    reason="populated finlex.farchive not available",
 )
 def test_typed_producer_emits_canonical_transitions_when_granularity_matches(
     monkeypatch: Any, tmp_path: Any
@@ -404,8 +418,8 @@ def test_typed_producer_emits_canonical_transitions_when_granularity_matches(
 
 
 @pytest.mark.skipif(
-    not Path("data/finlex.farchive").exists(),
-    reason="data/finlex.farchive not present; skipping real-corpus test",
+    not _finlex_corpus_available(),
+    reason="populated finlex.farchive not available",
 )
 def test_typed_producer_skipped_for_receipts_without_source_anchor(tmp_path: Any) -> None:
     """When NO receipt carries a source_anchor (the legacy production case),

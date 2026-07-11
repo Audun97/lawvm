@@ -1394,6 +1394,10 @@ SOURCE_SHARD_PREFIXES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("src/lawvm/estonia/", ("estonia",)),
     ("src/lawvm/eu/", ("eu",)),
     ("tests/eu/fixtures/", ("eu",)),
+    (
+        "tests/fixtures/parallel_corpus_projector.py",
+        ("tools_runtime_io",),
+    ),
     ("src/lawvm/finland/", ("finland",)),
     # Neutral two-level PDF→IR ingest machinery (Track A move). Its tests did NOT
     # move (the finland compat shim keeps their imports working), so a change to

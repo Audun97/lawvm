@@ -14,6 +14,7 @@ canned ``RowResult`` rows, and the per-locator stratum is an injected dict. Asse
 from __future__ import annotations
 
 import json
+from typing import cast
 
 import pytest
 
@@ -348,8 +349,10 @@ def test_json_report_shape() -> None:
     payload = report_to_json(report)
     assert payload["n_selected"] == 30
     assert payload["stopped_at_stage"] is None
-    assert [s["planned_size"] for s in payload["stages"]] == [10, 30]
-    assert payload["residual_ranking"][0]["defect_class"] == "EXTRA"
+    stages = cast(list[dict[str, object]], payload["stages"])
+    residual_ranking = cast(list[dict[str, object]], payload["residual_ranking"])
+    assert [stage["planned_size"] for stage in stages] == [10, 30]
+    assert residual_ranking[0]["defect_class"] == "EXTRA"
     # round-trips through json cleanly (deterministic, no non-serializable types).
     assert json.loads(json.dumps(payload)) == payload
 

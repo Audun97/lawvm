@@ -13,6 +13,11 @@ from __future__ import annotations
 from typing import Any, Dict, List, Tuple
 
 
+def _none_store_factory() -> None:
+    """Importable worker factory for projectors that require no corpus store."""
+    return None
+
+
 def _fake_projector(
     statute_id: str, store: Any
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
