@@ -25,7 +25,7 @@ from lxml import etree, html
 
 from lawvm.core.diagnostic_records import diagnostic_detail
 from lawvm.core.regex_safety import compile_classifier_regex
-from lawvm.norway.sources import open_no_archive, resolve_no_source_path
+from lawvm.norway.sources import is_no_farchive_path, open_no_archive, resolve_no_source_path
 from lawvm.core.quirks_disposition import QuirksDisposition
 
 STATSRAD_SOURCE_NAME = "regjeringen.no/offisielt-fra-statsrad"
@@ -650,7 +650,26 @@ def iter_no_statsrad_event_artifacts(
     *,
     diagnostics_out: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
-    archive = open_no_archive(resolve_no_source_path(source_path))
+    resolved_source_path = resolve_no_source_path(source_path)
+    if resolved_source_path is not None and not is_no_farchive_path(resolved_source_path):
+        if diagnostics_out is not None:
+            diagnostics_out.append(
+                diagnostic_detail(
+                    rule_id="no_statsrad_event_lane_unavailable_for_directory_source",
+                    family="source_pathology",
+                    phase="acquisition",
+                    reason=(
+                        "Statsrad event artifacts require a Norway Farchive source; "
+                        "the tar-directory lane has no Statsrad namespace."
+                    ),
+                    blocking=False,
+                    strict_disposition="record",
+                    quirks_disposition=QuirksDisposition.RECORD,
+                    source_path=str(resolved_source_path),
+                )
+            )
+        return []
+    archive = open_no_archive(resolved_source_path)
     try:
         events: list[dict[str, Any]] = []
         for locator in archive.locators("no://statsrad/article/%/events.json"):

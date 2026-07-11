@@ -10,6 +10,7 @@ def test_no_commencement_candidates_uses_loaded_index_data_dir(monkeypatch, tmp_
     index_data_dir = tmp_path / "indexed-source"
     seen: dict[str, Path | None] = {}
     fake_index = SimpleNamespace(
+        commencement_instruments=[],
         data_dir=str(index_data_dir),
         entries=[
             SimpleNamespace(
@@ -62,6 +63,8 @@ def test_no_commencement_candidates_prefers_exact_source_id_with_commencement_ma
         pass
 
     fake_index = SimpleNamespace(
+        commencement_instruments=[],
+        data_dir="",
         entries=[
             SimpleNamespace(
                 source_id="no/lovtid/2025-06-20-96",
@@ -122,6 +125,8 @@ def test_no_commencement_candidates_skips_earlier_sources(monkeypatch, tmp_path)
         pass
 
     fake_index = SimpleNamespace(
+        commencement_instruments=[],
+        data_dir="",
         entries=[
             SimpleNamespace(
                 source_id="no/lovtid/2025-04-25-12",
@@ -176,6 +181,8 @@ def test_no_commencement_candidates_direct_only_filters_indirect_base_overlap(mo
         pass
 
     fake_index = SimpleNamespace(
+        commencement_instruments=[],
+        data_dir="",
         entries=[
             SimpleNamespace(
                 source_id="no/lovtid/2025-06-20-96",
@@ -221,6 +228,8 @@ def test_no_commencement_candidates_direct_only_filters_indirect_base_overlap(mo
 
 def test_no_commencement_candidates_includes_statsrad_evidence(monkeypatch, tmp_path) -> None:
     fake_index = SimpleNamespace(
+        commencement_instruments=[],
+        data_dir="",
         entries=[
             SimpleNamespace(
                 source_id="no/lovtid/2025-06-20-96",
@@ -267,8 +276,16 @@ def test_no_commencement_candidates_includes_statsrad_evidence(monkeypatch, tmp_
     assert report["candidate_count"] == 1
     assert report["statsrad_candidate_count"] == 1
     assert report["local_candidate_count"] == 0
-    assert report["candidate_source_counts"] == {"local_corpus": 0, "statsrad": 1}
-    assert [group["candidate_source"] for group in report["candidate_groups"]] == ["local_corpus", "statsrad"]
+    assert report["candidate_source_counts"] == {
+        "local_corpus": 0,
+        "lovtidend_commencement_instrument": 0,
+        "statsrad": 1,
+    }
+    assert [group["candidate_source"] for group in report["candidate_groups"]] == [
+        "local_corpus",
+        "lovtidend_commencement_instrument",
+        "statsrad",
+    ]
     top = report["candidates"][0]
     assert top["candidate_source"] == "statsrad"
     assert top["source_id"] == "id3103197"

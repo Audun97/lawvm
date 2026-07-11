@@ -40,6 +40,10 @@ def _source_short_id(source_id: str) -> str:
     return source_id.removeprefix("no/lovtid/")
 
 
+def _affected_law_id(source_id: str) -> str:
+    return f"no/lov/{source_id.removeprefix('no/lovtid/')}"
+
+
 def _excerpt(text: str, offset: int, needle_len: int, context: int = 140) -> str:
     start = max(0, offset - context)
     end = min(len(text), offset + needle_len + context)
@@ -116,7 +120,7 @@ def build_no_commencement_candidate_report(
 
     if index_path is not None:
         index = load_no_amendment_index(index_path)
-        index_data_dir = str(getattr(index, "data_dir", "") or "")
+        index_data_dir = index.data_dir
         data_dir = resolve_no_source_path(data_dir or (Path(index_data_dir) if index_data_dir else None))
     else:
         data_dir = resolve_no_source_path(data_dir)
@@ -195,6 +199,43 @@ def build_no_commencement_candidate_report(
             }
         )
 
+    affected_law_id = _affected_law_id(source_id)
+    lovtidend_candidates: list[dict[str, Any]] = []
+    for instrument in index.commencement_instruments:
+        exact_binding = affected_law_id in instrument.affected_law_ids
+        if not exact_binding:
+            continue
+        if direct_only and not exact_binding:
+            continue
+        lovtidend_candidates.append(
+            {
+                "candidate_source": "lovtidend_commencement_instrument",
+                "source_id": instrument.source_id,
+                "title": instrument.title,
+                "effective_header": ",".join(instrument.effective_dates),
+                "candidate_date": instrument.effective_dates[0] if instrument.effective_dates else "",
+                "commencement_marker": True,
+                "direct_match": True,
+                "match_count": 1,
+                "score": 200,
+                "matches": [
+                    {
+                        "kind": "structured_based_on",
+                        "needle": affected_law_id,
+                        "offset": 0,
+                        "excerpt": instrument.source_excerpt,
+                        "weight": 200,
+                    }
+                ],
+                "archive": instrument.archive,
+                "member_name": instrument.member_name,
+                "locator": instrument.locator,
+                "scope_status": instrument.scope_status,
+                "rule_id": instrument.rule_id,
+                "replay_authorized": False,
+            }
+        )
+
     statsrad_report = build_no_statsrad_commencement_candidate_scan(
         source_id=source_id,
         source_title=entry.title,
@@ -216,6 +257,11 @@ def build_no_commencement_candidate_report(
             "candidates": local_candidates[:limit],
         },
         {
+            "candidate_source": "lovtidend_commencement_instrument",
+            "candidate_count": len(lovtidend_candidates),
+            "candidates": lovtidend_candidates[:limit],
+        },
+        {
             "candidate_source": "statsrad",
             "candidate_count": len(statsrad_candidates),
             "candidates": statsrad_candidates[:limit],
@@ -223,8 +269,12 @@ def build_no_commencement_candidate_report(
         },
     ]
 
-    candidates = local_candidates + statsrad_candidates
-    candidate_count = len(local_candidates) + int(statsrad_report.get("candidate_count", 0))
+    candidates = local_candidates + lovtidend_candidates + statsrad_candidates
+    candidate_count = (
+        len(local_candidates)
+        + len(lovtidend_candidates)
+        + int(statsrad_report.get("candidate_count", 0))
+    )
 
     candidates.sort(
         key=lambda item: (
@@ -251,12 +301,15 @@ def build_no_commencement_candidate_report(
         "candidates": candidates[:limit],
         "local_candidate_count": len(local_candidates),
         "local_candidates": local_candidates[:limit],
+        "lovtidend_commencement_instrument_count": len(lovtidend_candidates),
+        "lovtidend_commencement_instruments": lovtidend_candidates[:limit],
         "statsrad_candidate_count": len(statsrad_candidates),
         "statsrad_candidates": statsrad_candidates[:limit],
         "statsrad_event_artifact_diagnostic_count": len(statsrad_event_artifact_diagnostics),
         "statsrad_event_artifact_diagnostics": statsrad_event_artifact_diagnostics,
         "candidate_source_counts": {
             "local_corpus": len(local_candidates),
+            "lovtidend_commencement_instrument": len(lovtidend_candidates),
             "statsrad": len(statsrad_candidates),
         },
         "candidate_groups": candidate_groups,
@@ -296,6 +349,10 @@ def main(args: "argparse.Namespace") -> None:
     print(f"  direct only         : {'yes' if report['direct_only'] else 'no'}")
     print(f"  candidates          : {report['candidate_count']}")
     print(f"  local candidates    : {report.get('local_candidate_count', 0)}")
+    print(
+        "  Lovtidend instruments: "
+        f"{report.get('lovtidend_commencement_instrument_count', 0)}"
+    )
     print(f"  statsrad evidence   : {report.get('statsrad_candidate_count', 0)}")
     if report.get("statsrad_event_artifact_diagnostic_count"):
         print(f"  statsrad diagnostics: {report['statsrad_event_artifact_diagnostic_count']}")
@@ -323,6 +380,13 @@ def main(args: "argparse.Namespace") -> None:
             for match in item["matches"]:
                 print(f"    [{match['kind']}] {match['needle']}")
                 print(f"      {match['excerpt']}")
+    if report.get("lovtidend_commencement_instruments"):
+        print("  Lovtidend commencement instruments:")
+        for item in report["lovtidend_commencement_instruments"]:
+            print(
+                f"  {item['source_id']} | scope={item['scope_status']}"
+                f" | replay_authorized=no | {item['title'] or '(untitled)'}"
+            )
 if __name__ == "__main__":
     import argparse
 

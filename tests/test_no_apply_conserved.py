@@ -6,6 +6,7 @@ partition of the bare :func:`apply_no_ops` behaviour, and that the returned
 statute IS the bare variant's replayed statute (the conserved wrapper adds the
 receipt; it does not change replay semantics).
 """
+
 from __future__ import annotations
 
 import io
@@ -232,7 +233,9 @@ def test_apply_no_ops_conserved_does_not_treat_recovery_as_skip() -> None:
     assert len(result.skipped_items) == 0
 
 
-def _skip_op(*, op_id: str, sequence: int, label: str = "2", source_id: str = "no/lovtid/2025-02-02-5") -> LegalOperation:
+def _skip_op(
+    *, op_id: str, sequence: int, label: str = "2", source_id: str = "no/lovtid/2025-02-02-5"
+) -> LegalOperation:
     """Skip-path op: HEADING_REPLACE on a section target (action not in NO's
     supported set {REPLACE, REPEAL, INSERT, RENUMBER}); NO replay emits a
     ``replay_unsupported_action`` adjudication and skips the op."""
@@ -459,7 +462,7 @@ def test_replay_no_to_pit_routes_apply_through_conserved_wrapper(tmp_path, monke
 
     monkeypatch.setattr(
         no_replay,
-        "iter_no_document_change_ops",
+        "parse_no_amendment_groups",
         lambda *a, **kw: mocked_groups,
     )
     monkeypatch.setattr(no_replay, "apply_no_ops_conserved", spy_apply_no_ops_conserved)
@@ -487,9 +490,7 @@ def test_replay_no_to_pit_routes_apply_through_conserved_wrapper(tmp_path, monke
     assert isinstance(result.apply_filter_result, FilterResult)
 
     rejected_items = list(result.apply_filter_result.rejected_items)
-    assert len(rejected_items) == 1, [
-        (item.item.op_id, item.reason_code) for item in rejected_items
-    ]
+    assert len(rejected_items) == 1, [(item.item.op_id, item.reason_code) for item in rejected_items]
     rejected = rejected_items[0]
     assert isinstance(rejected, RejectedItem)
     assert rejected.item.op_id == "no-skip-unsupported-heading"

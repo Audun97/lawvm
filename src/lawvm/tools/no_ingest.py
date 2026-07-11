@@ -35,4 +35,5 @@ def main(args: "argparse.Namespace") -> None:
     print(f"  current stored    : {report['current_locators_stored']}")
     print(f"  originals stored  : {report['original_locators_stored']}")
     print(f"  amendments stored : {report['amendment_locators_stored']}")
+    print(f"  forskrift stored   : {report['forskrift_locators_stored']}")
     print(f"  skipped existing  : {report['skipped_existing']}")

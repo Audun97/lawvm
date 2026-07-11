@@ -172,7 +172,7 @@ def _repair_no_mojibake(text: str) -> str:
         return text
     try:
         repaired = text.encode("latin-1").decode("utf-8")
-    except (UnicodeEncodeError, UnicodeDecodeError):
+    except UnicodeEncodeError, UnicodeDecodeError:
         return text
     if repaired == text:
         return text
@@ -1438,13 +1438,13 @@ def mint_no_source_anchors(ops: List[LegalOperation]) -> List[LegalOperation]:
     return anchored
 
 
-def parse_no_amendment_ops(
+def parse_no_amendment_groups(
     html_bytes: bytes,
     source_id: str,
     *,
     adjudications_out: Optional[List[CompileAdjudication]] = None,
-) -> List[LegalOperation]:
-    """Parse Lovdata amendment blocks into LegalOperation objects."""
+) -> list[tuple[str, list[LegalOperation]]]:
+    """Parse and source-anchor Lovdata amendment operations grouped by base act."""
     # Publish the raw amendment artifact so the final anchor pass
     # (:func:`mint_no_source_anchors`, applied to the assembled op stream below)
     # can mint a TRUE byte-span SourceAnchor for every op whose recorded clause
@@ -1453,18 +1453,33 @@ def parse_no_amendment_ops(
     # never leaks across amendments or to other frontends.
     _raw_source_token = set_no_raw_source_context(source_id, html_bytes)
     try:
-        ops: list[LegalOperation] = []
-        for _base_id, doc_ops in iter_no_document_change_ops(
+        groups = iter_no_document_change_ops(
             html_bytes,
             source_id,
             adjudications_out=adjudications_out,
-        ):
-            ops.extend(doc_ops)
-        # Final uniform byte-span anchor pass over the WHOLE op stream (every
-        # mint path), while the raw artifact is still published in context.
-        return mint_no_source_anchors(ops)
+        )
+        # Preserve the base-act grouping replay needs while applying the same
+        # uniform anchor pass to every emitted operation.
+        return [(base_id, mint_no_source_anchors(doc_ops)) for base_id, doc_ops in groups]
     finally:
         reset_no_raw_source_context(_raw_source_token)
+
+
+def parse_no_amendment_ops(
+    html_bytes: bytes,
+    source_id: str,
+    *,
+    adjudications_out: Optional[List[CompileAdjudication]] = None,
+) -> List[LegalOperation]:
+    """Parse Lovdata amendment blocks into LegalOperation objects."""
+    ops: list[LegalOperation] = []
+    for _base_id, doc_ops in parse_no_amendment_groups(
+        html_bytes,
+        source_id,
+        adjudications_out=adjudications_out,
+    ):
+        ops.extend(doc_ops)
+    return ops
 
 
 def _iter_unstructured_no_change_groups(
@@ -2126,9 +2141,7 @@ def _extract_no_embedded_multi_act_lead(lead: str) -> tuple[str, str] | None:
     # ``§`` means the section is being inserted, not replaced; surface it as the
     # ``Ny § …`` prefix that the ``_NO_WHOLE_SECTION_LEAD_RE`` insert branch
     # recognizes.
-    insert_qualifier = bool(
-        re.search(r"\bskal\s+ny(?:tt|e)?\s+$", lead[: match.start(5)], re.IGNORECASE)
-    )
+    insert_qualifier = bool(re.search(r"\bskal\s+ny(?:tt|e)?\s+$", lead[: match.start(5)], re.IGNORECASE))
     embedded_lead = match.group(5).strip()
     if " skal " not in embedded_lead.lower():
         embedded_lead = re.sub(r"\s+lyd([ea]):?$", r" skal lyd\1:", embedded_lead, flags=re.IGNORECASE)
@@ -2302,8 +2315,7 @@ def _no_adjudication_phase(kind: str, detail: Mapping[str, object]) -> str:
     phase = detail.get("phase")
     if not isinstance(phase, str) or not phase:
         raise ValueError(
-            f"Norway adjudication kind={kind!r} envelope is missing 'phase'; "
-            "build the detail via diagnostic_detail()."
+            f"Norway adjudication kind={kind!r} envelope is missing 'phase'; build the detail via diagnostic_detail()."
         )
     return phase
 
@@ -3145,7 +3157,9 @@ def _find_last_direct_child_path(
     if parent is None:
         return None
     numeric_children = [
-        child for child in parent.children if _no_kind_value(child.kind) == kind and child.label and re.fullmatch(r"\d+", child.label)
+        child
+        for child in parent.children
+        if _no_kind_value(child.kind) == kind and child.label and re.fullmatch(r"\d+", child.label)
     ]
     if not numeric_children:
         return None
@@ -3220,7 +3234,9 @@ def _apply_heading_group(body: IRNode, group: NOHeadingGroup) -> IRNode:
     matched_sections = [
         child
         for child in parent_node.children
-        if _no_kind_value(child.kind) == "section" and child.label and _label_in_range(child.label, group.start_label, group.end_label)
+        if _no_kind_value(child.kind) == "section"
+        and child.label
+        and _label_in_range(child.label, group.start_label, group.end_label)
     ]
     if not matched_sections:
         return body
@@ -3474,9 +3490,7 @@ def _mint_no_execution_authorization(
         quirks_disposition=QuirksDisposition.RECORD,
         safe_default="execute_only_after_affecting_act_identity_is_known",
         required_proofs=(),
-        forbidden_shortcuts=(
-            "treat_op_existence_as_replay_authority_without_affecting_act",
-        ),
+        forbidden_shortcuts=("treat_op_existence_as_replay_authority_without_affecting_act",),
         detail={
             "rule_family": _NO_EXECUTION_AUTHORIZATION_RULE,
             "affecting_act": statute_id,
@@ -3630,12 +3644,9 @@ def apply_no_ops(
     _no_renumber_sources_by_group: dict[tuple[str, str, str], set[tuple[tuple[str, str], ...]]] = {}
     for op in ordered_result.ops:
         if op.action is StructuralAction.RENUMBER and op.destination is not None:
-            _no_renumber_sources_by_group.setdefault(_no_group_key(op), set()).add(
-                op.target.path
-            )
+            _no_renumber_sources_by_group.setdefault(_no_group_key(op), set()).add(op.target.path)
     ordered_ops: list[tuple[LegalOperation, set[tuple[tuple[str, str], ...]]]] = [
-        (op, _no_renumber_sources_by_group.get(_no_group_key(op), set()))
-        for op in ordered_result.ops
+        (op, _no_renumber_sources_by_group.get(_no_group_key(op), set())) for op in ordered_result.ops
     ]
 
     no_replay_tree_invariant_families = CORE_REPLAY_DELTA_MINIMAL_FAMILIES
@@ -3688,9 +3699,7 @@ def apply_no_ops(
             )
         )
         typed_violations = tuple(
-            violation
-            for violation in all_violations
-            if not _sort_order_violation_is_spurious(violation)
+            violation for violation in all_violations if not _sort_order_violation_is_spurious(violation)
         )
         # Witness-required-for-downgrade: a sort_order violation dropped from the
         # blocking set as "spurious" must leave an attributable witness, never
@@ -3700,8 +3709,7 @@ def apply_no_ops(
         spurious_downgrades = tuple(
             violation
             for violation in all_violations
-            if violation.kind == "sort_order"
-            and _sort_order_violation_is_spurious(violation)
+            if violation.kind == "sort_order" and _sort_order_violation_is_spurious(violation)
         )
         if spurious_downgrades:
             _append_no_replay_adjudication(
@@ -3712,17 +3720,13 @@ def apply_no_ops(
                 detail={
                     "action": legacy_text_action_value(op),
                     "target": str(op.target),
-                    "nonblocking_reclassification_rule_id": (
-                        "no_sort_order_spurious_roman_single_letter_recheck"
-                    ),
+                    "nonblocking_reclassification_rule_id": ("no_sort_order_spurious_roman_single_letter_recheck"),
                     "reclassification_reason": (
                         "The flagged sibling group is correctly ordered under "
                         "roman-numeral semantics (i, ii, ..., v, ...); the "
                         "context-free litra sort key mis-flagged it."
                     ),
-                    "downgraded_violations": tuple(
-                        violation.to_dict() for violation in spurious_downgrades
-                    ),
+                    "downgraded_violations": tuple(violation.to_dict() for violation in spurious_downgrades),
                 },
             )
         violations = tuple(violation.message for violation in typed_violations)
@@ -3800,8 +3804,7 @@ def apply_no_ops(
             return
         source_id = op.source.statute_id if op.source else ""
         raise ValueError(
-            f"Norway replay recovery {kind} after {op.action} "
-            f"{op.target.path!r} from {source_id or '<unknown>'}"
+            f"Norway replay recovery {kind} after {op.action} {op.target.path!r} from {source_id or '<unknown>'}"
         )
 
     def _record_structural_recovery(
@@ -3822,8 +3825,7 @@ def apply_no_ops(
             return
         source_id = op.source.statute_id if op.source else ""
         raise ValueError(
-            f"Norway replay recovery {kind} after {op.action} "
-            f"{op.target.path!r} from {source_id or '<unknown>'}"
+            f"Norway replay recovery {kind} after {op.action} {op.target.path!r} from {source_id or '<unknown>'}"
         )
 
     # §2.9 per-op mutation-boundary observation: the seam (``core/apply_seam
@@ -3853,9 +3855,7 @@ def apply_no_ops(
     # so NO's three strict flags still raise IN PLACE exactly as before — the
     # "strictness = profile policy" mapping (design §2.1 #3) is realized by those
     # raises propagating through ``apply_op`` to the caller.
-    def _no_materialize_one(
-        before_body: IRNode, op: LegalOperation
-    ) -> MaterializeResult[IRNode]:
+    def _no_materialize_one(before_body: IRNode, op: LegalOperation) -> MaterializeResult[IRNode]:
         nonlocal body
         body = before_body
         renumber_sources = _no_active_renumber_sources
@@ -4078,7 +4078,9 @@ def apply_no_ops(
                             _assert_no_invariant_violations(op)
                             return
                     if op.target.leaf_kind() == "sentence" and _no_kind_value(payload.kind) == "sentence":
-                        body, shallow_host_path, materialized_count = _resolve_shallow_no_sentence_host_path(body, op.target)
+                        body, shallow_host_path, materialized_count = _resolve_shallow_no_sentence_host_path(
+                            body, op.target
+                        )
                         if shallow_host_path is not None and materialized_count:
                             _record_structural_recovery(
                                 kind="no_replay_sentence_children_materialized",
@@ -4227,9 +4229,7 @@ def apply_no_ops(
                         # recovers a missing-target section REPLACE by rewriting
                         # to INSERT (§2.3). The recovery rule_id + the rewritten
                         # action come from the table cell.
-                        disposition = NO_TOTALIZATION_TABLE.lookup(
-                            StructuralAction.REPLACE, FailureClass.TARGET_ABSENT
-                        )
+                        disposition = NO_TOTALIZATION_TABLE.lookup(StructuralAction.REPLACE, FailureClass.TARGET_ABSENT)
                         assert isinstance(disposition, Recover)
                         _record_action_family_recovery(
                             kind="no_replay_replace_recovered_by_insert",
@@ -4238,9 +4238,7 @@ def apply_no_ops(
                             detail={
                                 "rule_id": disposition.rule_id,
                                 "original_action": legacy_text_action_value(op),
-                                "executed_action": _no_action_value(
-                                    disposition.rewritten_action
-                                ),
+                                "executed_action": _no_action_value(disposition.rewritten_action),
                                 "target": str(op.target),
                                 "insert_parent_path": _no_path_label(parent_path),
                                 **_no_replay_payload_detail(payload),
@@ -4275,7 +4273,9 @@ def apply_no_ops(
                     and _no_kind_value(op.payload.children[0].kind) == "heading"
                 ):
                     merged_children = [op.payload.children[0]]
-                    merged_children.extend(child for child in existing.children if _no_kind_value(child.kind) != "heading")
+                    merged_children.extend(
+                        child for child in existing.children if _no_kind_value(child.kind) != "heading"
+                    )
                     body = tree_ops.replace_at(
                         body,
                         resolved_path,
@@ -4296,9 +4296,7 @@ def apply_no_ops(
                     # θ: (REPEAL, target_absent) — the table is the source of the
                     # off-domain disposition (§2.3). NO declares this a strict
                     # Reject; the grafter reads the code from the table cell.
-                    disposition = NO_TOTALIZATION_TABLE.lookup(
-                        StructuralAction.REPEAL, FailureClass.TARGET_ABSENT
-                    )
+                    disposition = NO_TOTALIZATION_TABLE.lookup(StructuralAction.REPEAL, FailureClass.TARGET_ABSENT)
                     assert isinstance(disposition, Reject)
                     _append_no_replay_adjudication(
                         adjudications_out,
@@ -4317,9 +4315,7 @@ def apply_no_ops(
                     # θ: (INSERT, target_occupied) — the table declares NO
                     # recovers by rewriting to REPLACE (§2.3). The rule_id the
                     # WriteReceipt/adjudication cites comes from the table cell.
-                    disposition = NO_TOTALIZATION_TABLE.lookup(
-                        StructuralAction.INSERT, FailureClass.TARGET_OCCUPIED
-                    )
+                    disposition = NO_TOTALIZATION_TABLE.lookup(StructuralAction.INSERT, FailureClass.TARGET_OCCUPIED)
                     assert isinstance(disposition, Recover)
                     _record_action_family_recovery(
                         kind="no_replay_insert_occupied_target_replaced",
@@ -4328,9 +4324,7 @@ def apply_no_ops(
                         detail={
                             "rule_id": disposition.rule_id,
                             "original_action": "insert",
-                            "executed_action": _no_action_value(
-                                disposition.rewritten_action
-                            ),
+                            "executed_action": _no_action_value(disposition.rewritten_action),
                             "target": str(op.target),
                             "resolved_path": _no_path_label(resolved_path),
                             **_no_replay_payload_detail(payload),
@@ -4449,9 +4443,7 @@ def apply_no_ops(
                     # recovers by removing the occupant and proceeding with the
                     # RENUMBER (§2.3). The recovery rule_id comes from the table
                     # cell (the rewritten action is RENUMBER itself).
-                    disposition = NO_TOTALIZATION_TABLE.lookup(
-                        StructuralAction.RENUMBER, FailureClass.DEST_OCCUPIED
-                    )
+                    disposition = NO_TOTALIZATION_TABLE.lookup(StructuralAction.RENUMBER, FailureClass.DEST_OCCUPIED)
                     assert isinstance(disposition, Recover)
                     _record_lineage_recovery(
                         kind="no_replay_renumber_occupied_destination_removed",
@@ -4587,9 +4579,7 @@ def apply_no_ops(
         # this is byte-identical for every op that truly mutated; it only
         # reclassifies the false-positive content-identical no-ops, which now emit
         # ``replay_noop`` and land REJECTED in the conserved partition.
-        changed = applied_result.applied and bool(
-            diff_ir_paths_identity_pruned(pre_op_body, body)
-        )
+        changed = applied_result.applied and bool(diff_ir_paths_identity_pruned(pre_op_body, body))
         if applied_result.applied and not changed:
             # θ: content_identical — the op resolved and applied but landed no
             # content write. The table declares this the I1-strong NoopIdempotent
@@ -4598,9 +4588,7 @@ def apply_no_ops(
             # table. NO's no-op disposition is uniform across the resolving
             # actions (REPLACE / text_replace), so the canonical REPLACE cell is
             # the source of the code.
-            disposition = NO_TOTALIZATION_TABLE.lookup(
-                StructuralAction.REPLACE, FailureClass.CONTENT_IDENTICAL
-            )
+            disposition = NO_TOTALIZATION_TABLE.lookup(StructuralAction.REPLACE, FailureClass.CONTENT_IDENTICAL)
             assert isinstance(disposition, NoopIdempotent)
             _append_no_replay_adjudication(
                 adjudications_out,
@@ -4812,9 +4800,7 @@ def apply_no_ops_conserved(
     # When the caller did not pass an ``adjudications_out``, use a throwaway
     # local buffer so bare-apply's mutations stay scoped and the partition
     # below still has a source to read from.
-    adjudications: List[CompileAdjudication] = (
-        adjudications_out if adjudications_out is not None else []
-    )
+    adjudications: List[CompileAdjudication] = adjudications_out if adjudications_out is not None else []
     applied_statute = apply_no_ops(
         statute,
         ops_list,
@@ -4827,11 +4813,7 @@ def apply_no_ops_conserved(
     # adjudication. Recovery adjudications (no_replay_*) record transformations
     # that WERE applied (e.g. REPLACE recovered to INSERT) and must NOT mark
     # their op as rejected. See ``_NO_SKIP_ADJUDICATION_KINDS`` above.
-    skipped_op_ids = {
-        a.op_id
-        for a in adjudications
-        if a.op_id and a.kind in _NO_SKIP_ADJUDICATION_KINDS
-    }
+    skipped_op_ids = {a.op_id for a in adjudications if a.op_id and a.kind in _NO_SKIP_ADJUDICATION_KINDS}
     accepted: list[LegalOperation] = []
     rejected: list[RejectedItem[LegalOperation]] = []
     for op in ops_list:
@@ -4985,9 +4967,7 @@ def _no_emit_one_op_receipt(
         # destination path. Using ``changed[0]`` here would yield the empty
         # path ``()`` (a non-coordinate), which is falsy and would silently
         # blank the pre/post hashes — a malformed receipt.
-        landed_destination_path = (
-            _no_legal_path_to_tree_path(op.destination) if op.destination is not None else None
-        )
+        landed_destination_path = _no_legal_path_to_tree_path(op.destination) if op.destination is not None else None
         landed_primary_path = landed_destination_path or None
     else:
         landed_primary_path = changed[0] if changed else None
@@ -5085,6 +5065,7 @@ def _no_emit_one_op_receipt(
         removed_paths=removed_paths,
         renumbered_paths=renumbered_paths,
         migration_rule_ids=migration_rule_ids,
+        source_anchor=(op.source.source_anchor if op.source is not None else None),
         pre_hashes=pre_hashes,
         post_hashes=post_hashes,
     )
@@ -5211,9 +5192,7 @@ def open_lovdata_archive(
             if statute_id is None:
                 continue
             try:
-                payload = safe_tar_read(
-                    tf, member, archive_path=Path(tar_bz2_path).name
-                )
+                payload = safe_tar_read(tf, member, archive_path=Path(tar_bz2_path).name)
             except ArchiveMemberTooLarge as exc:
                 # §1.8 typed receipt (AGENTS.md §1.8) — see
                 # :func:`_no_record_archive_skip`.
@@ -5243,9 +5222,7 @@ def open_lovdata_amendment_archive(
             if source_id is None:
                 continue
             try:
-                payload = safe_tar_read(
-                    tf, member, archive_path=Path(tar_bz2_path).name
-                )
+                payload = safe_tar_read(tf, member, archive_path=Path(tar_bz2_path).name)
             except ArchiveMemberTooLarge as exc:
                 # §1.8 typed receipt (AGENTS.md §1.8) — see
                 # :func:`_no_record_archive_skip`.

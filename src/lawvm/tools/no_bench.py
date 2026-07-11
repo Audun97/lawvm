@@ -59,6 +59,7 @@ The contract test pins the invariant: each registered mapping must produce a
 :class:`BenchUnitResult` that passes
 :func:`lawvm.core.bench_contract.check_residue_reconciliation`.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -147,7 +148,7 @@ def no_bench_unit_result(result: "NOVerifyResult") -> BenchUnitResult:
 
     # sparse_indexed_history: the replayed body diverges from the current
     # consolidated law with so many primary divergences (≥50 or ≥15 set in
-    # _infer_no_source_signal) against ≤1 indexed amendment + ≤5 replay ops,
+    # _infer_no_source_signal) against ≤2 indexed amendments + ≤5 replay ops,
     # that the primary divergences are functionally an acquisition ceiling
     # — the law's full amendment history has not been indexed/acquired —
     # not an algorithm surprise. A saturated-1.0 SCORED (structural_err =
@@ -336,7 +337,7 @@ def _load_run_accuracies(csv_path: "Path") -> "dict[str, float] | None":
                 continue
             try:
                 acc = float(row["headline_accuracy"])
-            except (KeyError, ValueError):
+            except KeyError, ValueError:
                 # A row that lacks the accuracy column or carries a
                 # non-numeric value is silently dropped — a regression guard
                 # that crashes on a malformed CSV is worse than one that
@@ -355,11 +356,7 @@ def _most_recent_labels(runs_dir: "Path", *, limit: int = 2) -> list[str]:
     """
     if not runs_dir.exists():
         return []
-    labelled = [
-        (path.stat().st_mtime, path)
-        for path in runs_dir.glob("*.csv")
-        if path.is_file()
-    ]
+    labelled = [(path.stat().st_mtime, path) for path in runs_dir.glob("*.csv") if path.is_file()]
     labelled.sort(key=lambda pair: pair[0], reverse=True)
     return [path.stem for _, path in labelled[:limit]]
 
@@ -413,15 +410,13 @@ def _render_regressions_from_runs(args: object) -> int:
     accuracies_b = _load_run_accuracies(path_b)
     if accuracies_a is None:
         print(
-            f"Norway bench run not found: {path_a}. "
-            "Persist it first via `lawvm -j no bench --label <tag>`.",
+            f"Norway bench run not found: {path_a}. Persist it first via `lawvm -j no bench --label <tag>`.",
             file=sys.stderr,
         )
         return 2
     if accuracies_b is None:
         print(
-            f"Norway bench run not found: {path_b}. "
-            "Persist it first via `lawvm -j no bench --label <tag>`.",
+            f"Norway bench run not found: {path_b}. Persist it first via `lawvm -j no bench --label <tag>`.",
             file=sys.stderr,
         )
         return 2
@@ -435,9 +430,7 @@ def _render_regressions_from_runs(args: object) -> int:
         print()
         print("  unit_id                          delta      prev_acc   curr_acc")
         for r in regressions:
-            print(
-                f"  {r.unit_id:<33} {r.delta:+.4f}   {r.previous_accuracy:.4f}     {r.current_accuracy:.4f}"
-            )
+            print(f"  {r.unit_id:<33} {r.delta:+.4f}   {r.previous_accuracy:.4f}     {r.current_accuracy:.4f}")
     return 0
 
 
@@ -477,15 +470,14 @@ def _render_show_label(args: object) -> int:
     csv_path = runs_dir / f"{label}.csv"
     if not csv_path.exists():
         print(
-            f"Norway bench run not found: {csv_path}. "
-            "Persist it first via `lawvm -j no bench --label <tag>`.",
+            f"Norway bench run not found: {csv_path}. Persist it first via `lawvm -j no bench --label <tag>`.",
             file=sys.stderr,
         )
         return 2
     top = getattr(args, "top", 20) or 20
     try:
         top = max(1, int(top))
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         top = 20
 
     rows: list[dict[str, str]] = []
@@ -521,10 +513,7 @@ def _render_show_label(args: object) -> int:
         print()
         print(f"  Non-scored (next {min(top - len(scored), len(other))} of {len(other)}):")
         for r in other[: top - len(scored)]:
-            print(
-                f"  {r['unit_id']:<33} status={r.get('status', '?'):<15} "
-                f"witnesses={r.get('witnesses') or ''}"
-            )
+            print(f"  {r['unit_id']:<33} status={r.get('status', '?'):<15} witnesses={r.get('witnesses') or ''}")
     return 0
 
 
@@ -562,10 +551,7 @@ def _render_history(args: object) -> int:
     print(f"=== Norway bench history: {history_path} ===")
     print(f"  Runs: {len(rows)} (chronological by append order)")
     print()
-    print(
-        f"  {'timestamp':<25} {'label':<25} {'mean':>6} {'n':>4} "
-        f"{'perfect':>7} {'≥99%':>5} {'≥95%':>5} {'<90%':>5}"
-    )
+    print(f"  {'timestamp':<25} {'label':<25} {'mean':>6} {'n':>4} {'perfect':>7} {'≥99%':>5} {'≥95%':>5} {'<90%':>5}")
     for r in rows:
         try:
             mean = float(r.get("mean_score") or "nan")
@@ -771,9 +757,7 @@ def _persist_per_statute_results(
             writer.writerow(_NO_BENCH_RUNS_HEADER)
             for r in results:
                 residue_total = sum(int(v) for v in r.residue_buckets.values())
-                residue_repr = ";".join(
-                    f"{k}={int(v)}" for k, v in sorted(r.residue_buckets.items())
-                )
+                residue_repr = ";".join(f"{k}={int(v)}" for k, v in sorted(r.residue_buckets.items()))
                 witnesses_repr = "|".join(r.witnesses)
                 writer.writerow(
                     [
@@ -829,12 +813,7 @@ def _persist_history(
         repo_root = Path(__file__).resolve().parents[3]
         history_path = repo_root / "data" / "norway_bench_history.csv"
     distribution = compute_distribution(results)
-    timestamp = (
-        _datetime.datetime.now(_datetime.timezone.utc)
-        .replace(microsecond=0)
-        .isoformat()
-        .replace("+00:00", "Z")
-    )
+    timestamp = _datetime.datetime.now(_datetime.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     try:
         append_history(history_path, timestamp, label, distribution)
     except OSError as exc:
@@ -922,10 +901,7 @@ def _run_bench_sweep(
             initializer=_init_no_bench_worker,
             initargs=(str(data_dir) if data_dir is not None else "",),
         ) as pool:
-            future_to_idx = {
-                pool.submit(_no_bench_score_one_worker, row): idx
-                for idx, row in enumerate(rows)
-            }
+            future_to_idx = {pool.submit(_no_bench_score_one_worker, row): idx for idx, row in enumerate(rows)}
             done = 0
             for future in as_completed(future_to_idx):
                 idx = future_to_idx[future]

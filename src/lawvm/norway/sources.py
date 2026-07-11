@@ -44,6 +44,10 @@ ARCHIVE_SPAN_RE = re.compile(r"^lovtidend-avd1-(\d{4})(?:-(\d{4}))?\.tar\.bz2$")
 _NO_CURRENT_LOCATOR_RE = re.compile(r"^no://lov/(?P<date>\d{4}-\d{2}-\d{2}-\d+)/current\.xml$")
 _NO_ORIGINAL_LOCATOR_RE = re.compile(r"^no://lov/(?P<date>\d{4}-\d{2}-\d{2}-\d+)/original\.lti\.xml$")
 _NO_AMENDMENT_LOCATOR_RE = re.compile(r"^no://lovtid/(?P<date>\d{4}-\d{2}-\d{2}-\d+)/amendment\.xml$")
+_NO_FORSKRIFT_FILENAME_RE = re.compile(r"(?:^|/)sf-(?P<date>\d{8})-(?P<num>\d+)\.xml$")
+_NO_FORSKRIFT_LOCATOR_RE = re.compile(
+    r"^no://forskrift/(?P<date>\d{4}-\d{2}-\d{2}-\d+)/original\.lti\.xml$"
+)
 
 
 # §1.8 typed-receipt reason_code for archive members that declare more bytes
@@ -249,6 +253,9 @@ class NOBackfillLane(StrEnum):
     LOCAL_CORPUS = "local_corpus"
     """Only local_corpus candidates surfaced."""
 
+    LOVTIDEND_COMMENCEMENT_INSTRUMENT = "lovtidend_commencement_instrument"
+    """An official Lovtidend instrument cites the contingent amending law."""
+
     UNRESOLVED = "unresolved"
     """No candidate surfaced in any lane."""
 
@@ -273,6 +280,9 @@ class NOBackfillHintStatus(StrEnum):
 
     LOCAL_CORPUS_FIRST = "local_corpus_first"
     """Only local_corpus candidates surfaced — start there."""
+
+    LOVTIDEND_FIRST = "lovtidend_first"
+    """An official Lovtidend commencement candidate should be validated first."""
 
 
 class NOBackfillPlanStatus(StrEnum):
@@ -347,6 +357,28 @@ def no_original_locator(base_id: str) -> str:
 
 def no_amendment_locator(source_id: str) -> str:
     return f"no://lovtid/{source_id.removeprefix('no/lovtid/')}/amendment.xml"
+
+
+def no_forskrift_id_from_filename(member_name: str) -> str | None:
+    match = _NO_FORSKRIFT_FILENAME_RE.search(member_name)
+    if not match:
+        return None
+    raw_date = match.group("date")
+    return (
+        f"no/forskrift/{raw_date[:4]}-{raw_date[4:6]}-{raw_date[6:8]}-"
+        f"{int(match.group('num'))}"
+    )
+
+
+def no_forskrift_locator(source_id: str) -> str:
+    return f"no://forskrift/{source_id.removeprefix('no/forskrift/')}/original.lti.xml"
+
+
+def no_forskrift_id_from_locator(locator: str) -> str | None:
+    match = _NO_FORSKRIFT_LOCATOR_RE.fullmatch(locator.strip())
+    if not match:
+        return None
+    return f"no/forskrift/{match.group('date')}"
 
 
 def no_base_id_from_current_locator(locator: str) -> str | None:
@@ -544,13 +576,27 @@ def _iter_amendment_artifacts_from_dir(data_dir: Path) -> Iterator[NOLocatedArti
         )
 
 
+def _iter_forskrift_artifacts_from_dir(data_dir: Path) -> Iterator[NOLocatedArtifact]:
+    for _base_id, _source_id, archive_name, member_name, payload in _iter_lovtidend_members_from_dir(data_dir):
+        source_id = no_forskrift_id_from_filename(member_name)
+        if source_id is None:
+            continue
+        yield NOLocatedArtifact(
+            locator=no_forskrift_locator(source_id),
+            logical_id=source_id,
+            source_name=archive_name,
+            member_name=member_name,
+            payload=payload,
+        )
+
+
 def iter_no_unmapped_lovtidend_xml_members(source_path: Path | None = None) -> Iterator[NOLocatedArtifact]:
     """Yield Lovtidend XML members whose filename cannot be mapped to a legal source id."""
     source_path = resolve_no_source_path(source_path)
     if is_no_farchive_path(source_path):
         return
     for base_id, source_id, archive_name, member_name, payload in _iter_lovtidend_members_from_dir(source_path):
-        if base_id is not None or source_id is not None:
+        if base_id is not None or source_id is not None or no_forskrift_id_from_filename(member_name) is not None:
             continue
         yield NOLocatedArtifact(
             locator="",
@@ -659,6 +705,18 @@ def iter_no_amendment_artifacts(source_path: Path | None = None) -> Iterator[NOL
         )
         return
     yield from _iter_amendment_artifacts_from_dir(source_path)
+
+
+def iter_no_forskrift_artifacts(source_path: Path | None = None) -> Iterator[NOLocatedArtifact]:
+    source_path = resolve_no_source_path(source_path)
+    if is_no_farchive_path(source_path):
+        yield from _iter_artifacts_from_farchive(
+            source_path,
+            pattern="no://forskrift/%/original.lti.xml",
+            id_from_locator=no_forskrift_id_from_locator,
+        )
+        return
+    yield from _iter_forskrift_artifacts_from_dir(source_path)
 
 
 def load_no_current_bytes(base_id: str, source_path: Path | None = None) -> bytes | None:
@@ -983,6 +1041,7 @@ def ingest_no_public_archives(
         "current_locators_stored": 0,
         "original_locators_stored": 0,
         "amendment_locators_stored": 0,
+        "forskrift_locators_stored": 0,
         "skipped_existing": 0,
         "skipped_existing_entries": skipped_existing_entries,
         "skipped_unmapped": 0,
@@ -1124,6 +1183,29 @@ def ingest_no_public_archives(
                 metadata={"source_name": artifact.source_name, "member_name": artifact.member_name, "kind": "amendment"},
             )
             report["amendment_locators_stored"] += 1
+        for artifact in _iter_forskrift_artifacts_from_dir(source_dir):
+            if skip_existing and archive.has(artifact.locator):
+                _record_skipped_existing(artifact, kind="forskrift")
+                continue
+            if archive.has(artifact.locator):
+                _record_duplicate_locator(
+                    artifact,
+                    kind="forskrift",
+                    existing_payload=archive.get(artifact.locator) or b"",
+                )
+                continue
+            archive.store(
+                artifact.locator,
+                artifact.payload,
+                storage_class="xml",
+                metadata={
+                    "source_name": artifact.source_name,
+                    "member_name": artifact.member_name,
+                    "kind": "forskrift",
+                    "replay_authorized": False,
+                },
+            )
+            report["forskrift_locators_stored"] += 1
     finally:
         archive.close()
     return report

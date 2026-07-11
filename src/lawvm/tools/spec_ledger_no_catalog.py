@@ -102,6 +102,26 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "Norway Lovdata XML member filename could not be mapped to a legal source "
         "id during ingestion; blocking source-pathology."
     ),
+    "no_lovtidend_commencement_instrument_candidate": (
+        "A Norsk Lovtidend forskrift instrument contains a typed law-commencement "
+        "surface and is retained as a non-authorizing candidate; acquisition or "
+        "basedOn linkage alone never changes replay state."
+    ),
+    "no_lovtidend_commencement_instrument_coverage_invalid": (
+        "Persisted Norsk Lovtidend commencement coverage contains a malformed "
+        "counter; loading fails explicitly rather than silently changing the "
+        "instrument-accounting partition."
+    ),
+    "no_lovtidend_commencement_instrument_parse_failed": (
+        "A Norsk Lovtidend forskrift artifact could not be parsed by the owning "
+        "commencement-instrument parser; the offending source excerpt remains a "
+        "blocking residual rather than disappearing."
+    ),
+    "no_lovtidend_commencement_scope_unresolved": (
+        "A Norsk Lovtidend commencement candidate lacks a single proved whole-law "
+        "scope, affected-law binding, or effective date; strict mode blocks any "
+        "promotion to replay authority."
+    ),
     "no_inventory_current_law_id_artifact_fallback_used": (
         "Norway inventory used current artifact locators as a fallback because "
         "current-law ids could not be resolved directly; blocking source-pathology "
@@ -127,6 +147,11 @@ _NO_RULE_SPECS: Dict[str, str] = {
     "no_statsrad_event_artifact_non_list": (
         "A Norway statsrad event artifact root was not a list; recorded as a "
         "structural source-pathology, not silently coerced."
+    ),
+    "no_statsrad_event_lane_unavailable_for_directory_source": (
+        "A tar-directory Norway source has no Statsrad artifact namespace; the "
+        "optional evidence lane is recorded unavailable instead of being opened "
+        "as an Farchive or silently omitted."
     ),
     "no_statsrad_event_item_non_object": (
         "A Norway statsrad event artifact item was not an object; recorded with "

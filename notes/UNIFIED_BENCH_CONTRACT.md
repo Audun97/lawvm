@@ -1,7 +1,7 @@
 # Unified Cross-Jurisdiction Benchmark Contract
 
 Status: normative. Governs `lawvm.core.bench_contract` and the per-jurisdiction
-benches that emit into it (FI, UK, EE, NZ, US).
+benches that emit into it (FI, UK, EE, NO, NZ, US).
 
 ## Problem
 
@@ -19,6 +19,8 @@ headline number and a reinvented aggregation / history / non-scored story:
   (consolidation-vs-base consistency).
 - **NZ** (`tools/nz_bench.py`, `new_zealand/benchmark.py`): per-transition dual
   similarity (text + tree) plus an oracle residual-family taxonomy.
+- **NO** (`tools/no_bench.py`): exact per-section consistency divergence against
+  the current Lovdata editorial consolidation.
 - **US** (`us_federal/bench.py`): verified-agreement section counts
   (`agreements / oracle_changed`).
 
@@ -117,6 +119,7 @@ two error axes:
 | FI | `1 - structural section similarity` | `1 - adjusted Levenshtein` |
 | UK | `1 - EID Jaccard` | `1 - text Levenshtein` (or `None`) |
 | EE | `1 - section exact-match accuracy` | `None` (exact-match only) |
+| NO | `primary divergence count / replayed section count` | `None` (not attempted) |
 | NZ | `1 - tree similarity` | `1 - text similarity` |
 | US | `1 - (agreements / oracle_changed)` | `None` (count-based) |
 

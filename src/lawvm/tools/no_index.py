@@ -39,6 +39,16 @@ def main(args: "argparse.Namespace") -> None:
     print(f"  source kind     : {data.get('source_kind', 'dir')}")
     print(f"  archives        : {len(data['archive_names'])}")
     print(f"  indexed entries : {len(data['entries'])}")
+    print(f"  commencement candidates: {len(data.get('commencement_instruments', []))}")
+    print(f"  diagnostics     : {len(data.get('diagnostics', []))}")
+    coverage = data.get("commencement_instrument_coverage", {})
+    print(
+        "  forskrift coverage: "
+        f"total={coverage.get('total_instruments', 0)} "
+        f"candidates={coverage.get('candidates', 0)} "
+        f"blocked={coverage.get('blocked_unresolved', 0)} "
+        f"benign={coverage.get('benign_non_commencement', 0)}"
+    )
     status_counts: dict[str, int] = {}
     for entry in data["entries"]:
         status = entry["effective_status"]

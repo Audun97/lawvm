@@ -9,6 +9,7 @@ This path is intentionally narrower than EE/UK:
 The core goal is to make the Norway archive stack executable without pretending
 that authenticated structuredRules/timeline services are already available.
 """
+
 from __future__ import annotations
 
 import re
@@ -37,7 +38,7 @@ from lawvm.norway.grafter import (
     NO_PARSE_REPLACE_PROMOTED_TO_INSERT_FOR_RENUMBER,
     apply_no_heading_groups,
     apply_no_ops_conserved,
-    iter_no_document_change_ops,
+    parse_no_amendment_groups,
     parse_no_heading_groups,
     parse_no_statute,
 )
@@ -211,9 +212,7 @@ def _no_ref_kind_and_date(norm_base_id: str) -> tuple[str, str, str]:
     """
     parts = norm_base_id.split("/", 2)
     if len(parts) < 3:
-        raise ValueError(
-            f"unsupported Norway base_id (expected no/<kind>/<date>, got {norm_base_id!r})"
-        )
+        raise ValueError(f"unsupported Norway base_id (expected no/<kind>/<date>, got {norm_base_id!r})")
     return parts[0], parts[1], parts[2]
 
 
@@ -236,6 +235,7 @@ def replay_no_to_pit(
     verbose: bool = False,
 ) -> NOReplayResult:
     """Replay Norway amendment acts through ``as_of`` using local public archives."""
+
     def _log(msg: str) -> None:
         if verbose:
             print(f"  {msg}", file=sys.stderr)
@@ -294,10 +294,7 @@ def replay_no_to_pit(
 
     ops: list[LegalOperation] = []
     heading_groups = []
-    candidates = [
-        entry
-        for entry in index.entries_for_base(norm_base_id)
-    ]
+    candidates = [entry for entry in index.entries_for_base(norm_base_id)]
     candidates.sort(key=lambda entry: entry.source_id)
     for entry in candidates:
         source_id = entry.source_id
@@ -389,17 +386,13 @@ def replay_no_to_pit(
             continue
         heading_groups.extend(parse_no_heading_groups(html_bytes, norm_base_id))
         parser_adjudications: list[CompileAdjudication] = []
-        parsed_groups = iter_no_document_change_ops(
+        parsed_groups = parse_no_amendment_groups(
             html_bytes,
             source_id,
             adjudications_out=parser_adjudications,
         )
         result.adjudications.extend(parser_adjudications)
-        groups = [
-            (group_base, group_ops)
-            for group_base, group_ops in parsed_groups
-            if group_base == norm_base_id
-        ]
+        groups = [(group_base, group_ops) for group_base, group_ops in parsed_groups if group_base == norm_base_id]
         if not groups:
             result.adjudications.append(
                 _no_replay_skip_adjudication(
@@ -531,8 +524,7 @@ def replay_no_to_pit(
                     family="orchestration_failure",
                     blocking=False,
                     reason=(
-                        "apply_no_ops_conserved raised mid-fold; partial "
-                        "witnesses preserved on result.adjudications"
+                        "apply_no_ops_conserved raised mid-fold; partial witnesses preserved on result.adjudications"
                     ),
                     exception_type=type(exc).__name__,
                     exception=str(exc),

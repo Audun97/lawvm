@@ -10,11 +10,18 @@ from typing import Any, Optional, cast
 
 from lawvm.core.diagnostic_records import diagnostic_detail
 from lawvm.core.source_lane import SourceLaneAttempt, SourceLaneSelectionEvidence
+from lawvm.norway.commencement_instruments import (
+    NOCommencementInstrumentCandidate,
+    NOCommencementInstrumentCoverage,
+    NOCommencementParseStatus,
+    parse_no_commencement_instrument,
+)
 from lawvm.norway.grafter import iter_no_document_change_ops, lovdata_amendment_filename_to_id
 from lawvm.norway.sources import (
     NOLocatedArtifact,
     effective_date_from_amendment,
     iter_no_amendment_artifacts,
+    iter_no_forskrift_artifacts,
     iter_no_unmapped_lovtidend_xml_members,
     no_source_metadata,
     parse_header_value,
@@ -47,6 +54,10 @@ class NOAmendmentIndex:
     archive_names: list[str] = field(default_factory=list)
     archive_metadata: dict[str, dict[str, int | str]] = field(default_factory=dict)
     entries: list[NOAmendmentIndexEntry] = field(default_factory=list)
+    commencement_instruments: list[NOCommencementInstrumentCandidate] = field(default_factory=list)
+    commencement_instrument_coverage: NOCommencementInstrumentCoverage = field(
+        default_factory=NOCommencementInstrumentCoverage
+    )
     diagnostics: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
@@ -57,6 +68,10 @@ class NOAmendmentIndex:
             "archive_names": list(self.archive_names),
             "archive_metadata": self.archive_metadata,
             "entries": [asdict(entry) for entry in self.entries],
+            "commencement_instruments": [
+                instrument.to_dict() for instrument in self.commencement_instruments
+            ],
+            "commencement_instrument_coverage": self.commencement_instrument_coverage.to_dict(),
             "diagnostics": list(self.diagnostics),
         }
 
@@ -81,6 +96,7 @@ class NOAmendmentIndex:
         archive_names = [str(item) for item in data.get("archive_names", [])]
         archive_metadata = data.get("archive_metadata", {})
         raw_diagnostics = data.get("diagnostics", [])
+        raw_commencement_instruments = data.get("commencement_instruments", [])
         return cls(
             data_dir=str(data.get("data_dir", "")),
             source_kind=str(data.get("source_kind", "dir")),
@@ -91,6 +107,14 @@ class NOAmendmentIndex:
                 if isinstance(key, str) and isinstance(value, dict)
             },
             entries=entries,
+            commencement_instruments=[
+                NOCommencementInstrumentCandidate.from_dict(item)
+                for item in raw_commencement_instruments
+                if isinstance(item, dict)
+            ],
+            commencement_instrument_coverage=NOCommencementInstrumentCoverage.from_dict(
+                data.get("commencement_instrument_coverage", {})
+            ),
             diagnostics=[dict(item) for item in raw_diagnostics if isinstance(item, dict)],
         )
 
@@ -246,7 +270,56 @@ def build_no_amendment_index(data_dir: Optional[Path] = None) -> NOAmendmentInde
             )
         )
 
+    commencement_total = 0
+    commencement_candidates = 0
+    commencement_benign = 0
+    commencement_blocked = 0
+    for artifact in _deduplicated_no_amendment_artifacts(
+        tuple(iter_no_forskrift_artifacts(data_dir)),
+        diagnostics=index.diagnostics,
+    ):
+        commencement_total += 1
+        result = parse_no_commencement_instrument(
+            artifact.payload,
+            source_id=artifact.logical_id,
+            locator=artifact.locator,
+            archive=artifact.source_name,
+            member_name=artifact.member_name,
+        )
+        if result.parse_status is NOCommencementParseStatus.BENIGN_NOT_COMMENCEMENT:
+            commencement_benign += 1
+            continue
+        if result.parse_status is NOCommencementParseStatus.BLOCKED_UNRESOLVED:
+            commencement_blocked += 1
+        else:
+            commencement_candidates += 1
+        if result.candidate is not None:
+            index.commencement_instruments.append(result.candidate)
+        for residual in result.residuals:
+            index.diagnostics.append(
+                {
+                    **residual.to_dict(),
+                    "source_id": artifact.logical_id,
+                    "locator": artifact.locator,
+                    "archive": artifact.source_name,
+                    "member_name": artifact.member_name,
+                    "quirks_disposition": "record",
+                }
+            )
+
+    index.commencement_instrument_coverage = NOCommencementInstrumentCoverage(
+        total_instruments=commencement_total,
+        candidates=commencement_candidates,
+        benign_non_commencement=commencement_benign,
+        blocked_unresolved=commencement_blocked,
+    )
+    if not index.commencement_instrument_coverage.is_partition():
+        raise AssertionError("Norway commencement-instrument coverage is not a total partition")
+
     index.entries.sort(key=lambda entry: (entry.source_id, entry.archive, entry.member_name))
+    index.commencement_instruments.sort(
+        key=lambda item: (item.source_id, item.archive, item.member_name)
+    )
     return index
 
 

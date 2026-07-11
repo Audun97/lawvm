@@ -379,6 +379,7 @@ def test_no_ingest_tool_emits_json(tmp_path, capsys) -> None:
     assert data["current_locators_stored"] == 1
     assert data["original_locators_stored"] == 1
     assert data["amendment_locators_stored"] == 1
+    assert data["forskrift_locators_stored"] == 0
 
 
 def test_no_ingest_tool_reports_skip_existing_entries(tmp_path, capsys) -> None:

@@ -1,12 +1,18 @@
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import tarfile
 
 from lawvm.core.semantic_types import IRNodeKind
 from lawvm.core.evidence_contracts import validate_corpus_finding_evidence_row
-from lawvm.norway.index import NOAmendmentIndex, NOAmendmentIndexEntry, build_no_amendment_index, save_no_amendment_index
+from lawvm.norway.index import (
+    NOAmendmentIndex,
+    NOAmendmentIndexEntry,
+    build_no_amendment_index,
+    save_no_amendment_index,
+)
 from lawvm.norway.replay import _effective_date_from_amendment, _no_ref_kind_and_date, replay_no_to_pit
 from lawvm.tools.replay_payloads import build_no_replay_payload
 
@@ -45,7 +51,7 @@ def _amendment_xml(date_in_force: str | None) -> bytes:
     if date_in_force is None:
         date_block = ""
     else:
-        date_block = f"<dd class=\"dateInForce\">{date_in_force}</dd>"
+        date_block = f'<dd class="dateInForce">{date_in_force}</dd>'
     return f"""<?xml version="1.0" encoding="utf-8"?>
 <html lang="nb">
   <body>
@@ -159,6 +165,17 @@ def test_replay_no_to_pit_applies_effective_amendments(tmp_path) -> None:
     assert result.amendments_skipped_unknown_effective == []
     assert result.n_ops == 3
 
+    anchored_receipts = [receipt for receipt in result.write_receipts if receipt.source_anchor is not None]
+    assert anchored_receipts
+    repeal_anchor = next(receipt.source_anchor for receipt in anchored_receipts if receipt.action == "repeal")
+    assert repeal_anchor is not None
+    clause = _amendment_xml("2025-02-10")[
+        repeal_anchor.byte_offset : repeal_anchor.byte_offset + repeal_anchor.byte_len
+    ]
+    assert repeal_anchor.source_artifact_id == "no/lovtid/2025-02-02-5"
+    assert clause == b"Paragraf 1 oppheves."
+    assert repeal_anchor.quote_hash == "sha256:" + hashlib.sha256(clause).hexdigest()
+
     chapter, sections = _chapter_sections(result)
     assert chapter.kind is IRNodeKind.CHAPTER
     assert [section.label for section in sections] == ["2"]
@@ -243,9 +260,7 @@ def test_replay_no_to_pit_surfaces_action_family_adjudications(tmp_path) -> None
     ]
     payload = build_no_replay_payload(result)
     assert payload["adjudications_count"] == 1
-    assert payload["adjudication_kind_counts"] == {
-        "no_replay_insert_occupied_target_replaced": 1
-    }
+    assert payload["adjudication_kind_counts"] == {"no_replay_insert_occupied_target_replaced": 1}
     evidence_row = payload["evidence"]["finding_rows"][0]
     assert evidence_row["frontend_id"] == "norway"
     assert evidence_row["rule_id"] == "no_insert_occupied_target_replace"
@@ -293,9 +308,7 @@ def test_replay_no_to_pit_strict_action_family_rejects_recovery(tmp_path) -> Non
     assert [(item.kind, item.detail["rule_id"]) for item in result.adjudications[:1]] == [
         ("no_replay_insert_occupied_target_replaced", "no_insert_occupied_target_replace")
     ]
-    apply_raise_adjudications = [
-        a for a in result.adjudications if a.kind == "no_replay_apply_raise"
-    ]
+    apply_raise_adjudications = [a for a in result.adjudications if a.kind == "no_replay_apply_raise"]
     assert len(apply_raise_adjudications) == 1, (
         f"expected exactly one no_replay_apply_raise orchestration adjudication "
         f"on the apply-raise catch; found {len(apply_raise_adjudications)}."
@@ -416,9 +429,7 @@ def test_replay_no_to_pit_propagates_partial_adjudications_on_apply_raise(
     # local list was discarded by the propagating ValueError exception (silent-
     # failure review HIGH #2: production caller was the WEAKEST contract of the
     # four, only catching ValueError and never threading the witness).
-    pre_raise = [
-        a for a in result.adjudications if a.kind == "no_replay_target_not_found_in_spy"
-    ]
+    pre_raise = [a for a in result.adjudications if a.kind == "no_replay_target_not_found_in_spy"]
     assert pre_raise, (
         "result.adjudications does not carry the pre-raise "
         "no_replay_target_not_found_in_spy witness — the §1.0/§1.8 "
@@ -444,8 +455,7 @@ def test_replay_no_to_pit_propagates_partial_adjudications_on_apply_raise(
         "NO was the weakest of the four apply-raise contracts)."
     )
     assert orchestration.detail["exception_type"] == "ValueError", (
-        f"orchestration.detail[exception_type]={orchestration.detail.get('exception_type')!r}; "
-        f"expected 'ValueError'."
+        f"orchestration.detail[exception_type]={orchestration.detail.get('exception_type')!r}; expected 'ValueError'."
     )
     assert orchestration.detail["exception"] == raise_message
     assert orchestration.detail["clause_text"] == raise_message  # ≤400 chars
@@ -581,9 +591,7 @@ def test_replay_no_to_pit_skips_future_amendments(tmp_path) -> None:
         ("no_replay_future_effective_skipped", "temporal")
     ]
     payload = build_no_replay_payload(result)
-    assert payload["adjudication_kind_counts"] == {
-        "no_replay_future_effective_skipped": 1
-    }
+    assert payload["adjudication_kind_counts"] == {"no_replay_future_effective_skipped": 1}
     evidence_row = payload["evidence"]["finding_rows"][0]
     assert evidence_row["rule_id"] == "no_replay_future_effective_skipped"
     assert evidence_row["phase"] == "temporal"
@@ -630,9 +638,7 @@ def test_replay_no_to_pit_marks_unknown_effective_dates(tmp_path) -> None:
         ("no_replay_unknown_effective_skipped", "temporal")
     ]
     payload = build_no_replay_payload(result)
-    assert payload["adjudication_kind_counts"] == {
-        "no_replay_unknown_effective_skipped": 1
-    }
+    assert payload["adjudication_kind_counts"] == {"no_replay_unknown_effective_skipped": 1}
     evidence_row = payload["evidence"]["finding_rows"][0]
     assert evidence_row["rule_id"] == "no_replay_unknown_effective_skipped"
     assert evidence_row["phase"] == "temporal"
@@ -681,9 +687,7 @@ def test_replay_no_to_pit_surfaces_contingent_commencement_skip(tmp_path) -> Non
         ("no_replay_contingent_commencement_skipped", "temporal")
     ]
     payload = build_no_replay_payload(result)
-    assert payload["adjudication_kind_counts"] == {
-        "no_replay_contingent_commencement_skipped": 1
-    }
+    assert payload["adjudication_kind_counts"] == {"no_replay_contingent_commencement_skipped": 1}
     evidence_row = payload["evidence"]["finding_rows"][0]
     assert evidence_row["rule_id"] == "no_replay_contingent_commencement_skipped"
     assert evidence_row["phase"] == "temporal"
@@ -737,9 +741,7 @@ def test_replay_no_to_pit_marks_missing_source_separately(tmp_path) -> None:
     assert payload["amendment_counts"]["unknown_effective"] == 0
     assert payload["amendment_counts"]["missing_source"] == 1
     assert payload["skipped_amendments"]["missing_source"] == ["no/lovtid/2025-02-02-5"]
-    assert payload["adjudication_kind_counts"] == {
-        "no_replay_missing_amendment_source": 1
-    }
+    assert payload["adjudication_kind_counts"] == {"no_replay_missing_amendment_source": 1}
     evidence_row = payload["evidence"]["finding_rows"][0]
     assert evidence_row["rule_id"] == "no_replay_missing_amendment_source"
     assert evidence_row["phase"] == "acquisition"
