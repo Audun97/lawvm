@@ -337,7 +337,7 @@ def _load_run_accuracies(csv_path: "Path") -> "dict[str, float] | None":
                 continue
             try:
                 acc = float(row["headline_accuracy"])
-            except KeyError, ValueError:
+            except (KeyError, ValueError):
                 # A row that lacks the accuracy column or carries a
                 # non-numeric value is silently dropped — a regression guard
                 # that crashes on a malformed CSV is worse than one that
@@ -477,7 +477,7 @@ def _render_show_label(args: object) -> int:
     top = getattr(args, "top", 20) or 20
     try:
         top = max(1, int(top))
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         top = 20
 
     rows: list[dict[str, str]] = []

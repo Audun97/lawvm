@@ -172,7 +172,7 @@ def _repair_no_mojibake(text: str) -> str:
         return text
     try:
         repaired = text.encode("latin-1").decode("utf-8")
-    except UnicodeEncodeError, UnicodeDecodeError:
+    except (UnicodeEncodeError, UnicodeDecodeError):
         return text
     if repaired == text:
         return text
