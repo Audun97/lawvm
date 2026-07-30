@@ -17,6 +17,16 @@ _COMMENCEMENT_MARKER_RE = re.compile(
     re.IGNORECASE,
 )
 
+#: Score/weight carried by a Lovtidend commencement instrument that names the
+#: affected law in its STRUCTURED "based on" field. That is an exact binding, not
+#: a text hit, so it is scored above the text-match lane's per-needle weights
+#: (the highest single needle, ``source_short_id``, is 100) to keep structured
+#: bindings at the top of the ``-int(item["score"])`` sort below. Note the sort's
+#: primary key is ``direct_match``, which these instruments always set, so the
+#: score only orders them against other direct matches.
+_LOVTIDEND_STRUCTURED_SCORE = 200
+_LOVTIDEND_STRUCTURED_WEIGHT = 200
+
 
 def _normalize_text(raw: bytes) -> str:
     from lawvm.norway.sources import repair_mojibake
@@ -205,8 +215,6 @@ def build_no_commencement_candidate_report(
         exact_binding = affected_law_id in instrument.affected_law_ids
         if not exact_binding:
             continue
-        if direct_only and not exact_binding:
-            continue
         lovtidend_candidates.append(
             {
                 "candidate_source": "lovtidend_commencement_instrument",
@@ -217,14 +225,14 @@ def build_no_commencement_candidate_report(
                 "commencement_marker": True,
                 "direct_match": True,
                 "match_count": 1,
-                "score": 200,
+                "score": _LOVTIDEND_STRUCTURED_SCORE,
                 "matches": [
                     {
                         "kind": "structured_based_on",
                         "needle": affected_law_id,
                         "offset": 0,
                         "excerpt": instrument.source_excerpt,
-                        "weight": 200,
+                        "weight": _LOVTIDEND_STRUCTURED_WEIGHT,
                     }
                 ],
                 "archive": instrument.archive,
