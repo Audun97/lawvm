@@ -174,7 +174,15 @@ if [[ -n "$TIMING_JSONL" ]]; then
     export LAWVM_SHARD_TIMING_RUN_ID="${LAWVM_CI_TIMING_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)-$$}"
 fi
 
-echo "=== [1/6] ruff check ==="
+echo "=== [1/7] compile gate ==="
+uv run python -m compileall -q -j 0 "${STATIC_CHECK_PATHS[@]}" || {
+    echo "FAIL: Python sources failed to byte-compile."
+    exit 1
+}
+echo "PASS: compile"
+
+echo ""
+echo "=== [2/7] ruff check ==="
 uv run ruff check "${STATIC_CHECK_PATHS[@]}" --no-fix 2>&1 || {
     echo "FAIL: ruff found issues. Fix before finishing."
     exit 1
@@ -182,7 +190,7 @@ uv run ruff check "${STATIC_CHECK_PATHS[@]}" --no-fix 2>&1 || {
 echo "PASS: ruff"
 
 echo ""
-echo "=== [2/6] ty check ==="
+echo "=== [3/7] ty check ==="
 uv run ty check "${STATIC_CHECK_PATHS[@]}" 2>&1 || {
     echo "FAIL: ty found type errors."
     exit 1
@@ -190,7 +198,7 @@ uv run ty check "${STATIC_CHECK_PATHS[@]}" 2>&1 || {
 echo "PASS: ty"
 
 echo ""
-echo "=== [3/6] shard ownership ==="
+echo "=== [4/7] shard ownership ==="
 ./scripts/test_shard.sh validate || {
     echo "FAIL: pytest shard ownership is invalid."
     exit 1
@@ -198,7 +206,7 @@ echo "=== [3/6] shard ownership ==="
 echo "PASS: shard ownership"
 
 echo ""
-echo "=== [4/6] boundary guards ==="
+echo "=== [5/7] boundary guards ==="
 ./scripts/test_shard.sh run boundary || {
     echo "FAIL: boundary shard failed."
     exit 1
@@ -206,7 +214,7 @@ echo "=== [4/6] boundary guards ==="
 echo "PASS: boundary"
 
 echo ""
-echo "=== [5/6] bounded pytest shards ==="
+echo "=== [6/7] bounded pytest shards ==="
 if [[ ${#AFFECTED_PATHS[@]} -gt 0 ]]; then
     echo "Affected paths: ${AFFECTED_PATHS[*]}"
     if [[ -n "$SHARDS" ]]; then
@@ -232,7 +240,7 @@ done
 echo "PASS: bounded pytest shards"
 
 echo ""
-echo "=== [6/6] release hygiene ==="
+echo "=== [7/7] release hygiene ==="
 ./scripts/release_hygiene.sh --allow-dirty || {
     echo "FAIL: release hygiene gate failed."
     exit 1
