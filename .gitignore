@@ -264,7 +264,12 @@ mutants/
 pyrightconfig.json
 
 # End of https://www.toptal.com/developers/gitignore/api/linux,python
-.claude
+# Local Claude state stays ignored, but the versioned batch-harness control
+# plane (workflow scripts + skills) is tracked: the preflight checks the
+# ledger's executionPolicy against these files' frozen hard rules.
+.claude/*
+!.claude/workflows/
+!.claude/skills/
 
 # Generated audit/sweep reports (reconcile-sweep, coverage-gap, ...) — local,
 # regenerable artifacts; never commit them.
