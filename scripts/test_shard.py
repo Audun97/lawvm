@@ -1780,6 +1780,7 @@ TOOLING_BLOCKED_PREFIXES = (
     "src/lawvm/tools/",
 )
 SOURCE_SHARD_PATHS: dict[str, tuple[str, ...]] = {
+    "tests/corpus_pin_helpers.py": ("finland",),
     "tests/data/classifier_wrap_ratchet_baseline.json": ("core_ir_contracts",),
     "tests/data/ctsf_gate_residual_baseline.json": ("tools_ctsf_gate",),
     "tests/data/ctsf_gate_ee_residual_baseline.json": ("tools_ctsf_gate",),

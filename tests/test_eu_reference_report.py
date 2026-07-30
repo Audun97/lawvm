@@ -19,10 +19,11 @@ from pathlib import Path
 import pytest
 
 from lawvm.tools import eu_reference_report as er
+from lawvm.corpus_store import _archive_is_populated
 
-_FINLEX_CORPUS_AVAILABLE = (
+_FINLEX_CORPUS_AVAILABLE = _archive_is_populated(
     Path(__file__).resolve().parents[1] / "data" / "finlex.farchive"
-).exists()
+)
 
 
 class _FakeStore:

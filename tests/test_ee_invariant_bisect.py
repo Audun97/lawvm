@@ -14,7 +14,14 @@ from __future__ import annotations
 
 import pytest
 
+from lawvm.estonia.fetch import _DEFAULT_RT_DB
 from lawvm.tools.invariant_bisect import build_ee_invariant_bisect_bundle
+
+
+pytestmark = pytest.mark.skipif(
+    not _DEFAULT_RT_DB.exists(),
+    reason=f"EE archive not reachable: {_DEFAULT_RT_DB}",
+)
 
 
 _CURRICULUM_BASE = "130042020016"

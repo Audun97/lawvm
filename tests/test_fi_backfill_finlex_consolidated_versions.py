@@ -64,11 +64,16 @@ class _FakeArchive:
         return None
 
 
-def test_backfill_migrates_sd_cons_old_to_canonical_versioned_sd_cons(monkeypatch) -> None:
+def test_backfill_migrates_sd_cons_old_to_canonical_versioned_sd_cons(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
     archive = _FakeArchive()
     monkeypatch.setattr(backfill, "Farchive", lambda db, *, readonly=False: archive)
+    db = tmp_path / "finlex.farchive"
+    db.touch()
 
-    stats = backfill.run(db=Path("data/finlex.farchive"), dry_run=False, verbose=False)
+    stats = backfill.run(db=db, dry_run=False, verbose=False)
 
     assert stats.errors == 0
     assert stats.locators_backfilled == 4

@@ -336,7 +336,7 @@ def test_run_single_statute_finds_pair_by_base_id(monkeypatch, capsys) -> None:
     )
 
     args = SimpleNamespace(
-        db=None,
+        db=csv_path,
         ee_corpus=None,
         statute="base1",
     )

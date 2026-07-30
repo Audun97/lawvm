@@ -53,7 +53,7 @@ from lawvm.finland.apply_payload_ops import (
     _has_single_intro_numbered_item_list_ir,
 )
 from lawvm.finland.apply_runtime_support import _snapshot_op_source
-from lawvm.finland.corpus import get_corpus
+from lawvm.finland.corpus import get_corpus as _get_corpus
 from lawvm.finland.frontend_observations import (
     _duplicate_frontend_target_observations,
     _scope_anchor_dependence_observations,
@@ -174,7 +174,7 @@ from lawvm.finland.compile_group_scope_recovery import (
     CompileGroupScopeRecoveryRequest,
     resolve_compile_group_scope_recovery,
 )
-from tests.corpus_pin_helpers import replay_xml_for_test as replay_xml
+from tests.corpus_pin_helpers import replay_xml_for_test as _replay_xml
 from lawvm.finland.apply_ops_boundary import ApplyOpsRequest, ApplyOpsSinks
 from lawvm.finland.compile_group_boundary import CompileGroupRequest, CompileGroupSinks
 from lawvm.finland.process_request import ProcessAmendmentRequest
@@ -218,7 +218,7 @@ from lawvm.finland.uncovered_recovery_state import (
     FI_RECOVERY_UNCOVERED_BODY_RULE_ID,
     UncoveredCandidateAudit,
 )
-from tests.corpus_pin_helpers import pinned_replay
+from tests.corpus_pin_helpers import pinned_replay as _pinned_replay, skip_if_corpus_absent
 from lawvm.finland.apply import apply_op
 from lawvm.finland.constraints import _FilterCtx, _filter_ops_by_constraints, _find_muutos_node
 from lawvm.finland.group_ops import append_compiled_group_ops, normalize_group_ops_for_repeal_reenact
@@ -228,8 +228,14 @@ from lawvm.finland.source_pathology import build_container_replace_target_absent
 from lawvm.finland.statute import ReplayState, StatuteContext
 from lawvm.finland.restructure_plan import StructuralTransformPlan
 import lawvm.tools.inspect_amendment as inspect_amendment
-from lawvm.tools.inspect_amendment import build_amendment_bundle
+from lawvm.tools.inspect_amendment import build_amendment_bundle as _build_amendment_bundle
 from lawvm.tools.trace_section import build_trace_bundle
+
+
+get_corpus = skip_if_corpus_absent(_get_corpus)
+replay_xml = skip_if_corpus_absent(_replay_xml)
+pinned_replay = skip_if_corpus_absent(_pinned_replay)
+build_amendment_bundle = skip_if_corpus_absent(_build_amendment_bundle)
 
 
 def _prune_container_payload_sections_shadowed_by_standalone_targets(
@@ -7669,6 +7675,7 @@ def test_resolve_applicable_amendment_records_re_admits_oracle_reflected_source_
     orig_children = selection_mod.amendment_children_by_parent
     orig_edges = selection_mod.amendment_child_edges_by_parent
     orig_reflected = selection_mod.get_consolidated_oracle_reflected_source_vts_children
+    orig_meta = selection_mod.get_consolidated_meta
     try:
         selection_patch = cast(Any, selection_mod)
         selection_patch.amendment_children_by_parent = lambda: {"1986/506": ["1991/806", "1993/872", "1994/1264", "2024/1049"]}
@@ -7681,6 +7688,10 @@ def test_resolve_applicable_amendment_records_re_admits_oracle_reflected_source_
             ]
         }
         selection_patch.get_consolidated_oracle_reflected_source_vts_children = lambda _parent_id, corpus=None, selector=None: {"2024/1049"}
+        selection_patch.get_consolidated_meta = lambda *_args, **_kwargs: (
+            dt.date(2025, 1, 1),
+            "1994/1264",
+        )
         records, cutoff_date, oracle_version = selection_mod.resolve_applicable_amendment_records(
             "1986/506",
             "legal_pit",
@@ -7691,6 +7702,7 @@ def test_resolve_applicable_amendment_records_re_admits_oracle_reflected_source_
         selection_mod.amendment_children_by_parent = orig_children
         selection_mod.amendment_child_edges_by_parent = orig_edges
         selection_mod.get_consolidated_oracle_reflected_source_vts_children = orig_reflected
+        selection_mod.get_consolidated_meta = orig_meta
 
     assert oracle_version == "1994/1264"
     assert cutoff_date == dt.date(2025, 1, 1)

@@ -3,7 +3,11 @@
 Regression tests for BASE_UNNUMBERED_PARAGRAPH_PEER and LABEL_EID_DIVERGENCE.
 """
 
-from lawvm.corpus_store import get_corpus_store
+from pathlib import Path
+
+import pytest
+
+from lawvm.corpus_store import _archive_is_populated, get_corpus_store
 from lawvm.finland.xml_statute import XMLStatute
 from lawvm.finland.xml_ir import (
     detect_unnumbered_paragraph_peers,
@@ -11,6 +15,14 @@ from lawvm.finland.xml_ir import (
 )
 from lawvm.core.semantic_types import IRNodeKind
 from tests.corpus_pin_helpers import pinned_replay
+
+
+pytestmark = pytest.mark.skipif(
+    not _archive_is_populated(
+        Path(__file__).resolve().parents[1] / "data" / "finlex.farchive"
+    ),
+    reason="Finland corpus is not populated",
+)
 
 
 def test_2013_331_unnumbered_peer_detected():

@@ -21,7 +21,65 @@ Then update the ORACLE_VERSIONS entry and any changed assertions.
 """
 from __future__ import annotations
 
+import functools
+from collections.abc import Callable
 from typing import Any
+
+import pytest
+
+from lawvm.corpus_store import (
+    CorpusArchiveMissingError,
+    _archive_is_populated,
+    resolve_farchive_path,
+)
+
+
+def _finlex_corpus_available() -> bool:
+    path, _rule = resolve_farchive_path("finlex.farchive")
+    return _archive_is_populated(path)
+
+
+#: Whether a populated ``finlex.farchive`` is resolvable in this environment.
+#: Evaluated once at import so the marker below is a collection-time decision.
+FINLEX_CORPUS_AVAILABLE: bool = _finlex_corpus_available()
+
+#: Collection-time skip for a test whose body cannot run without the Finland
+#: corpus. Use this when the corpus need is unconditional; when the corpus is
+#: reached through a call that raises, prefer :func:`corpus_store_or_skip` (or a
+#: local ``try/except CorpusArchiveMissingError`` wrapper) so the test still
+#: exercises whatever it can.
+requires_finlex_corpus = pytest.mark.skipif(
+    not FINLEX_CORPUS_AVAILABLE,
+    reason="populated finlex.farchive not available",
+)
+
+
+def skip_if_corpus_absent(fn: Callable[..., Any]) -> Callable[..., Any]:
+    """Wrap a corpus-reaching callable so an absent archive skips, not fails.
+
+    Test modules re-export their corpus entrypoints through this so a
+    corpus-absent checkout reports skips carrying the resolver's own remedy
+    message, instead of a wall of ``CorpusArchiveMissingError`` that reads like
+    a replay regression. Only the missing-corpus error is converted — every
+    other exception propagates untouched.
+    """
+
+    @functools.wraps(fn)
+    def _wrapped(*args: Any, **kwargs: Any) -> Any:
+        try:
+            return fn(*args, **kwargs)
+        except CorpusArchiveMissingError as exc:
+            pytest.skip(str(exc))
+
+    return _wrapped
+
+
+def corpus_store_or_skip():
+    """Return the Finland corpus store, or skip the test when it is absent."""
+    from lawvm.corpus_store import get_corpus_store
+
+    return skip_if_corpus_absent(get_corpus_store)()
+
 
 # Maps statute ID -> latest pinned oracle version tag.
 # Updated by running: uv run farchive locators data/finlex.farchive --pattern '%YEAR/NUM%'
@@ -281,12 +339,17 @@ def replay_xml_for_test(parent_id: str, **kwargs):
     from lawvm.finland.replay_entrypoint import replay_xml
     from lawvm.finland.replay_request import ReplayXmlRequest, ReplayXmlSinks
 
+    corpus = kwargs.pop("corpus", None)
+    if corpus is None and not FINLEX_CORPUS_AVAILABLE:
+        path, _rule = resolve_farchive_path("finlex.farchive")
+        pytest.skip(f"Finland corpus is not populated: {path}")
+
     request = ReplayXmlRequest(
         parent_id=parent_id,
         mode=kwargs.pop("mode", "official_consolidation"),
         stop_before=kwargs.pop("stop_before", ""),
         strict_profile=kwargs.pop("strict_profile", None),
-        corpus=kwargs.pop("corpus", None),
+        corpus=corpus,
         quiet=kwargs.pop("quiet", False),
         build_full_products=kwargs.pop("build_full_products", True),
         checkpoint_callback=kwargs.pop("checkpoint_callback", None),

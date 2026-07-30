@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+import pytest
 from lxml import etree
 
+from lawvm.corpus_store import _archive_is_populated
 from lawvm.core.ir_helpers import irnode_to_text
 from lawvm.core.semantic_types import IRNodeKind
 from lawvm.finland.compile_amendment import compile_amendment_ops
@@ -18,6 +22,14 @@ from lawvm.finland.sparse_tail_claims import (
     SPARSE_OMISSION_TAIL_PRUNE_RULE,
     build_sparse_omission_tail_claims,
     prune_sparse_tail_claims_from_carrier,
+)
+
+
+_requires_corpus = pytest.mark.skipif(
+    not _archive_is_populated(
+        Path(__file__).resolve().parents[1] / "data" / "finlex.farchive"
+    ),
+    reason="Finland corpus is not populated",
 )
 
 
@@ -102,6 +114,7 @@ def test_sparse_omission_tail_claim_synthesizes_missing_descendant_payload() -> 
     assert "Claimed tail." not in irnode_to_text(pruned_payload)
 
 
+@_requires_corpus
 def test_1995_1084_routes_sparse_tail_from_29_to_31_third_moment() -> None:
     before = replay_xml(
         request=ReplayXmlRequest(

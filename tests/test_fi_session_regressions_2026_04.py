@@ -34,6 +34,7 @@ Run:
 """
 
 from __future__ import annotations
+
 from lawvm.core.canonical_intent import Relabel
 from lawvm.core.ir import LegalAddress, LegalOperation, OperationSource
 from lawvm.core.recovery_kind import RecoveryKind
@@ -57,11 +58,22 @@ from lawvm.finland.consolidated_artifacts import ConsolidatedArtifactSelector
 from lawvm.finland.johtolause.api import parse_clause
 from lawvm.finland.ops import OpType, AmendmentOp, ResolvedOp, get_replay_profile
 from lawvm.finland.replay_entrypoint import replay_xml
-from lawvm.finland.replay_request import ReplayXmlRequest, ReplayXmlSinks, call_replay_xml
+from lawvm.finland.replay_request import (
+    ReplayXmlRequest,
+    ReplayXmlSinks,
+    call_replay_xml as _call_replay_xml,
+)
 from lawvm.finland.standalone_targets import StandaloneSectionTarget
 from lawvm.finland.statute import ReplayState
 from lawvm.finland.restructure_plan import resolved_op_is_owned_by_restructure_plan as _resolved_op_is_owned_by_restructure_plan
-from tests.corpus_pin_helpers import pinned_replay
+from tests.corpus_pin_helpers import (
+    pinned_replay,
+    requires_finlex_corpus,
+    skip_if_corpus_absent,
+)
+
+
+call_replay_xml = skip_if_corpus_absent(_call_replay_xml)
 
 # ---------------------------------------------------------------------------
 # Shared helpers
@@ -1652,6 +1664,7 @@ def test_2019_371_renumber_ops_bind_typed_intent_with_compound_source_parent_pat
     assert rop.intent.source.address.path == (("part", "2"), ("chapter", "1"), ("section", "1"))
 
 
+@requires_finlex_corpus
 def test_1992_110_2017_48_reinstatement_chain_compiles_insert_13_and_materializes_section_13() -> None:
     """Real corpus anchor for the active `1992/110 <- 2017/48` chain-drop family."""
     from lxml import etree
@@ -2285,6 +2298,7 @@ def test_precreate_same_label_move_migrates_section_into_existing_chapter_from_t
     assert migration.to_legal_path == (("chapter", "5b"), ("section", "29e"))
 
 
+@requires_finlex_corpus
 def test_2019_571_2025_863_chapter_heading_migration_orders_existing_sections() -> None:
     """Real corpus anchor for chapter-heading starts around already-live sections."""
     replay = call_replay_xml(
@@ -2389,6 +2403,7 @@ def test_1990_650_2003_127_chapter_11a_does_not_absorb_voimaantulo_section() -> 
     )
 
 
+@requires_finlex_corpus
 def test_2014_527_2026_178_section_225_binds_item_payload_to_scoped_subsection() -> None:
     """Same-label carried items from shifted moments must not override scoped item payloads."""
     source_pathologies = []

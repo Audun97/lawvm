@@ -32,10 +32,10 @@ def _finlex_corpus_available() -> bool:
     # Resolve through the canonical precedence (worktrees may have no local
     # data/ but point at the shared checkout via LAWVM_CANONICAL_DATA_ROOT).
     try:
-        from lawvm.corpus_store import resolve_farchive_path
+        from lawvm.corpus_store import _archive_is_populated, resolve_farchive_path
 
         path, _rule = resolve_farchive_path("finlex.farchive")
-        return path.exists()
+        return _archive_is_populated(path)
     except Exception:
         return False
 

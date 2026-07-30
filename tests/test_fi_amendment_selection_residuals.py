@@ -45,6 +45,11 @@ def test_missing_source_surfaces_residual_selected_set_unchanged(monkeypatch) ->
         "amendment_children_by_parent",
         lambda: {parent_id: [present_id, missing_id]},
     )
+    monkeypatch.setattr(
+        sel,
+        "amendment_child_edges_by_parent",
+        lambda: {parent_id: []},
+    )
 
     corpus = cast(CorpusStore, _PartialCorpus(missing_id=missing_id))
     candidates, residuals = sel._read_amendment_candidates(parent_id, corpus)
@@ -69,6 +74,11 @@ def test_all_sources_present_yields_no_residual(monkeypatch) -> None:
         sel,
         "amendment_children_by_parent",
         lambda: {parent_id: ["2001/11"]},
+    )
+    monkeypatch.setattr(
+        sel,
+        "amendment_child_edges_by_parent",
+        lambda: {parent_id: []},
     )
 
     class _FullCorpus:
@@ -96,6 +106,11 @@ def test_tuple_adapter_carries_residuals_through_residuals_out(monkeypatch) -> N
         sel,
         "amendment_children_by_parent",
         lambda: {parent_id: [present_id, missing_id]},
+    )
+    monkeypatch.setattr(
+        sel,
+        "amendment_child_edges_by_parent",
+        lambda: {parent_id: []},
     )
     # Pin the oracle context so selection is corpus-source driven only.
     monkeypatch.setattr(sel, "get_consolidated_meta", lambda *_a, **_k: (None, None))
