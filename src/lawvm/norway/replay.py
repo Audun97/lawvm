@@ -30,6 +30,7 @@ from lawvm.core.temporal_resolution import (
     TemporalResolutionStatus,
 )
 from lawvm.core.write_receipt import WriteReceipt
+from lawvm.core.observed_write_audit import ObservedWriteAudit
 from lawvm.norway.commencement import (
     apply_no_commencement_overrides,
     load_no_commencement_overrides,
@@ -171,7 +172,7 @@ class NOReplayResult:
     # production apply lane routes through ``apply_no_ops_conserved`` with
     # ``emit_receipts=True`` (the §2.9 guard-liveness fix so the receipt
     # lane is reachable from production, not just from tests via
-    # ``no_replay_write_receipts``). Each receipt records the landed
+    # authoritative conserved apply fold). Each receipt records the landed
     # footprint (created/replaced/removed/renumbered paths) plus pre/post
     # structural subtree hashes per op, and the ``migration_rule_ids`` stamp
     # that explains the bound→landed divergence on a RENUMBER
@@ -179,6 +180,7 @@ class NOReplayResult:
     # at sweden/fetch.py:3497). Mirrors SE's ``write_receipts`` surface on
     # the production result carrier.
     write_receipts: Tuple[WriteReceipt, ...] = ()
+    observed_write_audits: Tuple[ObservedWriteAudit, ...] = ()
 
 
 def _normalize_base_id(base_id: str) -> str:
@@ -467,7 +469,7 @@ def replay_no_to_pit(
         # ``emit_receipts=True`` additionally routes per-op ``WriteReceipt``
         # records (AGENTS.md §2.3 + notes/APPLY_RESOLUTION_AND_RECEIPT_CONTRACT.md
         # §4) through the production lane — these were previously reachable
-        # only from tests via ``no_replay_write_receipts``, a §2.9 worst-class
+        # only from tests rather than the production fold, a §2.9 worst-class
         # silent failure. Each receipt carries the landed footprint
         # (created/replaced/removed/renumbered paths) plus pre/post structural
         # subtree hashes per op, and the ``migration_rule_ids`` stamp that
@@ -484,6 +486,7 @@ def replay_no_to_pit(
         result.replayed = apply_result.statute
         result.apply_filter_result = apply_result.filter_result
         result.write_receipts = apply_result.write_receipts
+        result.observed_write_audits = apply_result.observed_write_audits
         if heading_groups:
             result.replayed = apply_no_heading_groups(result.replayed, heading_groups)
     # lawvm-failloud (AGENTS.md §1.10): NOT a silent swallow. An apply-stage

@@ -1245,6 +1245,16 @@ FINDING_REGISTRY: Dict[str, FindingSpec] = {f.code: f for f in (
                 "observation in the universal apply-seam observe lane (the receipt-"
                 "totality witness), never promoted to authority",
                 ("safety_invariant", "provenance"), role="observation"),
+    FindingSpec("APPLY.WRITE_RECEIPT_AUDIT_OBSERVED", "apply",
+                "audit", "warn", "apply_seam",
+                "the independent before/after write footprint does not match the "
+                "WriteReceipt declaration; surfaced without authorizing the receipt",
+                ("safety_invariant", "provenance"), role="observation"),
+    FindingSpec("APPLY.WRITE_RECEIPT_AUDIT_VIOLATION", "apply",
+                "violation", "hard_fail", "apply_seam",
+                "strict receipt audit: the independent before/after write footprint "
+                "does not match the WriteReceipt declaration",
+                ("safety_invariant", "provenance"), role="violation"),
     # XP-06 cross-jurisdiction invariant-parity audit (registry's self-flagged
     # thinnest axis). The READ-MOSTLY analysis in
     # ``core/cross_jurisdiction_parity.py`` builds the invariant x frontend

@@ -250,9 +250,17 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "A Norway amendment artifact compiled zero change-group matches; the "
         "no-op replay is recorded as a finding so the artifact stays owned."
     ),
-    "no_replay_skipped_unspecified": (
-        "A Norway replay op skipped without a matching typed skip adjudication is "
-        "rejected with an explicit unspecified-skip receipt rather than disappearing."
+    "no_replay_observed_write_audit_violation": (
+        "A Norway landed write whose independent before/after path diff is not "
+        "fully accounted for by its WriteReceipt is recorded as a blocking "
+        "adjudication; strict replay refuses contradictory receipt evidence "
+        "rather than trusting the declared footprint."
+    ),
+    "no_replay_receipt_storage_path_projected": (
+        "A chapter-free Norway legal address was projected to its exact nested IR "
+        "storage path for write accounting; the receipt keeps the nominal binding "
+        "and records the resolved path as landed reality, so the projection is "
+        "witnessed instead of silently widening target resolution."
     ),
     "no_replay_unknown_effective_skipped": (
         "A Norway amendment's effective status flag was not one of "
@@ -385,10 +393,8 @@ _NO_RULE_SPECS: Dict[str, str] = {
     # op mints an identity migration (bound source label → landed destination
     # label) that the §1.6 unstated-migration invariant MUST carry with a named
     # rule id. Stamped on the op at mint time as ``witness_rule_id`` (the
-    # parse→apply waist proof). Receipt-side ``migration_rule_ids`` stamping is
-    # pending the per-op ``WriteReceipt`` helper for NO (split across iter2 W5 H2
-    # op-side stamping + a future receipt-helper task — see
-    # https://github.com/elias/lawvm/issues/iter2-w5-h2-no-receipt-helper).
+    # parse→apply waist proof). The authoritative apply fold also stamps the same
+    # id on its per-op WriteReceipt.
     "no_section_renumber_relabel": (
         "A Norway RENUMBER op's bound_target_path (source label) vs "
         "landed_primary_path (destination label) divergence is the typed named "
@@ -398,9 +404,18 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "EE's ``_EE_SECTION_SEQUENCE_RENUMBER_RULE`` on op construction). The "
         "name ``section`` describes the dominant case but the rule id is the "
         "broad family owner for every RENUMBER op (one id per family, mirroring "
-        "SE's single ``se_renumber_relabel``). Receipt-side "
-        "``migration_rule_ids`` stamping requires a per-op ``WriteReceipt`` "
-        "helper that does not yet exist in the NO frontend."
+        "SE's single ``se_renumber_relabel``). The authoritative apply fold "
+        "stamps the same id in the receipt's ``migration_rule_ids``."
+    ),
+    "no_observed_write_audit_must_match_receipt": (
+        "A Norway landed write's independent before/after path diff must be "
+        "fully accounted for by its WriteReceipt; strict replay rejects a "
+        "violation instead of allowing contradictory receipt evidence."
+    ),
+    "no_receipt_storage_path_resolution": (
+        "A chapter-free Norway legal address was resolved to its exact nested IR "
+        "storage path; the receipt preserves the nominal binding and records the "
+        "resolved path as landed reality without widening target resolution."
     ),
     "no_replace_missing_last_item_append_to_parent": (
         "Detail rule id on an insert-recovery of a missing-target replace that "

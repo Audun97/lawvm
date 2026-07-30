@@ -15,6 +15,7 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+import lawvm.core.cross_jurisdiction_parity as parity
 from lawvm.core.cross_jurisdiction_parity import (
     CARRIER_PRESENCES,
     INVARIANT_COVERAGE_DIVERGENCE_CODE,
@@ -114,6 +115,32 @@ def test_matrix_reflects_real_no_profile_source() -> None:
     # NO models no occupancy -> off; EE is block. This is the real divergence.
     assert matrix.rows["no"].modes["LS-03"] == "off"
     assert matrix.rows["ee"].modes["LS-03"] == "block"
+
+
+def test_no_write_receipt_is_rooted_in_production_replay_entrypoint() -> None:
+    assert build_parity_matrix().rows["no"].carriers["write_receipt"] is True
+
+
+def test_no_write_receipt_rejects_package_only_decoy(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    source = tmp_path / "replay.py"
+    source.write_text(
+        """
+def replay_no_to_pit():
+    return None
+
+def dead_helper():
+    return apply_no_ops_conserved([], emit_receipts=True)
+""",
+        encoding="utf-8",
+    )
+    entries = dict(parity._RECEIPT_PRODUCTION_ENTRY)
+    entries["no"] = (source, "replay_no_to_pit")
+    monkeypatch.setattr(parity, "_RECEIPT_PRODUCTION_ENTRY", entries)
+
+    assert parity._carriers_for_frontend("no")["write_receipt"] is False
 
 
 def test_matrix_models_nz_as_frontend_without_apply_seam() -> None:

@@ -165,6 +165,29 @@ def test_replay_no_to_pit_applies_effective_amendments(tmp_path) -> None:
     assert result.amendments_skipped_unknown_effective == []
     assert result.n_ops == 3
 
+    assert result.apply_filter_result is not None
+    accepted_by_id = {
+        op.op_id: op for op in result.apply_filter_result.accepted_items
+    }
+    rejected_ids = {
+        item.item.op_id for item in result.apply_filter_result.rejected_items
+    }
+    receipt_ids = [receipt.op_id for receipt in result.write_receipts]
+    assert len(receipt_ids) == len(set(receipt_ids))
+    assert set(receipt_ids) == set(accepted_by_id)
+    assert set(receipt_ids).isdisjoint(rejected_ids)
+    for receipt in result.write_receipts:
+        op = accepted_by_id[receipt.op_id]
+        expected_anchor = op.source.source_anchor if op.source is not None else None
+        assert receipt.source_anchor == expected_anchor
+        if receipt.source_anchor is None:
+            continue
+        anchor = receipt.source_anchor
+        clause = _amendment_xml("2025-02-10")[
+            anchor.byte_offset : anchor.byte_offset + anchor.byte_len
+        ]
+        assert anchor.quote_hash == "sha256:" + hashlib.sha256(clause).hexdigest()
+
     anchored_receipts = [receipt for receipt in result.write_receipts if receipt.source_anchor is not None]
     assert anchored_receipts
     repeal_anchor = next(receipt.source_anchor for receipt in anchored_receipts if receipt.action == "repeal")

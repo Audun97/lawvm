@@ -1765,6 +1765,71 @@ def _assert_blocking_replay_finding(findings: list[Finding], code: str) -> None:
     assert finding.blocking is True, f"{code} reached the ledger with blocking=False"
 
 
+def drill_write_receipt_audit_violation_apply_lane() -> None:
+    """APPLY.WRITE_RECEIPT_AUDIT_VIOLATION reaches the apply findings as blocking.
+
+    Production lane: the seam's own receipt-vs-diff audit. ``apply_op`` runs a
+    RENUMBER whose materializer writes somewhere the op never named (section 9
+    rather than the declared 2 -> 3), so the receipt's declared footprint and the
+    independent before/after diff disagree. Under ``receipt_audit_mode="block"``
+    (NO's strict replay disposition) the production
+    ``_observed_write_audit_finding`` guard must route that mismatch to blocking
+    ``findings`` rather than to the observe lane.
+    """
+    from lawvm.core import tree_ops
+    from lawvm.core.apply_seam import (
+        WRITE_RECEIPT_AUDIT_VIOLATION_FINDING_CODE,
+        ApplyProfile,
+        MaterializeResult,
+        apply_op,
+    )
+    from lawvm.core.ir import IRNode, LegalAddress, LegalOperation
+
+    before = IRNode(
+        kind=IRNodeKind.BODY,
+        children=(IRNode(kind=IRNodeKind.SECTION, label="9", text="Old."),),
+    )
+    op = LegalOperation(
+        op_id="misdirected-renumber",
+        sequence=1,
+        action=StructuralAction.RENUMBER,
+        target=LegalAddress(path=(("section", "2"),)),
+        destination=LegalAddress(path=(("section", "3"),)),
+    )
+
+    result = apply_op(
+        before,
+        op,
+        provenance=None,
+        profile=ApplyProfile(
+            jurisdiction="test",
+            materializer=lambda state, _op: MaterializeResult(
+                new_state=tree_ops.replace_at(
+                    state,
+                    (("section", "9"),),
+                    IRNode(kind=IRNodeKind.SECTION, label="9", text="Wrong."),
+                )
+            ),
+            boundary_mode="off",
+            receipt_audit_mode="block",
+            receipt_footprint_mode="observed",
+            emit_coverage=False,
+            renumber_migration_rule_ids=("test_renumber",),
+        ),
+    )
+
+    assert result.observed_write_audit is not None
+    assert result.observed_write_audit.audit_status == "violation"
+    assert any(
+        getattr(finding, "kind", None) == WRITE_RECEIPT_AUDIT_VIOLATION_FINDING_CODE
+        and getattr(finding, "blocking", False)
+        for finding in result.findings
+    ), (
+        "the seam did not route the receipt-vs-diff mismatch to blocking findings "
+        "under receipt_audit_mode='block'"
+    )
+
+
 def drill_replay_skipped_op_mutated_tree_apply_lane() -> None:
     """REPLAY_SKIPPED_OP_MUTATED_TREE reaches the replay finding ledger as blocking.
 
@@ -4122,6 +4187,7 @@ FIRE_DRILLS: Dict[str, Callable[[], None]] = {
     "ELAB.REBASE_REPLACED_RENUMBER_SOURCE": drill_rebase_replaced_renumber_source_inspect_bundle,
     "PARSE.FRONTEND_INTERNAL_ERROR": drill_frontend_internal_error_parse_surface,
     "REPLAY_UNKNOWN_MUTATION_OUTCOME": drill_replay_unknown_mutation_outcome_apply_lane,
+    "APPLY.WRITE_RECEIPT_AUDIT_VIOLATION": drill_write_receipt_audit_violation_apply_lane,
     "REPLAY_SKIPPED_OP_MUTATED_TREE": drill_replay_skipped_op_mutated_tree_apply_lane,
     "REPLAY_FAILED_OP_MUTATED_TREE": drill_replay_failed_op_mutated_tree_apply_lane,
     "REPLAY_MISSING_PRIMARY_TARGET_CONSUMPTION": drill_replay_missing_primary_target_consumption_apply_lane,

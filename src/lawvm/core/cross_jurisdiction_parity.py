@@ -389,6 +389,12 @@ _CONSERVED_WRAPPER_DEF: Dict[FrontendId, Optional[Tuple[Path, Optional[str]]]] =
 #: ``emit_receipts=False`` and has no dedicated emitter).
 _WRITE_RECEIPT_CTOR = "WriteReceipt"
 
+# Receipt capability for Norway is rooted at the production replay entrypoint,
+# not inferred from an arbitrary package-local helper or constructor.
+_RECEIPT_PRODUCTION_ENTRY: Dict[FrontendId, Tuple[Path, str]] = {
+    "no": (_SRC_ROOT / "norway" / "replay.py", "replay_no_to_pit"),
+}
+
 #: The per-frontend package directory whose modules are scanned for a reference
 #: to the SHARED same-moment detection path. A frontend delegates same-moment
 #: detection either DIRECTLY (importing ``lawvm.core.cross_act_same_moment``, as
@@ -528,11 +534,80 @@ def _package_calls_name(package_dir: Path, call_name: str) -> bool:
     return False
 
 
+def _function_calls_name_with_true_keyword(
+    source_path: Path,
+    function_name: str,
+    call_name: str,
+    keyword: str,
+) -> bool:
+    """Check one production function for a direct literal opt-in call."""
+    tree = ast.parse(source_path.read_text(encoding="utf-8"), filename=str(source_path))
+    definitions = [
+        node
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name == function_name
+    ]
+    if len(definitions) != 1:
+        raise ValueError(
+            f"expected exactly one top-level {function_name} definition in {source_path}"
+        )
+    root = definitions[0]
+
+    class _DirectCallVisitor(ast.NodeVisitor):
+        found = False
+
+        def visit_Call(self, node: ast.Call) -> None:  # noqa: N802 - ast API
+            fn = node.func
+            name = (
+                fn.id
+                if isinstance(fn, ast.Name)
+                else fn.attr
+                if isinstance(fn, ast.Attribute)
+                else None
+            )
+            if name == call_name and any(
+                item.arg == keyword
+                and isinstance(item.value, ast.Constant)
+                and item.value.value is True
+                for item in node.keywords
+            ):
+                self.found = True
+            self.generic_visit(node)
+
+        def visit_FunctionDef(self, node: ast.FunctionDef) -> None:  # noqa: N802 - ast API
+            return
+
+        def visit_AsyncFunctionDef(  # noqa: N802 - ast API
+            self, node: ast.AsyncFunctionDef
+        ) -> None:
+            return
+
+        def visit_Lambda(self, node: ast.Lambda) -> None:  # noqa: N802 - ast API
+            return
+
+        def visit_ClassDef(self, node: ast.ClassDef) -> None:  # noqa: N802 - ast API
+            return
+
+    visitor = _DirectCallVisitor()
+    for statement in root.body:
+        visitor.visit(statement)
+    return visitor.found
+
+
 def _carriers_for_frontend(frontend: FrontendId) -> Dict[str, bool]:
     conserved = _CONSERVED_WRAPPER_DEF[frontend]
     has_conserved = conserved is not None and _has_def(conserved[0], conserved[1])
 
     has_receipt = _package_calls_name(_FRONTEND_PACKAGE[frontend], _WRITE_RECEIPT_CTOR)
+    production_entry = _RECEIPT_PRODUCTION_ENTRY.get(frontend)
+    if production_entry is not None and conserved is not None and conserved[1] is not None:
+        has_receipt = _function_calls_name_with_true_keyword(
+            production_entry[0],
+            production_entry[1],
+            conserved[1],
+            "emit_receipts",
+        )
 
     same_moment_path = _same_moment_path_for_frontend(frontend)
     has_same_moment = same_moment_path in (

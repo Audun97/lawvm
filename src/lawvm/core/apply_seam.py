@@ -53,22 +53,24 @@ materialized state or findings changing.
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Generic, Literal, Optional, Protocol, TypeVar
 
 from lawvm.core.coverage import CoverageClaim
 from lawvm.core.execution_authorization import ExecutionAuthorization
 from lawvm.core.ir import IRNode, LegalOperation, OperationSource
 from lawvm.core.ir_helpers import structural_subtree_hash
-from lawvm.core.semantic_types import legacy_text_action_value
+from lawvm.core.semantic_types import StructuralAction, legacy_text_action_value
 from lawvm.core.occupancy import (
     InvalidOccupancyTransition,
     OccupancyAction,
     OccupancyClass,
     validate_transition,
 )
+from lawvm.core.observed_write_audit import ObservedWriteAudit, build_observed_write_audit
 from lawvm.core.phase_result import Finding
 from lawvm.core.mutation_boundary import (
+    RenumberedTreePaths,
     TreePath,
     TreePaths,
     diff_ir_paths_identity_pruned,
@@ -89,6 +91,7 @@ __all__ = [
     "MaterializeResult",
     "Materializer",
     "BoundaryMode",
+    "ReceiptAuditMode",
     "ApplyFailure",
     "RecoveryAction",
     "RecoveryDecision",
@@ -110,6 +113,8 @@ __all__ = [
     "RECOVERED_OP_OBSERVED_FINDING_CODE",
     "no_op_provenance",
     "RECEIPT_TOTALITY_OBSERVED_FINDING_CODE",
+    "WRITE_RECEIPT_AUDIT_OBSERVED_FINDING_CODE",
+    "WRITE_RECEIPT_AUDIT_VIOLATION_FINDING_CODE",
     "ApplyProfile",
     "AppliedOp",
     "apply_op",
@@ -219,6 +224,9 @@ OCCUPANCY_TRANSITION_OBSERVED_FINDING_CODE = "APPLY.OCCUPANCY_TRANSITION_OBSERVE
 #: this violation only on an invalid transition, which the clean corpus has none
 #: of). Routed to production ``findings`` (role=violation, blocking).
 OCCUPANCY_TRANSITION_BLOCKED_FINDING_CODE = "APPLY.OCCUPANCY_TRANSITION_BLOCKED"
+
+WRITE_RECEIPT_AUDIT_OBSERVED_FINDING_CODE = "APPLY.WRITE_RECEIPT_AUDIT_OBSERVED"
+WRITE_RECEIPT_AUDIT_VIOLATION_FINDING_CODE = "APPLY.WRITE_RECEIPT_AUDIT_VIOLATION"
 
 #: Per-profile disposition for the LS-03 occupancy-transition gate. ``"observe"``
 #: (the default — all current profiles) routes an invalid transition to the
@@ -438,6 +446,15 @@ class MaterializeResult(Generic[State]):
       by INSERT at a resolved parent / body root), so the boundary audit reads
       the landed write as an authorized within-boundary recovery rather than an
       unexplained escape. Mirrors NO's per-op ``_no_declared_recovery_paths``.
+    * ``declared_recovery_rule_ids`` — stable rules owning any recovery that
+      changed execution shape; copied into the write receipt.
+    * ``executed_action`` — the typed action that actually wrote state when a
+      named recovery differs from canonical intent. It is invalid without at
+      least one ``declared_recovery_rule_ids`` owner.
+    * ``landed_primary_path`` — the concrete semantic destination when it differs
+      from the nominal target (for example ``item:last`` landing at ``item:3``).
+    * ``renumbered_paths`` — exact resolved source/destination paths for a
+      renumber, avoiding reconstruction from underspecified nominal addresses.
     """
 
     new_state: State
@@ -445,6 +462,22 @@ class MaterializeResult(Generic[State]):
     applied: bool = True
     failure: Optional["ApplyFailure"] = None
     declared_recovery_prefixes: tuple[TreePath, ...] = ()
+    declared_recovery_rule_ids: tuple[str, ...] = ()
+    executed_action: Optional[StructuralAction] = None
+    landed_primary_path: Optional[TreePath] = None
+    renumbered_paths: RenumberedTreePaths = ()
+
+    def __post_init__(self) -> None:
+        if self.executed_action is not None and not isinstance(
+            self.executed_action, StructuralAction
+        ):
+            raise TypeError(
+                "MaterializeResult.executed_action must be StructuralAction"
+            )
+        if self.executed_action is not None and not self.declared_recovery_rule_ids:
+            raise ValueError(
+                "MaterializeResult.executed_action requires a named recovery rule"
+            )
 
 
 # A Materializer is the frontend per-op tree dispatch: ``(before_state, op) ->
@@ -525,6 +558,26 @@ class ApplySeamRecoveryRaised(RuntimeError):
 
 
 BoundaryMode = Literal["off", "observe", "block"]
+ReceiptAuditMode = Literal["off", "observe", "block"]
+
+#: What a receipt's created/removed footprint DECLARES, and which regions it
+#: hashes. The two modes are different contracts, not better/worse variants.
+#:
+#: ``"nominal"`` — the footprint is the op's declared ``bound_target_path`` and
+#: only the landed primary path is hashed. This is the pre-seam semantics of
+#: every frontend that already shipped a production receipt emitter (SE, FI, EE,
+#: UK, US, EU); their byte-identity gates assert exactly these bytes, so this
+#: stays the default and a frontend may only leave it deliberately.
+#:
+#: ``"observed"`` — the footprint is the identity-pruned IR diff: the regions
+#: whose structural subtree hash ACTUALLY changed, and every one of them is
+#: hashed. Note this names the *changed region*, which for an insert/repeal into
+#: a container is the CONTAINER (``()`` for a body-root write), not the created
+#: or removed child. That is the point: hashing the container before/after is a
+#: conservation check an independent observer can re-derive, which is what makes
+#: :func:`build_observed_write_audit` non-tautological. NO's receipt spine is the
+#: only frontend on this contract today.
+ReceiptFootprintMode = Literal["nominal", "observed"]
 
 
 # ── Coverage delta (the §3.1 coverage_delta feeding §3.3) ─────────────────────
@@ -584,7 +637,9 @@ class ApplyProfile(Generic[State]):
       the seam-synthesized receipt is byte-identical to that emitter — the
       strangler byte-identity contract (the receipt helper is the only
       jurisdiction-named string in the receipt; everything else is computed from
-      the IR diff + the op).
+       the IR diff + the op).
+    * ``receipt_audit_mode`` — disposition for an independent receipt-vs-diff
+      mismatch: suppress, observe, or emit a blocking violation.
     """
 
     jurisdiction: str
@@ -596,6 +651,8 @@ class ApplyProfile(Generic[State]):
     emit_coverage: bool = True
     renumber_migration_rule_ids: tuple[str, ...] = ()
     receipt_helper_prefix: Optional[str] = None
+    receipt_audit_mode: ReceiptAuditMode = "off"
+    receipt_footprint_mode: ReceiptFootprintMode = "nominal"
     #: EV-05/FW-01/OV-01 ExecutionAuthorization OBSERVE gate resolver. Answers
     #: ``(op) -> ExecutionAuthorization | None`` per op; a mutating op whose
     #: resolver yields ``None`` (or an authorization with an empty
@@ -647,6 +704,19 @@ class ApplyProfile(Generic[State]):
     #: verdict.
     provenance_resolver: ProvenanceResolver = no_op_provenance
 
+    def __post_init__(self) -> None:
+        # The audit re-derives the write from the before/after trees and compares
+        # it to what the receipt declared. Against a ``nominal`` footprint that
+        # comparison is guaranteed to disagree for any insert/repeal into a
+        # container (the diff names the container; the receipt names the target),
+        # so arming it there would manufacture violations rather than find them.
+        if self.receipt_audit_mode != "off" and self.receipt_footprint_mode != "observed":
+            raise ValueError(
+                "receipt_audit_mode requires receipt_footprint_mode='observed'; "
+                "the audit cannot check a nominal-target footprint against the "
+                "observed diff"
+            )
+
 
 @dataclass(frozen=True, slots=True)
 class AppliedOp(Generic[State]):
@@ -661,6 +731,8 @@ class AppliedOp(Generic[State]):
     * ``coverage_delta`` — the units this op claimed (additive; empty for a
       skip).
     * ``applied`` — whether the op landed a write.
+    * ``observed_write_audit`` — the independent before/after audit of the
+      receipt's declared footprint, when a receipt was emitted for a tree write.
     * ``declared_recovery_prefixes`` — the concrete parent paths the
       materializer's recovery lane INTENTIONALLY retargeted the write to (passed
       through verbatim from :attr:`MaterializeResult.declared_recovery_prefixes`).
@@ -678,6 +750,7 @@ class AppliedOp(Generic[State]):
     coverage_delta: CoverageDelta
     applied: bool
     declared_recovery_prefixes: tuple[TreePath, ...] = ()
+    observed_write_audit: Optional[ObservedWriteAudit] = None
     #: The SEPARATE observe lane (B-enforcement increments 1+2+3+4). Carries the
     #: universal apply-seam OBSERVE-mode findings: (1) the
     #: ``EVID.REPLAY_AUTHORIZATION_PROOF_OBSERVED`` firewall-hole witness emitted
@@ -753,6 +826,12 @@ def apply_op(
     new_state = result.new_state
     findings: list[object] = list(result.findings)
 
+    effective_op = (
+        replace(typed_op, action=result.executed_action)
+        if result.executed_action is not None
+        else typed_op
+    )
+
     landed = result.applied and new_state is not base_state
 
     write_receipt: Optional[WriteReceipt] = None
@@ -769,7 +848,7 @@ def apply_op(
         # never to ``findings`` — so the production findings multiset the byte-
         # identity gates assert on is unchanged. Non-blocking, additive evidence.
         observations = _execution_authorization_observe(
-            typed_op, profile=profile, source_statute=source_statute
+            effective_op, profile=profile, source_statute=source_statute
         )
 
         # ── LS-03 occupancy-transition gate (universal). ────────────────────
@@ -787,7 +866,7 @@ def apply_op(
         # Default-resolver profiles (all but EE today) model no occupancy → no-op
         # → 0-delta under any mode.
         occupancy_findings = _occupancy_transition_check(
-            typed_op,
+            effective_op,
             base_state,
             new_state,
             profile=profile,
@@ -814,7 +893,7 @@ def apply_op(
         observations = (
             *observations,
             *_provenance_acceptance_observe(
-                typed_op, profile=profile, source_statute=source_statute
+                effective_op, profile=profile, source_statute=source_statute
             ),
         )
 
@@ -823,11 +902,15 @@ def apply_op(
             write_receipt = _synthesize_receipt(
                 base_state,
                 new_state,
-                typed_op,
+                effective_op,
                 profile=profile,
+                recovery_rule_ids=result.declared_recovery_rule_ids,
+                landed_primary_path=result.landed_primary_path,
+                renumbered_paths=result.renumbered_paths,
+                provenance=provenance,
             )
         if profile.emit_coverage:
-            coverage_delta = _coverage_delta_for_op(typed_op, profile=profile)
+            coverage_delta = _coverage_delta_for_op(effective_op, profile=profile)
 
         # ── Per-op mutation-boundary gate (design §3.1 step 4; §3.4). ────────
         # The block FI's ``_enforce_per_op_apply_authority`` runs at the apply
@@ -848,7 +931,7 @@ def apply_op(
             audit = audit_op_mutation_boundary(
                 base_state,
                 new_state,
-                typed_op,
+                effective_op,
                 op_id=typed_op.op_id or "",
                 source_statute=source_statute,
                 is_strict=(profile.boundary_mode == "block"),
@@ -876,7 +959,7 @@ def apply_op(
             boundary_audit = audit_op_mutation_boundary(
                 base_state,
                 new_state,
-                typed_op,
+                effective_op,
                 op_id=typed_op.op_id or "",
                 source_statute=source_statute,
                 is_strict=False,
@@ -917,6 +1000,29 @@ def apply_op(
     )
     observations = (*observations, *receipt_report.findings)
 
+    observed_write_audit: Optional[ObservedWriteAudit] = None
+    if (
+        write_receipt is not None
+        and isinstance(base_state, IRNode)
+        and isinstance(new_state, IRNode)
+    ):
+        observed_write_audit = build_observed_write_audit(
+            base_state,
+            new_state,
+            write_receipt,
+        )
+        audit_finding = _observed_write_audit_finding(
+            observed_write_audit,
+            write_receipt,
+            source_statute=source_statute,
+            mode=profile.receipt_audit_mode,
+        )
+        if audit_finding is not None:
+            if profile.receipt_audit_mode == "block":
+                findings.append(audit_finding)
+            elif profile.receipt_audit_mode == "observe":
+                observations = (*observations, audit_finding)
+
     return AppliedOp(
         new_state=new_state,
         write_receipt=write_receipt,
@@ -928,6 +1034,7 @@ def apply_op(
         # "off"``) can declare the authorized retarget without the seam being the
         # audit producer. Empty when the materializer declared none.
         declared_recovery_prefixes=result.declared_recovery_prefixes,
+        observed_write_audit=observed_write_audit,
         # The SEPARATE observe lane: the universal ExecutionAuthorization
         # firewall-hole witness, ADDITIVE and never folded into ``findings``.
         observations=observations,
@@ -943,6 +1050,43 @@ def _is_tree_metric(metric: RegionMetric) -> bool:
     routed here.
     """
     return isinstance(metric, _IRPathMetric)
+
+
+def _observed_write_audit_finding(
+    audit: ObservedWriteAudit,
+    receipt: WriteReceipt,
+    *,
+    source_statute: str,
+    mode: ReceiptAuditMode,
+) -> Optional[Finding]:
+    if mode == "off" or audit.audit_status != "violation":
+        return None
+    blocking = mode == "block"
+    return Finding(
+        kind=(
+            WRITE_RECEIPT_AUDIT_VIOLATION_FINDING_CODE
+            if blocking
+            else WRITE_RECEIPT_AUDIT_OBSERVED_FINDING_CODE
+        ),
+        role="violation" if blocking else "observation",
+        stage="apply",
+        blocking=blocking,
+        source_statute=source_statute,
+        detail={
+            "message": (
+                "The independent before/after write audit does not match the "
+                "receipt's declared footprint."
+            ),
+            "op_id": audit.op_id,
+            "helper": receipt.helper,
+            "action": receipt.action,
+            "observed_changed_paths": audit.observed_changed_paths,
+            "receipt_declared_paths": audit.receipt_declared_paths,
+            "undeclared_paths": audit.undeclared_paths,
+            "unobserved_declared_paths": audit.unobserved_declared_paths,
+            "owner": "apply_seam_observed_write_audit",
+        },
+    )
 
 
 # ── EV-05/FW-01/OV-01 ExecutionAuthorization OBSERVE gate ─────────────────────
@@ -1183,8 +1327,7 @@ def _provenance_acceptance_observe(
     )
 
 
-# ── Receipt synthesis (generalizes NO's ``_no_emit_one_op_receipt``, which
-# mirrors FI's ``_collect_op_write_receipt``). ────────────────────────────────
+# ── Receipt synthesis (shared producer replacing frontend reconstruction) ────
 
 
 def _legal_path_to_tree_path(addr: object) -> TreePath:
@@ -1227,12 +1370,14 @@ def _synthesize_receipt(
     op: LegalOperation,
     *,
     profile: ApplyProfile[State],
+    recovery_rule_ids: tuple[str, ...] = (),
+    landed_primary_path: Optional[TreePath] = None,
+    renumbered_paths: RenumberedTreePaths = (),
+    provenance: Optional[OperationSource] = None,
 ) -> Optional[WriteReceipt]:
     """Synthesize the per-op :class:`WriteReceipt` from the landed IR diff.
 
-    Generalizes ``norway/grafter._no_emit_one_op_receipt`` (which mirrors FI's
-    ``apply_resolved_op._collect_op_write_receipt`` and SE's
-    ``_se_emit_one_op_receipt``). The footprint is categorized by
+    Shared producer for frontend receipt lanes. The footprint is categorized by
     ``op.action.value`` — REPLACE/text_replace → ``replaced_paths``; INSERT →
     ``created_paths``; REPEAL → ``removed_paths``; RENUMBER → ``renumbered_paths``
     (bound→landed (from, to) pair). pre/post structural subtree hashes are taken
@@ -1267,43 +1412,94 @@ def _synthesize_receipt(
     helper = f"{helper_prefix}::{action_value}::{leaf_kind}"
     bound_target_path = _legal_path_to_tree_path(op.target)
 
-    landed_primary_path: TreePath | None
-    if action_value in {"insert", "repeal", "replace", "text_replace"}:
-        landed_primary_path = bound_target_path or None
-    elif action_value == "renumber":
-        landed_primary_path = (
+    resolved_landed_primary_path: TreePath | None = landed_primary_path
+    if resolved_landed_primary_path is None and action_value in {
+        "insert",
+        "repeal",
+        "replace",
+        "text_replace",
+    }:
+        resolved_landed_primary_path = bound_target_path or None
+    elif resolved_landed_primary_path is None and action_value == "renumber":
+        resolved_landed_primary_path = (
             _legal_path_to_tree_path(op.destination)
             if op.destination is not None
             else None
         ) or None
-    else:
-        landed_primary_path = changed[0] if changed else None
+    elif resolved_landed_primary_path is None:
+        resolved_landed_primary_path = changed[0] if changed else None
+
+    if (
+        resolved_landed_primary_path != bound_target_path
+        and not recovery_rule_ids
+        and action_value != "renumber"
+    ):
+        raise ValueError(
+            "A receipt's bound and landed paths may diverge only under a named "
+            "recovery or migration rule"
+        )
+
+    observed_footprint = profile.receipt_footprint_mode == "observed"
 
     created_paths: TreePaths = ()
     replaced_paths: TreePaths = ()
     removed_paths: TreePaths = ()
-    renumbered_paths: tuple[tuple[TreePath, TreePath], ...] = ()
 
     if action_value in {"replace", "text_replace"}:
         replaced_paths = changed
     elif action_value == "insert":
-        created_paths = (bound_target_path,) if bound_target_path else ()
+        created_paths = (
+            changed
+            if observed_footprint
+            else ((bound_target_path,) if bound_target_path else ())
+        )
     elif action_value == "repeal":
-        removed_paths = (bound_target_path,) if bound_target_path else ()
+        removed_paths = (
+            changed
+            if observed_footprint
+            else ((bound_target_path,) if bound_target_path else ())
+        )
     elif action_value == "renumber" and op.destination is not None:
-        destination_path = _legal_path_to_tree_path(op.destination)
-        renumbered_paths = ((bound_target_path, destination_path),)
+        if not renumbered_paths:
+            destination_path = _legal_path_to_tree_path(op.destination)
+            renumbered_paths = ((bound_target_path, destination_path),)
 
     migration_rule_ids: tuple[str, ...] = ()
     if action_value == "renumber" and op.destination is not None:
         migration_rule_ids = profile.renumber_migration_rule_ids
 
+    renumber_legs = tuple(
+        path
+        for from_path, to_path in renumbered_paths
+        for path in (from_path, to_path)
+    )
+    declared_footprint = tuple(
+        dict.fromkeys(
+            (
+                *created_paths,
+                *replaced_paths,
+                *removed_paths,
+                *renumber_legs,
+            )
+        )
+    )
+    # ``observed`` hashes every path the receipt declares (the spine's audit
+    # surface); ``nominal`` hashes only the landed primary path — the region the
+    # pre-seam production emitters hash, and what their byte-identity gates
+    # assert. ``_resolve_or_find`` recovers a single-segment nominal path whose
+    # node actually lives nested under a chapter.
+    hashed_paths: TreePaths = (
+        declared_footprint
+        if observed_footprint
+        else ((resolved_landed_primary_path,) if resolved_landed_primary_path else ())
+    )
     pre_hashes: dict[str, str] = {}
     post_hashes: dict[str, str] = {}
-    if landed_primary_path:
-        key = receipt_address_string(landed_primary_path)
-        before_node = _resolve_or_find(before_body, landed_primary_path)
-        after_node = _resolve_or_find(after_body, landed_primary_path)
+
+    for path in hashed_paths:
+        key = receipt_address_string(path)
+        before_node = _resolve_or_find(before_body, path)
+        after_node = _resolve_or_find(after_body, path)
         pre_hashes[key] = (
             structural_subtree_hash(before_node) if before_node is not None else ""
         )
@@ -1316,12 +1512,14 @@ def _synthesize_receipt(
         helper=helper,
         action=action_value,
         bound_target_path=bound_target_path,
-        landed_primary_path=landed_primary_path,
+        landed_primary_path=resolved_landed_primary_path,
         created_paths=created_paths,
         replaced_paths=replaced_paths,
         removed_paths=removed_paths,
         renumbered_paths=renumbered_paths,
+        recovery_rule_ids=recovery_rule_ids,
         migration_rule_ids=migration_rule_ids,
+        source_anchor=(provenance.source_anchor if provenance is not None else None),
         pre_hashes=pre_hashes,
         post_hashes=post_hashes,
     )

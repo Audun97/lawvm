@@ -1,14 +1,15 @@
-> **Status (2026-06-22):** Current. Kind: Normative draft (the semantic apply waist; vertical slice landed for chapter/part INSERT + FI typed relabel). All cited impl symbols verified present; the YAML's open items (ObservedWriteAudit still passive, OccupancyTransitionPolicy §6 still un-unified vs canonical_intent.OccupancyPolicy, receipt persistence/strict enforcement) remain accurately open. No stale paths or PEG3/§1.13 refs.
+> **Status (2026-07-12):** Current. Kind: Normative draft (the semantic apply waist; vertical slice landed for chapter/part INSERT + FI typed relabel). ObservedWriteAudit now has profile-controlled observe/block projection in the shared seam, with Norway enforcing receipt-clean writes in strict replay; broader frontend promotion, OccupancyTransitionPolicy §6 unification, and receipt persistence remain open.
 
 ---
 title: LawVM Apply Resolution and Receipt Contract — the Semantic Apply Waist
 status: normative draft; vertical slice landed for the chapter/part INSERT
   family and Finland typed relabel family (binding consumption §3 step 3 +
   WriteReceipt §4 with receipt-derived mutation events). ObservedWriteAudit
-  (§5) has a passive core helper and fire-drill tests. WriteReceipt now has a
+  (§5) has a core helper, governed observe/block projection, and fire-drill
+  tests; Norway promotes violations to strict replay failure. WriteReceipt has a
   strict core projection into CertifiedTreeTransition certified-core rows (§9);
-  receipt persistence/exporter consumption, strict enforcement, and occupancy
-  enforcement (§6) remain future work.
+  receipt persistence/exporter consumption, broader strict enforcement, and
+  occupancy enforcement (§6) remain future work.
 ---
 
 # Apply Resolution and Receipt Contract
@@ -296,16 +297,20 @@ helper-declared allowed roots can pass a misdirected write by construction.
 The audit's observed side comes from the tree, never from the helper.
 
 Implementation state: `lawvm.core.observed_write_audit.ObservedWriteAudit`
-and `build_observed_write_audit(...)` exist. The first implementation is
-passive and relation-aware: exact observed/declared path equality is `clean`,
+and `build_observed_write_audit(...)` exist. The implementation is relation-aware:
+exact observed/declared path equality is `clean`,
 ancestor/descendant granularity differences with named receipt rules are
 `qualified`, and unrelated observed or declared paths are `violation`. Finland
-receipt-enabled typed apply branches append passive audits through
-`write_audits_out`; replay metadata serializes them as `apply_write_audits`.
+receipt-enabled typed apply branches append audits through `write_audits_out`;
+replay metadata serializes them as `apply_write_audits`. The shared apply seam
+projects violations through governed observe/block finding codes, and Norway's
+strict replay blocks a violating receipt while permissive runs retain the typed
+diagnostic.
 Tests cover clean writes, relabel-style parent/child granularity,
 declared-but-unobserved writes, observed-outside-receipt writes, an actual
 Finland container-insert receipt, and a section relabel audit emitted through
-`apply_op`. The audit is not yet wired as a replay blocker.
+`apply_op`. Other frontends remain observe-first until their receipt lanes are
+measured clean and deliberately promoted.
 
 ## 6. Occupancy transition contract
 

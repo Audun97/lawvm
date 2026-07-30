@@ -1,7 +1,8 @@
 """Per-op :class:`WriteReceipt` emission for the Estonia replay grafter.
 
 This is the EE counterpart of ``uk_legislation/uk_write_receipts.py`` (UK),
-``norway/grafter.py::_no_emit_one_op_receipt`` (NO) and
+NO's seam-emitted receipt lane (``norway/grafter.py::_apply_no_ops_fold``, whose
+receipts surface on ``NOApplyResult.write_receipts``) and
 ``sweden/grafter.py::_se_emit_one_op_receipt`` (SE) — the second step of the
 AGENTS.md §2.3 receipt contract. Given the before/after body IR trees that
 bracket one applied :class:`LegalOperation`, it synthesizes a typed
@@ -101,8 +102,9 @@ def emit_ee_op_receipt(
 ) -> WriteReceipt | None:
     """Emit a :class:`WriteReceipt` for one applied EE op, or ``None`` when skipped.
 
-    Mirrors ``uk_write_receipts.emit_uk_op_receipt`` /
-    ``norway/grafter.py::_no_emit_one_op_receipt``. The receipt synthesizes the
+    Mirrors ``uk_write_receipts.emit_uk_op_receipt`` / the receipt NO's fold
+    gets from the shared seam producer
+    (``core/apply_seam._synthesize_receipt``). The receipt synthesizes the
     §2.3 contract fields from the actual before/after IR tree diff (core's
     identity-pruned diff) and the op's declared target. When the diff is empty the
     op was filtered/skipped (the replay path recorded an adjudication / no body

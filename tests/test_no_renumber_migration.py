@@ -7,11 +7,10 @@ adapted for NO's current state:
 * op-side ``witness_rule_id`` stamping on every RENUMBER op mint site
   (mirrors EE's ``_EE_SECTION_SEQUENCE_RENUMBER_RULE`` on op construction at
   ``estonia/peg.py:1225``) — Step 2 of iter2 W5 H2;
-* receipt-side ``migration_rule_ids`` stamping on the per-op ``WriteReceipt``
-  (the SE analog at ``sweden/grafter.py:4145``) — landed via the
-  ``_no_emit_one_op_receipt`` helper + ``no_replay_write_receipts`` collector
-  + ``apply_no_ops_conserved(emit_receipts=True)`` + the production caller in
-  ``replay.py`` (iter2 W6 H2 follow-up). The SE-style ``WriteReceipt``
+* receipt-side ``migration_rule_ids`` stamping on the authoritative apply
+  seam's per-op ``WriteReceipt``, surfaced through
+  ``apply_no_ops_conserved(emit_receipts=True)`` and the production caller in
+  ``replay.py``. The SE-style ``WriteReceipt``
   assertions ARE exercised here (``migration_rule_ids == ("no_section_renumber_relabel",)``
   and ``divergence_explained is True``).
 
@@ -35,9 +34,7 @@ import tarfile
 
 from lawvm.core.ir import LegalOperation
 from lawvm.core.semantic_types import IRNodeKind, StructuralAction
-from lawvm.core.write_receipt import WriteReceipt
 from lawvm.norway.grafter import (
-    _no_emit_one_op_receipt,
     apply_no_ops_conserved,
     parse_no_amendment_ops,
 )
@@ -348,7 +345,7 @@ def test_no_replay_production_lane_emits_renumber_write_receipt_with_migration_r
     ``WriteReceipt`` with ``migration_rule_ids=("no_section_renumber_relabel",)``
     MUST land on the production apply path
     ``replay_no_to_pit`` → ``apply_no_ops_conserved(emit_receipts=True)`` →
-    ``no_replay_write_receipts`` → ``_no_emit_one_op_receipt``.
+    the authoritative apply seam.
 
     Pre-fix state (the iter2 W5 H2 STOP-and-report condition):
     * H2 (op-side) stamped ``witness_rule_id="no_section_renumber_relabel"`` on
@@ -358,15 +355,9 @@ def test_no_replay_production_lane_emits_renumber_write_receipt_with_migration_r
       through SE/EE, not through NO's production lane — a §2.9 worst-class
       silent failure (a guard that exists but is unreachable from production).
 
-    The iter2 W6 H2 follow-up lands the receipt-side stamp via the
-    ``_no_emit_one_op_receipt`` helper (mirrors SE's
-    ``_se_emit_one_op_receipt`` at sweden/grafter.py:4046) plus the
-    ``no_replay_write_receipts`` collector (mirrors SE's
-    ``se_replay_write_receipts`` at sweden/grafter.py:4186) plus the
-    ``emit_receipts=True`` parameter on ``apply_no_ops_conserved`` (mirrors
-    SE's ``apply_se_ops_conserved`` at sweden/grafter.py:3811) plus the
-    production-caller surface on the ``NOReplayResult.write_receipts`` field
-    (mirrors SE's ``evidence.write_receipts`` at sweden/fetch.py:3752).
+    The authoritative fold now synthesizes and collects the receipt during the
+    same execution that produces the replayed statute; no reconstruction pass
+    is involved.
 
     Mirrors ``tests/test_sweden_fetch.py::test_check_se_official_replay_emits_renumber_receipt_with_migration_rule_id``
     (Wave 2 SE precedent), adapted for NO's archive-driven replay path.
@@ -388,24 +379,34 @@ def test_no_replay_production_lane_emits_renumber_write_receipt_with_migration_r
 
     assert result.error is None, result.error
     assert result.write_receipts, (
-        "Production lane `replay_no_to_pit → apply_no_ops_conserved(emit_receipts=True) → "
-        "no_replay_write_receipts → _no_emit_one_op_receipt` did not emit any "
+        "Production lane `replay_no_to_pit → apply_no_ops_conserved(emit_receipts=True)` "
+        "did not emit any "
         "WriteReceipts. This is the §2.9 worst-class silent failure: the receipt "
         "helper exists but is unreachable from production."
     )
     renumber_receipts = [r for r in result.write_receipts if r.action == "renumber"]
     assert len(renumber_receipts) == 1, [r.action for r in result.write_receipts]
     receipt = renumber_receipts[0]
+    renumber_audits = [
+        audit
+        for audit in result.observed_write_audits
+        if audit.op_id == receipt.op_id
+    ]
+    assert len(renumber_audits) == 1
+    assert renumber_audits[0].audit_status == "qualified"
 
     # The §4 receipt contract: bound_target_path (source label) diverges from
     # landed_primary_path (destination label) — the divergence MUST be
     # explained by a named migration rule.
     assert receipt.bound_target_path == (("section", "2"),)
-    assert receipt.landed_primary_path == (("section", "3"),)
+    assert receipt.landed_primary_path == (("chapter", "1"), ("section", "3"))
     # The RENUMBER footprint is the typed (from_path, to_path) pair. Both legs
-    # are single-step section paths for the §2→§3 renumber.
+    # are the exact resolved paths for the §2→§3 renumber.
     assert receipt.renumbered_paths == (
-        ((("section", "2"),), (("section", "3"),)),
+        (
+            (("chapter", "1"), ("section", "2")),
+            (("chapter", "1"), ("section", "3")),
+        ),
     ), receipt.renumbered_paths
     # The named migration rule that explains the bound→landed divergence
     # (mirrors SE's ``("se_renumber_relabel",)``).
@@ -427,120 +428,16 @@ def test_no_replay_production_lane_emits_renumber_write_receipt_with_migration_r
         "via the migration_rule_ids stamp — the §4 receipt-contract property."
     )
 
-    # The receipt's pre/post hashes resolve at the destination coordinate
-    # (where the section landed): §3 was ABSENT before, present after.
-    assert list(receipt.pre_hashes.keys()) == ["section:3"], receipt.pre_hashes
-    assert receipt.pre_hashes["section:3"] == "", receipt.pre_hashes
-    assert receipt.post_hashes["section:3"] != "", receipt.post_hashes
-
-
-def test_no_emit_one_op_receipt_unit_stamps_migration_rule_id_on_renumber() -> None:
-    """Unit-level fire-drill (the synthetic isolating the family §2.9(1)):
-    ``_no_emit_one_op_receipt`` directly stamps ``migration_rule_ids``
-    on a RENUMBER op's receipt with ``("no_section_renumber_relabel",)`` and
-    returns ``divergence_explained is True``. Mirrors SE's exact shape at
-    ``sweden/grafter.py:4155–4157`` for ``("se_renumber_relabel",)``.
-
-    Isolates the helper from the production-lane test above (a unit smoke
-    test that does not need the full ``replay_no_to_pit`` archive fixture
-    scaffolding). Drives a single RENUMBER op through ``apply_no_ops`` once
-    for the before-tree, once for the after-tree, then synthesizes the
-    receipt and asserts the §1.6 unstated-migration witness is stamped.
-    """
-    from lawvm.norway.grafter import apply_no_ops, parse_no_statute
-
-    base_statute = parse_no_statute(_BASE_XML, statute_id="no/lov/2025-01-01-1")
-    ops = parse_no_amendment_ops(
-        _renumber_amendment_xml_for_replay("2025-02-10"),
-        "no/lovtid/2025-02-02-5",
-    )
-    renumber_ops = _renumber_ops(ops)
-    assert len(renumber_ops) == 1
-    op = renumber_ops[0]
-
-    # Apply the single RENUMBER op against the base statute to obtain
-    # before/after body trees for the receipt-construction call.
-    before_body = base_statute.body
-    after_statute = apply_no_ops(base_statute, [op])
-    after_body = after_statute.body
-
-    receipt = _no_emit_one_op_receipt(before_body, after_body, op)
-    assert receipt is not None, (
-        "_no_emit_one_op_receipt returned None for an applied RENUMBER op — "
-        "the conserved wrapper would then silently drop the receipt from "
-        "the production lane's `write_receipts` tuple (a §1.8 violation)."
-    )
-    assert isinstance(receipt, WriteReceipt)
-    assert receipt.action == "renumber"
-    assert receipt.op_id == op.op_id
-    assert receipt.helper.startswith("apply_no_ops::renumber::")
-    assert receipt.bound_target_path == (("section", "2"),)
-    assert receipt.landed_primary_path == (("section", "3"),)
-    assert receipt.renumbered_paths == (
-        ((("section", "2"),), (("section", "3"),)),
-    ), receipt.renumbered_paths
-    assert receipt.migration_rule_ids == ("no_section_renumber_relabel",)
-    assert receipt.recovery_rule_ids == ()
-    assert receipt.fallback_rule_ids == ()
-    assert receipt.divergence_explained is True
-
-
-def test_no_emit_one_op_receipt_unit_no_migration_rule_id_on_replace() -> None:
-    """Negative test §2.9(4): ``_no_emit_one_op_receipt`` does NOT stamp
-    ``migration_rule_ids`` on a non-RENUMBER action — REPLACE has bound==landed
-    by construction, so ``divergence_explained`` is True via the equality
-    short-circuit, not via a named rule id. A REPLACE stamping the
-    ``no_section_renumber_relabel`` rule id would be a §1.6 unstated-migration
-    violation (a named rule asserting a migration that did not happen).
-
-    Guards against the rule-id-stamping logic leaking across action families
-    if the helper's branching is later refactored.
-    """
-    from lawvm.norway.grafter import apply_no_ops, parse_no_statute
-
-    base_statute = parse_no_statute(_BASE_XML, statute_id="no/lov/2025-01-01-1")
-    # Known-good whole-section REPLACE fixture (mirrors
-    # ``test_parse_no_amendment_ops_unstructured_whole_section_replace_without_future_article``
-    # in tests/test_norway_grafter.py:524) — `§ 2 skal lyde:` lowers to a
-    # REPLACE op targeting ``(("section", "2"),)``.
-    replace_xml = """<?xml version="1.0" encoding="utf-8"?>
-<html lang="nb">
-  <body>
-    <dd class="changesToDocuments"><ul><li>lov/2025-01-01-1</li></ul></dd>
-    <main>
-      <article class="legalArticle">
-        <article class="defaultP">§ 2 skal lyde:</article>
-        <article class="legalP">Nye krav skal oppfylles.</article>
-      </article>
-    </main>
-  </body>
-</html>
-""".encode("utf-8")
-    ops = parse_no_amendment_ops(replace_xml, "no/lovtid/2025-02-02-5")
-    replace_ops = [op for op in ops if op.action is StructuralAction.REPLACE]
-    assert len(replace_ops) == 1, [
-        (op.action, op.target.path) for op in ops
-    ]
-    op = replace_ops[0]
-
-    before_body = base_statute.body
-    after_statute = apply_no_ops(base_statute, [op])
-    after_body = after_statute.body
-
-    receipt = _no_emit_one_op_receipt(before_body, after_body, op)
-    assert receipt is not None
-    # REPLACE has bound == landed (audit at the same coordinate), so no
-    # migration rule is required and divergence_explained is True via the
-    # equality short-circuit. The receipt must NOT carry a migration rule
-    # id — that would assert a migration that did not happen.
-    assert receipt.action == "replace"
-    assert receipt.migration_rule_ids == (), receipt.migration_rule_ids
-    assert receipt.recovery_rule_ids == ()
-    assert receipt.fallback_rule_ids == ()
-    assert receipt.divergence_explained is True, (
-        "REPLACE with bound == landed should have divergence_explained=True "
-        "via the equality short-circuit — no named rule id is required."
-    )
+    # Hash coverage is exact over both declared migration legs. The source
+    # existed before and is absent after; the destination is the inverse.
+    source_key = "chapter:1/section:2"
+    destination_key = "chapter:1/section:3"
+    assert set(receipt.pre_hashes) == {source_key, destination_key}
+    assert set(receipt.post_hashes) == {source_key, destination_key}
+    assert receipt.pre_hashes[source_key] != ""
+    assert receipt.post_hashes[source_key] == ""
+    assert receipt.pre_hashes[destination_key] == ""
+    assert receipt.post_hashes[destination_key] != ""
 
 
 def test_apply_no_ops_conserved_emit_receipts_false_does_not_emit() -> None:

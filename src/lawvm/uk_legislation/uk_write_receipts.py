@@ -1,8 +1,9 @@
 """Per-op :class:`WriteReceipt` emission for the UK replay executor.
 
-This is the UK counterpart of ``norway/grafter.py::_no_emit_one_op_receipt``
-(NO) and ``sweden/grafter.py::_se_emit_one_op_receipt`` (SE) — the second step
-of the AGENTS.md §2.3 receipt contract. Given the before/after body IR trees
+This is the UK counterpart of NO's seam-emitted receipt lane
+(``norway/grafter.py::_apply_no_ops_fold``, whose receipts surface on
+``NOApplyResult.write_receipts``) and ``sweden/grafter.py::_se_emit_one_op_receipt``
+(SE) — the second step of the AGENTS.md §2.3 receipt contract. Given the before/after body IR trees
 that bracket one applied :class:`LegalOperation`, it synthesizes a typed
 :class:`WriteReceipt` from the *landed* tree diff and the op's declared target.
 
@@ -58,9 +59,9 @@ def _resolve_with_recursive_fallback(body: IRNode, path: TreePath) -> IRNode | N
 
     UK sections live nested under schedules/parts/cross-headings, so a single
     coordinate from ``op.target`` may not resolve by a strict top-down walk.
-    Mirrors NO's single-segment ``tree_ops.find`` fallback in
-    ``_no_emit_one_op_receipt`` (the production-lane case where the target lives
-    deeper than ``body``'s direct children).
+    Mirrors the single-segment ``tree_ops.find`` fallback in the shared seam
+    producer's ``core/apply_seam._resolve_or_find`` (the production-lane case
+    where the target lives deeper than ``body``'s direct children).
     """
     node = tree_ops.resolve(body, list(path))
     if node is None and len(path) == 1:
@@ -79,7 +80,8 @@ def emit_uk_op_receipt(
 ) -> WriteReceipt | None:
     """Emit a :class:`WriteReceipt` for one applied UK op, or ``None`` when skipped.
 
-    Mirrors ``norway/grafter.py::_no_emit_one_op_receipt``. The receipt
+    Mirrors the receipt NO's fold gets from the shared seam producer
+    (``core/apply_seam._synthesize_receipt``). The receipt
     synthesizes the §2.3 contract fields from the actual before/after IR tree
     diff (core's identity-pruned diff) and the op's declared target. When the
     diff is empty the op was filtered/skipped (the replay path recorded an

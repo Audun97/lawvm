@@ -18,7 +18,7 @@ This module adds, WITHOUT touching the bare ``replay_uk_ops`` callers:
 
   * :func:`uk_replay_write_receipts` — the seam-synthesized per-op
     :class:`~lawvm.core.write_receipt.WriteReceipt` lane (mirrors
-    ``norway/grafter.py::no_replay_write_receipts`` and
+    ``norway/grafter.py::apply_no_ops_conserved(..., emit_receipts=True)`` and
     ``eu/pipeline.py::eu_replay_write_receipts``), driving
     ``core/apply_seam.apply_op`` with ``emit_receipts=True`` so the receipt is the
     OUTPUT of the universal apply step (CORE §2.1 #5). Each receipt's
@@ -285,8 +285,8 @@ def uk_replay_write_receipts(
 ) -> tuple[IRStatute, tuple[WriteReceipt, ...]]:
     """Apply ops one at a time and emit per-op :class:`WriteReceipt` records (§2.3).
 
-    Mirrors ``norway/grafter.py::no_replay_write_receipts`` and
-    ``eu/pipeline.py::eu_replay_write_receipts``. For each op, applies it via
+    Mirrors ``norway/grafter.py::apply_no_ops_conserved(..., emit_receipts=True)``
+    and ``eu/pipeline.py::eu_replay_write_receipts``. For each op, applies it via
     :func:`replay_uk_ops` to a single-op list with a ``write_receipts_out`` sink,
     so UK's existing :func:`emit_uk_op_receipt` (the seam's receipt synthesis is
     byte-identical to it: the ``receipt_helper_prefix`` /

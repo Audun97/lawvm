@@ -14,6 +14,7 @@ import tarfile
 
 import pytest
 
+from lawvm.core import tree_ops
 from lawvm.core.filter_result import FilterResult, RejectedItem
 from lawvm.core.ir import (
     IRNode,
@@ -23,7 +24,10 @@ from lawvm.core.ir import (
     OperationSource,
     StructuralAction,
 )
+from lawvm.core.provenance import SourceAnchor
 from lawvm.core.semantic_types import IRNodeKind
+from lawvm.core.ir_helpers import structural_subtree_hash
+from lawvm.core.write_receipt import receipt_address_string
 from lawvm.norway.grafter import apply_no_ops, apply_no_ops_conserved, NOApplyResult
 from lawvm.replay_adjudication import CompileAdjudication
 
@@ -92,7 +96,7 @@ def test_apply_no_ops_conserved_partitions_accepted_and_skipped() -> None:
     assert isinstance(skipped, RejectedItem)
     assert skipped.reason  # message forwarded from the bare variant's adjudication
     assert skipped.reason_code == "replay_unsupported_action"
-    assert skipped.blocking is False  # NO conserved skips are recorded, not blocking
+    assert skipped.blocking is True
 
     # Partition is total (no silent drops, no phantoms). Accepted + rejected = input.
     accepted_ids = {op.op_id for op in result.filter_result.accepted_items}
@@ -120,8 +124,6 @@ def test_apply_no_ops_conserved_content_identical_noop_is_rejected_not_accepted(
     a content-identical no-op mints ZERO receipts. The conserved partition must
     agree — the op lands in the REJECTED lane with ``replay_noop``.
     """
-    from lawvm.norway.grafter import no_replay_write_receipts
-
     # A section node with a nested paragraph so REPLACE re-materializes a fresh
     # (but content-equal) subtree.
     live_section = IRNode(
@@ -154,12 +156,7 @@ def test_apply_no_ops_conserved_content_identical_noop_is_rejected_not_accepted(
         source=OperationSource(statute_id="no/lovtid/2025-02-02-5"),
     )
 
-    # Ground truth: the write-receipt lane emits ZERO receipts for this op (the
-    # identity-pruned diff is empty — no write landed).
-    _final, receipts = no_replay_write_receipts(statute, [noop])
-    assert receipts == (), "a content-identical no-op must mint no write receipt"
-
-    result = apply_no_ops_conserved(statute, [noop])
+    result = apply_no_ops_conserved(statute, [noop], emit_receipts=True)
 
     # The no-op lands in the REJECTED lane (not the accepted lane).
     assert [op.op_id for op in result.applied_ops] == [], (
@@ -171,7 +168,9 @@ def test_apply_no_ops_conserved_content_identical_noop_is_rejected_not_accepted(
     assert isinstance(rejected, RejectedItem)
     assert rejected.item.op_id == "no-noop"
     assert rejected.reason_code == "replay_noop"
-    assert rejected.blocking is False
+    assert rejected.blocking is True
+    assert result.write_receipts == ()
+    assert result.observed_write_audits == ()
 
     # Partition stays total + disjoint.
     accepted_ids = {op.op_id for op in result.filter_result.accepted_items}
@@ -197,6 +196,119 @@ def test_apply_no_ops_conserved_genuine_write_still_accepted() -> None:
     assert result.skipped_items == ()
 
 
+@pytest.mark.parametrize(
+    ("action", "target_label", "payload", "footprint_field"),
+    [
+        (
+            StructuralAction.REPLACE,
+            "2",
+            IRNode(kind=IRNodeKind.SECTION, label="2", text="Replacement."),
+            "replaced_paths",
+        ),
+        (
+            StructuralAction.INSERT,
+            "3",
+            IRNode(kind=IRNodeKind.SECTION, label="3", text="Inserted."),
+            "created_paths",
+        ),
+        (StructuralAction.REPEAL, "2", None, "removed_paths"),
+    ],
+)
+def test_apply_no_ops_conserved_receipt_footprint_and_hashes_are_exact(
+    action: StructuralAction,
+    target_label: str,
+    payload: IRNode | None,
+    footprint_field: str,
+) -> None:
+    """Each ordinary write hashes exactly every path in its typed footprint."""
+    statute = _statute_with_section("2", "Original.")
+    op = LegalOperation(
+        op_id=f"no-{action.value}-receipt-shape",
+        sequence=1,
+        action=action,
+        target=LegalAddress(path=(("section", target_label),)),
+        payload=payload,
+        source=OperationSource(statute_id="no/lovtid/2025-02-02-5"),
+    )
+
+    result = apply_no_ops_conserved(statute, [op], emit_receipts=True)
+
+    assert len(result.write_receipts) == 1
+    receipt = result.write_receipts[0]
+    target_path = (("section", target_label),)
+    storage_path = target_path if action is StructuralAction.REPLACE else ()
+    assert receipt.bound_target_path == target_path
+    assert receipt.landed_primary_path == target_path
+    assert getattr(receipt, footprint_field) == (storage_path,)
+    assert receipt.declared_footprint == (storage_path,)
+    # Negative case for the migration stamp: only a RENUMBER's bound->landed
+    # relabel mints a migration rule id, and none of these ordinary writes is
+    # one. Mirrors tests/test_eu_apply_conserved.py.
+    assert receipt.migration_rule_ids == ()
+    expected_keys = {receipt_address_string(path) for path in receipt.declared_footprint}
+    assert set(receipt.pre_hashes) == expected_keys
+    assert set(receipt.post_hashes) == expected_keys
+
+    before_node = tree_ops.resolve(statute.body, list(storage_path))
+    after_node = tree_ops.resolve(result.statute.body, list(storage_path))
+    key = receipt_address_string(storage_path)
+    assert receipt.pre_hashes[key] == (
+        structural_subtree_hash(before_node) if before_node is not None else ""
+    )
+    assert receipt.post_hashes[key] == (
+        structural_subtree_hash(after_node) if after_node is not None else ""
+    )
+    assert len(result.observed_write_audits) == 1
+    assert result.observed_write_audits[0].audit_status == "clean"
+
+
+@pytest.mark.parametrize(
+    ("raw_bytes", "clause"),
+    [
+        (b"Repeated clause. Repeated clause.", "Repeated clause."),
+        (b"Split <b>across tags</b>.", "Split across tags."),
+        (b"Whitespace   normalized.", "Whitespace normalized."),
+        (b"Nearby unique clause.", ""),
+    ],
+)
+def test_unanchorable_landed_write_keeps_receipt_without_borrowing_anchor(
+    raw_bytes: bytes,
+    clause: str,
+) -> None:
+    """Unverifiable source text never borrows a span or suppresses a receipt."""
+    from lawvm.norway.grafter import (
+        mint_no_source_anchors,
+        reset_no_raw_source_context,
+        set_no_raw_source_context,
+    )
+
+    statute = _statute_with_section("2", "Original.")
+    op = LegalOperation(
+        op_id="no-unanchorable-replace",
+        sequence=1,
+        action=StructuralAction.REPLACE,
+        target=LegalAddress(path=(("section", "2"),)),
+        payload=IRNode(kind=IRNodeKind.SECTION, label="2", text="Replacement."),
+        source=OperationSource(
+            statute_id="no/lovtid/2025-02-02-5",
+            raw_text=clause,
+        ),
+        raw_text=clause,
+    )
+    token = set_no_raw_source_context("no/lovtid/2025-02-02-5", raw_bytes)
+    try:
+        anchored_op = mint_no_source_anchors([op])[0]
+    finally:
+        reset_no_raw_source_context(token)
+
+    assert anchored_op.source is not None
+    assert anchored_op.source.source_anchor is None
+    result = apply_no_ops_conserved(statute, [anchored_op], emit_receipts=True)
+    assert [item.op_id for item in result.applied_ops] == [anchored_op.op_id]
+    assert len(result.write_receipts) == 1
+    assert result.write_receipts[0].source_anchor is None
+
+
 def test_apply_no_ops_conserved_does_not_treat_recovery_as_skip() -> None:
     """§1.8: recovery adjudications (``no_replay_*``) record transformations
     that WERE applied — REPLACE recovered to INSERT, etc. — and must NOT mark
@@ -205,6 +317,12 @@ def test_apply_no_ops_conserved_does_not_treat_recovery_as_skip() -> None:
     ``replay_noop``); recovery adjudications record the transformation
     alongside the accepted op, not as a rejection."""
     statute = _statute_with_section("2", "Original.")
+    source_anchor = SourceAnchor(
+        source_artifact_id="no/lovtid/2025-02-02-5",
+        byte_offset=17,
+        byte_len=23,
+        quote_hash="sha256:" + "a" * 64,
+    )
     ops = [
         # REPLACE §99 — section does not exist; NO recovers REPLACE→INSERT in
         # the inferred parent (top-level body root when the parent is None).
@@ -217,11 +335,19 @@ def test_apply_no_ops_conserved_does_not_treat_recovery_as_skip() -> None:
             action=StructuralAction.REPLACE,
             target=LegalAddress(path=(("section", "99"),)),
             payload=IRNode(kind=IRNodeKind.SECTION, label="99", text="Recovered as insert."),
-            source=OperationSource(statute_id="no/lovtid/2025-02-02-5"),
+            source=OperationSource(
+                statute_id="no/lovtid/2025-02-02-5",
+                source_anchor=source_anchor,
+            ),
         ),
     ]
     adjudications: list[CompileAdjudication] = []
-    result = apply_no_ops_conserved(statute, ops, adjudications_out=adjudications)
+    result = apply_no_ops_conserved(
+        statute,
+        ops,
+        adjudications_out=adjudications,
+        emit_receipts=True,
+    )
 
     # The bare variant emitted a recovery adjudication for the op...
     assert any(a.kind == "no_replay_replace_recovered_by_insert" for a in adjudications)
@@ -231,6 +357,207 @@ def test_apply_no_ops_conserved_does_not_treat_recovery_as_skip() -> None:
     assert len(result.applied_ops) == 1
     assert result.applied_ops[0].op_id == "no-replace-recovered-as-insert"
     assert len(result.skipped_items) == 0
+    assert len(result.write_receipts) == 1
+    receipt = result.write_receipts[0]
+    assert receipt.op_id == "no-replace-recovered-as-insert"
+    assert receipt.action == "insert"
+    assert receipt.recovery_rule_ids == ("no_replace_missing_section_insert",)
+    assert receipt.source_anchor == source_anchor
+
+
+def test_apply_no_ops_conserved_receipts_occupied_insert_recovery() -> None:
+    """An accepted occupied INSERT has one receipt for the executed REPLACE."""
+    statute = _statute_with_section("1", "Original §1.")
+    source_anchor = SourceAnchor(
+        source_artifact_id="no/lovtid/2025-02-02-5",
+        byte_offset=31,
+        byte_len=19,
+        quote_hash="sha256:" + "b" * 64,
+    )
+    op = _insert_op_into_existing_section(
+        op_id="no-insert-occupied-receipt",
+        sequence=1,
+        label="1",
+    )
+    op = LegalOperation(
+        op_id=op.op_id,
+        sequence=op.sequence,
+        action=op.action,
+        target=op.target,
+        payload=op.payload,
+        source=OperationSource(
+            statute_id="no/lovtid/2025-02-02-5",
+            source_anchor=source_anchor,
+        ),
+    )
+    adjudications: list[CompileAdjudication] = []
+
+    result = apply_no_ops_conserved(
+        statute,
+        [op],
+        adjudications_out=adjudications,
+        emit_receipts=True,
+    )
+
+    assert [item.op_id for item in result.applied_ops] == [op.op_id]
+    assert result.skipped_items == ()
+    assert any(
+        item.detail["rule_id"] == "no_insert_occupied_target_replace"
+        for item in adjudications
+    )
+    assert len(result.write_receipts) == 1
+    receipt = result.write_receipts[0]
+    assert receipt.op_id == op.op_id
+    assert receipt.action == "replace"
+    assert receipt.recovery_rule_ids == ("no_insert_occupied_target_replace",)
+    assert receipt.source_anchor == source_anchor
+
+
+def test_apply_no_ops_conserved_rolls_back_sentence_materialization_before_skip() -> None:
+    """A rejected target cannot retain preparatory normalization or evidence."""
+    statute = IRStatute(
+        statute_id="no/lov/2025-01-01-1",
+        title="Rollback",
+        body=IRNode(
+            kind=IRNodeKind.BODY,
+            children=(
+                IRNode(
+                    kind=IRNodeKind.SECTION,
+                    label="1",
+                    children=(
+                        IRNode(
+                            kind=IRNodeKind.SUBSECTION,
+                            label="1",
+                            text="Første punktum. Andre punktum.",
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+    op = LegalOperation(
+        op_id="no-rejected-after-materialization",
+        sequence=1,
+        action=StructuralAction.REPEAL,
+        target=LegalAddress(
+            path=(("section", "1"), ("subsection", "1"), ("sentence", "99"))
+        ),
+        source=OperationSource(statute_id="no/lovtid/2025-02-02-5"),
+    )
+
+    result = apply_no_ops_conserved(statute, [op], emit_receipts=True)
+
+    assert result.statute == statute
+    assert result.applied_ops == ()
+    assert result.skipped_items[0].reason_code == "replay_unresolved_target"
+    assert result.write_receipts == ()
+    assert result.observed_write_audits == ()
+
+
+def test_apply_no_ops_conserved_last_item_receipt_names_concrete_landing() -> None:
+    statute = IRStatute(
+        statute_id="no/lov/2025-01-01-1",
+        title="Last item",
+        body=IRNode(
+            kind=IRNodeKind.BODY,
+            children=(
+                IRNode(
+                    kind=IRNodeKind.SECTION,
+                    label="5",
+                    children=(
+                        IRNode(
+                            kind=IRNodeKind.SUBSECTION,
+                            label="1",
+                            children=(
+                                IRNode(kind=IRNodeKind.ITEM, label="1", text="One."),
+                                IRNode(kind=IRNodeKind.ITEM, label="2", text="Two."),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+    op = LegalOperation(
+        op_id="no-last-item-receipt",
+        sequence=1,
+        action=StructuralAction.REPLACE,
+        target=LegalAddress(
+            path=(("section", "5"), ("subsection", "1"), ("item", "last"))
+        ),
+        payload=IRNode(kind=IRNodeKind.ITEM, label="last", text="Three."),
+        source=OperationSource(statute_id="no/lovtid/2025-02-02-5"),
+    )
+
+    result = apply_no_ops_conserved(statute, [op], emit_receipts=True)
+
+    receipt = result.write_receipts[0]
+    assert receipt.bound_target_path == op.target.path
+    assert receipt.landed_primary_path == (
+        ("section", "5"),
+        ("subsection", "1"),
+        ("item", "3"),
+    )
+    assert receipt.action == "insert"
+    assert receipt.recovery_rule_ids == (
+        "no_replace_missing_last_item_append_to_parent",
+    )
+    assert result.observed_write_audits[0].audit_status == "clean"
+
+
+def test_apply_no_ops_conserved_receipts_and_audits_match_accepted_partition() -> None:
+    statute = _statute_with_section("2", "Original.")
+    ops = [
+        _replace_op(op_id="no-accepted", sequence=1, label="2"),
+        _skip_op(op_id="no-rejected", sequence=2),
+    ]
+
+    result = apply_no_ops_conserved(statute, ops, emit_receipts=True)
+
+    accepted_ids = {op.op_id for op in result.applied_ops}
+    rejected_ids = {item.item.op_id for item in result.skipped_items}
+    receipt_ids = {receipt.op_id for receipt in result.write_receipts}
+    audit_ids = {audit.op_id for audit in result.observed_write_audits}
+    assert accepted_ids == receipt_ids == audit_ids
+    assert rejected_ids.isdisjoint(receipt_ids | audit_ids)
+
+
+def test_nested_duplicate_section_receipt_uses_resolved_storage_path() -> None:
+    statute = IRStatute(
+        statute_id="no/lov/2025-01-01-1",
+        title="Duplicate labels",
+        body=IRNode(
+            kind=IRNodeKind.BODY,
+            children=(
+                IRNode(
+                    kind=IRNodeKind.CHAPTER,
+                    label="1",
+                    children=(IRNode(kind=IRNodeKind.SECTION, label="1", text="One."),),
+                ),
+                IRNode(
+                    kind=IRNodeKind.CHAPTER,
+                    label="2",
+                    children=(IRNode(kind=IRNodeKind.SECTION, label="1", text="Two."),),
+                ),
+            ),
+        ),
+    )
+    op = LegalOperation(
+        op_id="no-scoped-duplicate-replace",
+        sequence=1,
+        action=StructuralAction.REPLACE,
+        target=LegalAddress(path=(("chapter", "2"), ("section", "1"))),
+        payload=IRNode(kind=IRNodeKind.SECTION, label="1", text="Changed two."),
+        source=OperationSource(statute_id="no/lovtid/2025-02-02-5"),
+    )
+
+    result = apply_no_ops_conserved(statute, [op], emit_receipts=True)
+
+    receipt = result.write_receipts[0]
+    assert receipt.landed_primary_path == (("chapter", "2"), ("section", "1"))
+    assert set(receipt.pre_hashes) == {"chapter:2/section:1"}
+    assert set(receipt.post_hashes) == {"chapter:2/section:1"}
+    assert result.observed_write_audits[0].audit_status == "clean"
 
 
 def _skip_op(
@@ -496,7 +823,7 @@ def test_replay_no_to_pit_routes_apply_through_conserved_wrapper(tmp_path, monke
     assert rejected.item.op_id == "no-skip-unsupported-heading"
     assert rejected.reason_code == "replay_unsupported_action"
     assert rejected.reason  # message forwarded from the bare variant's adjudication
-    assert rejected.blocking is False  # NO conserved skips are recorded, not blocking
+    assert rejected.blocking is True
 
     # Accepted lane carries the §2 op; conservation partition is total.
     accepted_ids = {op.op_id for op in result.apply_filter_result.accepted_items}

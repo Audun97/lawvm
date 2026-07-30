@@ -33,7 +33,6 @@ from lawvm.core.archive_safety import (
 from lawvm.core.diagnostic_records import diagnostic_detail
 from lawvm.core.filter_result import FilterResult, RejectedItem
 from lawvm.core.invariant_profiles import CORE_REPLAY_DELTA_MINIMAL_FAMILIES
-from lawvm.core.ir_helpers import structural_subtree_hash
 from lawvm.core.op_ordering import OrderingProfile, order_ops
 from lawvm.core.provenance import compute_source_anchor
 from lawvm.core.apply_seam import (
@@ -44,11 +43,8 @@ from lawvm.core.apply_seam import (
     apply_op,
 )
 from lawvm.core.execution_authorization import ExecutionAuthorization
-from lawvm.core.mutation_boundary import (
-    TreePath,
-    TreePaths,
-    diff_ir_paths_identity_pruned,
-)
+from lawvm.core.mutation_boundary import RenumberedTreePaths, diff_ir_paths_identity_pruned
+from lawvm.core.observed_write_audit import ObservedWriteAudit
 from lawvm.core.phase_result import Finding
 from lawvm.core.xml_parse import parse_corpus_xml
 from lawvm.replay_adjudication import CompileAdjudication
@@ -71,7 +67,7 @@ from lawvm.core.semantic_types import (
     structural_action_value,
 )
 from lawvm.core.quirks_disposition import QuirksDisposition
-from lawvm.core.write_receipt import WriteReceipt, receipt_address_string
+from lawvm.core.write_receipt import WriteReceipt
 from lawvm.norway.mutation_boundary_per_op_probe import (
     drain_seam_boundary_observations as _no_drain_seam_boundary_observations,
 )
@@ -3585,7 +3581,22 @@ def _no_op_provenance_acceptance(op: LegalOperation) -> Optional[OpAcceptance]:
     )
 
 
-def apply_no_ops(
+@dataclass(frozen=True, slots=True)
+class _NOOpApplyOutcome:
+    op: LegalOperation
+    landed: bool
+    rejection: Optional[RejectedItem[LegalOperation]]
+    write_receipt: Optional[WriteReceipt]
+    observed_write_audit: Optional[ObservedWriteAudit]
+
+
+@dataclass(frozen=True, slots=True)
+class _NOApplyFoldResult:
+    statute: IRStatute
+    outcomes: tuple[_NOOpApplyOutcome, ...]
+
+
+def _apply_no_ops_fold(
     statute: IRStatute,
     ops: List[LegalOperation],
     adjudications_out: Optional[List[CompileAdjudication]] = None,
@@ -3593,7 +3604,8 @@ def apply_no_ops(
     strict_action_family: bool = False,
     strict_recovery: bool = False,
     seam_observations_out: Optional[list[Finding]] = None,
-) -> IRStatute:
+    emit_receipts: bool = False,
+) -> _NOApplyFoldResult:
     """Apply a minimal structural Norway operation set to a statute tree.
 
     Architectural note:
@@ -3601,6 +3613,12 @@ def apply_no_ops(
     debt that should move upward into elaboration. Replay should converge on an
     execution-only contract over fully resolved canonical operations.
     """
+    # Keep an internal ledger even when the caller does not request the legacy
+    # out-parameter. Per-op conservation and rollback must not depend on whether
+    # an evidence projection was supplied.
+    if adjudications_out is None:
+        adjudications_out = []
+
     # §1.7 same-moment cross-act conflict pre-pass (AGENTS.md §1.7).
     #
     # Runs BEFORE the apply fold to emit a blocking finding for incompatible
@@ -3630,10 +3648,10 @@ def apply_no_ops(
     # old group-sort + ``_ordered_renumber_group`` + direct-detector path —
     # proven by ``tests/test_no_order_ops_parallel_run.py``.
     ordered_result = order_ops(ops, no_ordering_profile())
-    if adjudications_out is not None:
-        adjudications_out.extend(ordered_result.findings)
+    adjudications_out.extend(ordered_result.findings)
 
     body = statute.body
+    op_outcomes: list[_NOOpApplyOutcome] = []
 
     # Reconstruct the per-op ``renumber_sources`` carrier the apply fold below
     # consumes: the set of RENUMBER source paths within the op's affecting-act
@@ -3760,6 +3778,10 @@ def apply_no_ops(
     # declare it as an authorized ``declared_recovery`` boundary extension. Reset
     # per op below; stays empty (and is ignored) when the probe is off.
     _no_declared_recovery_paths: list[tree_ops.Path] = []
+    _no_declared_recovery_rule_ids: list[str] = []
+    _no_executed_action: StructuralAction | None = None
+    _no_landed_primary_path: tree_ops.Path | None = None
+    _no_renumbered_paths: RenumberedTreePaths = ()
 
     def _record_action_family_recovery(
         *,
@@ -3769,6 +3791,7 @@ def apply_no_ops(
         detail: dict[str, str],
         recovered_path: Optional[tree_ops.Path] = None,
     ) -> None:
+        nonlocal _no_executed_action
         _append_no_replay_adjudication(
             adjudications_out,
             kind=kind,
@@ -3778,6 +3801,15 @@ def apply_no_ops(
         )
         if recovered_path is not None:
             _no_declared_recovery_paths.append(tuple(recovered_path))
+        rule_id = detail.get("rule_id")
+        if rule_id:
+            _no_declared_recovery_rule_ids.append(rule_id)
+        executed_action = detail.get("executed_action")
+        if executed_action:
+            _no_executed_action = structural_action_from_str(
+                executed_action,
+                on_unknown="raise",
+            )
         if not strict_action_family:
             return
         source_id = op.source.statute_id if op.source else ""
@@ -3800,6 +3832,9 @@ def apply_no_ops(
             op=op,
             detail=detail,
         )
+        rule_id = detail.get("rule_id")
+        if isinstance(rule_id, str) and rule_id:
+            _no_declared_recovery_rule_ids.append(rule_id)
         if not strict_recovery:
             return
         source_id = op.source.statute_id if op.source else ""
@@ -3821,6 +3856,9 @@ def apply_no_ops(
             op=op,
             detail=detail,
         )
+        rule_id = detail.get("rule_id")
+        if isinstance(rule_id, str) and rule_id:
+            _no_declared_recovery_rule_ids.append(rule_id)
         if not strict_recovery:
             return
         source_id = op.source.statute_id if op.source else ""
@@ -3856,12 +3894,20 @@ def apply_no_ops(
     # "strictness = profile policy" mapping (design §2.1 #3) is realized by those
     # raises propagating through ``apply_op`` to the caller.
     def _no_materialize_one(before_body: IRNode, op: LegalOperation) -> MaterializeResult[IRNode]:
-        nonlocal body
+        nonlocal body, _no_executed_action, _no_landed_primary_path, _no_renumbered_paths
         body = before_body
         renumber_sources = _no_active_renumber_sources
         # Reset the per-op declared-recovery carrier so a recovery retarget from a
         # prior op never leaks into this op's boundary.
         _no_declared_recovery_paths.clear()
+        _no_declared_recovery_rule_ids.clear()
+        _no_executed_action = None
+        _no_landed_primary_path = None
+        _no_renumbered_paths = ()
+
+        def _record_landed_path(path: tree_ops.Path) -> None:
+            nonlocal _no_landed_primary_path
+            _no_landed_primary_path = tuple(path)
 
         def _dispatch() -> None:
             """Run one op's tree dispatch (mutating the closure ``body``).
@@ -3875,7 +3921,7 @@ def apply_no_ops(
             ``continue`` → ``return`` rewrite is purely control-flow, leaving the
             mutation semantics byte-identical.
             """
-            nonlocal body
+            nonlocal body, _no_renumbered_paths
             if legacy_text_action_value(op) == "text_replace":
                 patch = op.text_patch
                 if patch is None:
@@ -3902,6 +3948,7 @@ def apply_no_ops(
                     return
                 if not op.target.path:
                     body = _apply_no_text_replace(body, text_match, text_replacement)
+                    _record_landed_path(())
                     _assert_no_invariant_violations(op)
                     return
                 resolved_path = _resolve_no_path(body, op.target)
@@ -3931,6 +3978,7 @@ def apply_no_ops(
                     resolved_path,
                     _apply_no_text_replace(node, text_match, text_replacement),
                 )
+                _record_landed_path(resolved_path)
                 _assert_no_invariant_violations(op)
                 return
             if not op.target.path:
@@ -4075,6 +4123,10 @@ def apply_no_ops(
                                 payload,
                                 sort_key_fn=_no_sort_key,
                             )
+                            _record_landed_path(
+                                resolved_parent
+                                + ((_no_kind_value(payload.kind), payload.label or ""),)
+                            )
                             _assert_no_invariant_violations(op)
                             return
                     if op.target.leaf_kind() == "sentence" and _no_kind_value(payload.kind) == "sentence":
@@ -4147,6 +4199,10 @@ def apply_no_ops(
                                 payload,
                                 sort_key_fn=_no_sort_key,
                             )
+                            _record_landed_path(
+                                shallow_host_path
+                                + ((_no_kind_value(payload.kind), payload.label or ""),)
+                            )
                             _assert_no_invariant_violations(op)
                             return
                     if (
@@ -4187,6 +4243,13 @@ def apply_no_ops(
                                     resolved_parent,
                                     append_payload,
                                     sort_key_fn=_no_sort_key,
+                                )
+                                _record_landed_path(
+                                    resolved_parent
+                                    + ((
+                                        _no_kind_value(append_payload.kind),
+                                        append_payload.label or "",
+                                    ),)
                                 )
                                 _assert_no_invariant_violations(op)
                                 return
@@ -4251,6 +4314,10 @@ def apply_no_ops(
                             payload,
                             sort_key_fn=_no_sort_key,
                         )
+                        _record_landed_path(
+                            parent_path
+                            + ((_no_kind_value(payload.kind), payload.label or ""),)
+                        )
                         _assert_no_invariant_violations(op)
                         return
                     _append_no_replay_adjudication(
@@ -4287,9 +4354,11 @@ def apply_no_ops(
                             children=tuple(merged_children),
                         ),
                     )
+                    _record_landed_path(resolved_path)
                     _assert_no_invariant_violations(op)
                     return
                 body = tree_ops.replace_at(body, resolved_path, payload)
+                _record_landed_path(resolved_path)
 
             elif op.action is StructuralAction.REPEAL:
                 if resolved_path is None:
@@ -4308,6 +4377,7 @@ def apply_no_ops(
                     _assert_no_invariant_violations(op)
                     return
                 body = tree_ops.remove_at(body, resolved_path)
+                _record_landed_path(resolved_path)
 
             elif op.action is StructuralAction.INSERT and op.payload is not None:
                 payload = op.payload
@@ -4331,6 +4401,7 @@ def apply_no_ops(
                         },
                     )
                     body = tree_ops.replace_at(body, resolved_path, payload)
+                    _record_landed_path(resolved_path)
                     _assert_no_invariant_violations(op)
                     return
                 parent_path: tree_ops.Path = ()
@@ -4397,6 +4468,7 @@ def apply_no_ops(
                         direct_existing_path,
                         payload,
                     )
+                    _record_landed_path(direct_existing_path)
                     _assert_no_invariant_violations(op)
                     return
                 body = tree_ops.insert_sorted(
@@ -4404,6 +4476,9 @@ def apply_no_ops(
                     parent_path,
                     payload,
                     sort_key_fn=_no_sort_key,
+                )
+                _record_landed_path(
+                    parent_path + ((_no_kind_value(payload.kind), payload.label or ""),)
                 )
 
             elif op.action is StructuralAction.RENUMBER and op.destination is not None:
@@ -4480,6 +4555,11 @@ def apply_no_ops(
                     moved,
                     sort_key_fn=_no_sort_key,
                 )
+                landed_path = parent_path + (
+                    (_no_kind_value(moved.kind), moved.label or ""),
+                )
+                _record_landed_path(landed_path)
+                _no_renumbered_paths = ((tuple(resolved_path), landed_path),)
             _assert_no_invariant_violations(op)
             # Natural fall-through: a REPLACE/REPEAL/INSERT/RENUMBER landed.
             return
@@ -4493,11 +4573,47 @@ def apply_no_ops(
         # (carrying these ``declared_recovery_prefixes`` via the
         # ``MaterializeResult`` below, so the recovery-aware verdict is identical).
         _dispatch()
+        nominal_landed_path = (
+            tuple(op.destination.path)
+            if op.action is StructuralAction.RENUMBER and op.destination is not None
+            else tuple(op.target.path)
+        )
+        if (
+            emit_receipts
+            and
+            _no_landed_primary_path is not None
+            and _no_landed_primary_path != nominal_landed_path
+            and op.action is not StructuralAction.RENUMBER
+            and not _no_declared_recovery_rule_ids
+        ):
+            rule_id = "no_receipt_storage_path_resolution"
+            _append_no_replay_adjudication(
+                adjudications_out,
+                kind="no_replay_receipt_storage_path_projected",
+                message=(
+                    "Norway replay projected a chapter-free legal address to the "
+                    "exact resolved IR storage path for write accounting."
+                ),
+                op=op,
+                detail={
+                    "rule_id": rule_id,
+                    "family": "presentation_cleanup",
+                    "bound_target_path": nominal_landed_path,
+                    "landed_primary_path": _no_landed_primary_path,
+                },
+            )
+            _no_declared_recovery_rule_ids.append(rule_id)
         applied = body is not before_body
         return MaterializeResult(
             new_state=body,
             applied=applied,
             declared_recovery_prefixes=tuple(_no_declared_recovery_paths),
+            declared_recovery_rule_ids=tuple(
+                dict.fromkeys(_no_declared_recovery_rule_ids)
+            ),
+            executed_action=_no_executed_action,
+            landed_primary_path=_no_landed_primary_path,
+            renumbered_paths=_no_renumbered_paths,
         )
 
     # ── NO apply profile (Wave 1, design §3.1). ──────────────────────────────
@@ -4506,9 +4622,9 @@ def apply_no_ops(
     # observation into the env-gated ``no_replay_mutation_boundary_per_op_*``
     # adjudication, so the env-flag-ON output is byte-identical to the
     # pre-cutover fold. ``emit_receipts``/``emit_coverage`` are False in the bare
-    # fold: the additive per-op receipt + coverage lanes are produced by the
-    # dedicated ``no_replay_write_receipts`` / ``apply_no_ops_conserved`` callers,
-    # so the bare ``apply_no_ops`` result stays byte-identical (no new artifacts)
+    # fold: the additive per-op receipt lane is requested by
+    # ``apply_no_ops_conserved``, while the bare ``apply_no_ops`` projection stays
+    # byte-identical (no new artifacts)
     # — the equality gate is confined to the materialized IRStatute +
     # adjudications. ``renumber_migration_rule_ids`` names the migration that
     # explains a RENUMBER's bound→landed relabel divergence when receipts ARE
@@ -4530,9 +4646,12 @@ def apply_no_ops(
         jurisdiction="no",
         materializer=_no_materialize_one,
         boundary_mode="off",
-        emit_receipts=False,
+        emit_receipts=emit_receipts,
         emit_coverage=False,
+        receipt_audit_mode="block" if strict_invariants else "observe",
+        receipt_footprint_mode="observed",
         renumber_migration_rule_ids=("no_section_renumber_relabel",),
+        receipt_helper_prefix="apply_no_ops",
         authorization_resolver=_no_execution_authorization,
         provenance_resolver=_no_op_provenance_acceptance,
     )
@@ -4546,6 +4665,7 @@ def apply_no_ops(
     for op, renumber_sources in ordered_ops:
         _no_active_renumber_sources = renumber_sources
         pre_op_body = body
+        adjudication_start = len(adjudications_out)
         applied_result: AppliedOp[IRNode] = apply_op(
             body,
             op,
@@ -4571,8 +4691,8 @@ def apply_no_ops(
         # forbids.
         #
         # The ground-truth footprint is the identity-pruned content diff — the
-        # SAME signal NO's ``no_replay_write_receipts`` already uses to decide
-        # whether a write receipt exists (empty diff ⇒ no receipt ⇒ no write).
+        # SAME signal the authoritative receipt fold uses to decide whether a
+        # write receipt exists (empty diff ⇒ no receipt ⇒ no write).
         # Object identity is a NECESSARY precondition (no fresh object ⇒ definitely
         # no write); a fresh object counts as a write ONLY when the content
         # actually differs. A genuine landed write always has a non-empty diff, so
@@ -4597,6 +4717,64 @@ def apply_no_ops(
                 op=op,
                 detail={"action": legacy_text_action_value(op), "target": str(op.target)},
             )
+
+        per_op_adjudications = tuple(adjudications_out[adjudication_start:])
+        skip_adjudication = next(
+            (
+                item
+                for item in per_op_adjudications
+                if item.op_id == op.op_id
+                and item.kind in _NO_SKIP_ADJUDICATION_KINDS
+            ),
+            None,
+        )
+        rejection: Optional[RejectedItem[LegalOperation]] = None
+        if skip_adjudication is not None:
+            # Structural preparation performed before a later resolution failure
+            # is not authorized legal state. Persistent CoW lets us discard the
+            # entire tentative per-op state rather than legitimizing a partial
+            # write with a receipt.
+            body = pre_op_body
+            changed = False
+            rejection = RejectedItem(
+                item=op,
+                reason=skip_adjudication.message,
+                reason_code=skip_adjudication.kind,
+                blocking=skip_adjudication.blocking,
+            )
+        elif not changed:
+            raise ValueError(
+                "Norway apply produced neither a landed write nor a typed rejection "
+                f"for op {op.op_id or '<no-id>'}"
+            )
+
+        if changed and applied_result.observed_write_audit is not None:
+            audit = applied_result.observed_write_audit
+            if audit.audit_status == "violation":
+                _append_no_replay_adjudication(
+                    adjudications_out,
+                    kind="no_replay_observed_write_audit_violation",
+                    message=(
+                        "Norway replay blocked a landed write whose receipt did not "
+                        "match the independent before/after footprint."
+                    ),
+                    op=op,
+                    detail={
+                        "rule_id": "no_observed_write_audit_must_match_receipt",
+                        "family": "mutation_boundary",
+                        "action": legacy_text_action_value(op),
+                        "target": str(op.target),
+                        "observed_changed_paths": audit.observed_changed_paths,
+                        "receipt_declared_paths": audit.receipt_declared_paths,
+                        "undeclared_paths": audit.undeclared_paths,
+                        "unobserved_declared_paths": audit.unobserved_declared_paths,
+                    },
+                )
+                if strict_invariants:
+                    raise ValueError(
+                        "Norway observed-write audit violation after "
+                        f"{op.action} {op.target.path!r}"
+                    )
 
         # ── B-enforcement (LS-01): drain the seam's OBSERVE lane. ─────────────
         # The universal apply seam runs the always-on per-op mutation-boundary
@@ -4628,13 +4806,53 @@ def apply_no_ops(
             op_id=op.op_id,
         )
 
-    return IRStatute(
-        statute_id=statute.statute_id,
-        title=statute.title,
-        body=body,
-        supplements=statute.supplements,
-        metadata=dict(statute.metadata),
+        op_outcomes.append(
+            _NOOpApplyOutcome(
+                op=op,
+                landed=changed,
+                rejection=rejection,
+                write_receipt=(applied_result.write_receipt if changed else None),
+                observed_write_audit=(
+                    applied_result.observed_write_audit if changed else None
+                ),
+            )
+        )
+
+    return _NOApplyFoldResult(
+        statute=IRStatute(
+            statute_id=statute.statute_id,
+            title=statute.title,
+            body=body,
+            supplements=statute.supplements,
+            metadata=dict(statute.metadata),
+        ),
+        outcomes=tuple(op_outcomes),
     )
+
+
+def apply_no_ops(
+    statute: IRStatute,
+    ops: List[LegalOperation],
+    adjudications_out: Optional[List[CompileAdjudication]] = None,
+    strict_invariants: bool = True,
+    strict_action_family: bool = False,
+    strict_recovery: bool = False,
+    seam_observations_out: Optional[list[Finding]] = None,
+) -> IRStatute:
+    """Apply Norway operations and project only the authoritative statute.
+
+    Norway remains observation-only at the mutation boundary
+    (``boundary_mode="off"``); the internal fold owns that profile setting.
+    """
+    return _apply_no_ops_fold(
+        statute,
+        ops,
+        adjudications_out=adjudications_out,
+        strict_invariants=strict_invariants,
+        strict_action_family=strict_action_family,
+        strict_recovery=strict_recovery,
+        seam_observations_out=seam_observations_out,
+    ).statute
 
 
 # ---------------------------------------------------------------------------
@@ -4694,6 +4912,7 @@ class NOApplyResult:
     statute: IRStatute
     filter_result: "FilterResult[LegalOperation]"
     write_receipts: tuple["WriteReceipt", ...] = ()
+    observed_write_audits: tuple[ObservedWriteAudit, ...] = ()
 
     @property
     def applied_ops(self) -> tuple["LegalOperation", ...]:
@@ -4753,9 +4972,9 @@ def apply_no_ops_conserved(
     ``ValueError`` rather than silently dropping or mis-bucketing an op.
 
     When ``emit_receipts=True`` is passed, per-op landed-write receipts
-    (§2.3 + notes/APPLY_RESOLUTION_AND_RECEIPT_CONTRACT.md §4) are also
-    produced via :func:`no_replay_write_receipts` and surfaced on
-    :attr:`NOApplyResult.write_receipts`. Each receipt records the landed
+    (§2.3 + notes/APPLY_RESOLUTION_AND_RECEIPT_CONTRACT.md §4) are produced by
+    the authoritative fold and surfaced on :attr:`NOApplyResult.write_receipts`.
+    Each receipt records the landed
     footprint (created/replaced/removed/renumbered paths) plus pre/post
     structural subtree hashes for the covering region. Production lanes
     (NO replay's ``replay_no_to_pit``) pass ``emit_receipts=True`` so the
@@ -4801,36 +5020,30 @@ def apply_no_ops_conserved(
     # local buffer so bare-apply's mutations stay scoped and the partition
     # below still has a source to read from.
     adjudications: List[CompileAdjudication] = adjudications_out if adjudications_out is not None else []
-    applied_statute = apply_no_ops(
+    fold_result = _apply_no_ops_fold(
         statute,
         ops_list,
         adjudications_out=adjudications,
         strict_invariants=strict_invariants,
         strict_action_family=strict_action_family,
         strict_recovery=strict_recovery,
+        emit_receipts=emit_receipts,
     )
-    # Partition: an op is REJECTED iff its op_id appears on a per-op SKIP
-    # adjudication. Recovery adjudications (no_replay_*) record transformations
-    # that WERE applied (e.g. REPLACE recovered to INSERT) and must NOT mark
-    # their op as rejected. See ``_NO_SKIP_ADJUDICATION_KINDS`` above.
-    skipped_op_ids = {a.op_id for a in adjudications if a.op_id and a.kind in _NO_SKIP_ADJUDICATION_KINDS}
-    accepted: list[LegalOperation] = []
-    rejected: list[RejectedItem[LegalOperation]] = []
+    outcome_by_id = {outcome.op.op_id: outcome for outcome in fold_result.outcomes}
+    if set(outcome_by_id) != set(op_ids):
+        raise ValueError("Norway apply outcomes do not conserve the input op-id set")
+    accepted = tuple(
+        op
+        for op in ops_list
+        if outcome_by_id[op.op_id].landed
+        and outcome_by_id[op.op_id].rejection is None
+    )
+    rejected_list: list[RejectedItem[LegalOperation]] = []
     for op in ops_list:
-        if op.op_id in skipped_op_ids:
-            matching = [a for a in adjudications if a.op_id == op.op_id and a.kind in _NO_SKIP_ADJUDICATION_KINDS]
-            reason = matching[0].message if matching else "NO replay op skipped without a typed reason."
-            reason_code = matching[0].kind if matching else "no_replay_skipped_unspecified"
-            rejected.append(
-                RejectedItem(
-                    item=op,
-                    reason=reason,
-                    reason_code=reason_code,
-                    blocking=False,
-                )
-            )
-        else:
-            accepted.append(op)
+        rejection = outcome_by_id[op.op_id].rejection
+        if rejection is not None:
+            rejected_list.append(rejection)
+    rejected = tuple(rejected_list)
     # Propagation: bare apply already mutated ``adjudications_out`` in place
     # (the caller's list when one was provided) — no local-copy / clear /
     # extend round-trip needed. The previous local-copy-then-extend pattern
@@ -4840,273 +5053,38 @@ def apply_no_ops_conserved(
     # surfaced — bare apply raised after emitting the recovery adjudication
     # witness, but the caller's ``adjudications_out`` stayed empty); routing
     # the caller's list directly closes that hole.
-    write_receipts: tuple[WriteReceipt, ...] = ()
+    write_receipts = tuple(
+        outcome.write_receipt
+        for outcome in fold_result.outcomes
+        if outcome.landed and outcome.write_receipt is not None
+    )
+    observed_write_audits = tuple(
+        outcome.observed_write_audit
+        for outcome in fold_result.outcomes
+        if outcome.landed and outcome.observed_write_audit is not None
+    )
     if emit_receipts:
-        # Re-apply one op at a time to snapshot before/after body trees for
-        # per-op WriteReceipt construction (§2.3 receipt contract). The final
-        # statute from this per-op apply matches ``applied_statute`` for NO's
-        # REPLACE/INSERT/REPEAL/RENUMBER op families under the same caveat
-        # SE documents at ``sweden/grafter.py:3811``: the per-op fold is
-        # order-preserving for these action families assuming the replay fold
-        # does not branch on multi-op invariants. NO's renumber-group
-        # ordering (``_ordered_renumber_group``) is recomputed per single-op
-        # call — for a single renumber op there is no intra-group ordering
-        # to interlock, so the per-op receipt is still a faithful record of
-        # what landed for that op. The per-op fold is the same algorithm
-        # :func:`no_replay_write_receipts` runs; routing it through the
-        # conserved wrapper here makes the receipt lane reachable from
-        # production (the §2.9 fix). Mirrors SE at ``sweden/grafter.py:3903``.
-        _, write_receipts = no_replay_write_receipts(statute, ops_list)
+        accepted_ids = {op.op_id for op in accepted}
+        receipt_ids = {receipt.op_id for receipt in write_receipts}
+        audit_ids = {audit.op_id for audit in observed_write_audits}
+        if accepted_ids != receipt_ids or accepted_ids != audit_ids:
+            raise ValueError(
+                "Norway apply accounting mismatch: accepted ops, write receipts, "
+                "and observed-write audits must have identical op-id sets"
+            )
+    elif write_receipts or observed_write_audits:
+        raise ValueError(
+            "Norway apply emitted receipt evidence while emit_receipts is false"
+        )
     return NOApplyResult(
-        statute=applied_statute,
+        statute=fold_result.statute,
         filter_result=FilterResult(
-            accepted_items=tuple(accepted),
-            rejected_items=tuple(rejected),
+            accepted_items=accepted,
+            rejected_items=rejected,
         ),
         write_receipts=write_receipts,
+        observed_write_audits=observed_write_audits,
     )
-
-
-# ---------------------------------------------------------------------------
-# Per-op WriteReceipt emission (AGENTS.md §2.3 — receipt contract, second step).
-#
-# Mirrors the SE helper at ``sweden/grafter.py:4035``–``sweden/grafter.py:4220``.
-# An opt-in wrapper around ``apply_no_ops`` that applies ops one at a time,
-# snapshots the before/after body trees, and synthesizes a ``WriteReceipt`` per
-# *applied* op (skipped ops emit no receipt — the conserved FilterResult's
-# rejected_items lane carries the witness instead). The receipt carries the
-# full §2.3 contract shape:
-#   - op_id / helper / action / bound_target_path / landed_primary_path
-#   - categorized mutation footprint (created/replaced/removed/renumbered)
-#   - pre/post structural subtree hashes for the covering region
-#   - migration_rule_ids=("no_section_renumber_relabel",) for RENUMBER ops
-#     (the §1.6 unstated-migration invariant's identity-migration owner —
-#     mirrors SE's ``("se_renumber_relabel",)`` at sweden/grafter.py:4157)
-# ---------------------------------------------------------------------------
-
-
-def _no_legal_path_to_tree_path(addr: LegalAddress) -> TreePath:
-    """Coerce a LegalAddress path into the core TreePath shape.
-
-    ``LegalAddress.path`` is a tuple of ``(kind, label | None)`` pairs; the
-    core ``TreePath`` shape requires ``str`` labels (empty string for the
-    root or None labels). Mirrors ``sweden/grafter.py:4035``.
-    """
-    return tuple((str(kind), str(label or "")) for kind, label in addr.path)
-
-
-def _no_emit_one_op_receipt(
-    before_body: IRNode,
-    after_body: IRNode,
-    op: LegalOperation,
-) -> WriteReceipt | None:
-    """Emit a :class:`WriteReceipt` for one op's apply, or ``None`` when skipped.
-
-    Mirrors ``sweden/grafter.py::_se_emit_one_op_receipt`` (line 4046). The
-    receipt synthesizes the typed §2.3 contract fields from the actual
-    before/after IR tree diff (computed via core's identity-pruned diff) and
-    the op's declared target. The mutation footprint is categorized by
-    ``op.action.value`` — REPLACE/text-replace → ``replaced_paths``; INSERT →
-    ``created_paths``; REPEAL → ``removed_paths``; RENUMBER → ``renumbered_paths``
-    sourced from ``op.target.path`` and ``op.destination.path``.
-
-    Pre/post hashes are taken at the landed primary path's covering region
-    using :func:`structural_subtree_hash` (the canonical recipe from
-    CERTIFIED_TREE_TRANSITION_TRACE_V0.md §2.2). For REPEAL the pre hash is
-    the section-body subtree hash that existed before; the post hash is ``""``
-    (the hash of an absent subtree).
-
-    Per §4 of the apply-resolution/receipt contract
-    (notes/APPLY_RESOLUTION_AND_RECEIPT_CONTRACT.md), a divergence between
-    ``bound_target_path`` (from) and ``landed_primary_path`` (to) MUST be
-    explained by a named migration rule. The RENUMBER branch sets the bound
-    to the source label and the landed to the destination label — they
-    diverge by construction (a relabel IS the migration). The named rule
-    ``no_section_renumber_relabel`` (registered in spec_ledger_no_catalog.py)
-    explains that divergence so the receipt audits as ``qualified`` (not
-    ``violation``) in ``build_observed_write_audit`` and
-    ``WriteReceipt.divergence_explained`` returns True. Without it, the NO
-    RENUMBER receipt is a §1.6 unstated-migration violation that strict mode
-    must reject. This mirrors SE's exact shape at sweden/grafter.py:4155–4157
-    (``se_renumber_relabel``).
-    """
-    changed = diff_ir_paths_identity_pruned(before_body, after_body)
-    if not changed:
-        # The op was filtered/skipped (the apply path emitted an adjudication).
-        # No receipt — the conserved FilterResult's rejected_items lane will
-        # carry the witness instead.
-        return None
-
-    action_value = legacy_text_action_value(op) if op.action else "unknown"
-    leaf_kind = op.target.leaf_kind() or "unknown"
-    helper = f"apply_no_ops::{action_value}::{leaf_kind}"
-    bound_target_path = _no_legal_path_to_tree_path(op.target)
-
-    # Landed primary path: for INSERT, REPEAL and REPLACE/text_replace, audit at
-    # the targeted legal address (bound == landed semantically; divergence is
-    # only meaningful for RENUMBER, where the landed path is the destination).
-    # SE uses ``changed[0]`` for REPLACE because its sections are top-level
-    # children of body, so ``changed[0]`` equals ``bound_target_path`` for SE.
-    # For NO where sections are typically nested under chapters, ``changed[0]``
-    # is the deep tree path (e.g. ``chapter:kap1/section:2``) and the strict
-    # bound != landed[0] divergence is a tree-nesting artifact, not a semantic
-    # divergence. Source the landed primary path from ``bound_target_path``
-    # for these action families — mirroring the same reasoning SE applies to
-    # INSERT/REPEAL at sweden/grafter.py:4087–4104. The pre/post hashes still
-    # resolve recursively via :func:`tree_ops.find` (below) so they audit at
-    # the actual tree position. Mirrors sweden/grafter.py:4087–4104.
-    if action_value in {"insert", "repeal", "replace", "text_replace"}:
-        landed_primary_path: TreePath | None = bound_target_path or None
-    elif action_value == "renumber":
-        # RENUMBER removes the source section and re-inserts it under the
-        # destination label — both are parent children-list changes, so the
-        # identity-pruned diff reports the body-level change as a single
-        # empty-path tuple ``((),)`` rather than any surviving coordinate.
-        # Mirror the INSERT/REPEAL empty-diff handling: the section LANDED at
-        # the destination, so point the receipt (and its pre/post hash) at the
-        # destination path. Using ``changed[0]`` here would yield the empty
-        # path ``()`` (a non-coordinate), which is falsy and would silently
-        # blank the pre/post hashes — a malformed receipt.
-        landed_destination_path = _no_legal_path_to_tree_path(op.destination) if op.destination is not None else None
-        landed_primary_path = landed_destination_path or None
-    else:
-        landed_primary_path = changed[0] if changed else None
-
-    created_paths: TreePaths = ()
-    replaced_paths: TreePaths = ()
-    removed_paths: TreePaths = ()
-    renumbered_paths: tuple[tuple[TreePath, TreePath], ...] = ()
-
-    # Same reasoning as landed_primary_path above: INSERT/REPEAL categorize
-    # via the declared bound_target_path (the targeted section is the one
-    # that was created/removed), not the diff's body-level change pair.
-    # Mirrors sweden/grafter.py:4114–4138.
-    if action_value in {"replace", "text_replace"}:
-        replaced_paths = changed
-    elif action_value == "insert":
-        created_paths = (bound_target_path,) if bound_target_path else ()
-    elif action_value == "repeal":
-        removed_paths = (bound_target_path,) if bound_target_path else ()
-    elif action_value == "renumber":
-        if op.destination is not None:
-            destination_path = _no_legal_path_to_tree_path(op.destination)
-            # The RENUMBER footprint is (from_path, to_path). The from_path
-            # comes from the op's declared target; the to_path from the
-            # destination. Both cover the section node's identity relabel
-            # (the from_path is removed; the to_path is created with the
-            # source's subtree content).
-            renumbered_paths = ((bound_target_path, destination_path),)
-        # Do NOT fold ``changed`` into replaced_paths here. A RENUMBER is a
-        # parent children-list change (source removed, destination inserted),
-        # so the identity-pruned diff reports it as a single empty-path tuple
-        # ``((),)`` rather than any surviving coordinate. Assigning
-        # ``replaced_paths = changed`` would put the bogus empty path ``()``
-        # into the receipt footprint (a non-coordinate). The meaningful
-        # RENUMBER footprint is the typed (from, to) pair carried by
-        # ``renumbered_paths`` above — mirroring how INSERT/REPEAL source
-        # their footprint from the declared bound target, not the body-level
-        # diff pair.
-
-    # Per §4 of the apply-resolution/receipt contract, the bound→landed
-    # divergence on a RENUMBER is the typed named migration for a section
-    # relabel/renumber — ``no_section_renumber_relabel`` is the rule id that
-    # owns the divergence (mirrors SE's ``se_renumber_relabel`` at line
-    # 4157). Without this stamp, the receipt audits as ``violation`` in
-    # ``build_observed_write_audit`` and ``WriteReceipt.divergence_explained``
-    # returns False (a §1.6 unstated-migration violation that strict mode
-    # must reject). For non-RENUMBER actions, no migration rule applies —
-    # bound==landed for REPLACE/INSERT/REPEAL, so divergence_explained is
-    # True via the equality short-circuit without a named rule.
-    migration_rule_ids: tuple[str, ...] = ()
-    if action_value == "renumber" and op.destination is not None:
-        migration_rule_ids = ("no_section_renumber_relabel",)
-
-    # pre/post hashes at the covering region of the landed primary path.
-    # For REPEAL, the landed path's post node is absent -> post_hash is "".
-    #
-    # NO sections typically live nested under a chapter/container (unlike SE
-    # where sections are top-level children of body), so the single-segment
-    # ``landed_primary_path`` from ``op.destination.path`` may not directly
-    # resolve against ``before_body`` / ``after_body`` via
-    # :func:`tree_ops.resolve` (which walks a strict path). The recursive
-    # :func:`tree_ops.find` fallback — mirroring how ``_resolve_no_path``
-    # resolves targets in :func:`apply_no_ops` — finds the section at any
-    # depth when the direct resolve misses (the production-lane case where
-    # §2 lives under ``chapter:kap1`` rather than directly on ``body``).
-    pre_hashes: dict[str, str] = {}
-    post_hashes: dict[str, str] = {}
-    if landed_primary_path:
-        key = receipt_address_string(landed_primary_path)
-        before_node = tree_ops.resolve(before_body, list(landed_primary_path))
-        if before_node is None and len(landed_primary_path) == 1:
-            kind, label = landed_primary_path[0]
-            if label:
-                find_path = tree_ops.find(before_body, str(kind), str(label))
-                if find_path is not None:
-                    before_node = tree_ops.resolve(before_body, list(find_path))
-        after_node = tree_ops.resolve(after_body, list(landed_primary_path))
-        if after_node is None and len(landed_primary_path) == 1:
-            kind, label = landed_primary_path[0]
-            if label:
-                find_path = tree_ops.find(after_body, str(kind), str(label))
-                if find_path is not None:
-                    after_node = tree_ops.resolve(after_body, list(find_path))
-        pre_hashes[key] = structural_subtree_hash(before_node) if before_node is not None else ""
-        post_hashes[key] = structural_subtree_hash(after_node) if after_node is not None else ""
-
-    return WriteReceipt(
-        op_id=op.op_id or "",
-        helper=helper,
-        action=action_value,
-        bound_target_path=bound_target_path,
-        landed_primary_path=landed_primary_path,
-        created_paths=created_paths,
-        replaced_paths=replaced_paths,
-        removed_paths=removed_paths,
-        renumbered_paths=renumbered_paths,
-        migration_rule_ids=migration_rule_ids,
-        source_anchor=(op.source.source_anchor if op.source is not None else None),
-        pre_hashes=pre_hashes,
-        post_hashes=post_hashes,
-    )
-
-
-def no_replay_write_receipts(
-    statute: IRStatute,
-    ops: list[LegalOperation] | tuple[LegalOperation, ...],
-) -> tuple[IRStatute, tuple[WriteReceipt, ...]]:
-    """Apply ops one at a time and emit per-op :class:`WriteReceipt` records (§2.3).
-
-    Mirrors ``sweden/grafter.py::se_replay_write_receipts`` (line 4186). For
-    each op, applies it via :func:`apply_no_ops` to a single-op list,
-    snapshots the before/after body trees, and synthesizes a
-    :class:`WriteReceipt` using core's identity-pruned diff +
-    :func:`structural_subtree_hash`. Skipped ops (those that resulted in no
-    tree change — the adjudication ledger recorded the skip) emit no receipt.
-
-    The final statute matches the result of :func:`apply_no_ops` applied to
-    the full op list (the per-op apply is associative and order-preserving
-    for Norway's REPLACE/INSERT/REPEAL/RENUMBER op families, assuming the
-    replay fold does not branch on multi-op invariants).
-
-    Returns ``(final_statute, receipts_tuple)``. Consumers that want both the
-    typed FilterResult conservation receipt (§1.8) AND per-op write receipts
-    (§2.3) call this; callers that only need the apply fold itself keep using
-    the cheaper :func:`apply_no_ops_conserved` with ``emit_receipts=False``.
-    """
-    current = statute
-    receipts: list[WriteReceipt] = []
-    for op in ops:
-        adjudications: list[CompileAdjudication] = []
-        next_statute = apply_no_ops(current, [op], adjudications_out=adjudications)
-        if not adjudications:
-            # Op applied — emit a receipt from the before/after body diff.
-            receipt = _no_emit_one_op_receipt(current.body, next_statute.body, op)
-            if receipt is not None:
-                receipts.append(receipt)
-        # If adjudications is non-empty, op was skipped — no receipt.
-        current = next_statute
-    return current, tuple(receipts)
 
 
 def _no_record_archive_skip(
