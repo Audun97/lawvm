@@ -12,10 +12,13 @@ typescript-batch harness; its hard-won rules carry over unless marked lawvm.
 
 ## 1. Write the contract from evidence, never from inspection
 
-Establish the real scope by doing the work (or a bounded spike of it) in a
-throwaway worktree or scratch session, then discard the code and keep the map.
-A contract written by only reading the code has been wrong every time it was
-tried in the source repo — two contracts cost a full run each.
+Run the **norway-batch-spike** skill first: do the work (or a bounded spike of
+it) in a throwaway worktree, then discard the code and keep the map. Its
+deliverable maps one-to-one onto the contract fields — blast radius becomes
+scope, traps become preflight checks, the field delta becomes
+fieldVerification. A contract written by only reading the code has been wrong
+every time it was tried in the source repo — two contracts cost a full run
+each.
 
 **Scope tight, solution loose.** Pin what must be true and which files are in
 play; do not prescribe the implementation. Naming a file that does not exist
