@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "id": "01-compare-noise-normalization",
+  "slug": "compare-noise-normalization",
+  "title": "Strip published-side footnote residue from the Norway compare lane",
+  "classification": "confirmed",
+  "source": {
+    "path": "notes/NORWAY_VERIFY_FINDINGS_LEDGER.md",
+    "sections": [
+      "F-05 — Footnote-marker digits leak into the published compare text",
+      "F-06 — Footnote-anchor whitespace in published text",
+      "W-1"
+    ]
+  },
+  "branch": "audun/norway-receipt-spine",
+  "productBaseline": "3396a3713e84f6bda745e01d3c391dcbd055c799",
+  "dependsOn": [],
+  "recommendedAfter": [],
+  "objective": "Extend the Norway compare-only text normalization so published-side footnote residue (a trailing footnote marker digit before a final period, and the space a stripped footnote anchor leaves before a closing parenthesis) stops registering as replay-vs-consolidation divergence, without touching replay materialization.",
+  "preflightChecks": [
+    "src/lawvm/norway/verify.py defines _NO_COMPARISON_NORMALIZATION_RULES as a tuple of ComparisonNormalizationRule entries.",
+    "normalize_no_comparison_text in src/lawvm/norway/verify.py applies _NO_COMPARISON_NORMALIZATION_RULES to its input.",
+    "The punctuation-spacing character class in src/lawvm/norway/verify.py does not cover a closing parenthesis.",
+    "Both compared bodies in src/lawvm/norway/verify.py pass through _normalize_no_compare_tree before divergence detection.",
+    "no-divergence for no/lov/2019-12-20-109 at as-of 2026-07-10 shows consolidated text ending Kongen bestemmer 1.",
+    "no-divergence for no/lov/2018-06-15-44 at as-of 2026-07-10 shows a space before the closing parenthesis after 910/2014."
+  ],
+  "scope": {
+    "boundary": [
+      "src/lawvm/norway/verify.py",
+      "tests/test_norway_verify.py"
+    ],
+    "allowedPaths": [
+      "src/lawvm/norway/verify.py",
+      "tests/test_norway_verify.py"
+    ],
+    "requiredChangedPaths": [
+      "src/lawvm/norway/verify.py",
+      "tests/test_norway_verify.py"
+    ],
+    "requiredAddedPaths": [],
+    "requiredDeletedPaths": []
+  },
+  "requirements": [
+    "Add typed ComparisonNormalizationRule entries, rule_class presentation_cleanup, following the naming family of the existing no_compare_* rules.",
+    "One rule removes the space a stripped footnote anchor leaves before a closing parenthesis.",
+    "One rule removes a trailing footnote marker digit that the published extraction leaves between the final word and the final period of a text unit.",
+    "Bound the trailing-digit rule so genuine numbered statute text is untouched, and encode that bound in tests with realistic Norwegian counter-examples that must NOT be altered.",
+    "Cover both real corpus shapes in tests: Kongen bestemmer 1. normalizing to Kongen bestemmer. and 910/2014 ) normalizing to 910/2014).",
+    "Normalization stays in the compare-only lane; replay materialization and adjudication behavior are unchanged."
+  ],
+  "invariants": [
+    "Existing _NO_COMPARISON_NORMALIZATION_RULES entries keep their names, order relative to each other, and behavior.",
+    "Both compared trees receive identical normalization.",
+    "No consolidated-text authority widens over replay: rules may only erase presentation residue, never rewrite operative wording.",
+    "The norway test shard passes."
+  ],
+  "exclusions": [
+    "The akkord/rekonstruksjonsforhandling mismatch in no/lov/2019-12-20-109 (findings ledger F-03) is a commencement question, not compare noise.",
+    "The skatteloven paragraph-reference editorial correction (F-07).",
+    "Touched/untouched divergence partition logic.",
+    "Findings-ledger and progress-ledger updates: those are the human apply step."
+  ],
+  "stopConditions": [
+    "If the trailing-digit rule cannot be bounded without altering genuine statute text such as list items or section references ending in a digit and period, abort and record the counter-example instead of shipping a loose rule."
+  ],
+  "reviewFocus": [
+    "Construct realistic Norwegian legal sentences the new rules would wrongly alter; a normalization rule that can eat operative text is a blocking defect.",
+    "Verify symmetry: the rules run on both compare sides, so confirm a replay-side text carrying the same shape is normalized identically rather than creating a new mismatch."
+  ],
+  "verification": {
+    "targeted": [
+      {
+        "id": "static",
+        "command": "uv run ruff check src/lawvm/norway/verify.py tests/test_norway_verify.py --no-fix",
+        "group": "static",
+        "required": true
+      },
+      {
+        "id": "types",
+        "command": "uv run ty check src/lawvm/norway/verify.py tests/test_norway_verify.py",
+        "group": "static",
+        "required": true
+      },
+      {
+        "id": "norway-verify-tests",
+        "command": "./scripts/test_shard.sh run norway -- tests/test_norway_verify.py",
+        "group": "tests",
+        "required": true
+      }
+    ],
+    "full": [
+      {
+        "id": "ci-affected",
+        "command": "./scripts/ci.sh --affected src/lawvm/norway/verify.py tests/test_norway_verify.py",
+        "group": "ci",
+        "required": true
+      }
+    ]
+  },
+  "fieldVerification": {
+    "policy": "required-after-application",
+    "instructions": [
+      "uv run lawvm no-divergence no/lov/2019-12-20-109 --as-of 2026-07-10 — the Kongen bestemmer footnote-digit MISMATCH is gone; exactly one divergence remains (the F-03 akkord mismatch).",
+      "uv run lawvm no-divergence no/lov/2018-06-15-44 --as-of 2026-07-10 — the law reports zero divergences.",
+      "uv run lawvm no-divergence no/lov/2015-05-12-27 --as-of 2026-07-10 — the Kongen fastset footnote-digit MISMATCH is gone; the statsforvaltaren mismatches (F-04) remain.",
+      "uv run lawvm no-verify-scan --limit 50 --as-of 2026-07-10 — consistent count rises from 11 to 12 (no/lov/2018-06-15-44 becomes consistent) and no law that was consistent before is divergent now.",
+      "Update notes/NORWAY_VERIFY_FINDINGS_LEDGER.md: F-05 and F-06 to fixed with the apply commit, scoreboard row, changelog line."
+    ]
+  }
+}

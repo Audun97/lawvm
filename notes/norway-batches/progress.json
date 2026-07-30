@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "branch": "audun/norway-receipt-spine",
+  "sourceReview": {
+    "path": "notes/NORWAY_VERIFY_FINDINGS_LEDGER.md",
+    "sha256": "806216776cd54bb4ecc06d69bb487a8815157218d9dd51d499f590687d81bed8"
+  },
+  "executionPolicy": {
+    "runnableState": "ready",
+    "readyAtHeadMeaning": "frozen-product-baseline",
+    "allowedControlPlaneDrift": [
+      {
+        "path": ".claude/",
+        "match": "prefix"
+      },
+      {
+        "path": "notes/",
+        "match": "prefix"
+      }
+    ],
+    "requiredCompletedRelations": [
+      "dependsOn",
+      "recommendedAfter"
+    ],
+    "fieldVerificationPolicies": [
+      "not-required",
+      "required-after-application"
+    ]
+  },
+  "batches": {
+    "01-compare-noise-normalization": {
+      "state": "ready",
+      "readyAtHead": "3396a3713e84f6bda745e01d3c391dcbd055c799",
+      "contract": {
+        "path": "notes/norway-batches/contracts/01-compare-noise-normalization.json",
+        "sha256": "bcca51596304009361effe9c4410db9104111e2906d60eee03ba2e49447f1196"
+      },
+      "fieldVerification": {
+        "status": "required-after-application"
+      }
+    }
+  }
+}
