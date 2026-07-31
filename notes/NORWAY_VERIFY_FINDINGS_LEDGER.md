@@ -186,12 +186,40 @@ of the laws it changes, sitting in the same metadata block as `dateInForce`
 </ul></dd>
 ```
 
-Nothing in `src/lawvm/norway/` reads it. `NOAmendmentIndexEntry.base_ids` is
-derived solely from successfully-extracted ops (`index.py:268`), so a law the
-extractor fails to reach is silently absent from the binding — with no receipt,
-because a target that was never bound is never adjudicated as missed.
+`NOAmendmentIndexEntry.base_ids` is derived solely from successfully-extracted
+ops (`index.py:268`), so a law the extractor fails to reach is silently absent
+from the binding — with no receipt, because a target that was never bound is
+never adjudicated as missed.
 
-Measured over all 3,089 amendment artifacts (2,941 carry the field, 148 do not):
+> **Correction (2026-07-31, batch 02 preflight).** This entry originally said
+> "nothing in `src/lawvm/norway/` reads it". **That is false**, and the batch-02
+> preflight caught it before any code was written. `grafter.py:1490`, inside
+> `_iter_unstructured_no_change_groups`, already xpaths the
+> `changesToDocuments` class, reads its `<li>` descendants, normalizes each
+> through `normalize_lovdata_refid`, and then sets
+> `default_base_id = changed_docs[0] if len(changed_docs) == 1 else None`.
+>
+> Two consequences, both material:
+>
+> 1. **The reading primitives already exist.** A `<li>` parser and a working id
+>    normalizer are both in the tree. Batch 02 extracts and reuses them instead
+>    of adding a second copy, which is what the original contract would have
+>    produced.
+> 2. **"The declared list never authorizes a binding" is not true of the
+>    frontend as a whole.** On the unstructured path, a sole declared ref
+>    already determines an op's base id today. The claim is true of the *index*,
+>    and only the index. Any spec wording must say so.
+>
+> The measurement below is unaffected — it was taken from the artifacts, not
+> from this claim. What changes is the diagnosis: the field is read in one
+> narrow place and never used as a completeness denominator.
+
+Measured over all 3,089 amendment artifacts. **2,942 carry a
+`changesToDocuments` block and 147 do not**; every block present is non-empty.
+Of those, **2,941 contain at least one `lov`-form target** — the odd one out is
+`no/lovtid/2021-06-18-115`, whose declared list holds only
+`forskrift/1952-04-21-4287`. The probe's `lov`-only regex counts 2,941/148; by
+block presence it is 2,942/147. Batch 02 must pick one definition explicitly.
 
 | | |
 |---|---|
@@ -247,8 +275,14 @@ target produce correct ops is not, and splits into at least three families:
    `no/lovtid/2021-05-07-34` (93 unreached).
 2. **Ordinary multi-target omnibus acts** — the bulk of the remaining ~3,700,
    where extraction reaches some targets and not others.
-3. **Declared-target id forms the current ids cannot express** — e.g.
-   `lov/1967-02-10` (forvaltningsloven) has no trailing number.
+3. **Declared targets that normalize to non-resolving ids** — 109 items of the
+   form `lov/<date>` with no trailing number, e.g. `lov/1967-02-10`
+   (forvaltningsloven). `normalize_lovdata_refid` turns these into well-formed
+   `no/lov/1967-02-10` ids, but **no corpus law id has that shape**, so they can
+   never bind. They need their own bucket; counted as ordinary unbound targets
+   they inflate the headline gap by 109 and stop it reconciling with the probe.
+   (An earlier version of this entry called them "unexpressible" — the id
+   grammar expresses them fine; nothing resolves them.)
 
 Recommended decomposition, smallest-first, each independently field-measurable:
 **(a)** parse and store the declared list as a *typed observed-vs-declared
@@ -488,6 +522,21 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
 
+- **2026-07-31 (batch 02, run 1)** — **Aborted at Preflight, correctly**, before
+  any agent wrote code. Two of the contract's 16 asserted facts were false, and
+  the expensive one was mine: F-10 claimed nothing under `src/lawvm/norway/`
+  reads `changesToDocuments`, but `grafter.py:1490` has read it all along and
+  uses a sole declared ref as `default_base_id`. Had the batch run, it would
+  have built a second `<li>` parser and a second id normalizer beside working
+  ones, and shipped a catalog entry asserting something false about the
+  frontend. The second failure was an off-by-one with a real cause: 2,942 acts
+  carry a declared block but only 2,941 declare a `lov`-form target, because
+  `no/lovtid/2021-06-18-115` declares only a forskrift. Contract rewritten to
+  extract-and-reuse rather than rebuild, `grafter.py` added to scope, the
+  109 `lov/<date>` items reclassified from "unexpressible" to "normalize to a
+  non-resolving id", and the block-presence definition forced to be explicit.
+  Ledger corrected in place. Cost: one preflight, zero review cycles — the
+  cheapest possible place to find this.
 - **2026-07-31 (design)** — **W-8's blocking-vs-evidentiary question settled by
   measurement, and the question turned out to be malformed.** The repo does not
   offer that binary: `blocking`, `strict_disposition` and `quirks_disposition`
