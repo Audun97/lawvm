@@ -493,21 +493,40 @@ function emptyReport(status, reasons, context = {}) {
 // interrogate an agent about the repository, and nothing has to cross-examine what an agent says
 // it saw. The tool may deliver args as an object or as a JSON string, and the runtime's own
 // resume-from-run-id line reproduces them stringified, so accept both.
+// Large inline args are TRUNCATED in transit. A 13.1 KB envelope arrived intact; a 16.7 KB one
+// was cut mid-string, so JSON.parse threw and this read returned {} — which the old code reported
+// as "No preflight facts were supplied", sending the caller to debug fact GENERATION when the
+// real fault was TRANSPORT. Distinguish the two and always report the byte count, because the
+// caller cannot see what actually arrived.
 function readArgs(value) {
-  if (isPlainObject(value)) return value
-  if (typeof value !== 'string' || !value.trim().startsWith('{')) return {}
+  if (isPlainObject(value)) return {args: value, transport: null}
+  if (typeof value !== 'string') return {args: {}, transport: `args arrived as ${typeof value}, not an object or JSON string`}
+  if (!value.trim().startsWith('{')) return {args: {}, transport: `args string does not begin with '{' (${value.length} bytes)`}
   try {
     const parsed = JSON.parse(value)
-    return isPlainObject(parsed) ? parsed : {}
-  } catch { return {} }
+    if (!isPlainObject(parsed)) return {args: {}, transport: `args JSON parsed to ${typeof parsed}, not an object`}
+    return {args: parsed, transport: null}
+  } catch (err) {
+    const looksTruncated = !value.trimEnd().endsWith('}')
+    return {args: {}, transport: [
+      `args JSON.parse failed after ${value.length} bytes: ${String(err).slice(0, 160)}`,
+      looksTruncated
+        ? 'The string does not end in "}" — it was TRUNCATED in transit, not malformed at the source.'
+        : 'The string is terminated, so this is malformed JSON rather than truncation.',
+      'Inline workflow args have a size ceiling between 13.1 KB and 16.7 KB (measured 2026-07-31).',
+      'Shrink the envelope and re-invoke; regenerating the facts will not help.',
+    ].join(' ')}
+  }
 }
-const parsedArgs = readArgs(args)
+const {args: parsedArgs, transport: transportFault} = readArgs(args)
 const inputMode = parsedArgs.mode || 'full'
 const facts = isPlainObject(parsedArgs.facts) ? parsedArgs.facts : null
 
 if (!facts) {
   return emptyReport('aborted', [
-    'No preflight facts were supplied.',
+    transportFault
+      ? `Preflight facts did not survive transport: ${transportFault}`
+      : 'No preflight facts were supplied.',
     'Run: uv run python scripts/norway_batch_preflight.py <contract-path> --json',
     'then invoke this workflow with args {mode, facts} where facts is that output.',
   ], {phase: 'Load'})

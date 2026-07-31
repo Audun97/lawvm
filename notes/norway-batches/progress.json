@@ -33,7 +33,7 @@
       "readyAtHead": "e04be4d7ddfd8bd80750e6d260a25ddfe106bbb9",
       "contract": {
         "path": "notes/norway-batches/contracts/02-declared-target-binding-coverage.json",
-        "sha256": "4f42b5267167074df21810b31f5b366dced67db224452c7528fbf42327b10890"
+        "sha256": "9dd5e22852326f9a6f579fcf8e8b5090bfd833ec52c81ad6c2ef15ba261fa08e"
       },
       "fieldVerification": {
         "status": "required-after-application",
