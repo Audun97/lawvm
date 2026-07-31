@@ -542,9 +542,14 @@ if (!scopeMatchers.boundary.length) {
 }
 const frozenContract = JSON.stringify(contract)
 
-// Isolated worktrees do not carry the gitignored corpus archives; the runtime resolver honors
-// LAWVM_CANONICAL_DATA_ROOT directly, so exporting it is the whole worktree corpus story.
-const corpusEnvLine = `export LAWVM_CANONICAL_DATA_ROOT=${facts.repositoryRoot}`
+// Isolated worktrees do not carry the gitignored corpus archives. TWO exports are needed and
+// they are not interchangeable: lawvm.corpus_store honors LAWVM_CANONICAL_DATA_ROOT, but Norway
+// source resolution (norway/sources.resolve_no_source_path) reads only LAWVM_NORWAY_DB /
+// LAWVM_NORWAY_DATA_DIR and otherwise falls back to the worktree's own absent data/ dir. Missing
+// the second one makes every Norway replay fail with "no original-act source available", which
+// reads like a data gap rather than a missing variable. Measured on the W-2 spike.
+const corpusEnvLine = `export LAWVM_CANONICAL_DATA_ROOT=${facts.repositoryRoot} `
+  + `LAWVM_NORWAY_DB=${facts.repositoryRoot}/data/norway.farchive`
 
 phase('Preflight')
 log('Judging the contract assumptions that need code read, not facts computed.')

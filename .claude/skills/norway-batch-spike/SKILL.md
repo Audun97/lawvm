@@ -73,14 +73,41 @@ be committed by accident:
 SPIKE=/tmp/spike-<topic>
 git worktree add -q --detach "$SPIKE" HEAD
 cd "$SPIKE"
-export LAWVM_CANONICAL_DATA_ROOT=<main-checkout-path>
+MAIN=<main-checkout-path>
+export LAWVM_CANONICAL_DATA_ROOT="$MAIN"          # finlex + the shared resolver
+export LAWVM_NORWAY_DB="$MAIN/data/norway.farchive"   # Norway sources — SEPARATE
 ```
 
-The corpus archives are gitignored and will not exist in the worktree; the
-resolver reads `LAWVM_CANONICAL_DATA_ROOT` directly, so the export is the whole
-data story (no symlinks needed). Everything Python runs through `uv run` —
-the first invocation syncs a fresh environment for the worktree; that one-time
-cost is real, not a hang. Bare `python` silently uses the wrong interpreter.
+**Both exports are required, and the second is the one that bites.** The
+gitignored archives do not exist in a fresh worktree.
+`lawvm.corpus_store.resolve_farchive_path` honors `LAWVM_CANONICAL_DATA_ROOT`,
+but Norway source resolution does **not**: `norway/sources.resolve_no_source_path`
+reads only `LAWVM_NORWAY_DB` / `LAWVM_NORWAY_DATA_DIR`, then falls back to the
+worktree's own `data/norway.farchive`, which is absent. Without the second
+export every Norway replay fails with
+
+```text
+no original-act source available for no/lov/... (year YYYY)
+```
+
+which reads like a corpus gap in the data rather than a missing env var. This
+cost a spike round on W-2. Verify the environment before trusting any result:
+
+```bash
+uv run lawvm no-divergence no/lov/2018-06-15-44 --as-of 2026-07-10 | head -5
+# "replay status : replayed" means the environment is wired; "error" means it is not.
+```
+
+Everything Python runs through `uv run` — the first invocation syncs a fresh
+environment for the worktree; that one-time cost is real, not a hang. Bare
+`python` silently uses the wrong interpreter.
+
+**Two more worktree-only artifacts, neither a breakage:** the fresh venv lacks
+optional extras (`pypdfium2`, `PIL`), so `ty` reports 3 unresolved-import
+errors that the main checkout does not; and `tests/test_no_coverage.py` fails 4
+tests with `sqlite3.OperationalError: unable to open database file` in any
+worktree regardless of the change. Establish both by running the shard with
+your change stashed, exactly as you would for any suspected pre-existing red.
 
 **2. Make the obvious change first, then let the gates enumerate the damage.**
 Do not trace call sites by hand. Run, fix what is named, repeat:

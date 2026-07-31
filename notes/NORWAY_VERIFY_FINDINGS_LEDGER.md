@@ -60,7 +60,7 @@ receipts were emitted); only the comparison framing misleads.
 Action: derive the default comparison date from the consolidation package
 date (or refuse/warn when `as_of` < snapshot horizon).
 
-### F-02 — Sentence-level (punktum) unstructured leads not lowered — open (engine, top priority)
+### F-02 — Sentence-level (punktum) unstructured leads not lowered — open (engine, deferred behind W-7)
 
 `no/lov/2022-03-11-9` (vareførselsloven), its one real divergence: replay
 retains the third sentence of chapter:2/section:2-3/subsection:1 ("Melding kan
@@ -79,6 +79,52 @@ lowering, and every occurrence across the corpus produces a retained-text
 mismatch. Fix once, fixes a class.
 
 Repro: `uv run lawvm no-divergence no/lov/2022-03-11-9 --as-of 2026-07-10`
+
+**Spiked 2026-07-31. Verdict: do not batch yet — measurable payoff is zero.**
+
+The refusal is not one missing lowering; it is three defects stacked, and the
+family is far larger than the payoff.
+
+*Mechanism (measured, not read).* The sentence-lead regex at
+`grafter.py:989` already covers `oppheves`, so the family looked implemented.
+It is not reached, for three independent reasons:
+
+1. the regex is `$`-anchored right after `oppheves`, and every real lead carries
+   a terminal period — all 284 distinct leads fail as-is, 235 match once the
+   period is stripped;
+2. the token loop only ever assigns `REPLACE` or `INSERT`, so even a matching
+   `oppheves` lead lowers as a replace;
+3. the sentence lane requires a payload, and a repeal has none — so a matching
+   repeal falls through to the refusal anyway.
+
+*Size.* Deduplicated by (act, lead) over the 20 replayable laws' amendment
+chains: **8,623 refusals, 7,660 distinct leads, 1,704 source acts**. F-02 is
+**284 distinct leads** of that. Of those, 235 are reachable by period tolerance
+alone; the remaining 49 need shapes the regex does not model — `nr.` nesting
+(17), spaced letter-suffix sections such as `§ 10 b` (9), sentence ranges
+("femte til syvende punktum", 9), two sections in one lead (4), `bokstav`
+nesting (3), other (7).
+
+*Field impact: nil.* A minimal fix (period tolerance + REPEAL action) was built
+in a throwaway worktree. It lowers more ops for `no/lov/2022-03-11-9` (16 -> 18,
+applied 3 -> 4) and changes that law's divergent text — but the corpus scan is
+**unchanged at 12 consistent / 8 divergent, with no law moving**, and the one
+affected law stays divergent with arguably worse text (replay gains
+"referanse til deklarasjonen" while still keeping the sentence the repeal
+should have removed). The norway shard is unaffected: the 4 red tests in the
+spike worktree are identical with the change stashed.
+
+*Why nil.* 283 of the 284 leads belong to base laws that are not replayable —
+blocked on commencement (F-03 family, 217 laws) or missing base source (242).
+Only one lead touches a replayable law, and its divergence is not caused by the
+punktum repeal alone.
+
+*Sequencing.* F-02 is real and worth fixing, but it is **downstream of the
+commencement programme, not ahead of it**: the class only pays once its laws
+become replayable. Reopen after W-7 (Lovtidend extraction) moves laws out of
+the blocked pile, and scope it then as three explicit sub-batches (period +
+action + payload-free repeal path; then the 49 unmodelled shapes; then the
+range form), not one.
 
 ### F-03 — Mixed `dateInForce` ("DATE, Kongen bestemmer") applied at the date — open (engine/temporal, hypothesis)
 
@@ -206,8 +252,10 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
 1. ~~**W-1 (F-06):** strip the footnote-anchor space in the compare-only
    normalization.~~ **Done** — batch 01, f4eae341a. F-05 was measured out of
    this item before any code was written; see its entry.
-2. **W-2 (F-02):** add the punktum-level repeal (and sentence-move) lowering
-   family with full receipts; rerun the scan and count how many laws it clears.
+2. ~~**W-2 (F-02):** add the punktum-level repeal lowering family.~~
+   **Deferred** by the 2026-07-31 spike: three stacked defects, 284 leads, and
+   a measured field delta of zero because 283 of them sit behind the
+   commencement/missing-source blockers. Reopen after W-7.
 3. **W-3 (F-04):** hunt the statsforvalter renaming act in the archive;
    classify as index bug vs acquisition gap.
 4. **W-4 (F-01):** make `no-verify-scan`'s default comparison date
@@ -237,6 +285,14 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
 
+- **2026-07-31 (spike)** — **W-2 spiked and deferred.** The minimal fix was
+  built in a throwaway worktree and moved the corpus scan by nothing; F-02's
+  entry now carries the mechanism, the 284/8,623 sizing, the 49 unmodelled
+  sub-shapes, and the sequencing behind W-7. The spike also found a harness
+  bug: `LAWVM_CANONICAL_DATA_ROOT` alone does NOT resolve Norway sources in a
+  worktree (`resolve_no_source_path` reads `LAWVM_NORWAY_DB`), so every replay
+  in an isolated agent worktree failed with "no original-act source available"
+  — fixed in the spike skill and the workflow's env line.
 - **2026-07-31 (applied)** — **Batch 01 landed** (f4eae341a), the harness's
   first completed batch. F-06 fixed; scan 11 -> 12 consistent with every other
   law's row byte-identical. Run 2's fixer cycle replaced a vacuous boundedness
