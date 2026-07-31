@@ -320,6 +320,52 @@ Step (a) is the one to do first: it is a small, bounded, testable change that
 makes every later step measurable, and it is the only one whose scope is already
 known.
 
+#### Step (b) measured 2026-07-31: the dominant cause is identified, and it still cannot pay yet
+
+With step (a) landed, every unbound binding carries a receipt, so the 4,088 can
+be split by cause — joining each act's unbound targets to the parse diagnostics
+the engine already emits for that act
+(`scripts/probes/no_unbound_binding_causes.py`).
+
+| field-relevant | total | acts | cause |
+|---:|---:|---:|---|
+| **504** | **2,086** | 760 | `no_parse_unstructured_lead_unmatched` |
+| 78 | 581 | 36 | bulk-rename list grammar (family 1) |
+| 42 | 835 | 262 | `no_parse_unstructured_lead_base_unresolved` |
+| 32 | 394 | 118 | no parse diagnostic on the act at all |
+| 19 | 36 | 12 | `no_parse_cross_base_structured_target_skipped` |
+| 0 | 92 | 67 | declared id resolves to no corpus law (family 3) |
+
+So **one diagnostic accounts for half the gap and three quarters of the
+field-relevant part** — and it is the same `no_parse_unstructured_lead_unmatched`
+family as F-02/W-2. The W-2 spike measured only its *punktum-repeal* subset (284
+leads) and found zero payoff; the family as a whole is far larger.
+
+**But the near-term payoff is still nil, and this time it is measured exactly.**
+"Field-relevant" above means *the amending act is `dated` and the target law has
+consolidated text* — true of 645 laws. The verify scan covers **20**. Of all
+4,088 unbound bindings, the number that target a law in the scan, on a `dated`
+act, is:
+
+> **2.**
+
+One is `no/lov/2004-05-14-25`, which is already `consistent` with 0 divergences —
+binding it could only break something. The other is `no/lov/2001-01-05-1`, one of
+the two known sparse-source acquisition ceilings (F-09). Neither is worth a
+batch.
+
+**Verdict: do not batch step (b) now.** The cause is now known and sized, which
+is what step (b) was for. The 504 field-relevant bindings are real and will pay —
+but only once their target laws become replayable, which is W-7.
+
+*One correction this probe forced.* The first run attributed **83%** of the
+field-relevant gap to the bulk-rename family, using a lead pattern that dropped
+the substitution verb. That pattern matches `Endringer i følgende lover:` — a
+table-of-contents heading carried by nearly every omnibus act — inflating family
+1 from 36 acts to 579 and inverting the ranking. Caught by sampling 8 flagged
+acts and reading the matched text: only 3 were real. The probe now requires the
+verb and colon, and says so in a comment.
+
 #### Settled 2026-07-31: the adjudication is blocking, and that is not a policy choice
 
 W-8 was held pending a "blocking vs evidentiary" decision. **The question was
@@ -515,8 +561,11 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    per-law rows byte-identical), which was the pass condition. The batch also
    produced the 393-entry measurement now recorded under F-10: the declared
    list is load-bearing authority for 16% of the index, not evidence-only.
-   Next on F-10: step (b), measure how many missed bindings ordinary
-   multi-target omnibus extraction alone recovers.
+   Step (b) then measured the causes (see F-10): one diagnostic,
+   `no_parse_unstructured_lead_unmatched`, is 2,086 of the 4,088 bindings and
+   504 of the 676 field-relevant ones — but only **2** unbound bindings in the
+   whole corpus touch a law the 20-law scan covers, so step (b) is **not** a
+   batch now. F-10 (b)/(c) join W-2, F-03 and F-04 behind W-7.
 5. **W-4 (F-01):** make `no-verify-scan`'s default comparison date
    snapshot-commensurable.
 5. **W-5 (F-03):** check the forskrift lane for a 2026-06-19-48 commencement
@@ -544,6 +593,22 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
 
+- **2026-07-31 (F-10 step b)** — **Cause of the 4,088-binding gap measured; still
+  not batchable.** Step (a)'s receipts made the split possible: joining each
+  act's unbound targets to the parse diagnostics it already emits shows
+  `no_parse_unstructured_lead_unmatched` is **2,086 of 4,088** bindings and
+  **504 of the 676** field-relevant ones — one diagnostic, half the gap. It is
+  the same family as F-02/W-2, whose spike had measured only the punktum-repeal
+  subset. But the decisive number is smaller and blunter: of all 4,088 unbound
+  bindings, exactly **2** target a law the 20-law scan covers, one already
+  `consistent` and one a known sparse-source ceiling. Fifth item in a row to
+  terminate at commencement, and the first where the terminus is measured to a
+  single digit rather than inferred. Also a probe correction worth keeping: the
+  first run blamed the bulk-rename family for 83% of the field-relevant gap
+  because its lead pattern, without the substitution verb, matches
+  `Endringer i følgende lover:` — a table-of-contents heading on nearly every
+  omnibus act. Sampling 8 flagged acts showed only 3 were real; the family is 36
+  acts, not 579, and the ranking inverts once fixed.
 - **2026-07-31 (batch 02, applied)** — **F-10 step (a) landed** (f15b11aee).
   1,245 blocking adjudications over 4,088 unbound bindings, reconciling exactly
   with the probe; `no/lovtid/2022-12-20-115` declares 14, binds 6, names 8. The

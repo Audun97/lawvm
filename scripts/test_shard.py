@@ -1442,6 +1442,7 @@ TOOLING_SHARD_PATHS: dict[str, tuple[str, ...]] = {
     # keyed and rejects unmapped scripts/ paths.
     "scripts/probes/no_declared_target_coverage.py": ("norway",),
     "scripts/probes/no_declared_target_gap_nature.py": ("norway",),
+    "scripts/probes/no_unbound_binding_causes.py": ("norway",),
 }
 TOOL_SOURCE_SHARD_GROUPS: dict[tuple[str, ...], tuple[str, ...]] = {
     ("estonia", "tools_cli_debug"): (
