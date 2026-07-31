@@ -1,11 +1,41 @@
 ---
 name: norway-batch-spike
-description: Use before writing any Norway batch contract, plan, or estimate — and before removing a feature, rule, or subsystem anywhere in this repo. Establishes what a change actually touches by performing it in a throwaway worktree and keeping only the map. Triggers on "spike batch NN", "scope this change", "what would it take to remove X", "write a contract for X" when no spike exists yet, or any request to estimate a removal or engine change.
+description: Use when a change's BLAST RADIUS is unknown — removing a feature/rule/subsystem, touching a shared src/lawvm/core/ seam, or changing the parse, lowering, index, or commencement path. Establishes what the change actually reaches by performing it in a throwaway worktree and keeping only the map. Triggers on "what would it take to remove X", "scope this change", "spike batch NN", or estimating a removal or engine change. NOT needed when scope is already known and the only question is whether a specific rule or predicate behaves — probe that directly instead (see "Choosing the instrument").
 ---
 
 # Batch spike
 
 Do the change for real in a worktree you throw away, and keep the map.
+
+## Choosing the instrument
+
+A spike answers exactly one question: **what does this touch?** It is expensive
+(worktree, uv sync, full shard runs) and earns that cost only when the reach is
+genuinely unknown. Match the instrument to the uncertainty:
+
+| Uncertainty | Instrument |
+|---|---|
+| What does this reach? — deletion, `core/` seam, parse/lowering/index/commencement path | **Full spike** (this skill) |
+| Will this specific rule, regex, or predicate behave? | **Probe**: a read-only script over the corpus, minutes, no worktree |
+| Neither — scope known, mechanism obvious | Straight to the contract |
+
+**The probe is the cheaper sibling and is often the right answer.** Batch 01's
+open question was "can this normalization regex be bounded?", not "what does it
+touch" — scope was already two files. A ~40-line read-only script collected all
+8,779 compare-lane text units from both sides of the corpus and applied the
+candidate rules: 211 and 88 units altered respectively, of which 2 were the
+intended case. It killed the rule in minutes, before a worktree existed.
+
+Write probes as throwaway scripts under `/tmp`, import the real production
+helpers (never reimplement the normalization/comparison you are testing), and
+report counts plus concrete before/after pairs. A probe that reports only a
+count has not shown you the false positives.
+
+**Compare-lane probes have a specific trap:** a normalization rule runs on BOTH
+sides, so an over-matching rule does not merely add noise — it makes genuinely
+different texts compare equal and MASKS real divergence. Always test a pair
+that differs only inside the region the rule touches, not just the intended
+case.
 
 Reading the code to predict a change's reach does not work. In the source repo
 (read-aloud-2, 2026-07-27) every scope prediction made by reading was wrong and

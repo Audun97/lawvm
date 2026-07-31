@@ -115,19 +115,48 @@ if absent from the packages, record as acquisition ceiling; if present but
 unindexed, index-coverage bug. Note: the renaming act, once found, likely
 unblocks the same mismatch in many currently-blocked laws.
 
-### F-05 — Footnote-marker digits leak into the published compare text — open (compare noise, cheap)
+### F-05 — Footnote-marker digits leak into the published compare text — reclassified (not fixable as a normalization rule)
 
 Published-side extraction keeps trailing footnote reference digits:
 "Loven trer i kraft fra den tid Kongen bestemmer **1.**"
 (`no/lov/2019-12-20-109` §30(1)); "…frå den tid Kongen fastset **1.**"
-(`no/lov/2015-05-12-27` §23(1)). Pure comparison noise; fix in the
-compare-only normalization lane (never in replay).
+(`no/lov/2015-05-12-27` §23(1)).
 
-### F-06 — Footnote-anchor whitespace in published text — open (compare noise, cheap)
+**Measured 2026-07-31, before writing the rule.** A probe collected all 8,779
+compare-lane text units from both sides of the 20 replayable laws and applied
+two candidate rules:
+
+| candidate | units altered | of which the real footnote case |
+|---|---|---|
+| trailing digit run before a final period | 211 | 2 |
+| same, bounded to 1–2 digits after a letter-ending word | 88 | 2 |
+
+The false positives are ordinary Norwegian legal cross-references, which
+routinely end a sentence: "i samsvar med artikkel **12.**", "kommuneloven
+kapittel **30.**", "forvaltningsloven §§ 44 og **46.**", "personvernforordningen
+artikkel **15.**". Syntactically these are identical to the footnote case
+(word, space, digits, period); no tightening separates them, because the
+distinction is semantic.
+
+Worse than noise: a compare-lane rule runs on BOTH sides, so eating the trailing
+number makes "artikkel 12." and "artikkel **13.**" compare **equal** — the rule
+would MASK real cross-reference divergences rather than merely add them. That
+is the opposite of what this lane is for.
+
+Conclusion: not a normalization problem. If it is worth solving at all, it needs
+either footnote structure preserved at published-side extraction (so the marker
+is typed rather than inlined) or a diff-time tolerance that is not a text rule.
+Both are larger than a compare-lane batch. Left as recorded noise: 2 divergences
+across the corpus, both in the commencement formula.
+
+### F-06 — Footnote-anchor whitespace in published text — open (compare noise, batch 01)
 
 "(forordning (EU) nr. 910/2014 **)**" vs replay "910/2014)"
 (`no/lov/2018-06-15-44` §1(1)) — a space left behind by a stripped footnote
-anchor. Same normalization lane as F-05.
+anchor. The same probe that killed F-05 measured this rule at **1 altered text
+unit in 8,779**: exactly the known case, zero false positives, and the lane
+already normalizes the opening-parenthesis mirror of it. Scoped as batch
+`01-compare-noise-normalization`.
 
 ### F-07 — Published editorial correction without an amending act — open (oracle pin)
 
@@ -158,9 +187,9 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
 
 ## 4. Work Queue (ordered)
 
-1. **W-1 (F-05, F-06):** strip footnote digits/anchor whitespace in the
-   compare-only normalization. Cheap; lowers the noise floor so real
-   divergences stand out.
+1. **W-1 (F-06):** strip the footnote-anchor space in the compare-only
+   normalization (batch 01). F-05 was measured out of this item before any code
+   was written — see its entry.
 2. **W-2 (F-02):** add the punktum-level repeal (and sentence-move) lowering
    family with full receipts; rerun the scan and count how many laws it clears.
 3. **W-3 (F-04):** hunt the statsforvalter renaming act in the archive;
@@ -192,6 +221,12 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
 
+- **2026-07-31** — Pre-batch probe over all 8,779 compare-lane text units
+  reclassified **F-05**: both candidate normalization rules alter ordinary
+  legal cross-references ("artikkel 12."), and because compare rules run on
+  both sides they would MASK real divergence rather than add noise. Measured
+  before writing the rule, so it cost a probe rather than a review cycle.
+  **F-06** measured clean at 1/8,779 and became batch 01.
 - **2026-07-30** — Initial ledger from the first full 20-law scan.
   Headline: 11/20 exact at the commensurable horizon; outside the two
   sparse-source laws only 18 divergences corpus-wide, dominated by one

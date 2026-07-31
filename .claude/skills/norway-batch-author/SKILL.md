@@ -12,13 +12,25 @@ typescript-batch harness; its hard-won rules carry over unless marked lawvm.
 
 ## 1. Write the contract from evidence, never from inspection
 
-Run the **norway-batch-spike** skill first: do the work (or a bounded spike of
-it) in a throwaway worktree, then discard the code and keep the map. Its
-deliverable maps one-to-one onto the contract fields — blast radius becomes
-scope, traps become preflight checks, the field delta becomes
-fieldVerification. A contract written by only reading the code has been wrong
-every time it was tried in the source repo — two contracts cost a full run
-each.
+Establish the facts by doing, not by reading. A contract written by only
+reading the code has been wrong every time it was tried in the source repo —
+two contracts cost a full run each.
+
+Which instrument depends on what is uncertain (the **norway-batch-spike** skill
+opens with the full table):
+
+- **Blast radius unknown** (deletion, `core/` seam, parse/lowering/index path)
+  → run the spike skill. Its deliverable maps one-to-one onto contract fields:
+  blast radius becomes scope, traps become preflight checks, the measured field
+  delta becomes `fieldVerification`.
+- **Scope known, one mechanism in doubt** → write a read-only probe over the
+  corpus instead. Minutes, no worktree. Batch 01's digit rule died this way,
+  before any agent ran.
+- **Neither** → straight to the contract.
+
+Either way, the evidence is what the contract records — and a probe or spike
+that kills a requirement is a success, not a delay. Record the counter-evidence
+in the findings ledger so the question stays answered.
 
 **Scope tight, solution loose.** Pin what must be true and which files are in
 play; do not prescribe the implementation. Naming a file that does not exist
