@@ -3,7 +3,7 @@
   "branch": "audun/norway-receipt-spine",
   "sourceReview": {
     "path": "notes/NORWAY_VERIFY_FINDINGS_LEDGER.md",
-    "sha256": "efb25c1f50256798df93ddf9bd48d0029d85e5d61243645eff0d0759aeb9c53e"
+    "sha256": "f06f199985d300d8f33794d6a076dd34c5fc2cb67f062cc76972cb9e5f9ceaad"
   },
   "executionPolicy": {
     "runnableState": "ready",
@@ -29,14 +29,81 @@
   },
   "batches": {
     "01-compare-noise-normalization": {
-      "state": "ready",
+      "state": "complete",
       "readyAtHead": "3396a3713e84f6bda745e01d3c391dcbd055c799",
       "contract": {
         "path": "notes/norway-batches/contracts/01-compare-noise-normalization.json",
         "sha256": "85526d29781c59077ef5eb80454f779100e3211ef60e4c088c05276690c441bb"
       },
       "fieldVerification": {
-        "status": "required-after-application"
+        "status": "required-after-application",
+        "completed": true
+      },
+      "patch": {
+        "sha256": "d4f256e86280783d5611384efdef378e1e213af12cc440200055f874a4b85620",
+        "sizeBytes": 4996,
+        "sourceBaseline": "3396a3713e84f6bda745e01d3c391dcbd055c799",
+        "changedFiles": [
+          "src/lawvm/norway/verify.py",
+          "src/lawvm/tools/spec_ledger_no_catalog.py",
+          "tests/test_norway_verify.py"
+        ]
+      },
+      "application": {
+        "commit": "f4eae341a95f99518ed16c0bfa591ac521cd6d52",
+        "runId": "wf_6bd63566-4fb"
+      },
+      "evidence": {
+        "verification": {
+          "successfulStages": [
+            "uv run ruff check src/lawvm/norway/verify.py tests/test_norway_verify.py src/lawvm/tools/spec_ledger_no_catalog.py --no-fix",
+            "uv run ty check src/lawvm/norway/verify.py tests/test_norway_verify.py src/lawvm/tools/spec_ledger_no_catalog.py",
+            "./scripts/test_shard.sh run norway -- tests/test_norway_verify.py",
+            "./scripts/test_shard.sh run tools_cli_debug -- tests/test_spec_ledger_no_catalog.py",
+            "./scripts/ci.sh --affected src/lawvm/norway/verify.py tests/test_norway_verify.py src/lawvm/tools/spec_ledger_no_catalog.py"
+          ],
+          "applyLadderNote": "ci.sh --affected reported tools_cli_debug red. Classified as pre-existing: the shard's 14-row failure set is byte-identical with and without the patch (proved by git apply -R and re-running), and all rows are corpus-absence failures from the stub data/finlex.farchive. norway 466 passed; test_spec_ledger_no_catalog 6 passed."
+        },
+        "reviewVerdicts": {
+          "initial": {
+            "correctness": "findings",
+            "architecture": "findings"
+          },
+          "final": {
+            "correctness": "approve",
+            "architecture": "approve"
+          },
+          "fixerRan": true,
+          "initialConfirmedFindings": 1,
+          "finalConfirmedFindings": 0
+        },
+        "rejectedFindings": [
+          {
+            "id": "correctness:C2",
+            "severity": "low",
+            "file": "src/lawvm/norway/verify.py",
+            "line": 92,
+            "claim": "Removing the space makes '(Opphevet )' newly satisfy _NO_VERIFY_REPEALED_RE, so such a section blanks as a repealed shell where it previously compared as text.",
+            "reason": "Real behavior change but not a defect under this contract: it is the same blanking '(Opphevet)' already gets at HEAD, applied symmetrically to both compare sides, and a corpus scan found zero 'Opphevet<whitespace>)' shapes. Revisit if published-side extraction ever emits that shape."
+          }
+        ],
+        "fieldVerification": {
+          "asOf": "2026-07-10",
+          "scanBefore": {
+            "consistent": 11,
+            "divergent": 9,
+            "error": 0
+          },
+          "scanAfter": {
+            "consistent": 12,
+            "divergent": 8,
+            "error": 0
+          },
+          "lawsChanged": [
+            "no/lov/2018-06-15-44"
+          ],
+          "note": "Every other law's divergence count byte-identical; nothing masked, nothing newly divergent."
+        }
       }
     }
   }

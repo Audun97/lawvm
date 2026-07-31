@@ -30,18 +30,20 @@ consolidation; every class below is evidence to triage, not a repair license.
 | as-of | consistent | divergent | error |
 |---|---|---|---|
 | 2026-03-29 (scan default) | 8 | 12 | 0 |
-| **2026-07-10 (snapshot-commensurable)** | **11** | **9** | 0 |
+| 2026-07-10 (snapshot-commensurable) | 11 | 9 | 0 |
+| **2026-07-10, after batch 01 (f4eae341a)** | **12** | **8** | 0 |
 
-The delta between the two rows is itself finding F-01: three laws
+The delta between the first two rows is itself finding F-01: three laws
 (`no/lov/2020-05-07-38`, `no/lov/2025-06-20-102`, `no/lov/2025-12-22-116`)
 read as defective at the default date purely because an amendment took effect
 between 2026-03-29 and the snapshot, and `no/lov/2022-03-11-9` showed 9
 divergences instead of its real 1.
 
-At the commensurable horizon, the 9 divergent laws carry 313 provision-level
+At the commensurable horizon the 9 divergent laws carried 313 provision-level
 divergences, of which **295 sit in the two known sparse-source laws**
 (`no/lov/2006-06-30-50`: 212, `no/lov/2001-01-05-1`: 83). Outside those, the
-whole corpus has **18 divergences across 7 laws**, classified below.
+corpus had **18 divergences across 7 laws**, classified below. Batch 01 has
+since cleared one of them (F-06), leaving 17 across 6 laws.
 
 ## 3. Findings
 
@@ -157,14 +159,20 @@ is typed rather than inlined) or a diff-time tolerance that is not a text rule.
 Both are larger than a compare-lane batch. Left as recorded noise: 2 divergences
 across the corpus, both in the commencement formula.
 
-### F-06 — Footnote-anchor whitespace in published text — open (compare noise, batch 01)
+### F-06 — Footnote-anchor whitespace in published text — fixed (f4eae341a, batch 01)
 
 "(forordning (EU) nr. 910/2014 **)**" vs replay "910/2014)"
 (`no/lov/2018-06-15-44` §1(1)) — a space left behind by a stripped footnote
 anchor. The same probe that killed F-05 measured this rule at **1 altered text
 unit in 8,779**: exactly the known case, zero false positives, and the lane
-already normalizes the opening-parenthesis mirror of it. Scoped as batch
-`01-compare-noise-normalization`.
+already normalizes the opening-parenthesis mirror of it.
+
+Fixed by batch `01-compare-noise-normalization` (f4eae341a):
+`no_compare_close_paren_spacing`, the mirror of the opening-parenthesis rule.
+`no/lov/2018-06-15-44` went 1 divergence -> 0 and is now consistent; no other
+law's divergence count moved. The batch's boundedness test also pins F-05
+shut — it asserts a trailing digit inside the parenthesis survives
+normalization, so the `\s+\d*\s*\)` variant cannot be re-introduced.
 
 ### F-07 — Published editorial correction without an amending act — open (oracle pin)
 
@@ -195,9 +203,9 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
 
 ## 4. Work Queue (ordered)
 
-1. **W-1 (F-06):** strip the footnote-anchor space in the compare-only
-   normalization (batch 01). F-05 was measured out of this item before any code
-   was written — see its entry.
+1. ~~**W-1 (F-06):** strip the footnote-anchor space in the compare-only
+   normalization.~~ **Done** — batch 01, f4eae341a. F-05 was measured out of
+   this item before any code was written; see its entry.
 2. **W-2 (F-02):** add the punktum-level repeal (and sentence-move) lowering
    family with full receipts; rerun the scan and count how many laws it clears.
 3. **W-3 (F-04):** hunt the statsforvalter renaming act in the archive;
@@ -229,6 +237,15 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
 
+- **2026-07-31 (applied)** — **Batch 01 landed** (f4eae341a), the harness's
+  first completed batch. F-06 fixed; scan 11 -> 12 consistent with every other
+  law's row byte-identical. Run 2's fixer cycle replaced a vacuous boundedness
+  test the first reviewers caught, and the final reviewers verified the
+  replacement by mutation testing — including that it now kills the F-05
+  digit-eating variant, so the probe's verdict is enforced in code rather than
+  only recorded here. The apply ladder reported tools_cli_debug red; classified
+  pre-existing by reversing the patch and re-running to a byte-identical
+  14-row failure set (all corpus-absence from the stub finlex archive).
 - **2026-07-31 (later)** — Batch 01 run 1 **aborted at Adjudicate**, correctly:
   the new rule id needs a `_NO_RULE_SPECS` catalog entry
   (`tools/spec_ledger_no_catalog.py`, shard `tools_cli_debug`) that the
