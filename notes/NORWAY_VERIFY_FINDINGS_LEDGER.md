@@ -261,6 +261,59 @@ Step (a) is the one to do first: it is a small, bounded, testable change that
 makes every later step measurable, and it is the only one whose scope is already
 known.
 
+#### Settled 2026-07-31: the adjudication is blocking, and that is not a policy choice
+
+W-8 was held pending a "blocking vs evidentiary" decision. **The question was
+malformed** — the repo does not offer that binary, and its actual model answers
+it.
+
+*Blocking is three axes, not one.* `diagnostic_detail` carries `blocking`,
+`strict_disposition`, and `quirks_disposition` independently. Norway's own index
+already emits the combination this finding needs
+(`index.py:_no_index_unmapped_member_diagnostic`, `_no_index_skipped_artifact_diagnostic`):
+
+```python
+blocking=True, strict_disposition="block", quirks_disposition=QuirksDisposition.RECORD
+```
+
+— blocks under strict, records and continues under quirks.
+
+*The role taxonomy constrains the flag; the emitter does not pick freely.*
+`observation_registry.validate_finding_projection` **rejects**
+`role="observation"` with `blocking=True`, and **rejects** `role="violation"`
+with `blocking=False`. So "evidentiary" is not a dial: it is the `observation`
+role, and choosing it would have been choosing to assert that a 47.3% binding
+loss is informational. `obligation` + `default_enforcement="strict_fail"` is the
+registered way to say "this is a real defect, strict fails on it, the quirks
+corpus proceeds".
+
+*The concern that motivated the question was factually wrong.* I worried a
+blocking finding would "fail replay on 1,245 acts overnight". Measured: **13,858
+of 13,859** index-build diagnostics are *already* `blocking=True`, and
+`no/lov/2020-05-07-38` carries **122 blocking replay adjudications while scoring
+`consistent`** in the scan. `blocking` classifies severity for strict mode; it is
+not what gates the scan. The precedent is explicit — `no_replay_no_matching_change_group`
+is emitted `blocking=True` and the replay loop `continue`s (`replay.py:401-414`).
+
+**Decision:** `role="obligation"`, `blocking=True`, `strict_disposition="block"`,
+`quirks_disposition=RECORD`, `default_enforcement="strict_fail"`. No scoreboard
+movement, and strict mode gains a real gate.
+
+#### The same measurement also rescopes W-8
+
+The per-lead extraction failures behind this gap are **already recorded** — the
+index build emits 8,726 `no_parse_unstructured_lead_unmatched`, 3,710
+`no_parse_unstructured_lead_base_unresolved`, and 623
+`no_amendment_index_no_change_ops`. The engine is not silent about failing to
+parse a lead.
+
+What is missing is the **completeness assertion**: nothing ever asks whether the
+ops that *did* survive cover the targets Lovdata *declared*. So W-8 is not "add
+missing diagnostics" — it is "close the loop over diagnostics we already emit"
+by making the declared list the denominator. That is a smaller change than the
+original framing and a stronger one, because it turns an open-ended pile of
+per-lead warnings into a per-act pass/fail with a denominator.
+
 The two reusable measurements are kept, since a fix has to be scored against
 them (read-only; JSON under `.tmp/`, gitignored):
 
@@ -378,7 +431,11 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    later extraction fix measurable. **This is the first open item with a
    nonzero field payoff** — 676 missed verifiable bindings sit on `dated`
    acts, unlike W-2/F-03/F-04 which all terminate at commencement. Scope is
-   already known, so it goes straight to a contract; no spike.
+   already known, so it goes straight to a contract; no spike. The
+   blocking-vs-evidentiary question is **settled** (see F-10): obligation role,
+   `blocking=True`, `quirks_disposition=RECORD`, `strict_fail` — measured not to
+   move the scoreboard, since 13,858/13,859 existing index diagnostics are
+   already blocking.
 5. **W-4 (F-01):** make `no-verify-scan`'s default comparison date
    snapshot-commensurable.
 5. **W-5 (F-03):** check the forskrift lane for a 2026-06-19-48 commencement
@@ -406,6 +463,20 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
 
+- **2026-07-31 (design)** — **W-8's blocking-vs-evidentiary question settled by
+  measurement, and the question turned out to be malformed.** The repo does not
+  offer that binary: `blocking`, `strict_disposition` and `quirks_disposition`
+  are independent axes, `validate_finding_projection` forbids
+  `observation`+blocking and `violation`+non-blocking, and Norway's index
+  already emits `blocking=True` with `quirks_disposition=RECORD`. The concern
+  that prompted the hold — that a blocking finding would redden 1,245 acts —
+  was wrong by two orders of magnitude: **13,858 of 13,859** index diagnostics
+  are already blocking and `no/lov/2020-05-07-38` scores `consistent` while
+  carrying 122 blocking adjudications. Decided: obligation / `blocking=True` /
+  `strict_disposition="block"` / `quirks_disposition=RECORD` / `strict_fail`.
+  The same measurement rescoped W-8: the per-lead failures are already recorded
+  (8,726 + 3,710 + 623), so the batch is a **completeness assertion over
+  diagnostics that already exist**, not new diagnostics.
 - **2026-07-31 (probe)** — **W-3 done; F-04 reclassified and F-10 opened.**
   Five read-only probes, no worktree, no agents. The statsforvalter act turned
   out to be present and indexed but binding 4 of the 97 laws it names, which
