@@ -4,6 +4,14 @@ import io
 import tarfile
 from typing import Any, cast
 
+import pytest
+
+from lawvm.norway.commencement import apply_no_commencement_overrides
+from lawvm.norway.commencement_instruments import (
+    NO_COMMENCEMENT_EXECUTION_AUTHORIZED,
+    NO_COMMENCEMENT_EXECUTION_DATE_CONFLICT,
+    NO_COMMENCEMENT_EXECUTION_REFUSED,
+)
 from lawvm.norway.index import (
     NO_ACQUISITION_DUPLICATE_LOGICAL_LOCATOR,
     NOAmendmentIndex,
@@ -12,9 +20,13 @@ from lawvm.norway.index import (
     save_no_amendment_index,
 )
 from lawvm.norway.sources import (
+    NO_UNRESOLVED_EFFECTIVE_STATUSES,
     NOLocatedArtifact,
     declared_change_targets_from_amendment,
+    load_available_lti_law_ids,
+    load_no_current_law_ids,
     parse_header_value,
+    resolve_no_source_path,
 )
 
 # Lovdata's declared ``changesToDocuments`` list for no/lovtid/2022-12-20-115, in
@@ -132,6 +144,36 @@ def _declared_targets_amendment_xml(
     <dd class="dateInForce">2023-01-01</dd>
     <dd class="changesToDocuments"><ul>{items}</ul></dd>
     {changes}
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def _whole_act_instrument_xml(law_ref: str, date_in_force: str) -> bytes:
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="title">Ikraftsetting av {law_ref}</dd>
+    <dd class="basedOn"><a href="{law_ref}">endringsloven</a></dd>
+    <dd class="dateInForce">{date_in_force}</dd>
+    <main class="documentBody">
+      <article class="legalP">Loven trer i kraft {date_in_force}.</article>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def _partial_instrument_xml(law_ref: str) -> bytes:
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="title">Delt ikraftsetting av {law_ref}</dd>
+    <dd class="basedOn"><a href="{law_ref}">endringsloven</a></dd>
+    <dd class="dateInForce">2025-04-01</dd>
+    <main class="documentBody">
+      <article class="legalP">Loven § 2 trer i kraft 1. april 2025.</article>
+    </main>
   </body>
 </html>
 """.encode("utf-8")
@@ -600,6 +642,184 @@ def test_no_amendment_index_from_dict_loads_json_written_before_declared_targets
 
     assert loaded.entries[0].base_ids == ("no/lov/2025-01-01-1",)
     assert loaded.entries[0].declared_target_ids == ()
+
+
+def test_build_no_amendment_index_authorizes_a_whole_act_commencement_instrument(tmp_path) -> None:
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [
+            ("lti/2025/nl-20250202-005.xml", _amendment_xml("Kongen bestemmer")),
+            (
+                "lti/2025/sf-20250301-0100.xml",
+                _whole_act_instrument_xml("lov/2025-02-02-5", "2025-04-01"),
+            ),
+        ],
+    )
+
+    index = build_no_amendment_index(tmp_path)
+
+    entry = index.entries[0]
+    assert entry.source_id == "no/lovtid/2025-02-02-5"
+    assert entry.effective_status == "instrument_authorized"
+    assert entry.effective_date == "2025-04-01"
+    # The act's own header stays untouched evidence of why it was unresolved, and
+    # binding is unchanged: this re-dates an act, it binds nothing.
+    assert entry.raw_date_in_force == "Kongen bestemmer"
+    assert entry.base_ids == ("no/lov/2025-01-01-1",)
+    assert entry.n_ops == 1
+    assert [item.replay_authorized for item in index.commencement_instruments] == [True]
+    receipts = [
+        diagnostic
+        for diagnostic in index.diagnostics
+        if diagnostic["rule_id"] == NO_COMMENCEMENT_EXECUTION_AUTHORIZED
+    ]
+    assert len(receipts) == 1
+    assert receipts[0]["source_id"] == "no/lovtid/2025-02-02-5"
+    assert receipts[0]["instrument_source_ids"] == ["no/forskrift/2025-03-01-100"]
+    assert receipts[0]["effective_date"] == "2025-04-01"
+    assert receipts[0]["blocking"] is False
+    assert not [
+        diagnostic
+        for diagnostic in index.diagnostics
+        if diagnostic["rule_id"]
+        in {NO_COMMENCEMENT_EXECUTION_REFUSED, NO_COMMENCEMENT_EXECUTION_DATE_CONFLICT}
+    ]
+
+    reloaded = NOAmendmentIndex.from_dict(index.to_dict())
+    assert reloaded.entries[0].effective_status == "instrument_authorized"
+    assert reloaded.entries[0].effective_date == "2025-04-01"
+    assert reloaded.commencement_instruments[0].replay_authorized is True
+
+
+def test_build_no_amendment_index_refuses_a_partial_instrument_and_keeps_dated_acts(tmp_path) -> None:
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [
+            ("lti/2025/nl-20250202-005.xml", _amendment_xml("Kongen bestemmer")),
+            ("lti/2025/nl-20250303-006.xml", _amendment_xml("2025-03-15")),
+            ("lti/2025/sf-20250301-0100.xml", _partial_instrument_xml("lov/2025-02-02-5")),
+            (
+                "lti/2025/sf-20250401-0200.xml",
+                _whole_act_instrument_xml("lov/2025-03-03-6", "2025-09-01"),
+            ),
+        ],
+    )
+
+    index = build_no_amendment_index(tmp_path)
+
+    assert [
+        (entry.source_id, entry.effective_status, entry.effective_date)
+        for entry in index.entries
+    ] == [
+        ("no/lovtid/2025-02-02-5", "contingent", None),
+        ("no/lovtid/2025-03-03-6", "dated", "2025-03-15"),
+    ]
+    assert all(item.replay_authorized is False for item in index.commencement_instruments)
+    assert not [
+        diagnostic
+        for diagnostic in index.diagnostics
+        if diagnostic["rule_id"] == NO_COMMENCEMENT_EXECUTION_AUTHORIZED
+    ]
+    refusals = [
+        diagnostic
+        for diagnostic in index.diagnostics
+        if diagnostic["rule_id"] == NO_COMMENCEMENT_EXECUTION_REFUSED
+    ]
+    assert len(refusals) == 1
+    assert refusals[0]["source_id"] == "no/lovtid/2025-02-02-5"
+    assert refusals[0]["instrument_source_id"] == "no/forskrift/2025-03-01-100"
+    assert refusals[0]["failed_conjuncts"] == ["parse_status_candidate", "whole_act_scope"]
+
+
+def test_commencement_override_outranks_an_instrument_authorization(tmp_path) -> None:
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [
+            ("lti/2025/nl-20250202-005.xml", _amendment_xml("Kongen bestemmer")),
+            (
+                "lti/2025/sf-20250301-0100.xml",
+                _whole_act_instrument_xml("lov/2025-02-02-5", "2025-04-01"),
+            ),
+        ],
+    )
+    index = build_no_amendment_index(tmp_path)
+
+    overridden = apply_no_commencement_overrides(
+        index,
+        {"no/lovtid/2025-02-02-5": {"effective_date": "2025-05-01", "note": "kgl.res."}},
+    )
+
+    assert overridden.entries[0].effective_status == "override"
+    assert overridden.entries[0].effective_date == "2025-05-01"
+
+
+def test_corpus_commencement_authorization_reconciles_with_the_measured_landscape() -> None:
+    """W-7 tranche 3's frozen reconciliation, asserted against the ingested corpus."""
+    data_dir = resolve_no_source_path(None)
+    if not data_dir.exists():
+        pytest.skip("local Norway corpus is not installed")
+
+    index = build_no_amendment_index(data_dir)
+    # ``resolve_no_source_path`` falls back to the tracked ``data/norway``
+    # directory, which exists in every checkout but carries no archives; an empty
+    # instrument coverage is the real "corpus absent" signal.
+    if index.commencement_instrument_coverage.total_instruments == 0:
+        pytest.skip("local Norway corpus is not installed")
+
+    assert index.commencement_instrument_coverage.to_dict() == {
+        "total_instruments": 35955,
+        "candidates": 608,
+        "benign_non_commencement": 33590,
+        "blocked_unresolved": 1757,
+    }
+    authorized = [
+        entry for entry in index.entries if entry.effective_status == "instrument_authorized"
+    ]
+    assert len(authorized) == 520
+    assert all(entry.effective_date for entry in authorized)
+    authorization_receipts = [
+        diagnostic
+        for diagnostic in index.diagnostics
+        if diagnostic["rule_id"] == NO_COMMENCEMENT_EXECUTION_AUTHORIZED
+    ]
+    assert len(authorization_receipts) == 520
+    assert not [
+        diagnostic
+        for diagnostic in index.diagnostics
+        if diagnostic["rule_id"] == NO_COMMENCEMENT_EXECUTION_DATE_CONFLICT
+    ]
+
+    anchor = next(entry for entry in index.entries if entry.source_id == "no/lovtid/2012-01-27-9")
+    assert anchor.effective_status == "instrument_authorized"
+    assert anchor.effective_date == "2012-03-01"
+    assert anchor.raw_date_in_force == "Kongen bestemmer."
+    instrument = next(
+        item
+        for item in index.commencement_instruments
+        if item.source_id == "no/forskrift/2012-01-27-71"
+    )
+    assert instrument.replay_authorized is True
+    assert instrument.affected_law_ids == ("no/lov/2012-01-27-9",)
+
+    # F-03's mixed-commencement act is cited by no instrument and gains nothing.
+    negative_anchor = next(
+        entry for entry in index.entries if entry.source_id == "no/lovtid/2026-06-19-48"
+    )
+    assert negative_anchor.effective_status == "dated"
+    assert negative_anchor.effective_date == "2026-06-19"
+
+    by_base: dict[str, list[str]] = {}
+    for entry in index.entries:
+        for base_id in entry.base_ids:
+            by_base.setdefault(base_id, []).append(entry.effective_status)
+    executable = load_no_current_law_ids(data_dir) & load_available_lti_law_ids(data_dir)
+    fully_replayable = [
+        law_id
+        for law_id in executable
+        if law_id in by_base
+        and not any(status in NO_UNRESOLVED_EFFECTIVE_STATUSES for status in by_base[law_id])
+    ]
+    assert len(fully_replayable) == 58
 
 
 def test_no_amendment_index_staleness_report_detects_archive_change(tmp_path) -> None:

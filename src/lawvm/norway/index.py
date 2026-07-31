@@ -4,7 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import datetime, timezone
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace as dc_replace
 from pathlib import Path
 from typing import Any, Optional, cast
 
@@ -14,11 +14,14 @@ from lawvm.norway.commencement_instruments import (
     NOCommencementInstrumentCandidate,
     NOCommencementInstrumentCoverage,
     NOCommencementParseStatus,
+    authorize_no_commencement_instruments,
     parse_no_commencement_instrument,
 )
 from lawvm.norway.grafter import iter_no_document_change_ops, lovdata_amendment_filename_to_id
 from lawvm.norway.sources import (
+    NO_UNRESOLVED_EFFECTIVE_STATUSES,
     NODeclaredChangeTargets,
+    NOEffectiveStatus,
     NOLocatedArtifact,
     declared_change_targets_from_amendment,
     effective_date_from_amendment,
@@ -295,6 +298,9 @@ def build_no_amendment_index(data_dir: Optional[Path] = None) -> NOAmendmentInde
     commencement_candidates = 0
     commencement_benign = 0
     commencement_blocked = 0
+    parsed_instruments: list[
+        tuple[NOCommencementParseStatus, NOCommencementInstrumentCandidate]
+    ] = []
     for artifact in _deduplicated_no_amendment_artifacts(
         tuple(iter_no_forskrift_artifacts(data_dir)),
         diagnostics=index.diagnostics,
@@ -315,7 +321,7 @@ def build_no_amendment_index(data_dir: Optional[Path] = None) -> NOAmendmentInde
         else:
             commencement_candidates += 1
         if result.candidate is not None:
-            index.commencement_instruments.append(result.candidate)
+            parsed_instruments.append((result.parse_status, result.candidate))
         for residual in result.residuals:
             index.diagnostics.append(
                 {
@@ -338,10 +344,54 @@ def build_no_amendment_index(data_dir: Optional[Path] = None) -> NOAmendmentInde
         raise AssertionError("Norway commencement-instrument coverage is not a total partition")
 
     index.entries.sort(key=lambda entry: (entry.source_id, entry.archive, entry.member_name))
-    index.commencement_instruments.sort(
-        key=lambda item: (item.source_id, item.archive, item.member_name)
+    parsed_instruments.sort(
+        key=lambda item: (item[1].source_id, item[1].archive, item[1].member_name)
     )
+    _authorize_no_commencement_instruments_into_index(index, parsed_instruments)
     return index
+
+
+def _authorize_no_commencement_instruments_into_index(
+    index: NOAmendmentIndex,
+    parsed_instruments: list[
+        tuple[NOCommencementParseStatus, NOCommencementInstrumentCandidate]
+    ],
+) -> None:
+    """Re-date unresolved amendment acts from their whole-act commencement instruments.
+
+    Runs inside the index build so inventory, scan, replay, and the commencement
+    reports all read one authorized view; no consumer authorizes for itself. Only
+    acts whose ``effective_status`` is unresolved are offered to the gate, so a
+    ``dated`` / ``immediate`` / ``override`` entry can never be re-dated here, and
+    the manual override sidecar — applied after the build — still outranks an
+    instrument authorization.
+    """
+    authorization = authorize_no_commencement_instruments(
+        parsed_instruments,
+        unresolved_act_ids={
+            entry.source_id
+            for entry in index.entries
+            if entry.effective_status in NO_UNRESOLVED_EFFECTIVE_STATUSES
+        },
+    )
+    index.commencement_instruments = list(authorization.instruments)
+    effective_dates = authorization.authorized_effective_dates()
+    index.entries = [
+        dc_replace(
+            entry,
+            effective_status=NOEffectiveStatus.INSTRUMENT_AUTHORIZED,
+            effective_date=effective_dates[entry.source_id],
+        )
+        if entry.source_id in effective_dates
+        else entry
+        for entry in index.entries
+    ]
+    for receipt in authorization.authorizations:
+        index.diagnostics.append(receipt.to_diagnostic_detail())
+    for refusal in authorization.refusals:
+        index.diagnostics.append(refusal.to_diagnostic_detail())
+    for conflict in authorization.conflicts:
+        index.diagnostics.append(conflict.to_diagnostic_detail())
 
 
 def _payload_digest(payload: bytes) -> str:

@@ -7,11 +7,17 @@ from pathlib import Path
 import pytest
 
 from lawvm.norway.commencement_instruments import (
+    NO_COMMENCEMENT_EXECUTION_AUTHORIZED,
+    NO_COMMENCEMENT_EXECUTION_DATE_CONFLICT,
+    NO_COMMENCEMENT_EXECUTION_REFUSED,
     NO_COMMENCEMENT_INSTRUMENT_COVERAGE_INVALID,
+    NOCommencementAuthorizationConjunct,
+    NOCommencementInstrumentCandidate,
     NOCommencementInstrumentCoverage,
     NOCommencementInstrumentCoverageError,
     NOCommencementParseStatus,
     NOCommencementScopeStatus,
+    authorize_no_commencement_instruments,
     parse_no_commencement_instrument,
 )
 from lawvm.norway.index import build_no_amendment_index
@@ -62,6 +68,27 @@ def _ordinary_forskrift_xml() -> bytes:
     return b"""<html><body><dd class="title">Forskrift om rapportering</dd>
 <dd class="basedOn"><a href="lov/2025-02-02-5">hjemmel</a></dd>
 <main class="documentBody">Departementet kan kreve rapportering.</main></body></html>"""
+
+
+def _instrument_candidate(
+    source_id: str,
+    *,
+    affected_law_ids: tuple[str, ...],
+    effective_dates: tuple[str, ...],
+    scope_status: NOCommencementScopeStatus = NOCommencementScopeStatus.WHOLE_ACT,
+) -> NOCommencementInstrumentCandidate:
+    number = source_id.rsplit("-", 1)[-1]
+    return NOCommencementInstrumentCandidate(
+        source_id=source_id,
+        locator=f"no://forskrift/{source_id.removeprefix('no/forskrift/')}/original.lti.xml",
+        archive="lovtidend-avd1-2025.tar.bz2",
+        member_name=f"lti/2025/sf-20250301-{int(number):04d}.xml",
+        title="Ikraftsetting av lov 2. februar 2025 nr. 5",
+        affected_law_ids=affected_law_ids,
+        effective_dates=effective_dates,
+        scope_status=scope_status,
+        source_excerpt="Loven trer i kraft 1. april 2025.",
+    )
 
 
 def _write_archive(path: Path, members: list[tuple[str, bytes]]) -> None:
@@ -148,6 +175,208 @@ def test_persisted_coverage_rejects_malformed_counter() -> None:
         NOCommencementInstrumentCoverage.from_dict({"total_instruments": "3"})
 
 
+def test_execution_authorization_redates_the_cited_unresolved_act() -> None:
+    candidate = _instrument_candidate(
+        "no/forskrift/2025-03-01-100",
+        affected_law_ids=("no/lov/2025-02-02-5",),
+        effective_dates=("2025-04-01",),
+    )
+
+    authorization = authorize_no_commencement_instruments(
+        [(NOCommencementParseStatus.CANDIDATE, candidate)],
+        unresolved_act_ids={"no/lovtid/2025-02-02-5"},
+    )
+
+    assert authorization.authorized_effective_dates() == {"no/lovtid/2025-02-02-5": "2025-04-01"}
+    assert authorization.refusals == ()
+    assert authorization.conflicts == ()
+    assert [item.replay_authorized for item in authorization.instruments] == [True]
+    receipt = authorization.authorizations[0].to_diagnostic_detail()
+    assert receipt["rule_id"] == NO_COMMENCEMENT_EXECUTION_AUTHORIZED
+    assert receipt["family"] == "temporal_recovery"
+    assert receipt["phase"] == "temporal"
+    assert receipt["source_id"] == "no/lovtid/2025-02-02-5"
+    assert receipt["instrument_source_ids"] == ["no/forskrift/2025-03-01-100"]
+    assert receipt["effective_date"] == "2025-04-01"
+    assert receipt["blocking"] is False
+    assert receipt["strict_disposition"] == "record"
+    assert receipt["quirks_disposition"] == "record"
+
+
+def test_execution_authorization_refuses_a_partial_commencement_candidate() -> None:
+    candidate = _instrument_candidate(
+        "no/forskrift/2025-03-01-101",
+        affected_law_ids=("no/lov/2025-02-02-5",),
+        effective_dates=("2025-04-01",),
+        scope_status=NOCommencementScopeStatus.UNRESOLVED,
+    )
+
+    authorization = authorize_no_commencement_instruments(
+        [(NOCommencementParseStatus.BLOCKED_UNRESOLVED, candidate)],
+        unresolved_act_ids={"no/lovtid/2025-02-02-5"},
+    )
+
+    assert authorization.authorizations == ()
+    assert authorization.conflicts == ()
+    assert [item.replay_authorized for item in authorization.instruments] == [False]
+    assert authorization.refusals[0].failed_conjuncts == (
+        NOCommencementAuthorizationConjunct.PARSE_STATUS_CANDIDATE,
+        NOCommencementAuthorizationConjunct.WHOLE_ACT_SCOPE,
+    )
+    receipt = authorization.refusals[0].to_diagnostic_detail()
+    assert receipt["rule_id"] == NO_COMMENCEMENT_EXECUTION_REFUSED
+    assert receipt["source_id"] == "no/lovtid/2025-02-02-5"
+    assert receipt["instrument_source_id"] == "no/forskrift/2025-03-01-101"
+    assert receipt["failed_conjuncts"] == ["parse_status_candidate", "whole_act_scope"]
+    assert receipt["blocking"] is False
+    assert receipt["strict_disposition"] == "record"
+
+
+def test_execution_authorization_refuses_a_multi_date_instrument() -> None:
+    candidate = _instrument_candidate(
+        "no/forskrift/2025-03-01-102",
+        affected_law_ids=("no/lov/2025-02-02-5",),
+        effective_dates=("2025-04-01", "2025-06-01"),
+    )
+
+    authorization = authorize_no_commencement_instruments(
+        [(NOCommencementParseStatus.CANDIDATE, candidate)],
+        unresolved_act_ids={"no/lovtid/2025-02-02-5"},
+    )
+
+    assert authorization.authorizations == ()
+    assert [item.replay_authorized for item in authorization.instruments] == [False]
+    receipt = authorization.refusals[0].to_diagnostic_detail()
+    assert receipt["failed_conjuncts"] == ["single_effective_date"]
+    assert receipt["effective_dates"] == ["2025-04-01", "2025-06-01"]
+
+
+def test_execution_authorization_refuses_both_instruments_on_a_date_conflict() -> None:
+    first = _instrument_candidate(
+        "no/forskrift/2025-03-01-103",
+        affected_law_ids=("no/lov/2025-02-02-5",),
+        effective_dates=("2025-04-01",),
+    )
+    second = _instrument_candidate(
+        "no/forskrift/2025-03-01-104",
+        affected_law_ids=("no/lov/2025-02-02-5",),
+        effective_dates=("2025-07-01",),
+    )
+
+    authorization = authorize_no_commencement_instruments(
+        [
+            (NOCommencementParseStatus.CANDIDATE, first),
+            (NOCommencementParseStatus.CANDIDATE, second),
+        ],
+        unresolved_act_ids={"no/lovtid/2025-02-02-5"},
+    )
+
+    assert authorization.authorizations == ()
+    assert [item.replay_authorized for item in authorization.instruments] == [False, False]
+    receipt = authorization.conflicts[0].to_diagnostic_detail()
+    assert receipt["rule_id"] == NO_COMMENCEMENT_EXECUTION_DATE_CONFLICT
+    assert receipt["source_id"] == "no/lovtid/2025-02-02-5"
+    assert receipt["instrument_source_ids"] == [
+        "no/forskrift/2025-03-01-103",
+        "no/forskrift/2025-03-01-104",
+    ]
+    assert receipt["effective_dates"] == ["2025-04-01", "2025-07-01"]
+    assert receipt["blocking"] is True
+    assert receipt["strict_disposition"] == "block"
+    assert receipt["quirks_disposition"] == "block"
+
+
+def test_execution_authorization_dedupes_two_instruments_agreeing_on_one_date() -> None:
+    first = _instrument_candidate(
+        "no/forskrift/2025-03-01-105",
+        affected_law_ids=("no/lov/2025-02-02-5",),
+        effective_dates=("2025-04-01",),
+    )
+    second = _instrument_candidate(
+        "no/forskrift/2025-03-01-106",
+        affected_law_ids=("no/lov/2025-02-02-5",),
+        effective_dates=("2025-04-01",),
+    )
+
+    authorization = authorize_no_commencement_instruments(
+        [
+            (NOCommencementParseStatus.CANDIDATE, first),
+            (NOCommencementParseStatus.CANDIDATE, second),
+        ],
+        unresolved_act_ids={"no/lovtid/2025-02-02-5"},
+    )
+
+    assert authorization.conflicts == ()
+    assert len(authorization.authorizations) == 1
+    assert authorization.authorizations[0].instrument_source_ids == (
+        "no/forskrift/2025-03-01-105",
+        "no/forskrift/2025-03-01-106",
+    )
+    assert authorization.authorized_effective_dates() == {"no/lovtid/2025-02-02-5": "2025-04-01"}
+    assert [item.replay_authorized for item in authorization.instruments] == [True, True]
+
+
+def test_execution_authorization_ignores_enabling_statute_citations() -> None:
+    # "Ikraftsetting av forskrift ..." instruments cite the forskrift's hjemmel
+    # statutes; those are principal laws, not unresolved amendment acts, so the
+    # alias join finds nothing. Normal case, not a pathology: no receipt.
+    candidate = _instrument_candidate(
+        "no/forskrift/2025-03-01-107",
+        affected_law_ids=("no/lov/1952-11-21-2", "no/lov/1997-02-28-19"),
+        effective_dates=("2025-04-01",),
+    )
+
+    authorization = authorize_no_commencement_instruments(
+        [(NOCommencementParseStatus.CANDIDATE, candidate)],
+        unresolved_act_ids={"no/lovtid/2025-02-02-5"},
+    )
+
+    assert authorization.authorizations == ()
+    assert authorization.refusals == ()
+    assert authorization.conflicts == ()
+    assert [item.replay_authorized for item in authorization.instruments] == [False]
+
+
+def test_execution_authorization_never_redates_an_already_resolved_act() -> None:
+    # The act the instrument cites carries a resolved status, so it is not in the
+    # unresolved set the gate is offered and nothing may touch it.
+    candidate = _instrument_candidate(
+        "no/forskrift/2025-03-01-108",
+        affected_law_ids=("no/lov/2025-02-02-5",),
+        effective_dates=("2025-04-01",),
+    )
+
+    authorization = authorize_no_commencement_instruments(
+        [(NOCommencementParseStatus.CANDIDATE, candidate)],
+        unresolved_act_ids=set(),
+    )
+
+    assert authorization.authorizations == ()
+    assert authorization.refusals == ()
+    assert authorization.conflicts == ()
+    assert [item.replay_authorized for item in authorization.instruments] == [False]
+
+
+def test_commencement_candidate_replay_authorized_round_trips() -> None:
+    candidate = _instrument_candidate(
+        "no/forskrift/2025-03-01-109",
+        affected_law_ids=("no/lov/2025-02-02-5",),
+        effective_dates=("2025-04-01",),
+    )
+    authorization = authorize_no_commencement_instruments(
+        [(NOCommencementParseStatus.CANDIDATE, candidate)],
+        unresolved_act_ids={"no/lovtid/2025-02-02-5"},
+    )
+
+    payload = authorization.instruments[0].to_dict()
+    assert payload["replay_authorized"] is True
+    assert NOCommencementInstrumentCandidate.from_dict(payload).replay_authorized is True
+    assert candidate.to_dict()["replay_authorized"] is False
+
+    without_key = {key: value for key, value in payload.items() if key != "replay_authorized"}
+    assert NOCommencementInstrumentCandidate.from_dict(without_key).replay_authorized is False
+
+
 def test_backfill_prefers_exact_lovtidend_instrument_without_authorizing_it() -> None:
     lane = _recommend_no_backfill_lane(
         {
@@ -160,7 +389,7 @@ def test_backfill_prefers_exact_lovtidend_instrument_without_authorizing_it() ->
     assert lane == "lovtidend_commencement_instrument"
 
 
-def test_ingest_index_and_candidate_report_keep_lovtidend_lane_non_authorizing(tmp_path) -> None:
+def test_ingest_index_and_replay_execute_the_whole_act_lovtidend_instrument(tmp_path) -> None:
     _write_archive(
         tmp_path / "gjeldende-lover.tar.bz2",
         [("nl/nl-20250101-001.xml", _BASE_XML)],
@@ -201,8 +430,17 @@ def test_ingest_index_and_candidate_report_keep_lovtidend_lane_non_authorizing(t
     }
     assert index.commencement_instrument_coverage.is_partition()
     assert len(index.entries) == 1
-    assert index.entries[0].effective_status == "contingent"
-    assert index.entries[0].effective_date is None
+    assert index.entries[0].effective_status == "instrument_authorized"
+    assert index.entries[0].effective_date == "2025-04-01"
+    assert index.entries[0].raw_date_in_force == "Kongen bestemmer"
+    assert [
+        (item.source_id, item.replay_authorized) for item in index.commencement_instruments
+    ] == [
+        ("no/forskrift/2025-03-01-100", True),
+        ("no/forskrift/2025-03-01-101", False),
+    ]
+    # The backfill-candidate advisory lane still authorizes nothing itself: the
+    # authorization is the index's, and the report only reports evidence.
     assert report["lovtidend_commencement_instrument_count"] == 2
     assert all(item["replay_authorized"] is False for item in report["lovtidend_commencement_instruments"])
     assert report["candidate_source_counts"]["lovtidend_commencement_instrument"] == 2
@@ -213,9 +451,18 @@ def test_ingest_index_and_candidate_report_keep_lovtidend_lane_non_authorizing(t
         data_dir=db_path,
         index=index,
     )
-    assert replay.amendments_applied == []
-    assert replay.amendments_skipped_contingent == ["no/lovtid/2025-02-02-5"]
-    assert replay.n_ops == 0
+    assert replay.amendments_applied == ["no/lovtid/2025-02-02-5"]
+    assert replay.amendments_skipped_contingent == []
+    assert replay.n_ops == 1
+
+    before_the_instrument_date = replay_no_to_pit(
+        "no/lov/2025-01-01-1",
+        as_of="2025-03-31",
+        data_dir=db_path,
+        index=index,
+    )
+    assert before_the_instrument_date.amendments_applied == []
+    assert before_the_instrument_date.amendments_skipped_future == ["no/lovtid/2025-02-02-5"]
 
 
 def test_real_corpus_whole_act_commencement_witness_when_archive_available() -> None:

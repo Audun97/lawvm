@@ -110,6 +110,23 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "Norway Lovdata XML member filename could not be mapped to a legal source "
         "id during ingestion; blocking source-pathology."
     ),
+    "no_lovtidend_commencement_execution_authorized": (
+        "A whole-act, single-date Norsk Lovtidend commencement instrument citing an "
+        "amendment act whose own commencement was unresolved IS that act's in-force "
+        "evidence; the act enters force on the instrument's date, not on its own "
+        "sanction date, and the authorization is recorded per act."
+    ),
+    "no_lovtidend_commencement_execution_date_conflict": (
+        "Two Norsk Lovtidend instruments commence the same amendment act at different "
+        "dates; contradictory official commencement evidence is blocking source "
+        "pathology and neither date re-dates the act."
+    ),
+    "no_lovtidend_commencement_execution_refused": (
+        "A Norsk Lovtidend instrument citing an unresolved amendment act failed at "
+        "least one execution-authorization conjunct (candidate parse, whole-act scope, "
+        "exactly one commencement date); it remains evidence and re-dates nothing, and "
+        "the failed conjunct is named."
+    ),
     "no_lovtidend_commencement_instrument_candidate": (
         "A Norsk Lovtidend forskrift instrument contains a typed law-commencement "
         "surface and is retained as a non-authorizing candidate; acquisition or "
@@ -271,9 +288,10 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "witnessed instead of silently widening target resolution."
     ),
     "no_replay_unknown_effective_skipped": (
-        "A Norway amendment's effective status flag was not one of "
-        "{contingent, dated, immediate, override}; the unknown status is "
-        "recorded as blocking, never silently guessed."
+        "A Norway amendment whose effective status is missing or unknown, or whose "
+        "effective date is absent, is recorded as blocking and skipped; contingent "
+        "commencement uses its dedicated skip lane, while resolved statuses carrying "
+        "an effective date, including instrument_authorized, are replayable."
     ),
     # --- Apply-fold orchestration failure (replay.py production caller) ---------------
     # iter4 W1 (silent-failure review HIGH #2): when ``apply_no_ops_conserved``

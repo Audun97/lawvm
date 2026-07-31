@@ -145,6 +145,12 @@ class NOEffectiveStatus(StrEnum):
     OVERRIDE = "override"
     """An explicit commencement override supplied the in-force date."""
 
+    INSTRUMENT_AUTHORIZED = "instrument_authorized"
+    """An official Norsk Lovtidend whole-act commencement instrument supplied
+    the in-force date. Distinct from ``DATED`` (metadata-derived, no instrument
+    in evidence) and from ``OVERRIDE`` (manually curated evidence) so a reader
+    of a serialized index can tell why the act carries a date."""
+
     CONTINGENT = "contingent"
     """In force on a condition / future delegated commencement (unresolved)."""
 
@@ -158,7 +164,12 @@ class NOEffectiveStatus(StrEnum):
 # Statuses that count as a RESOLVED in-force date (replayable). The complement
 # (contingent/missing/unknown) blocks deterministic replay.
 NO_RESOLVED_EFFECTIVE_STATUSES: frozenset[NOEffectiveStatus] = frozenset(
-    {NOEffectiveStatus.DATED, NOEffectiveStatus.IMMEDIATE, NOEffectiveStatus.OVERRIDE}
+    {
+        NOEffectiveStatus.DATED,
+        NOEffectiveStatus.IMMEDIATE,
+        NOEffectiveStatus.OVERRIDE,
+        NOEffectiveStatus.INSTRUMENT_AUTHORIZED,
+    }
 )
 NO_UNRESOLVED_EFFECTIVE_STATUSES: frozenset[NOEffectiveStatus] = frozenset(
     {NOEffectiveStatus.CONTINGENT, NOEffectiveStatus.MISSING, NOEffectiveStatus.UNKNOWN}

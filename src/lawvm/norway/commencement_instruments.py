@@ -1,14 +1,23 @@
-"""Typed, non-authorizing Norsk Lovtidend commencement-instrument surface."""
+"""Typed Norsk Lovtidend commencement-instrument surface.
+
+Parses commencement instruments into typed candidates, and owns the
+execution-authorization gate that re-dates unresolved amendment acts from a
+whole-act, single-date instrument. Parsing itself still authorizes nothing: only
+a candidate that passes every conjunct of the gate re-dates the act it cites.
+"""
 
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from collections.abc import Collection, Sequence
+from dataclasses import dataclass, replace
 from enum import StrEnum
-from typing import cast
+from typing import Any, cast
 
 from lxml import etree
 
+from lawvm.core.diagnostic_records import diagnostic_detail
+from lawvm.core.quirks_disposition import QuirksDisposition
 from lawvm.core.regex_safety import compile_classifier_regex
 from lawvm.core.xml_parse import parse_corpus_xml
 
@@ -16,6 +25,9 @@ NO_COMMENCEMENT_INSTRUMENT_RULE = "no_lovtidend_commencement_instrument_candidat
 NO_COMMENCEMENT_SCOPE_UNRESOLVED = "no_lovtidend_commencement_scope_unresolved"
 NO_COMMENCEMENT_INSTRUMENT_PARSE_FAILED = "no_lovtidend_commencement_instrument_parse_failed"
 NO_COMMENCEMENT_INSTRUMENT_COVERAGE_INVALID = "no_lovtidend_commencement_instrument_coverage_invalid"
+NO_COMMENCEMENT_EXECUTION_AUTHORIZED = "no_lovtidend_commencement_execution_authorized"
+NO_COMMENCEMENT_EXECUTION_REFUSED = "no_lovtidend_commencement_execution_refused"
+NO_COMMENCEMENT_EXECUTION_DATE_CONFLICT = "no_lovtidend_commencement_execution_date_conflict"
 
 _WS_RE = re.compile(r"\s+")
 _LAW_REF_RE = re.compile(r"(?:^|[/\s])lov/(?P<date>\d{4}-\d{2}-\d{2})-(?P<num>\d+)(?:$|[/\s#?])")
@@ -48,6 +60,14 @@ class NOCommencementScopeStatus(StrEnum):
     UNRESOLVED = "unresolved"
 
 
+class NOCommencementAuthorizationConjunct(StrEnum):
+    """The conjuncts an (instrument, act) pair must satisfy to re-date the act."""
+
+    PARSE_STATUS_CANDIDATE = "parse_status_candidate"
+    WHOLE_ACT_SCOPE = "whole_act_scope"
+    SINGLE_EFFECTIVE_DATE = "single_effective_date"
+
+
 class NOCommencementInstrumentCoverageError(ValueError):
     """Persisted commencement-instrument coverage has an invalid shape."""
 
@@ -78,7 +98,7 @@ class NOCommencementInstrumentCandidate:
             "scope_status": self.scope_status,
             "source_excerpt": self.source_excerpt,
             "rule_id": self.rule_id,
-            "replay_authorized": False,
+            "replay_authorized": self.replay_authorized,
         }
 
     @classmethod
@@ -105,6 +125,7 @@ class NOCommencementInstrumentCandidate:
             effective_dates=effective_dates,
             scope_status=NOCommencementScopeStatus(str(data.get("scope_status", "unresolved"))),
             source_excerpt=str(data.get("source_excerpt", "")),
+            replay_authorized=bool(data.get("replay_authorized", False)),
         )
 
 
@@ -177,6 +198,229 @@ class NOCommencementInstrumentCoverage:
             benign_non_commencement=count("benign_non_commencement"),
             blocked_unresolved=count("blocked_unresolved"),
         )
+
+
+@dataclass(frozen=True, slots=True)
+class NOCommencementAuthorizationReceipt:
+    """One unresolved amendment act re-dated by a whole-act instrument."""
+
+    act_source_id: str
+    instrument_source_ids: tuple[str, ...]
+    effective_date: str
+
+    def to_diagnostic_detail(self) -> dict[str, Any]:
+        return diagnostic_detail(
+            rule_id=NO_COMMENCEMENT_EXECUTION_AUTHORIZED,
+            family="temporal_recovery",
+            phase="temporal",
+            reason=(
+                "Norway commencement instrument authorized an unresolved amendment act: "
+                "the act takes the instrument's whole-act commencement date."
+            ),
+            blocking=False,
+            strict_disposition="record",
+            quirks_disposition=QuirksDisposition.RECORD,
+            source_id=self.act_source_id,
+            instrument_source_ids=list(self.instrument_source_ids),
+            effective_date=self.effective_date,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class NOCommencementRefusalReceipt:
+    """One (instrument, unresolved act) pair the authorization gate refused."""
+
+    act_source_id: str
+    instrument_source_id: str
+    failed_conjuncts: tuple[NOCommencementAuthorizationConjunct, ...]
+    parse_status: NOCommencementParseStatus
+    scope_status: NOCommencementScopeStatus
+    effective_dates: tuple[str, ...]
+
+    def to_diagnostic_detail(self) -> dict[str, Any]:
+        return diagnostic_detail(
+            rule_id=NO_COMMENCEMENT_EXECUTION_REFUSED,
+            family="temporal_recovery",
+            phase="temporal",
+            reason=(
+                "Norway commencement instrument cites an unresolved amendment act but fails the "
+                "execution-authorization gate; it stays evidence and re-dates nothing."
+            ),
+            blocking=False,
+            strict_disposition="record",
+            quirks_disposition=QuirksDisposition.RECORD,
+            source_id=self.act_source_id,
+            instrument_source_id=self.instrument_source_id,
+            failed_conjuncts=[str(conjunct) for conjunct in self.failed_conjuncts],
+            parse_status=str(self.parse_status),
+            scope_status=str(self.scope_status),
+            effective_dates=list(self.effective_dates),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class NOCommencementDateConflictReceipt:
+    """Two instruments commencing one act at different dates; both refused."""
+
+    act_source_id: str
+    instrument_source_ids: tuple[str, ...]
+    effective_dates: tuple[str, ...]
+
+    def to_diagnostic_detail(self) -> dict[str, Any]:
+        return diagnostic_detail(
+            rule_id=NO_COMMENCEMENT_EXECUTION_DATE_CONFLICT,
+            family="temporal_recovery",
+            phase="temporal",
+            reason=(
+                "Norway commencement instruments give one amendment act contradictory whole-act "
+                "commencement dates; neither date is applied."
+            ),
+            blocking=True,
+            strict_disposition="block",
+            quirks_disposition=QuirksDisposition.BLOCK,
+            source_id=self.act_source_id,
+            instrument_source_ids=list(self.instrument_source_ids),
+            effective_dates=list(self.effective_dates),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class NOCommencementExecutionAuthorization:
+    """The gate's total outcome: the instruments, and a receipt per decision."""
+
+    instruments: tuple[NOCommencementInstrumentCandidate, ...] = ()
+    authorizations: tuple[NOCommencementAuthorizationReceipt, ...] = ()
+    refusals: tuple[NOCommencementRefusalReceipt, ...] = ()
+    conflicts: tuple[NOCommencementDateConflictReceipt, ...] = ()
+
+    def authorized_effective_dates(self) -> dict[str, str]:
+        return {
+            receipt.act_source_id: receipt.effective_date for receipt in self.authorizations
+        }
+
+
+def no_commencement_act_id_from_law_id(law_id: str) -> str:
+    """Alias an instrument's ``basedOn`` law id onto the amendment-act id.
+
+    Instruments cite the amending act by its law id (``no/lov/<date>-<num>``)
+    while the index keys the same act by its Lovtidend id
+    (``no/lovtid/<date>-<num>``); the date-and-number segment is shared.
+    Returns ``""`` for an id that is not in law form.
+    """
+    if not law_id.startswith("no/lov/"):
+        return ""
+    return "no/lovtid/" + law_id.removeprefix("no/lov/")
+
+
+def authorize_no_commencement_instruments(
+    parsed_instruments: Sequence[
+        tuple[NOCommencementParseStatus, NOCommencementInstrumentCandidate]
+    ],
+    *,
+    unresolved_act_ids: Collection[str],
+) -> NOCommencementExecutionAuthorization:
+    """Gate already-parsed instruments into whole-act re-dating authorizations.
+
+    Consumes parse results; it never re-parses instrument XML and never
+    reclassifies a parse. An (instrument, act) pair authorizes only when every
+    conjunct of ``NOCommencementAuthorizationConjunct`` holds and the cited law
+    id aliases to an act in ``unresolved_act_ids``. An instrument citing no
+    unresolved act authorizes nothing and records nothing: that is the
+    enabling-statute filter — an instrument commencing a *forskrift* cites the
+    forskrift's hjemmel statutes, which are principal laws, not unresolved
+    amendment acts.
+    """
+    unresolved = frozenset(unresolved_act_ids)
+    proposals: dict[str, dict[str, list[str]]] = {}
+    refusals: list[NOCommencementRefusalReceipt] = []
+    for parse_status, candidate in parsed_instruments:
+        cited_act_ids = tuple(
+            sorted(
+                {
+                    act_id
+                    for act_id in (
+                        no_commencement_act_id_from_law_id(law_id)
+                        for law_id in candidate.affected_law_ids
+                    )
+                    if act_id in unresolved
+                }
+            )
+        )
+        if not cited_act_ids:
+            continue
+        failed_conjuncts = _failed_authorization_conjuncts(parse_status, candidate)
+        if failed_conjuncts:
+            refusals.extend(
+                NOCommencementRefusalReceipt(
+                    act_source_id=act_id,
+                    instrument_source_id=candidate.source_id,
+                    failed_conjuncts=failed_conjuncts,
+                    parse_status=parse_status,
+                    scope_status=candidate.scope_status,
+                    effective_dates=candidate.effective_dates,
+                )
+                for act_id in cited_act_ids
+            )
+            continue
+        for act_id in cited_act_ids:
+            proposals.setdefault(act_id, {}).setdefault(
+                candidate.effective_dates[0], []
+            ).append(candidate.source_id)
+
+    authorizations: list[NOCommencementAuthorizationReceipt] = []
+    conflicts: list[NOCommencementDateConflictReceipt] = []
+    authorized_instrument_ids: set[str] = set()
+    for act_id, instrument_ids_by_date in sorted(proposals.items()):
+        if len(instrument_ids_by_date) > 1:
+            conflicts.append(
+                NOCommencementDateConflictReceipt(
+                    act_source_id=act_id,
+                    instrument_source_ids=tuple(
+                        sorted(
+                            source_id
+                            for source_ids in instrument_ids_by_date.values()
+                            for source_id in source_ids
+                        )
+                    ),
+                    effective_dates=tuple(sorted(instrument_ids_by_date)),
+                )
+            )
+            continue
+        effective_date, instrument_source_ids = next(iter(instrument_ids_by_date.items()))
+        authorizations.append(
+            NOCommencementAuthorizationReceipt(
+                act_source_id=act_id,
+                instrument_source_ids=tuple(sorted(set(instrument_source_ids))),
+                effective_date=effective_date,
+            )
+        )
+        authorized_instrument_ids.update(instrument_source_ids)
+
+    return NOCommencementExecutionAuthorization(
+        instruments=tuple(
+            replace(candidate, replay_authorized=True)
+            if candidate.source_id in authorized_instrument_ids
+            else candidate
+            for _parse_status, candidate in parsed_instruments
+        ),
+        authorizations=tuple(authorizations),
+        refusals=tuple(refusals),
+        conflicts=tuple(conflicts),
+    )
+
+
+def _failed_authorization_conjuncts(
+    parse_status: NOCommencementParseStatus,
+    candidate: NOCommencementInstrumentCandidate,
+) -> tuple[NOCommencementAuthorizationConjunct, ...]:
+    failed: list[NOCommencementAuthorizationConjunct] = []
+    if parse_status is not NOCommencementParseStatus.CANDIDATE:
+        failed.append(NOCommencementAuthorizationConjunct.PARSE_STATUS_CANDIDATE)
+    if candidate.scope_status is not NOCommencementScopeStatus.WHOLE_ACT:
+        failed.append(NOCommencementAuthorizationConjunct.WHOLE_ACT_SCOPE)
+    if len(candidate.effective_dates) != 1:
+        failed.append(NOCommencementAuthorizationConjunct.SINGLE_EFFECTIVE_DATE)
+    return tuple(failed)
 
 
 def _normalized_text(root: etree._Element) -> str:
