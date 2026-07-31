@@ -15,7 +15,7 @@
   "productBaseline": "e04be4d7ddfd8bd80750e6d260a25ddfe106bbb9",
   "dependsOn": [],
   "recommendedAfter": [],
-  "objective": "Read Lovdata's declared-target list on every Norway amendment artifact, store it on the index entry, and emit one typed blocking adjudication per act whose bound base_ids do not cover its declared targets. The reading primitives already exist in grafter.py and are extracted, not rewritten. A completeness assertion only: it must not bind a new target, change an op, or move the verify scoreboard.",
+  "objective": "Store Lovdata's declared-target list on the index entry and emit one typed blocking adjudication per act whose bound base_ids do not cover it. Measure only: no new binding, no op change, no scoreboard movement. READ notes/norway-batches/contracts/02-declared-target-binding-coverage.brief.md IN FULL BEFORE ACTING — it carries the binding detail for every item below.",
   "preflightChecks": [
     "NOAmendmentIndexEntry.base_ids in src/lawvm/norway/index.py is built from the grouped op list only.",
     "src/lawvm/norway/grafter.py reads the changesToDocuments dd class inside _iter_unstructured_no_change_groups.",
@@ -67,52 +67,51 @@
     "requiredDeletedPaths": []
   },
   "requirements": [
-    "Extract, do not duplicate. grafter.py:_iter_unstructured_no_change_groups already xpaths the changesToDocuments dd class, reads its <li> descendants, and normalizes each via normalize_lovdata_refid. Move that block into ONE shared helper in sources.py called from both the grafter and the index. Behavior-preserving: changed_docs and default_base_id identical. Do NOT reuse parse_header_value here: its XPath string() flattening returns one separator-free token. Do NOT write a new id normalizer: normalize_lovdata_refid already maps lov/<date>-<number> and lov/<date> to no/lov ids and forskrift/null to None. Pin both behaviors in tests.",
-    "Bucket the 109 'lov/<date>' items separately. They normalize to well-formed ids like no/lov/1967-02-10, but no corpus law id has that shape, so they can never bind. Counted as ordinary unbound targets they inflate the gap by 109 and stop it reconciling with the probe.",
-    "Settle the block-presence definition in code and in test names: 2942 of 3089 artifacts carry a block (all non-empty), 147 carry none, and 2941 blocks hold at least one lov-form target. no/lovtid/2021-06-18-115 declares only forskrift/1952-04-21-4287 and must neither raise nor emit a false unbound adjudication.",
-    "Add a declared-targets field to NOAmendmentIndexEntry with a default that preserves existing call sites, and extend from_dict with .get so an index JSON written before this change still loads. to_dict is generic via asdict and should need no change.",
-    "Emit one adjudication per act whose declared law targets are not covered by its bound base_ids, appended to NOAmendmentIndex.diagnostics via diagnostic_detail: rule_id 'no_amendment_index_declared_target_unbound', family 'source_pathology', phase 'acquisition', blocking=True, strict_disposition='block', quirks_disposition=QuirksDisposition.RECORD.",
-    "The adjudication detail must carry source_id, the declared count, the bound count, and the sorted unbound target ids, so it can be acted on without re-deriving it.",
-    "Add the _NO_RULE_SPECS entry in the siblings behavioral voice: the gap is recorded, not repaired. It must NOT claim the declared list never authorizes a binding anywhere in the frontend — false today, since the grafter uses a sole declared ref as default_base_id. Scope the claim to the index.",
-    "Test no/lovtid/2022-12-20-115 end to end: 14 declared, 6 bound, adjudication names exactly the 8 unbound.",
-    "Test that a fully-covered act emits NO adjudication, else the check is vacuous.",
-    "Test the separator trap: the helper returns multiple distinct ids, and not the single concatenated token parse_header_value gives for the same input."
+    "READ notes/norway-batches/contracts/02-declared-target-binding-coverage.brief.md IN FULL BEFORE ACTING — it carries the binding detail for every item below.",
+    "Extract the existing changesToDocuments reader from grafter.py into ONE shared helper in sources.py; call it from grafter and index. Behavior-preserving.",
+    "Do NOT reuse parse_header_value (string() flattening yields one separator-free token). Do NOT write a new id normalizer; reuse normalize_lovdata_refid. Pin both in tests.",
+    "Bucket the 109 non-resolving 'lov/<date>' ids apart from real unbound targets.",
+    "Settle block-presence in code and test names: 2942 carry a block, 147 none, 2941 hold a lov-form target. no/lovtid/2021-06-18-115 is forskrift-only.",
+    "Add a declared-targets field to NOAmendmentIndexEntry with a default; extend from_dict with .get for backward compatibility.",
+    "Emit rule_id 'no_amendment_index_declared_target_unbound', family 'source_pathology', phase 'acquisition', blocking=True, strict_disposition='block', quirks_disposition=RECORD, into NOAmendmentIndex.diagnostics.",
+    "Detail carries source_id, declared count, bound count, sorted unbound ids.",
+    "Add the _NO_RULE_SPECS entry; scope its authority claim to the index, not the frontend.",
+    "Test no/lovtid/2022-12-20-115 (14 declared, 6 bound, 8 named), a fully-covered act emitting NO adjudication, and the separator trap."
   ],
   "invariants": [
-    "base_ids stays derived solely from extracted ops; this batch adds, removes, or reorders none.",
-    "The grafter's sole-declared-ref default_base_id is PRE-EXISTING and must be preserved exactly: same acts, same ids.",
-    "n_ops unchanged for every act.",
-    "No replay behavior change: no op created, dropped, retargeted, or reordered.",
-    "The verify scoreboard at 2026-07-10 stays 12 consistent / 8 divergent / 0 error, every per-law divergence count byte-identical.",
-    "The 147 block-less acts and the forskrift-only no/lovtid/2021-06-18-115 neither raise nor emit a false unbound adjudication.",
+    "base_ids stays derived solely from extracted ops; none added, removed, or reordered.",
+    "The grafter's sole-declared-ref default_base_id is PRE-EXISTING and preserved exactly.",
+    "n_ops unchanged; no op created, dropped, retargeted, or reordered.",
+    "Scoreboard at 2026-07-10 stays 12 consistent / 8 divergent / 0 error, per-law counts byte-identical.",
+    "The 147 block-less acts and the forskrift-only act neither raise nor emit a false adjudication.",
     "Existing index diagnostics keep their rule ids, blocking flags, and dispositions.",
-    "Every no_* rule id emitted under src/lawvm/norway/ has a _NO_RULE_SPECS entry.",
+    "Every no_* rule id under src/lawvm/norway/ has a _NO_RULE_SPECS entry.",
     "The norway and tools_cli_debug shards pass."
   ],
   "exclusions": [
-    "Fixing extraction so a declared target actually binds. This batch measures; closing the gap is F-10 steps (b) and (c). A patch that newly binds a target has violated the contract.",
-    "The bulk-rename list grammar and its terminology-substitution lowering (F-10 family 1, 53 acts) — separate batch, gated behind W-7 since 322 of its 402 bindings are contingent.",
-    "Making the 109 'lov/<date>' targets resolvable. Bucket them; changing the id grammar or the corpus is its own decision.",
-    "Changing or extending the grafter's default_base_id rule. The extraction is a pure refactor.",
-    "The 286 bound-but-not-declared bindings. Surface them if free, do not act on them.",
-    "Commencement and the contingent/dated split. This batch is indifferent to whether an act would apply.",
-    "F-04's OPS_MISSING half (§8(4) of no/lov/2015-05-12-27).",
+    "Fixing extraction so a declared target binds. A patch that newly binds a target violates the contract.",
+    "The bulk-rename list grammar (F-10 family 1) — separate batch, gated behind W-7.",
+    "Making the 109 'lov/<date>' targets resolvable.",
+    "Changing or extending the grafter's default_base_id rule.",
+    "The 286 bound-but-not-declared bindings.",
+    "Commencement and the contingent/dated split.",
+    "F-04's OPS_MISSING half.",
     "Ledger and progress updates: the human apply step."
   ],
   "stopConditions": [
-    "If a declared <li> payload outside the measured closed set appears, stop and record the counter-example rather than widening a rule to swallow it.",
-    "If the declared-targets field cannot keep from_dict backward-compatible with a pre-change index JSON, stop and report; silent migration of persisted state is out of scope.",
-    "If emitting the adjudication changes any law's replay output or divergence count, stop: the declared list has leaked into binding authority."
+    "A declared payload outside the measured closed set: stop, record the counter-example.",
+    "from_dict cannot stay backward-compatible: stop; silent migration is out of scope.",
+    "Any replay output or divergence count moves: stop, the declared list has leaked into binding authority."
   ],
   "reviewFocus": [
-    "Authority leakage is the central risk: the declared list is oracle-grade metadata and §2.2 makes evidence never a repair permission. Read the diff and confirm no declared id reaches base_ids, op construction, or target resolution through anything this batch ADDED, including error and fallback branches. Baseline precisely: the grafter ALREADY binds from a sole declared ref, so the question is whether this patch widens that, not whether it ever happens.",
-    "Confirm the grafter block was EXTRACTED and reused, not copied — a second parser in sources.py reimplementing the same xpath and normalization is the defect to catch, since two copies diverge. Confirm normalize_lovdata_refid was reused, not reimplemented. Confirm the extraction preserves changed_docs and default_base_id.",
-    "Confirm the helper reads <li> elements, not the string() flattening; a regex splitting the concatenated token apart is a workaround for the wrong helper.",
-    "Confirm the 109 non-resolving 'lov/<date>' ids are bucketed apart from real unbound targets, else the gap inflates by 109 and stops reconciling with the probe.",
-    "Confirm the no-gap case is tested and passes. If every act emits an adjudication the check is vacuous — the failure batch 01's reviewers caught.",
-    "Confirm the 147 block-less acts, the forskrift-only act no/lovtid/2021-06-18-115, and the literal 'null' item each take a path that neither raises nor invents an unbound target.",
-    "A new no_* rule id is found by AST scan and must be cataloged; confirm the _NO_RULE_SPECS entry exists and reads in the siblings voice. Batch 01 aborted on this coupling.",
-    "Confirm the round-trip: build an index, to_dict, from_dict, and assert declared targets and adjudications survive unchanged."
+    "READ notes/norway-batches/contracts/02-declared-target-binding-coverage.brief.md IN FULL BEFORE ACTING — it carries the binding detail for every item below. Judge the patch against it, not against these summaries.",
+    "Authority leakage is the central risk. Confirm no declared id reaches base_ids, op construction, or target resolution through anything ADDED, including fallback branches. The grafter ALREADY binds from a sole declared ref: the question is whether this widens it.",
+    "Confirm the grafter block was EXTRACTED, not copied, and normalize_lovdata_refid reused, not reimplemented. Two copies diverge.",
+    "Confirm the helper reads <li> elements, not the string() flattening.",
+    "Confirm the 109 non-resolving ids are bucketed apart from real unbound targets.",
+    "Confirm the no-gap case is tested and passes; if every act emits an adjudication the check is vacuous.",
+    "Confirm the 147 block-less acts, the forskrift-only act, and the literal 'null' item neither raise nor invent a target.",
+    "Confirm the _NO_RULE_SPECS entry exists in the siblings voice, and the to_dict/from_dict round-trip."
   ],
   "verification": {
     "targeted": [
@@ -159,11 +158,11 @@
   "fieldVerification": {
     "policy": "required-after-application",
     "instructions": [
-      "uv run lawvm no-verify-scan --limit 50 --as-of 2026-07-10 — MUST still be 12 consistent / 8 divergent / 0 error. Any movement means the declared list leaked into binding authority: revert, do not accept the improvement.",
-      "uv run lawvm no-divergence no/lov/2015-05-12-27 --as-of 2026-07-10 — still 5 Fylkesmannen/Statsforvaltaren MISMATCHes plus the §8(4) OPS_MISSING. This measures F-04's cause, it does not fix it.",
-      "uv run python scripts/probes/no_declared_target_coverage.py — reconcile the emitted adjudication count against the probe's 4088 across 1245 acts. Record both and explain any difference; do not tune either to match.",
-      "Confirm the adjudication is present and blocking for no/lovtid/2022-12-20-115 and absent for a fully-bound act.",
-      "Update the ledger: F-10 step (a) done with the apply commit, W-8 struck, changelog line, and whether the count matched 4088."
+      "uv run lawvm no-verify-scan --limit 50 --as-of 2026-07-10 — MUST still be 12/8/0. Any movement: revert, do not accept.",
+      "uv run lawvm no-divergence no/lov/2015-05-12-27 --as-of 2026-07-10 — still 5 MISMATCHes plus the OPS_MISSING.",
+      "uv run python scripts/probes/no_declared_target_coverage.py — reconcile against 4088 across 1245 acts; explain differences, do not tune.",
+      "Adjudication present and blocking for no/lovtid/2022-12-20-115, absent for a fully-bound act.",
+      "Update the ledger and see notes/norway-batches/contracts/02-declared-target-binding-coverage.brief.md for the full list."
     ]
   }
 }
