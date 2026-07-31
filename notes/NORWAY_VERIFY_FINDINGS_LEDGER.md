@@ -150,7 +150,7 @@ whether mixed dates must demote to `contingent` (blocking) pending evidence.
 Note the same act carries 82 ops against rekonstruksjonsloven, so misdating it
 touches multiple corpus laws.
 
-### F-04 — Statsforvalter renaming absent from the amendment index — open (acquisition/index)
+### F-04 — Statsforvalter renaming absent from the amendment index — reclassified (see F-10)
 
 `no/lov/2015-05-12-27` (forsvunne personar): 5 MISMATCHes are all
 `Fylkesmannen`→`Statsforvaltaren` (the national 2021 renaming of the county
@@ -158,10 +158,121 @@ governor office). The index holds only one amendment for this law
 (`no/lovtid/2020-12-18-149`), so the renaming act was never applied. Also one
 OPS_MISSING: published §8(4) (death-abroad rule) has no corresponding op.
 
-Action: locate the renaming act (and the §8(4) source) in the local archive;
-if absent from the packages, record as acquisition ceiling; if present but
-unindexed, index-coverage bug. Note: the renaming act, once found, likely
-unblocks the same mismatch in many currently-blocked laws.
+**Resolved by the 2026-07-31 W-3 probes — it is neither an acquisition gap nor
+an index-coverage bug.** The renaming act is present and indexed:
+`no/lovtid/2021-05-07-34`, 72,304 bytes, `effective_status: contingent`,
+`raw_date_in_force: "Kongen fastset"`. It names **97 laws** in a bulk-rename
+list and the index binds **4**, including entry 20 — "*lov 12. mai 2015 nr. 27
+om forsvunne personar § 5 første ledd, andre ledd første og andre punktum og
+tredje ledd første punktum, § 7, § 23 andre ledd andre punktum*" — which is
+exactly the observed mismatch set, §5-clustered.
+
+So the binding, not the acquisition, is the defect. Chasing the general form of
+that defect produced **F-10**, which subsumes this finding and is much larger.
+F-04 itself stays blocked twice over: on F-10's binding gap, and on the act
+being `contingent` (it would not apply even once bound). The OPS_MISSING §8(4)
+half is untouched by this and is still open under W-6.
+
+### F-10 — The index ignores Lovdata's declared-target field; 47% of declared amendment bindings are lost — open (index/extraction, highest measured payoff)
+
+Every Lovtidend amendment artifact carries a structured, machine-readable list
+of the laws it changes, sitting in the same metadata block as `dateInForce`
+(which the index *does* read):
+
+```html
+<dt class="changesToDocuments">Endrar</dt>
+<dd class="changesToDocuments"><ul>
+  <li>lov/1950-12-15-7</li><li>lov/1967-02-10</li>...
+</ul></dd>
+```
+
+Nothing in `src/lawvm/norway/` reads it. `NOAmendmentIndexEntry.base_ids` is
+derived solely from successfully-extracted ops (`index.py:268`), so a law the
+extractor fails to reach is silently absent from the binding — with no receipt,
+because a target that was never bound is never adjudicated as missed.
+
+Measured over all 3,089 amendment artifacts (2,941 carry the field, 148 do not):
+
+| | |
+|---|---|
+| Declared target bindings (Lovdata's own list) | **8,643** |
+| Bound by the index | 4,841 |
+| **Declared but NOT bound** | **4,088 — 47.3% of declared** |
+| ...of which we hold consolidated text (verifiable) | 2,544 |
+| Bound but NOT declared (index over-reach) | 286 |
+| Acts with a nonempty gap | 1,245 / 2,941 |
+
+Gap by commencement status — `dated` is the part that would apply today:
+
+| status | acts | missed | verifiable |
+|---|---|---|---|
+| contingent | 555 | 1,999 | 1,246 |
+| `<unindexed>` | 475 | 1,089 | 621 |
+| **dated** | **214** | **999** | **676** |
+
+**The gap is an extraction failure, not an over-inclusive declared list.** On an
+18-act `dated` sample, 261 of 264 declared-but-unbound verifiable targets are
+named verbatim in the act's own operative body (99%); only 3 were absent. The
+declared list is accurate and the extractor is missing the targets.
+
+Field-visible confirmation on the cleanest case — `no/lovtid/2022-12-20-115`
+(Sivilombodet rename, `dated 2022-12-20`, no commencement ambiguity): declares
+14 targets, binds 6. All four missed verifiable targets show the *new* term in
+their consolidated text and zero occurrences of the old one:
+
+| law | bound | "Sivilombudet" | "Stortingets ombudsmann" |
+|---|---|---|---|
+| `no/lov/1980-06-13-35` | no | 2 | 0 |
+| `no/lov/1999-07-02-62` | no | 1 | 0 |
+| `no/lov/1999-07-02-64` | no | 1 | 0 |
+| `no/lov/2017-06-16-50` | no | 1 | 0 |
+
+The amendment demonstrably happened; our replay cannot reach it.
+
+**Why this is the first finding with a nonzero field payoff.** F-02 (W-2), F-03,
+and F-04 all terminate at commencement — their fixes move the scan by zero until
+W-7 lands. F-10 does not: 676 of the missed verifiable bindings sit on `dated`
+acts with real in-force dates (`2022-12-20`, `2011-01-01`, `2026-06-19`), so
+they apply the moment they are bound.
+
+**Sizing caution before this becomes a batch.** The measurement is a *binding*
+count, not a fix estimate. Reading the declared field is cheap; making a bound
+target produce correct ops is not, and splits into at least three families:
+
+1. **Bulk-rename list grammar** — 53 acts, 402 unreached bindings, 42 of them
+   with zero structural markers. Operative form is
+   "*I følgjande lovføresegner vert «X» endra til «Y»:*" + a numbered law list.
+   This is a **scoped terminology substitution**, a text-patch family the engine
+   has no lowering for at all — not a section replace. Largest single act:
+   `no/lovtid/2021-05-07-34` (93 unreached).
+2. **Ordinary multi-target omnibus acts** — the bulk of the remaining ~3,700,
+   where extraction reaches some targets and not others.
+3. **Declared-target id forms the current ids cannot express** — e.g.
+   `lov/1967-02-10` (forvaltningsloven) has no trailing number.
+
+Recommended decomposition, smallest-first, each independently field-measurable:
+**(a)** parse and store the declared list as a *typed observed-vs-declared
+adjudication* — no behavior change, but it converts an invisible 47% gap into a
+receipt; **(b)** measure how many missed bindings family 2 alone recovers;
+**(c)** treat family 1's terminology-substitution lowering as its own batch, and
+only after W-7 since 322 of its 402 bindings are `contingent`.
+
+Step (a) is the one to do first: it is a small, bounded, testable change that
+makes every later step measurable, and it is the only one whose scope is already
+known.
+
+The two reusable measurements are kept, since a fix has to be scored against
+them (read-only; JSON under `.tmp/`, gitignored):
+
+```bash
+uv run python scripts/probes/no_declared_target_coverage.py    # the 47.3% gap
+uv run python scripts/probes/no_declared_target_gap_nature.py  # extraction vs declared list
+```
+
+The three one-shot probes behind the bulk-rename numbers were throwaway and are
+not kept. One is worth repeating if that family is revisited: measuring the list
+grammar needs the XML flattened to text first, because list numbering is split
+across markup and a raw-byte regex silently reports zero.
 
 ### F-05 — Footnote-marker digits leak into the published compare text — reclassified (not fixable as a normalization rule)
 
@@ -256,9 +367,19 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    **Deferred** by the 2026-07-31 spike: three stacked defects, 284 leads, and
    a measured field delta of zero because 283 of them sit behind the
    commencement/missing-source blockers. Reopen after W-7.
-3. **W-3 (F-04):** hunt the statsforvalter renaming act in the archive;
-   classify as index bug vs acquisition gap.
-4. **W-4 (F-01):** make `no-verify-scan`'s default comparison date
+3. ~~**W-3 (F-04):** hunt the statsforvalter renaming act in the archive;
+   classify as index bug vs acquisition gap.~~ **Done** — 2026-07-31 probes.
+   Neither: the act is present and indexed, but binds 4 of the 97 laws it
+   names. Generalizing that produced **F-10**, and F-04 now depends on it.
+4. **W-8 (F-10) — promoted to the head of the engine queue:** parse the
+   `changesToDocuments` declared-target list and emit a typed
+   declared-vs-bound adjudication. No behavior change, but it turns a
+   measured-invisible 47.3% binding gap into a receipt, and makes every
+   later extraction fix measurable. **This is the first open item with a
+   nonzero field payoff** — 676 missed verifiable bindings sit on `dated`
+   acts, unlike W-2/F-03/F-04 which all terminate at commencement. Scope is
+   already known, so it goes straight to a contract; no spike.
+5. **W-4 (F-01):** make `no-verify-scan`'s default comparison date
    snapshot-commensurable.
 5. **W-5 (F-03):** check the forskrift lane for a 2026-06-19-48 commencement
    instrument; decide whether mixed "DATE, Kongen bestemmer" in-force fields
@@ -285,6 +406,24 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
 
+- **2026-07-31 (probe)** — **W-3 done; F-04 reclassified and F-10 opened.**
+  Five read-only probes, no worktree, no agents. The statsforvalter act turned
+  out to be present and indexed but binding 4 of the 97 laws it names, which
+  led to the general question and then to the `changesToDocuments` field:
+  Lovdata declares its own amendment targets in structured markup and the index
+  reads none of it — **4,088 of 8,643 declared bindings (47.3%) are lost**, 99%
+  of them extraction failures rather than an over-inclusive declared list
+  (18-act sample, 261/264 targets named verbatim in the act body). Two process
+  notes worth keeping. First, the initial prevalence pass measured **0**
+  unreached bindings for the very act it was built from: list numbering is split
+  across markup, so a raw-byte regex could not see it. The pass was only
+  trusted after it reproduced the hand-verified case (93). *A corpus probe that
+  cannot reproduce its own seed case is measuring nothing.* Second, the count
+  alone would have been a bad basis for a batch — the false-positive check is
+  what promoted this from "a grammar we don't parse" to "a structured field we
+  ignore", and it is also what found the payoff: unlike W-2, F-03 and F-04, this
+  one does **not** terminate at commencement (676 missed verifiable bindings sit
+  on `dated` acts). W-8 is now ahead of W-4 in the queue.
 - **2026-07-31 (spike)** — **W-2 spiked and deferred.** The minimal fix was
   built in a throwaway worktree and moved the corpus scan by nothing; F-02's
   entry now carries the mechanism, the 284/8,623 sizing, the 49 unmodelled

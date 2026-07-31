@@ -1435,6 +1435,13 @@ TOOLING_SHARD_PATHS: dict[str, tuple[str, ...]] = {
     "scripts/test_shard.py": ("tools_audit_release",),
     "scripts/test_shard.sh": ("tools_audit_release",),
     "scripts/release_hygiene.sh": ("tools_audit_release",),
+    # Read-only diagnostic probes under scripts/probes/ carry no production
+    # coupling, but they import a jurisdiction's index/source API and break
+    # when it moves — so each maps to that jurisdiction's shard, not to
+    # tools_audit_release. Register new probes here; the router is exact-path
+    # keyed and rejects unmapped scripts/ paths.
+    "scripts/probes/no_declared_target_coverage.py": ("norway",),
+    "scripts/probes/no_declared_target_gap_nature.py": ("norway",),
 }
 TOOL_SOURCE_SHARD_GROUPS: dict[tuple[str, ...], tuple[str, ...]] = {
     ("estonia", "tools_cli_debug"): (
