@@ -1,6 +1,6 @@
 # Norway Verify Findings Ledger
 
-> **Status (2026-07-30):** Living triage ledger. Companion to
+> **Status (2026-07-31):** Living triage ledger. Companion to
 > `NORWAY_LAWVM_STATUS.md` (the normative claim/limits doc — this file never
 > overrides it). Records what the replay-vs-consolidation verification of the
 > currently replayable corpus actually found, one finding per defect family,
@@ -10,12 +10,12 @@
 ## 1. Scope And Method
 
 Full verify scan over every executable fully-replayable current law in the
-local snapshot (20 laws; local packages as listed 2026-07-11, consolidation
-snapshot `gjeldende-lover` dated 2026-07-10):
+local snapshot (58 laws after batch 03; local packages as listed 2026-07-11,
+consolidation snapshot `gjeldende-lover` dated 2026-07-10):
 
 ```bash
-uv run lawvm no-verify-scan --limit 50 --as-of 2026-07-10 --json
-uv run lawvm no-verify-partition --limit 50
+uv run lawvm no-verify-scan --limit 200 --as-of 2026-07-10 --json
+uv run lawvm no-verify-partition --limit 200
 uv run lawvm no-divergence <BASE_ID> --as-of 2026-07-10 --max-divergences 500 --json
 ```
 
@@ -27,11 +27,64 @@ consolidation; every class below is evidence to triage, not a repair license.
 
 ## 2. Scoreboard
 
-| as-of | consistent | divergent | error |
-|---|---|---|---|
-| 2026-03-29 (scan default) | 8 | 12 | 0 |
-| 2026-07-10 (snapshot-commensurable) | 11 | 9 | 0 |
-| **2026-07-10, after batch 01 (f4eae341a)** | **12** | **8** | 0 |
+| as-of / cohort | consistent | divergent | error |
+|---|---:|---:|---:|
+| 2026-03-29 (scan default, original 20) | 8 | 12 | 0 |
+| 2026-07-10 (snapshot-commensurable, original 20) | 11 | 9 | 0 |
+| **2026-07-10, after batch 01 (original 20, f4eae341a)** | **12** | **8** | 0 |
+| **2026-07-10, after batch 03 (original 20, 2c76cedec)** | **12** | **8** | 0 |
+| **2026-07-10, batch 03 newly unlocked 38** | **6** | **32** | 0 |
+| **2026-07-10, after batch 03 (all 58)** | **18** | **40** | 0 |
+
+Batch 03 increased coverage rather than changing an existing verdict: all 20
+old rows stayed byte-identical, and 38 laws that had previously been excluded
+for unresolved commencement entered the scan. Their first durable baseline is:
+
+| newly unlocked law | verdict | divergences |
+|---|---|---:|
+| `no/lov/2010-06-25-28` | divergent | 29 |
+| `no/lov/2013-06-21-102` | divergent | 55 |
+| `no/lov/2017-06-16-67` | divergent | 6 |
+| `no/lov/2019-06-14-21` | divergent | 28 |
+| `no/lov/2001-06-15-65` | divergent | 4 |
+| `no/lov/2010-02-19-5` | divergent | 32 |
+| `no/lov/2015-05-22-33` | divergent | 3 |
+| `no/lov/2017-06-16-51` | divergent | 215 |
+| `no/lov/2004-05-28-29` | divergent | 9 |
+| `no/lov/2005-06-03-34` | divergent | 3 |
+| `no/lov/2016-06-17-29` | divergent | 21 |
+| `no/lov/2017-06-16-65` | divergent | 57 |
+| `no/lov/2005-05-27-31` | divergent | 10 |
+| `no/lov/2018-06-15-38` | divergent | 716 |
+| `no/lov/2021-06-18-115` | consistent | 0 |
+| `no/lov/2022-03-18-12` | consistent | 0 |
+| `no/lov/2024-12-13-76` | divergent | 1 |
+| `no/lov/2002-04-26-12` | divergent | 8 |
+| `no/lov/2003-06-27-57` | divergent | 2 |
+| `no/lov/2007-06-29-89` | divergent | 1 |
+| `no/lov/2009-03-06-12` | divergent | 3 |
+| `no/lov/2012-01-27-9` | divergent | 6 |
+| `no/lov/2012-11-30-70` | divergent | 1 |
+| `no/lov/2013-06-07-31` | consistent | 0 |
+| `no/lov/2016-06-17-46` | divergent | 2 |
+| `no/lov/2017-05-22-28` | divergent | 1 |
+| `no/lov/2017-05-22-29` | divergent | 6 |
+| `no/lov/2017-05-22-30` | divergent | 6 |
+| `no/lov/2020-06-19-95` | divergent | 1 |
+| `no/lov/2020-11-27-131` | divergent | 15 |
+| `no/lov/2020-12-04-136` | divergent | 3 |
+| `no/lov/2020-12-18-153` | consistent | 0 |
+| `no/lov/2021-04-16-18` | divergent | 1 |
+| `no/lov/2021-06-18-121` | divergent | 2 |
+| `no/lov/2022-12-20-118` | divergent | 8 |
+| `no/lov/2022-12-20-97` | divergent | 6 |
+| `no/lov/2024-06-25-69` | consistent | 0 |
+| `no/lov/2024-12-13-77` | consistent | 0 |
+
+Two rows need a temporal-ordering caveat before their divergence shape is used
+as replay-fidelity evidence: `no/lov/2010-02-19-5` and
+`no/lov/2010-06-25-28` have amendment sanction-date order different from
+commencement-date order, while replay currently orders by `source_id`.
 
 The delta between the first two rows is itself finding F-01: three laws
 (`no/lov/2020-05-07-38`, `no/lov/2025-06-20-102`, `no/lov/2025-12-22-116`)
@@ -39,11 +92,13 @@ read as defective at the default date purely because an amendment took effect
 between 2026-03-29 and the snapshot, and `no/lov/2022-03-11-9` showed 9
 divergences instead of its real 1.
 
-At the commensurable horizon the 9 divergent laws carried 313 provision-level
-divergences, of which **295 sit in the two known sparse-source laws**
-(`no/lov/2006-06-30-50`: 212, `no/lov/2001-01-05-1`: 83). Outside those, the
-corpus had **18 divergences across 7 laws**, classified below. Batch 01 has
-since cleared one of them (F-06), leaving 17 across 6 laws.
+At the commensurable horizon the original cohort's 9 divergent laws carried
+313 provision-level divergences, of which **295 sit in the two known
+sparse-source laws** (`no/lov/2006-06-30-50`: 212,
+`no/lov/2001-01-05-1`: 83). Outside those, the corpus had **18 divergences
+across 7 laws**, classified below. Batch 01 cleared one of them (F-06), leaving
+17 across 6 laws; batch 03 left that cohort unchanged and exposed the separate
+38-law baseline above.
 
 ## 3. Findings
 
@@ -171,6 +226,12 @@ touches multiple corpus laws.
 > "DATE, Kongen bestemmer" fields to `contingent` pending typed evidence —
 > W-5 is ready to be decided, and tranche 3's validator would then be the
 > mechanism that re-dates such acts when their instrument exists.
+>
+> **Negative gate witness (2026-07-31, batch 03).** The execution validator
+> independently preserved that boundary: `no/lovtid/2026-06-19-48` remains
+> `dated` at `2026-06-19`, not `instrument_authorized`, because no instrument
+> cites it. Batch 03 therefore supplies no accidental repair for F-03; W-5 must
+> still decide the mixed-field classification.
 
 ### F-04 — Statsforvalter renaming absent from the amendment index — reclassified (see F-10)
 
@@ -627,54 +688,64 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    504 of the 676 field-relevant ones — but only **2** unbound bindings in the
    whole corpus touch a law the 20-law scan covers, so step (b) is **not** a
    batch now. F-10 (b)/(c) join W-2, F-03 and F-04 behind W-7.
-5. **W-7 (active, tranche 1 done 2026-07-31):** the commencement-evidence
-   programme (`NORWAY_LAWVM_STATUS.md` §7 item 4), in three measured tranches:
+5. ~~**W-7:** the three-tranche commencement-evidence programme
+   (`NORWAY_LAWVM_STATUS.md` §7 item 4).~~ **Done 2026-07-31.**
    - ~~**Tranche 1** — measure the unlock landscape and widen the comparable
      corpus without engine changes.~~ **Done.** The 20-law scan was already at
-     its ceiling: of 237 amended executable laws, **217 (91%) are
+     its ceiling: of 237 amended executable laws, **217 (91%) were
      commencement-blocked** (1,436 of 2,466 amendment acts unresolved, 1,430
-     of them `contingent`). The unlock curve is steep at the head — 56 laws
+     of them `contingent`). The unlock curve was steep at the head — 56 laws
      blocked by a single act, 97 by ≤2, 120 by ≤3
-     (`scripts/probes/no_w7_unlock_landscape.py`). The corpus DID grow anyway:
-     the **100 zero-amendment executable laws** are verifiable today as pure
+     (`scripts/probes/no_w7_unlock_landscape.py`). The corpus grew sideways:
+     the **100 zero-amendment executable laws** are verifiable as pure
      consolidation-equality checks — 57 consistent / 43 divergent, with the
      F-10 join predicting 5 of the divergences exactly
      (`scripts/probes/no_zero_amendment_divergence.py`; see F-10 re-pricing).
    - ~~**Tranche 2** — re-ingest so the commencement-instrument lane gets its
-     instruments.~~ **Done 2026-07-31.** `no-ingest --skip-existing` stored
-     exactly **35,955** `no://forskrift/` locators and nothing else; the 6,944
+     instruments.~~ **Done.** `no-ingest --skip-existing` stored exactly
+     **35,955** `no://forskrift/` locators and nothing else; the 6,944
      pre-existing (locator, digest) pairs hash identically before and after
-     (`abda820f…`), the 20-law scan is byte-identical at 12/8/0, and the
+     (`abda820f…`), the 20-law scan stayed byte-identical at 12/8/0, and the
      norway shard passed 475/475 after the mutation. Coverage partition:
      608 whole-act candidates / 33,590 benign / 1,757 blocked-unresolved.
-     **Tranche 3 sizing: 520 of the 1,436 unresolved acts have a single-date
-     whole-act instrument with zero conflicting dates, and authorizing them
-     flips 38 blocked laws — the scan corpus would grow 20 → 58.** A 10-pair
-     random sample is clean: every instrument is "Ikraftsetting/Ikrafttredelse
-     av lov <date> nr. <num> …" naming the matched act verbatim, and every
-     matched act sits at "Kongen bestemmer" — the instrument is the awaited
-     royal decision. One join subtlety the validator must inherit: `basedOn`
-     cites the amending act's *law* id (`no/lov/D-N`), the index keys it as
-     `no/lovtid/D-N`, and many instruments commence a *forskrift* while citing
-     its enabling statutes in `basedOn` — matching against unresolved
-     amendment acts is what filters those out.
-   - **Tranche 3 (batch 03, next)** — the typed execution-authorization
-     validator of §7 item 4: whole-act scope, single date, exact `basedOn`
-     binding to an unresolved amendment act, no conflicting instrument; flips
-     `effective_status` through a typed authorized lane distinct from the
-     manual-override sidecar; everything else stays a blocking residual.
-     Sized: 520 acts, 38 laws, scan 20 → 58.
-6. **W-4 (F-01):** make `no-verify-scan`'s default comparison date
+     Sizing found 520 unresolved acts with a single-date whole-act instrument,
+     zero conflicting dates, and 38 blocked laws that would flip.
+   - ~~**Tranche 3 (batch 03)** — authorize parsed whole-act instruments to
+     supply execution dates through a typed status and receipts.~~ **Done in
+     `2c76cedec`.** Exactly **520 acts** became `instrument_authorized`; 523
+     instruments support them because same-date corroboration deduplicates at
+     the act; zero date conflicts surfaced. The parse partition is unchanged at
+     35,955 = 608 + 33,590 + 1,757, and the gate leaves enabling-statute,
+     partial-scope, multi-date, and already-resolved cases unauthorized. The
+     amended-law scan grew **20 → 58**: the original 20 stayed byte-identical at
+     12/8/0, and the new 38 established the 6/32/0 baseline above. The remaining
+     landscape is 916 unresolved acts, 179 commencement-blocked amended laws,
+     and zero acts still authorizable by the implemented gate. End-to-end,
+     `no/lovtid/2022-04-01-17` is skipped on 2022-03-31 and applies two ops to
+     `no/lov/2010-06-25-28` on 2022-04-01. Positive anchor
+     `no/lovtid/2012-01-27-9` is authorized at 2012-03-01 by
+     `no/forskrift/2012-01-27-71`; F-03's negative anchor
+     `no/lovtid/2026-06-19-48` remains `dated`.
+6. **W-9 (commencement report residue):**
+   `src/lawvm/tools/no_commencement_candidates.py` still hardcodes
+   `replay_authorized=False`. Replay and the index are correct, but the
+   operator-facing report contradicts authorized candidates; align it with the
+   typed index result without creating a second authorization model.
+7. **W-10 (temporal ordering):** replay orders amendments by `source_id`, not
+   effective date. Investigate and pin the intended ordering before treating
+   the divergence shapes of `no/lov/2010-02-19-5` and
+   `no/lov/2010-06-25-28` as pure replay-fidelity evidence.
+8. **W-4 (F-01):** make `no-verify-scan`'s default comparison date
    snapshot-commensurable.
-7. **W-5 (F-03):** check the forskrift lane for a 2026-06-19-48 commencement
-   instrument (unblocked by tranche 2); decide whether mixed "DATE, Kongen
-   bestemmer" in-force fields must demote to `contingent` (blocking) pending
-   typed evidence. Tranche 1 added field evidence: the act's unbound declared
-   target `no/lov/2025-04-10-9` is the only predicted-divergent zero-amendment
-   law that came back `consistent` — Lovdata itself has not applied this act.
-8. **W-6 (F-07, F-08):** pin the editorial correction; triage the
-   CONSOLIDATED_MISSING clusters. The 43-law divergent set from tranche 1's
-   sweep (~38 unexplained by declared-target receipts) feeds this triage.
+9. **W-5 (F-03):** decide whether mixed "DATE, Kongen bestemmer" in-force
+   fields must demote to `contingent` (blocking) pending typed evidence. The
+   forskrift lane and batch 03 now prove that no instrument cites
+   `no/lov/2026-06-19-48`; its zero-amendment target is consistent, and the act
+   remained merely `dated` through the authorization gate.
+10. **W-6 (F-07, F-08):** pin the editorial correction; triage the
+   CONSOLIDATED_MISSING clusters. Both the 43-law divergent zero-amendment set
+   from tranche 1 (~38 unexplained by declared-target receipts) and batch 03's
+   32 newly visible divergences feed this family-first triage.
 
 ## 5. Demo / Inspection Tooling
 
@@ -693,6 +764,40 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
 
+- **2026-07-31 (batch 03, applied)** — **Whole-act commencement evidence now
+  authorizes execution** (`2c76cedec`). The typed gate runs over already-parsed
+  instruments inside index construction: candidate parse + whole-act scope +
+  exactly one date + `no/lov`→`no/lovtid` alias to an unresolved amendment act,
+  with conflict refusal, enabling-statute filtering, typed receipts, and manual
+  override precedence. Exactly **520 acts** moved to `instrument_authorized`
+  (523 supporting instruments, zero conflicts), making 38 more amended laws
+  replayable. The scan grew 20 → 58 at 2026-07-10: the original 20 rows remained
+  byte-identical at 12/8/0; the new 38 established 6/32/0; total 18/40/0. The
+  post-application landscape is 916 unresolved acts, 179 blocked amended laws,
+  and zero remaining acts authorizable by this gate. The 35,955-instrument parse
+  partition stayed 608 + 33,590 + 1,757.
+
+  Recovery mattered. The original bounded fixer corrected a dead absent-corpus
+  guard and a stale module docstring, but the final architecture reviewer then
+  found the existing `no_replay_unknown_effective_skipped` catalog prose still
+  described the old four-status world. Adjudication correctly blocked instead
+  of running an unreviewed second fixer. Narrow recovery changed only that
+  catalog value relative to the recovered patch; the replacement artifact is
+  SHA-256 `3920b47c81a5be5c86edf18414bb8ac80184fba1c4fc9c83c366a9f15c535ce1`
+  (45,344 bytes). Independent final correctness and architecture reviewers both
+  approved it with no findings.
+
+  Targeted stages passed: Ruff, ty, focused commencement/index tests (38 passed,
+  1 skipped), full Norway shard (486 passed, 1 skipped), and catalog guard (6
+  passed). At application, the affected ladder passed compile, Ruff, ty, shard
+  ownership, boundary (47), and Norway (487); `tools_cli_debug` reported only
+  the known three Finland corpus-absence witnesses (154 passed). Reverse the
+  patch and rerun that shard produced the identical three failures, then the
+  exact reviewed patch was reapplied. Field witnesses pinned before/on-date
+  replay, the 2012 positive authorization anchor, and F-03's 2026 negative
+  anchor. Outside-contract residue: the candidate report hardcodes
+  `replay_authorized=False`, and replay's source-id ordering can invert effective
+  dates for two newly unlocked laws; see W-9/W-10.
 - **2026-07-31 (W-7 tranche 2)** — **The instrument lane fed, tranche 3 sized
   at 38 laws, and F-03 confirmed a second way.** `no-ingest --skip-existing`
   stored exactly 35,955 `no://forskrift/` locators and nothing else — additive
