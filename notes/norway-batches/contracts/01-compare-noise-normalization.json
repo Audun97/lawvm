@@ -22,20 +22,24 @@
     "The punctuation-spacing character class in src/lawvm/norway/verify.py does not cover a closing parenthesis.",
     "src/lawvm/norway/verify.py already normalizes a space after an opening parenthesis.",
     "Both compared bodies in src/lawvm/norway/verify.py pass through _normalize_no_compare_tree before divergence detection.",
+    "src/lawvm/tools/spec_ledger_no_catalog.py carries a _NO_RULE_SPECS entry for every existing no_compare_ rule id.",
     "no-divergence for no/lov/2018-06-15-44 at as-of 2026-07-10 shows a space before the closing parenthesis after 910/2014."
   ],
   "scope": {
     "boundary": [
       "src/lawvm/norway/verify.py",
-      "tests/test_norway_verify.py"
+      "tests/test_norway_verify.py",
+      "src/lawvm/tools/spec_ledger_no_catalog.py"
     ],
     "allowedPaths": [
       "src/lawvm/norway/verify.py",
-      "tests/test_norway_verify.py"
+      "tests/test_norway_verify.py",
+      "src/lawvm/tools/spec_ledger_no_catalog.py"
     ],
     "requiredChangedPaths": [
       "src/lawvm/norway/verify.py",
-      "tests/test_norway_verify.py"
+      "tests/test_norway_verify.py",
+      "src/lawvm/tools/spec_ledger_no_catalog.py"
     ],
     "requiredAddedPaths": [],
     "requiredDeletedPaths": []
@@ -43,8 +47,9 @@
   "requirements": [
     "Add one typed ComparisonNormalizationRule entry, rule_class presentation_cleanup, following the naming family of the existing no_compare_* rules.",
     "The rule removes the space a stripped footnote anchor leaves before a closing parenthesis, mirroring the existing opening-parenthesis rule.",
+    "Add the matching _NO_RULE_SPECS believed-spec entry in src/lawvm/tools/spec_ledger_no_catalog.py, beside no_compare_open_paren_spacing, in the siblings behavioral voice.",
     "Cover the real corpus shape in tests: 910/2014 ) normalizes to 910/2014).",
-    "Add a test asserting the rule does not alter text where the space before the parenthesis is not adjacent to it.",
+    "Add a boundedness test whose two inputs differ ONLY inside the region this rule rewrites, and assert they still normalize to different strings. A pair differing elsewhere is vacuous: it passes identically without the rule.",
     "Normalization stays in the compare-only lane; replay materialization and adjudication behavior are unchanged."
   ],
   "invariants": [
@@ -52,7 +57,8 @@
     "Both compared trees receive identical normalization.",
     "The rule erases presentation residue only; it must not make two texts that differ in operative wording compare equal.",
     "No consolidated-text authority widens over replay.",
-    "The norway test shard passes."
+    "Every NO rule id emitted under src/lawvm/norway/ has a _NO_RULE_SPECS entry.",
+    "The norway and tools_cli_debug shards pass."
   ],
   "exclusions": [
     "The trailing footnote-marker digit (findings ledger F-05): a spike measured both candidate rules masking real cross-reference differences, so it is out of scope here and reclassified in the ledger.",
@@ -65,20 +71,21 @@
     "If the parenthesis rule cannot be written without also altering text where the space is not footnote residue, abort and record the counter-example."
   ],
   "reviewFocus": [
-    "A compare-lane rule runs on BOTH sides, so a rule that over-matches makes genuinely different texts compare equal and MASKS real divergence. Construct a Norwegian legal text pair differing only inside the region this rule touches and confirm they still compare unequal after normalization.",
-    "Verify symmetry: confirm a replay-side text carrying the same shape is normalized identically rather than creating a new mismatch."
+    "A compare-lane rule runs on BOTH sides, so a rule that over-matches makes genuinely different texts compare equal and MASKS real divergence. Verify the boundedness test's two inputs differ ONLY inside the region the rule rewrites; a pair differing elsewhere proves nothing and passes without the rule.",
+    "Verify symmetry: confirm a replay-side text carrying the same shape is normalized identically rather than creating a new mismatch.",
+    "A new no_* rule id is discovered by AST scan and must be cataloged; confirm the _NO_RULE_SPECS entry exists and reads in the siblings voice."
   ],
   "verification": {
     "targeted": [
       {
         "id": "static",
-        "command": "uv run ruff check src/lawvm/norway/verify.py tests/test_norway_verify.py --no-fix",
+        "command": "uv run ruff check src/lawvm/norway/verify.py tests/test_norway_verify.py src/lawvm/tools/spec_ledger_no_catalog.py --no-fix",
         "group": "static",
         "required": true
       },
       {
         "id": "types",
-        "command": "uv run ty check src/lawvm/norway/verify.py tests/test_norway_verify.py",
+        "command": "uv run ty check src/lawvm/norway/verify.py tests/test_norway_verify.py src/lawvm/tools/spec_ledger_no_catalog.py",
         "group": "static",
         "required": true
       },
@@ -87,12 +94,18 @@
         "command": "./scripts/test_shard.sh run norway -- tests/test_norway_verify.py",
         "group": "tests",
         "required": true
+      },
+      {
+        "id": "spec-catalog-guard",
+        "command": "./scripts/test_shard.sh run tools_cli_debug -- tests/test_spec_ledger_no_catalog.py",
+        "group": "tests",
+        "required": true
       }
     ],
     "full": [
       {
         "id": "ci-affected",
-        "command": "./scripts/ci.sh --affected src/lawvm/norway/verify.py tests/test_norway_verify.py",
+        "command": "./scripts/ci.sh --affected src/lawvm/norway/verify.py tests/test_norway_verify.py src/lawvm/tools/spec_ledger_no_catalog.py",
         "group": "ci",
         "required": true
       }

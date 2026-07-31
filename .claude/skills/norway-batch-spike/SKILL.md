@@ -37,6 +37,25 @@ different texts compare equal and MASKS real divergence. Always test a pair
 that differs only inside the region the rule touches, not just the intended
 case.
 
+**A probe answers reach only for the thing it probed.** Batch 01's probe proved
+the regex was bounded, and the batch still aborted: adding a new `no_*` rule id
+tripped the AST-scan catalog guard in a *different shard*
+(`tests/test_spec_ledger_no_catalog.py`, shard `tools_cli_debug`), whose fix
+lived outside the contract's scope. Mechanism and reach are separate questions,
+and answering one does not answer the other. Before writing the contract, ask
+what *kind of thing* the change introduces, not just what file it edits:
+
+```bash
+./scripts/test_shard.sh affected <every path you expect to touch>
+grep -rn "<new rule id or constant>" src/ tests/     # catalogs are string-keyed
+```
+
+If the change mints a **new named identifier** — rule id, finding code,
+adjudication kind, projection name — assume a registry somewhere must learn
+about it, and put that registry in scope. This repo has at least: `_NO_RULE_SPECS`
+(`tools/spec_ledger_no_catalog.py`), the guard-liveness fire-drill/allowlist
+tables, and the finding registry. That is a one-command check, not a spike.
+
 Reading the code to predict a change's reach does not work. In the source repo
 (read-aloud-2, 2026-07-27) every scope prediction made by reading was wrong and
 every one made by doing was right — including confident ones backed by grep.

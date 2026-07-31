@@ -143,6 +143,14 @@ number makes "artikkel 12." and "artikkel **13.**" compare **equal** — the rul
 would MASK real cross-reference divergences rather than merely add them. That
 is the opposite of what this lane is for.
 
+The lane already carries three footnote rules — `no_compare_inline_footnote_marker`
+(marker between sentences), `no_compare_standalone_footnote_marker` and
+`no_compare_trailing_footnote_marker` (`([.!?])\s+\d+$`, marker AFTER terminal
+punctuation). All three key on the marker sitting next to punctuation, which is
+what makes them safely bounded. F-05's shape is the one where the marker sits
+*before* the period, with nothing but a word to its left — precisely the
+position that is indistinguishable from a cross-reference.
+
 Conclusion: not a normalization problem. If it is worth solving at all, it needs
 either footnote structure preserved at published-side extraction (so the marker
 is typed rather than inlined) or a diff-time tolerance that is not a text rule.
@@ -221,6 +229,16 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
 
+- **2026-07-31 (later)** — Batch 01 run 1 **aborted at Adjudicate**, correctly:
+  the new rule id needs a `_NO_RULE_SPECS` catalog entry
+  (`tools/spec_ledger_no_catalog.py`, shard `tools_cli_debug`) that the
+  norway-only contract scope did not authorize. Reviewers reproduced the guard
+  failure against a patched copy, and also caught the implementer writing the
+  contract's own boundedness test vacuously (comparing `910/2014` vs `910/2015`
+  — a difference outside the region the rule touches, so it passes without the
+  rule). Contract amended to include the catalog and a fourth targeted stage;
+  the probe had proved the regex bounded but said nothing about reach, which is
+  now a documented step in the spike skill.
 - **2026-07-31** — Pre-batch probe over all 8,779 compare-lane text units
   reclassified **F-05**: both candidate normalization rules alter ordinary
   legal cross-references ("artikkel 12."), and because compare rules run on
