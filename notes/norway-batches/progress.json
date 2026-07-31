@@ -3,7 +3,7 @@
   "branch": "audun/norway-receipt-spine",
   "sourceReview": {
     "path": "notes/NORWAY_VERIFY_FINDINGS_LEDGER.md",
-    "sha256": "4244968b4a8969e08e5133d944980e981a924861ffdf8f51b733d5bdc93fd127"
+    "sha256": "7bc0e84703cc9e4dc5b4dfe42a6c27a056bfd1495f675ffd19f9ffe6fdffddd0"
   },
   "executionPolicy": {
     "runnableState": "ready",
@@ -29,7 +29,7 @@
   },
   "batches": {
     "02-declared-target-binding-coverage": {
-      "state": "ready",
+      "state": "complete",
       "readyAtHead": "e04be4d7ddfd8bd80750e6d260a25ddfe106bbb9",
       "contract": {
         "path": "notes/norway-batches/contracts/02-declared-target-binding-coverage.json",
@@ -37,7 +37,72 @@
       },
       "fieldVerification": {
         "status": "required-after-application",
-        "completed": false
+        "completed": true
+      },
+      "patch": {
+        "sha256": "b861542f579d7a72e8be134fb4545905976145554f30bfcd284ce151792c10ec",
+        "sizeBytes": 23213,
+        "sourceBaseline": "e04be4d7ddfd8bd80750e6d260a25ddfe106bbb9",
+        "changedFiles": [
+          "src/lawvm/norway/grafter.py",
+          "src/lawvm/norway/index.py",
+          "src/lawvm/norway/sources.py",
+          "src/lawvm/tools/spec_ledger_no_catalog.py",
+          "tests/test_norway_index.py"
+        ]
+      },
+      "application": {
+        "commit": "f15b11aee",
+        "runId": "wf_dae5ce77-539",
+        "note": "Workflow aborted at Adjudicate with 2 confirmed prose defects and the bounded fixer cycle exhausted. Applied by hand with those two claims corrected; no code change was required."
+      },
+      "evidence": {
+        "verification": {
+          "successfulStages": [
+            "uv run ruff check <5 paths> --no-fix",
+            "uv run ty check <5 paths>",
+            "./scripts/test_shard.sh run norway  (475 passed, was 466)",
+            "./scripts/test_shard.sh run tools_cli_debug -- tests/test_spec_ledger_no_catalog.py  (6 passed)"
+          ],
+          "applyLadderNote": "ci.sh --affected reported tools_cli_debug red. Proved pre-existing: the 3-row FAILED set is byte-identical with and without the patch (git stash and re-run), all finlex corpus-absence from the stub archive."
+        },
+        "reviewVerdicts": {
+          "initial": {
+            "correctness": "findings",
+            "architecture": "findings"
+          },
+          "final": {
+            "correctness": "findings",
+            "architecture": "findings"
+          },
+          "fixerRan": true,
+          "initialConfirmedFindings": 1,
+          "finalConfirmedFindings": 2,
+          "note": "Both final findings prose-only; adjudicator supplied the wording."
+        },
+        "fieldVerification": {
+          "asOf": "2026-07-10",
+          "scanBefore": {
+            "consistent": 12,
+            "divergent": 8,
+            "error": 0
+          },
+          "scanAfter": {
+            "consistent": 12,
+            "divergent": 8,
+            "error": 0
+          },
+          "lawsChanged": [],
+          "adjudicationsEmitted": 1245,
+          "unboundBindings": 4088,
+          "probeReconciliation": "exact (1245 acts / 4088 ids)",
+          "nonVacuous": "1696 fully-covered entries emit no adjudication",
+          "note": "All 20 per-law rows byte-identical with and without the patch. No movement was the pass condition: an improvement would have meant the declared list leaked into binding authority."
+        },
+        "discovery": {
+          "claim": "The declared list is load-bearing authority for 16% of the index, not evidence-only.",
+          "measurement": "Counterfactual: strip every changesToDocuments carrier and rebuild — 393 of 2466 entries lose base_ids entirely, all 393 drawn from that act's own declared list; 397 change. Reproduced independently by both reviewers and the adjudicator."
+        }
       }
     },
     "01-compare-noise-normalization": {

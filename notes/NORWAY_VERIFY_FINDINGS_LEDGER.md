@@ -214,6 +214,31 @@ never adjudicated as missed.
 > from this claim. What changes is the diagnosis: the field is read in one
 > narrow place and never used as a completeness denominator.
 
+> **Second correction (2026-07-31, batch 02 review).** "One narrow place" also
+> understated it. Both reviewers and the adjudicator independently measured the
+> grafter's `default_base_id` rule by counterfactual — strip every
+> `changesToDocuments` carrier from the tree and rebuild the index:
+>
+> | | |
+> |---|---|
+> | Index entries | 2,466 |
+> | Entries whose `base_ids` change | 397 |
+> | **Entries that lose `base_ids` entirely** | **393** |
+> | ...whose lost ids came from that act's own declared list | 393 (100%) |
+>
+> So **16% of the Norway amendment index binds solely through the declared
+> list**. `default_base_id` outranks every extracted signal
+> (`grafter.py` ~:1557: `lead_base_id = default_base_id or explicit_section_base_id
+> or active_base_id or section_base_id`) and becomes the entry's `base_ids`.
+> `no/lovtid/2001-01-19-3` has exactly one `base_id`, taken verbatim from its
+> declared list, and ceases to exist without it; `no/lovtid/2001-06-15-61` binds
+> the *unnumbered* declared id `no/lov/1961-02-03`.
+>
+> The declared list is therefore **not evidence-only in this frontend** — it is
+> load-bearing authority for a sixth of the index, and has been all along,
+> undocumented. Any future statement about its authority must say so. Batch 02
+> shipped two comments denying it; the harness caught both.
+
 Measured over all 3,089 amendment artifacts. **2,942 carry a
 `changesToDocuments` block and 147 do not**; every block present is non-empty.
 Of those, **2,941 contain at least one `lov`-form target** — the odd one out is
@@ -483,18 +508,15 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    classify as index bug vs acquisition gap.~~ **Done** — 2026-07-31 probes.
    Neither: the act is present and indexed, but binds 4 of the 97 laws it
    names. Generalizing that produced **F-10**, and F-04 now depends on it.
-4. **W-8 (F-10) — promoted to the head of the engine queue:** parse the
-   `changesToDocuments` declared-target list and emit a typed
-   declared-vs-bound adjudication. No behavior change, but it turns a
-   measured-invisible 47.3% binding gap into a receipt, and makes every
-   later extraction fix measurable. **This is the first open item with a
-   nonzero field payoff** — 676 missed verifiable bindings sit on `dated`
-   acts, unlike W-2/F-03/F-04 which all terminate at commencement. Scope is
-   already known, so it goes straight to a contract; no spike. The
-   blocking-vs-evidentiary question is **settled** (see F-10): obligation role,
-   `blocking=True`, `quirks_disposition=RECORD`, `strict_fail` — measured not to
-   move the scoreboard, since 13,858/13,859 existing index diagnostics are
-   already blocking.
+4. ~~**W-8 (F-10):** parse the `changesToDocuments` declared-target list and
+   emit a typed declared-vs-bound adjudication.~~ **Done** — batch 02,
+   f15b11aee. 1,245 blocking adjudications over 4,088 unbound bindings,
+   reconciling exactly with the probe. Scoreboard unmoved (12/8/0, all 20
+   per-law rows byte-identical), which was the pass condition. The batch also
+   produced the 393-entry measurement now recorded under F-10: the declared
+   list is load-bearing authority for 16% of the index, not evidence-only.
+   Next on F-10: step (b), measure how many missed bindings ordinary
+   multi-target omnibus extraction alone recovers.
 5. **W-4 (F-01):** make `no-verify-scan`'s default comparison date
    snapshot-commensurable.
 5. **W-5 (F-03):** check the forskrift lane for a 2026-06-19-48 commencement
@@ -522,6 +544,26 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
 
+- **2026-07-31 (batch 02, applied)** — **F-10 step (a) landed** (f15b11aee).
+  1,245 blocking adjudications over 4,088 unbound bindings, reconciling exactly
+  with the probe; `no/lovtid/2022-12-20-115` declares 14, binds 6, names 8. The
+  scoreboard stayed at 12/8/0 with all 20 per-law rows byte-identical — proved
+  by stashing the patch and re-running, since "nothing moved" was the pass
+  condition and an *improvement* would have meant the declared list had leaked
+  into binding authority. The check is non-vacuous: 1,696 fully-covered entries
+  emit nothing. `tools_cli_debug` red, proved pre-existing by the same
+  stash-and-compare (byte-identical 3-row finlex corpus-absence set).
+
+  **The workflow aborted at Adjudicate and that was correct.** Two prose defects
+  survived the bounded fixer cycle: the implementer twice asserted the declared
+  list "never contributes a binding" — the exact claim shape the contract's
+  requirement 7 forbade. Both reviewers *and* the adjudicator independently
+  disproved it by counterfactual and produced the 393-entry measurement now in
+  F-10. Fixed by hand at apply time, since the required change was two
+  sentences with the adjudicator supplying the wording. Worth keeping: the
+  contract explicitly warned about this claim and an agent made it anyway,
+  twice — a named prohibition in the contract is necessary but not sufficient,
+  and the adversarial review is what actually caught it.
 - **2026-07-31 (batch 02, run 1)** — **Aborted at Preflight, correctly**, before
   any agent wrote code. Two of the contract's 16 asserted facts were false, and
   the expensive one was mine: F-10 claimed nothing under `src/lawvm/norway/`
