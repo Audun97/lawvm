@@ -455,6 +455,10 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "Norway comparison text removes spaces after opening parenthesis so "
         "equivalent wording is not flagged as a divergence."
     ),
+    "no_compare_close_paren_spacing": (
+        "Norway comparison text removes spaces before a closing parenthesis so "
+        "equivalent wording is not flagged as a divergence."
+    ),
     "no_compare_inline_footnote_marker": (
         "Norway comparison text removes inline numeric footnote markers between "
         "sentences so equivalent wording is not flagged as a divergence."

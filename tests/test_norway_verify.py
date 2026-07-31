@@ -569,6 +569,44 @@ def test_normalize_no_comparison_text_strips_space_after_open_paren() -> None:
     )
 
 
+def test_normalize_no_comparison_text_strips_space_before_close_paren() -> None:
+    # Corpus shape: the consolidated body wraps the cross-reference in an anchor,
+    # and stripping the anchor leaves a space before the closing parenthesis
+    # (no/lov/2018-06-15-44 § 1 first paragraph).
+    assert normalize_no_comparison_text("(forordning (EU) nr. 910/2014 ) om elektronisk") == (
+        "(forordning (EU) nr. 910/2014) om elektronisk"
+    )
+
+
+def test_normalize_no_comparison_text_close_paren_keeps_adjacent_wording_distinct() -> None:
+    # Boundedness. A pair differing ONLY inside the span this rule rewrites is
+    # unsatisfiable for a pure whitespace-deletion rule: every such pair
+    # normalizes equal by construction, which is the point of the rule. The
+    # achievable form is a pair differing in the span an OVER-matching variant
+    # would reach, so the assertions below fail if the rule widens.
+    #
+    # First pair: the token immediately before the space. Kills variants that
+    # eat a word/non-space run (``\S+\s+\)``, ``\w+\s+\)``) by collapsing two
+    # different cross-references into one comparison string.
+    assert normalize_no_comparison_text("(forordning (EU) nr. 910/2014 ) om elektronisk") != (
+        normalize_no_comparison_text("(forordning (EU) nr. 910/2015 ) om elektronisk")
+    )
+    assert normalize_no_comparison_text("(forordning (EU) nr. 910/2015 ) om elektronisk") == (
+        "(forordning (EU) nr. 910/2015) om elektronisk"
+    )
+    # Second pair: a trailing footnote digit inside the parenthesis. Kills the
+    # digit-swallowing variant (``\s+\d*\s*\)``) — the findings-ledger F-05
+    # shape a spike measured masking real cross-reference differences. The
+    # digit must survive normalization; only the whitespace is presentation
+    # residue.
+    assert normalize_no_comparison_text("(forordning (EU) nr. 910/2014 3 ) om elektronisk") != (
+        normalize_no_comparison_text("(forordning (EU) nr. 910/2014 ) om elektronisk")
+    )
+    assert normalize_no_comparison_text("(forordning (EU) nr. 910/2014 3 ) om elektronisk") == (
+        "(forordning (EU) nr. 910/2014 3) om elektronisk"
+    )
+
+
 def test_normalize_no_comparison_text_strips_inline_footnote_marker() -> None:
     assert normalize_no_comparison_text("Loven gjelder fra den tid 1 Kongen bestemmer.") == (
         "Loven gjelder fra den tid Kongen bestemmer."

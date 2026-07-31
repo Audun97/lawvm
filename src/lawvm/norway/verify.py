@@ -37,6 +37,7 @@ from lawvm.core.quirks_disposition import QuirksDisposition
 _NO_VERIFY_WS_RE = re.compile(r"\s+")
 _NO_VERIFY_PUNCT_RE = re.compile(r"\s+([,.;:])")
 _NO_VERIFY_PAREN_OPEN_RE = re.compile(r"\(\s+")
+_NO_VERIFY_PAREN_CLOSE_RE = re.compile(r"\s+\)")
 _NO_VERIFY_REPEALED_RE = re.compile(r"^(?:§\s*[0-9A-Za-z-]+\.\s*)?\(Opphevet\)$", re.IGNORECASE)
 # Lovdata *Vedlegg* annex-token prefix on a section label (e.g. ``v22c`` for
 # EEA Agreement Annex XXII nr. 10c). Compiled module-scope per §2.4.
@@ -87,6 +88,14 @@ _NO_COMPARISON_NORMALIZATION_RULES = (
         description="Remove spaces after opening parenthesis for Norway comparison text.",
         pattern=_NO_VERIFY_PAREN_OPEN_RE,
         replacement="(",
+    ),
+    ComparisonNormalizationRule(
+        name="no_compare_close_paren_spacing",
+        rule_class="presentation_cleanup",
+        kind="regex",
+        description="Remove spaces before closing parenthesis for Norway comparison text.",
+        pattern=_NO_VERIFY_PAREN_CLOSE_RE,
+        replacement=")",
     ),
     ComparisonNormalizationRule(
         name="no_compare_inline_footnote_marker",
