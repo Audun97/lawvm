@@ -1,7 +1,7 @@
 export const meta = {
   name: 'norway-batch',
   description: 'Produce one reviewed and adjudicated contract-driven Norway batch patch without applying or committing it; the full verification ladder runs once, at apply time',
-  whenToUse: 'Run uv run python scripts/norway_batch_preflight.py <contract> --json first, then invoke with args {mode, facts} where facts is that output. Invoke by scriptPath, not by name: name resolution serves a script cached at session start.',
+  whenToUse: 'Run uv run python scripts/norway_batch_preflight.py <contract> --json > /tmp/facts.json first, then invoke with args {mode, factsPath} pointing at that file. Do NOT paste the facts inline: transcribing several KB of JSON is the least reliable step here and caused three Load-phase aborts on 2026-07-31. {mode, facts} still works when the object is passed programmatically. Invoke by scriptPath, not by name: name resolution serves a script cached at session start.',
   phases: [
     {title: 'Preflight', detail: 'judge the contract assumptions that need code read, not facts computed'},
     {title: 'Implement', detail: 'produce the smallest contract-compliant patch in isolation'},
@@ -493,11 +493,12 @@ function emptyReport(status, reasons, context = {}) {
 // interrogate an agent about the repository, and nothing has to cross-examine what an agent says
 // it saw. The tool may deliver args as an object or as a JSON string, and the runtime's own
 // resume-from-run-id line reproduces them stringified, so accept both.
-// Large inline args are TRUNCATED in transit. A 13.1 KB envelope arrived intact; a 16.7 KB one
-// was cut mid-string, so JSON.parse threw and this read returned {} — which the old code reported
-// as "No preflight facts were supplied", sending the caller to debug fact GENERATION when the
-// real fault was TRANSPORT. Distinguish the two and always report the byte count, because the
-// caller cannot see what actually arrived.
+// PREFER {mode, factsPath}. Pasting the whole preflight --json blob inline means a human or a
+// model retypes several KB of JSON per attempt, and that transcription is the single least
+// reliable step in this workflow: on 2026-07-31 it produced three consecutive Load-phase aborts
+// (at 16.7 KB, 14.0 KB and 11.1 KB) plus one fabricated sha256. Size is NOT the cause — a 13.1 KB
+// envelope ran fine and an 11.1 KB one failed. Hand-copying is. Pass the PATH instead; the Load
+// agent reads the file, so the bytes never pass through a keyboard.
 function readArgs(value) {
   if (isPlainObject(value)) return {args: value, transport: null}
   if (typeof value !== 'string') return {args: {}, transport: `args arrived as ${typeof value}, not an object or JSON string`}
@@ -507,20 +508,55 @@ function readArgs(value) {
     if (!isPlainObject(parsed)) return {args: {}, transport: `args JSON parsed to ${typeof parsed}, not an object`}
     return {args: parsed, transport: null}
   } catch (err) {
-    const looksTruncated = !value.trimEnd().endsWith('}')
     return {args: {}, transport: [
-      `args JSON.parse failed after ${value.length} bytes: ${String(err).slice(0, 160)}`,
-      looksTruncated
-        ? 'The string does not end in "}" — it was TRUNCATED in transit, not malformed at the source.'
-        : 'The string is terminated, so this is malformed JSON rather than truncation.',
-      'Inline workflow args have a size ceiling between 13.1 KB and 16.7 KB (measured 2026-07-31).',
-      'Shrink the envelope and re-invoke; regenerating the facts will not help.',
+      `args JSON.parse failed after ${value.length} bytes: ${String(err).slice(0, 160)}.`,
+      value.trimEnd().endsWith('}')
+        ? 'The string is terminated, so it was corrupted in transcription rather than truncated.'
+        : 'The string does not end in "}", so it was cut short.',
+      'Do not retype the envelope. Re-invoke with the small form instead:',
+      'args {"mode":"full","factsPath":"<path to the preflight --json output>"}.',
     ].join(' ')}
   }
 }
 const {args: parsedArgs, transport: transportFault} = readArgs(args)
 const inputMode = parsedArgs.mode || 'full'
-const facts = isPlainObject(parsedArgs.facts) ? parsedArgs.facts : null
+let facts = isPlainObject(parsedArgs.facts) ? parsedArgs.facts : null
+
+// factsPath: read the preflight output off disk instead of trusting a transcribed blob. One
+// agent, one cat, no interpretation — it is told to return the bytes and nothing else.
+if (!facts && typeof parsedArgs.factsPath === 'string' && parsedArgs.factsPath.trim()) {
+  const factsPath = parsedArgs.factsPath.trim()
+  log(`Reading preflight facts from ${factsPath}.`)
+  const raw = await agent(
+    `Run exactly: cat ${factsPath}\n\n` +
+    'Return the file contents verbatim as your entire final message: raw JSON, nothing else. ' +
+    'No markdown fence, no commentary, no summary, no reformatting, no key reordering. ' +
+    'If the file does not exist or is empty, return exactly: MISSING',
+    {label: 'load:facts', phase: 'Load', effort: 'low', agentType: 'Explore'},
+  )
+  const text = typeof raw === 'string' ? raw.trim() : ''
+  const body = text.startsWith('```')
+    ? text.replace(/^```[a-zA-Z]*\n?/, '').replace(/```$/, '').trim()
+    : text
+  if (!body || body === 'MISSING') {
+    return emptyReport('aborted', [
+      `Could not read preflight facts from ${factsPath}.`,
+      'Regenerate them: uv run python scripts/norway_batch_preflight.py <contract-path> --json > <path>',
+    ], {phase: 'Load'})
+  }
+  try {
+    const loaded = JSON.parse(body)
+    facts = isPlainObject(loaded) ? loaded : null
+  } catch (err) {
+    return emptyReport('aborted', [
+      `Preflight facts at ${factsPath} did not parse as JSON: ${String(err).slice(0, 200)}`,
+      `The agent returned ${body.length} bytes beginning: ${body.slice(0, 120)}`,
+    ], {phase: 'Load'})
+  }
+  if (!facts) {
+    return emptyReport('aborted', [`Preflight facts at ${factsPath} are not a JSON object.`], {phase: 'Load'})
+  }
+}
 
 if (!facts) {
   return emptyReport('aborted', [
