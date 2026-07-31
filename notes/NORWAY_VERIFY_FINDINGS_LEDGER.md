@@ -278,14 +278,26 @@ blocking=True, strict_disposition="block", quirks_disposition=QuirksDisposition.
 
 — blocks under strict, records and continues under quirks.
 
-*The role taxonomy constrains the flag; the emitter does not pick freely.*
-`observation_registry.validate_finding_projection` **rejects**
-`role="observation"` with `blocking=True`, and **rejects** `role="violation"`
-with `blocking=False`. So "evidentiary" is not a dial: it is the `observation`
-role, and choosing it would have been choosing to assert that a 47.3% binding
-loss is informational. `obligation` + `default_enforcement="strict_fail"` is the
-registered way to say "this is a real defect, strict fails on it, the quirks
-corpus proceeds".
+*Correction (same day): the role taxonomy does not govern this lane.* The first
+version of this entry justified the decision partly via
+`observation_registry.validate_finding_projection`, which does reject
+`role="observation"` with `blocking=True` and `role="violation"` with
+`blocking=False`. That rule is real but applies to **core `Finding` objects**,
+and **Norway does not use that registry** — `FINDING_REGISTRY` contains zero
+`no_*` codes and nothing under `src/lawvm/norway/` imports
+`observation_registry`. Norway's adjudication lane is
+`core.diagnostic_records.diagnostic_detail`, whose signature has **no `role`
+and no `default_enforcement`**; its parameters are `rule_id`, `phase`,
+`blocking`, `family` (a free-form string — Norway already uses
+`mutation_boundary`, `orchestration_failure`, `target_resolution_recovery`,
+which are not members of the core `FindingFamily` literal),
+`strict_disposition`, and `quirks_disposition`. Governance for a NO rule id is
+the `_NO_RULE_SPECS` catalog plus the AST-scan guard, not the finding registry.
+
+The decision is unchanged, because it never rested on that argument: it rests on
+the Norway-native precedent below and on the measurement. But a contract written
+against `role=`/`default_enforcement=` would not compile, so the correction
+matters.
 
 *The concern that motivated the question was factually wrong.* I worried a
 blocking finding would "fail replay on 1,245 acts overnight". Measured: **13,858
@@ -295,9 +307,22 @@ of 13,859** index-build diagnostics are *already* `blocking=True`, and
 not what gates the scan. The precedent is explicit — `no_replay_no_matching_change_group`
 is emitted `blocking=True` and the replay loop `continue`s (`replay.py:401-414`).
 
-**Decision:** `role="obligation"`, `blocking=True`, `strict_disposition="block"`,
-`quirks_disposition=RECORD`, `default_enforcement="strict_fail"`. No scoreboard
-movement, and strict mode gains a real gate.
+**Decision**, in the vocabulary Norway actually emits:
+
+```python
+diagnostic_detail(
+    rule_id="no_amendment_index_declared_target_unbound",
+    family="source_pathology",   # act-level coverage gap against declared metadata
+    phase="acquisition",
+    blocking=True,
+    strict_disposition="block",
+    quirks_disposition=QuirksDisposition.RECORD,
+    ...
+)
+```
+
+plus a `_NO_RULE_SPECS` entry for the new rule id. No scoreboard movement, and
+strict mode gains a real gate.
 
 #### The same measurement also rescopes W-8
 

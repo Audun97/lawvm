@@ -3,7 +3,7 @@
   "branch": "audun/norway-receipt-spine",
   "sourceReview": {
     "path": "notes/NORWAY_VERIFY_FINDINGS_LEDGER.md",
-    "sha256": "580d05652b4eac2113b7edaee148bb7704f4f2d7267a97c493c0da38b5567f58"
+    "sha256": "ccf958b12c0dd55731f35512e308ce5bd84d7dbd6669404141e1d44679634241"
   },
   "executionPolicy": {
     "runnableState": "ready",
@@ -28,6 +28,18 @@
     ]
   },
   "batches": {
+    "02-declared-target-binding-coverage": {
+      "state": "ready",
+      "readyAtHead": "e04be4d7ddfd8bd80750e6d260a25ddfe106bbb9",
+      "contract": {
+        "path": "notes/norway-batches/contracts/02-declared-target-binding-coverage.json",
+        "sha256": "952fd118249a984acf7c54c847727272692216baf7c9fb03144b79ce269a9cce"
+      },
+      "fieldVerification": {
+        "status": "required-after-application",
+        "completed": false
+      }
+    },
     "01-compare-noise-normalization": {
       "state": "complete",
       "readyAtHead": "3396a3713e84f6bda745e01d3c391dcbd055c799",
