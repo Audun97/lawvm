@@ -3,7 +3,7 @@
   "branch": "audun/norway-receipt-spine",
   "sourceReview": {
     "path": "notes/NORWAY_VERIFY_FINDINGS_LEDGER.md",
-    "sha256": "75b08924d7ae1d5df30a79c5147887c19cea038837ae8dc2f5b9643b7351d535"
+    "sha256": "edadaff2a7ff7bd383a677b7f81231abfe792f39f2dbf05bb66b241f0efd6ca2"
   },
   "executionPolicy": {
     "runnableState": "ready",
@@ -28,6 +28,18 @@
     ]
   },
   "batches": {
+    "03-commencement-execution-authorization": {
+      "state": "ready",
+      "readyAtHead": "a6d92016646a34bffb310299eaf0fa712ff67667",
+      "contract": {
+        "path": "notes/norway-batches/contracts/03-commencement-execution-authorization.json",
+        "sha256": "8b7421d427adf3b5d3987eebc90e5c02ab8140f938bdf67bca22d78e4396f6f6"
+      },
+      "fieldVerification": {
+        "status": "required-after-application",
+        "completed": false
+      }
+    },
     "02-declared-target-binding-coverage": {
       "state": "complete",
       "readyAtHead": "e04be4d7ddfd8bd80750e6d260a25ddfe106bbb9",
@@ -52,19 +64,21 @@
         ]
       },
       "application": {
-        "commit": "f15b11aee",
+        "commit": "f15b11aeed0e3cf414aa58a764d91126d92e9c77",
         "runId": "wf_dae5ce77-539",
         "note": "Workflow aborted at Adjudicate with 2 confirmed prose defects and the bounded fixer cycle exhausted. Applied by hand with those two claims corrected; no code change was required."
       },
       "evidence": {
         "verification": {
           "successfulStages": [
-            "uv run ruff check <5 paths> --no-fix",
-            "uv run ty check <5 paths>",
-            "./scripts/test_shard.sh run norway  (475 passed, was 466)",
-            "./scripts/test_shard.sh run tools_cli_debug -- tests/test_spec_ledger_no_catalog.py  (6 passed)"
+            "uv run ruff check src/lawvm/norway/sources.py src/lawvm/norway/grafter.py src/lawvm/norway/index.py src/lawvm/tools/spec_ledger_no_catalog.py tests/test_norway_index.py --no-fix",
+            "uv run ty check src/lawvm/norway/sources.py src/lawvm/norway/grafter.py src/lawvm/norway/index.py src/lawvm/tools/spec_ledger_no_catalog.py tests/test_norway_index.py",
+            "./scripts/test_shard.sh run norway -- tests/test_norway_index.py",
+            "./scripts/test_shard.sh run norway",
+            "./scripts/test_shard.sh run tools_cli_debug -- tests/test_spec_ledger_no_catalog.py",
+            "./scripts/ci.sh --affected src/lawvm/norway/sources.py src/lawvm/norway/grafter.py src/lawvm/norway/index.py src/lawvm/tools/spec_ledger_no_catalog.py tests/test_norway_index.py"
           ],
-          "applyLadderNote": "ci.sh --affected reported tools_cli_debug red. Proved pre-existing: the 3-row FAILED set is byte-identical with and without the patch (git stash and re-run), all finlex corpus-absence from the stub archive."
+          "applyLadderNote": "At apply (2026-07-31): norway 475 passed (was 466), catalog guard 6 passed; ci.sh --affected reported tools_cli_debug red, proved pre-existing by stash-and-rerun (byte-identical 3-row finlex corpus-absence set from the stub archive). All six frozen-ladder stages re-run verbatim 2026-07-31 at a6d920166 for batch-03 promotion bookkeeping: stages 1-5 green (norway 475 passed same-day post-ingest), stage 6 red only on the same 3-row finlex set — with only notes/ changed since f15b11aee, that red is environmental by construction."
         },
         "reviewVerdicts": {
           "initial": {
