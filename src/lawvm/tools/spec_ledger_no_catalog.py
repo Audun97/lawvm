@@ -66,6 +66,14 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "A Norway artifact emitted a duplicate logical locator across acquisition "
         "attempts; both attempt rows are recorded, not collapsed/silently dropped."
     ),
+    "no_amendment_index_declared_target_unbound": (
+        "Lovdata's declared change-target list names a law that no operation the "
+        "Norway amendment index extracted binds; the shortfall is recorded as "
+        "blocking source-pathology and this check never binds a declared target "
+        "itself. The declared list is not inert elsewhere: the grafter's "
+        "pre-existing sole-declared-ref default_base_id is the one place a "
+        "declared id becomes a base_id, and it is left untouched."
+    ),
     "no_amendment_index_no_change_ops": (
         "A Norway amendment artifact in the index yielded zero document-change "
         "operations; the artifact is recorded as a no-op finding, not silently "

@@ -6,11 +6,43 @@ from typing import Any, cast
 
 from lawvm.norway.index import (
     NO_ACQUISITION_DUPLICATE_LOGICAL_LOCATOR,
+    NOAmendmentIndex,
     build_no_amendment_index,
     load_no_amendment_index,
     save_no_amendment_index,
 )
-from lawvm.norway.sources import NOLocatedArtifact
+from lawvm.norway.sources import (
+    NOLocatedArtifact,
+    declared_change_targets_from_amendment,
+    parse_header_value,
+)
+
+# Lovdata's declared ``changesToDocuments`` list for no/lovtid/2022-12-20-115, in
+# document order, and the six targets the index actually binds from extracted ops.
+_LOVTID_2022_12_20_115_DECLARED = (
+    "lov/1950-12-15-7",
+    "lov/1967-02-10",
+    "lov/1979-05-18-18",
+    "lov/1980-06-13-35",
+    "lov/1989-06-16-65",
+    "lov/1992-12-04-126",
+    "lov/1999-07-02-62",
+    "lov/1999-07-02-64",
+    "lov/2006-05-19-16",
+    "lov/2016-05-27-14",
+    "lov/2017-06-16-50",
+    "lov/2017-06-16-67",
+    "lov/2020-06-19-80",
+    "lov/2021-05-21-42",
+)
+_LOVTID_2022_12_20_115_BOUND = (
+    "lov/1950-12-15-7",
+    "lov/1979-05-18-18",
+    "lov/1992-12-04-126",
+    "lov/2017-06-16-67",
+    "lov/2020-06-19-80",
+    "lov/2021-05-21-42",
+)
 
 
 def _amendment_xml(date_in_force: str) -> bytes:
@@ -70,6 +102,36 @@ def _unresolved_structured_target_amendment_xml() -> bytes:
         <article class="legalP">§ 12 skal lyde:</article>
       </article>
     </article>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def _declared_targets_amendment_xml(
+    declared: tuple[str, ...],
+    bound: tuple[str, ...],
+) -> bytes:
+    items = "".join(f"<li>{ref}</li>" for ref in declared)
+    changes = "\n".join(
+        f"""<article class="document-change" data-document="{ref}">
+      <article class="change" data-change-part="{ref}/§1">
+        <article class="futureLegalArticle" data-name="§1">
+          <span class="futureLegalArticleHeader">
+            <span class="legalArticleValue">§ 1</span>.
+            <span class="legalArticleTitle">Nytt krav</span>
+          </span>
+          <article class="legalP">Oppdatert paragraftekst.</article>
+        </article>
+      </article>
+    </article>"""
+        for ref in bound
+    )
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="dateInForce">2023-01-01</dd>
+    <dd class="changesToDocuments"><ul>{items}</ul></dd>
+    {changes}
   </body>
 </html>
 """.encode("utf-8")
@@ -363,6 +425,181 @@ def test_save_and_load_no_amendment_index_round_trips(tmp_path) -> None:
     loaded = load_no_amendment_index(index_path)
 
     assert loaded.to_dict() == index.to_dict()
+
+
+def test_declared_change_targets_reads_list_items_not_the_string_flattening() -> None:
+    payload = _declared_targets_amendment_xml(("lov/2013-01-11-3", "lov/2022-03-11-9"), ())
+
+    declared = declared_change_targets_from_amendment(payload)
+
+    assert declared.law_ids == ("no/lov/2013-01-11-3", "no/lov/2022-03-11-9")
+    # The reason the reader may not go through parse_header_value: its XPath
+    # string() flattening concatenates the declared ids into one token.
+    assert parse_header_value(payload, "changesToDocuments") == (
+        "lov/2013-01-11-3lov/2022-03-11-9"
+    )
+
+
+def test_declared_change_targets_marks_block_present_like_the_2942_acts_that_carry_one() -> None:
+    # 2,942 of the 3,089 amendment artifacts carry a changesToDocuments block and
+    # 2,941 of those hold at least one lov-form target.
+    declared = declared_change_targets_from_amendment(
+        _declared_targets_amendment_xml(_LOVTID_2022_12_20_115_DECLARED, ())
+    )
+
+    assert declared.block_present is True
+    assert len(declared.law_ids) == 14
+    assert declared.unnumbered_law_ids == ("no/lov/1967-02-10",)
+
+
+def test_declared_change_targets_marks_block_absent_like_the_147_acts_without_one() -> None:
+    declared = declared_change_targets_from_amendment(_non_operational_amendment_xml())
+
+    assert declared.block_present is False
+    assert declared.law_ids == ()
+    assert declared.unnumbered_law_ids == ()
+
+
+def test_declared_change_targets_drops_forskrift_and_null_like_no_lovtid_2021_06_18_115() -> None:
+    declared = declared_change_targets_from_amendment(
+        _declared_targets_amendment_xml(("forskrift/1952-04-21-4287", "null"), ())
+    )
+
+    assert declared.block_present is True
+    assert declared.law_ids == ()
+
+
+def test_build_no_amendment_index_adjudicates_declared_targets_no_op_bound(tmp_path) -> None:
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2022.tar.bz2",
+        [
+            (
+                "lti/2022/nl-20221220-115.xml",
+                _declared_targets_amendment_xml(
+                    _LOVTID_2022_12_20_115_DECLARED,
+                    _LOVTID_2022_12_20_115_BOUND,
+                ),
+            )
+        ],
+    )
+
+    index = build_no_amendment_index(tmp_path)
+
+    entry = index.entries[0]
+    assert entry.source_id == "no/lovtid/2022-12-20-115"
+    assert len(entry.declared_target_ids) == 14
+    assert entry.base_ids == (
+        "no/lov/1950-12-15-7",
+        "no/lov/1979-05-18-18",
+        "no/lov/1992-12-04-126",
+        "no/lov/2017-06-16-67",
+        "no/lov/2020-06-19-80",
+        "no/lov/2021-05-21-42",
+    )
+    assert index.diagnostics == [
+        {
+            "rule_id": "no_amendment_index_declared_target_unbound",
+            "family": "source_pathology",
+            "phase": "acquisition",
+            "reason": "Norway amendment act declared amendment targets that no extracted operation bound",
+            "source_id": "no/lovtid/2022-12-20-115",
+            "locator": "no://lovtid/2022-12-20-115/amendment.xml",
+            "archive": "lovtidend-avd1-2022.tar.bz2",
+            "member_name": "lti/2022/nl-20221220-115.xml",
+            "declared_target_count": 14,
+            "bound_base_id_count": 6,
+            "unbound_target_ids": [
+                "no/lov/1967-02-10",
+                "no/lov/1980-06-13-35",
+                "no/lov/1989-06-16-65",
+                "no/lov/1999-07-02-62",
+                "no/lov/1999-07-02-64",
+                "no/lov/2006-05-19-16",
+                "no/lov/2016-05-27-14",
+                "no/lov/2017-06-16-50",
+            ],
+            "unnumbered_unbound_target_ids": ["no/lov/1967-02-10"],
+            "blocking": True,
+            "strict_disposition": "block",
+            "quirks_disposition": "record",
+        }
+    ]
+
+
+def test_build_no_amendment_index_emits_no_declared_target_adjudication_when_covered(tmp_path) -> None:
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [
+            (
+                "lti/2025/nl-20250202-005.xml",
+                _declared_targets_amendment_xml(("lov/2025-01-01-1",), ("lov/2025-01-01-1",)),
+            )
+        ],
+    )
+
+    index = build_no_amendment_index(tmp_path)
+
+    assert index.entries[0].declared_target_ids == ("no/lov/2025-01-01-1",)
+    assert index.entries[0].base_ids == ("no/lov/2025-01-01-1",)
+    assert index.diagnostics == []
+
+
+def test_build_no_amendment_index_declares_no_target_gap_without_a_lov_form_target(tmp_path) -> None:
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2021.tar.bz2",
+        [
+            (
+                "lti/2021/nl-20210618-115.xml",
+                _declared_targets_amendment_xml(("forskrift/1952-04-21-4287", "null"), ()),
+            )
+        ],
+    )
+
+    index = build_no_amendment_index(tmp_path)
+
+    assert index.entries == []
+    assert [diagnostic["rule_id"] for diagnostic in index.diagnostics] == [
+        "no_amendment_index_no_change_ops"
+    ]
+
+
+def test_no_amendment_index_round_trips_declared_targets_and_adjudications(tmp_path) -> None:
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2022.tar.bz2",
+        [
+            (
+                "lti/2022/nl-20221220-115.xml",
+                _declared_targets_amendment_xml(
+                    _LOVTID_2022_12_20_115_DECLARED,
+                    _LOVTID_2022_12_20_115_BOUND,
+                ),
+            )
+        ],
+    )
+    index = build_no_amendment_index(tmp_path)
+    index_path = tmp_path / "no_index.json"
+
+    save_no_amendment_index(index, index_path)
+    loaded = load_no_amendment_index(index_path)
+
+    assert loaded.entries[0].declared_target_ids == index.entries[0].declared_target_ids
+    assert loaded.diagnostics == index.diagnostics
+    assert loaded.to_dict() == index.to_dict()
+
+
+def test_no_amendment_index_from_dict_loads_json_written_before_declared_targets(tmp_path) -> None:
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [("lti/2025/nl-20250202-005.xml", _amendment_xml("2025-02-10"))],
+    )
+    data = build_no_amendment_index(tmp_path).to_dict()
+    for entry in cast(list[dict[str, Any]], data["entries"]):
+        entry.pop("declared_target_ids")
+
+    loaded = NOAmendmentIndex.from_dict(data)
+
+    assert loaded.entries[0].base_ids == ("no/lov/2025-01-01-1",)
+    assert loaded.entries[0].declared_target_ids == ()
 
 
 def test_no_amendment_index_staleness_report_detects_archive_change(tmp_path) -> None:

@@ -33,7 +33,11 @@ from lawvm.core.filter_result import RejectedItem
 from lawvm.core.ir_helpers import kind_str
 from lawvm.core.source_lane import SourceLaneAttempt, SourceLaneSelectionEvidence
 from lawvm.core.xml_parse import parse_corpus_xml
-from lawvm.norway.grafter import lovdata_amendment_filename_to_id, lovdata_filename_to_id
+from lawvm.norway.grafter import (
+    lovdata_amendment_filename_to_id,
+    lovdata_filename_to_id,
+    normalize_lovdata_refid,
+)
 from lawvm.core.quirks_disposition import QuirksDisposition
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -45,6 +49,10 @@ _NO_CURRENT_LOCATOR_RE = re.compile(r"^no://lov/(?P<date>\d{4}-\d{2}-\d{2}-\d+)/
 _NO_ORIGINAL_LOCATOR_RE = re.compile(r"^no://lov/(?P<date>\d{4}-\d{2}-\d{2}-\d+)/original\.lti\.xml$")
 _NO_AMENDMENT_LOCATOR_RE = re.compile(r"^no://lovtid/(?P<date>\d{4}-\d{2}-\d{2}-\d+)/amendment\.xml$")
 _NO_FORSKRIFT_FILENAME_RE = re.compile(r"(?:^|/)sf-(?P<date>\d{8})-(?P<num>\d+)\.xml$")
+_NO_UNNUMBERED_LAW_ID_RE = re.compile(r"^no/lov/\d{4}-\d{2}-\d{2}$")
+_NO_CHANGES_TO_DOCUMENTS_XPATH = (
+    "//*[contains(concat(' ', normalize-space(@class), ' '), ' changesToDocuments ')]"
+)
 _NO_FORSKRIFT_LOCATOR_RE = re.compile(
     r"^no://forskrift/(?P<date>\d{4}-\d{2}-\d{2}-\d+)/original\.lti\.xml$"
 )
@@ -310,6 +318,33 @@ class NOEffectiveDate:
     raw_text: str = ""
 
 
+@dataclass(frozen=True)
+class NODeclaredChangeTargets:
+    """The amendment targets Lovdata declares on one act's ``changesToDocuments`` block.
+
+    Block presence is measured on the ``<dd class="changesToDocuments">`` element:
+    2,942 of the 3,089 amendment artifacts carry one and 147 carry none. Every
+    block present is non-empty, and 2,941 of them hold at least one ``lov``-form
+    target — ``no/lovtid/2021-06-18-115`` declares only ``forskrift/1952-04-21-4287``.
+
+    ``law_ids`` holds every declared ``lov`` reference normalized through
+    :func:`normalize_lovdata_refid`, deduplicated in document order; forskrift
+    references and the literal ``null`` normalize to nothing and never appear.
+    ``unnumbered_law_ids`` is the ``lov/<date>`` subset declared without a
+    trailing act number (109 declarations corpus-wide, e.g. ``lov/1967-02-10``).
+    That is the whole claim the field makes: the declaration carried no act
+    number. It is a label, not an unreachability verdict — 65 of the 92 such ids
+    the index reports unbound do name a corpus law, filed there under a
+    ``<date>-0`` id (``no/lov/1967-02-10`` is forvaltningsloven, present as
+    ``no/lov/1967-02-10-0``). They stay inside the measured gap; see
+    :func:`lawvm.norway.index._no_index_declared_target_unbound_diagnostic`.
+    """
+
+    block_present: bool = False
+    law_ids: tuple[str, ...] = ()
+    unnumbered_law_ids: tuple[str, ...] = ()
+
+
 def resolve_no_source_path(path: Path | None = None) -> Path:
     """Return the effective Norway source path.
 
@@ -419,7 +454,7 @@ def repair_mojibake(text: str) -> str:
     return repaired
 
 
-def parse_header_value(html_bytes: bytes, dd_class: str) -> str:
+def _parse_no_header_root(html_bytes: bytes) -> etree._Element:
     root = None
     try:
         root = parse_corpus_xml(html_bytes, recover=True)
@@ -428,11 +463,55 @@ def parse_header_value(html_bytes: bytes, dd_class: str) -> str:
     if root is None:
         parser = etree.HTMLParser(recover=True)
         root = etree.fromstring(html_bytes, parser=parser)
+    return root
+
+
+def parse_header_value(html_bytes: bytes, dd_class: str) -> str:
+    root = _parse_no_header_root(html_bytes)
     values = root.xpath(
         f"string(//dd[contains(concat(' ', normalize-space(@class), ' '), ' {dd_class} ')][1])"
     )
     normalized = " ".join(str(values).replace("\xa0", " ").split()).strip()
     return repair_mojibake(normalized)
+
+
+def declared_change_targets_from_root(root: etree._Element) -> NODeclaredChangeTargets:
+    """Read the amendment targets Lovdata declares on a parsed act.
+
+    The single reader of the ``changesToDocuments`` block: the grafter takes its
+    sole-declared-ref ``default_base_id`` from it, the index its declared-target
+    denominator. It reads the ``<li>`` elements, never
+    :func:`parse_header_value` — that helper's XPath ``string()`` flattening
+    concatenates the declared ids into one separator-free token.
+    """
+    block_present = False
+    law_ids: list[str] = []
+    for element in cast(list[etree._Element], root.xpath(_NO_CHANGES_TO_DOCUMENTS_XPATH)):
+        if etree.QName(element).localname == "dd":
+            block_present = True
+        law_ids.extend(
+            ref
+            for ref in (
+                normalize_lovdata_refid(
+                    " ".join("".join(str(part) for part in li.itertext()).split())
+                )
+                for li in cast(list[etree._Element], element.xpath(".//li"))
+            )
+            if ref is not None
+        )
+    ordered = tuple(dict.fromkeys(law_ids))
+    return NODeclaredChangeTargets(
+        block_present=block_present,
+        law_ids=ordered,
+        unnumbered_law_ids=tuple(
+            law_id for law_id in ordered if _NO_UNNUMBERED_LAW_ID_RE.match(law_id)
+        ),
+    )
+
+
+def declared_change_targets_from_amendment(html_bytes: bytes) -> NODeclaredChangeTargets:
+    """Read the declared amendment targets from raw Lovdata amendment bytes."""
+    return declared_change_targets_from_root(_parse_no_header_root(html_bytes))
 
 
 def effective_date_from_amendment(html_bytes: bytes, source_date: str = "") -> NOEffectiveDate:

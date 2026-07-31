@@ -1484,20 +1484,11 @@ def _iter_unstructured_no_change_groups(
     adjudications_out: Optional[List[CompileAdjudication]] = None,
 ) -> list[tuple[str, list[LegalOperation]]]:
     """Parse older Lovtidend amendment acts without ``document-change`` wrappers."""
-    changed_docs: list[str] = []
-    for dd in cast(
-        list[etree._Element],
-        root.xpath("//*[contains(concat(' ', normalize-space(@class), ' '), ' changesToDocuments ')]"),
-    ):
-        changed_docs.extend(
-            ref
-            for ref in (
-                normalize_lovdata_refid(_normalize_space("".join(str(_t) for _t in li.itertext())))
-                for li in cast(list[etree._Element], dd.xpath(".//li"))
-            )
-            if ref is not None
-        )
-    changed_docs = list(dict.fromkeys(changed_docs))
+    # Function-local: sources.py imports from grafter at module load, so the
+    # shared declared-target reader is only reachable from inside the function.
+    from lawvm.norway.sources import declared_change_targets_from_root
+
+    changed_docs = declared_change_targets_from_root(root).law_ids
     default_base_id = changed_docs[0] if len(changed_docs) == 1 else None
 
     sequence = 1

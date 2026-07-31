@@ -18,7 +18,9 @@ from lawvm.norway.commencement_instruments import (
 )
 from lawvm.norway.grafter import iter_no_document_change_ops, lovdata_amendment_filename_to_id
 from lawvm.norway.sources import (
+    NODeclaredChangeTargets,
     NOLocatedArtifact,
+    declared_change_targets_from_amendment,
     effective_date_from_amendment,
     iter_no_amendment_artifacts,
     iter_no_forskrift_artifacts,
@@ -44,6 +46,14 @@ class NOAmendmentIndexEntry:
     title: str = ""
     base_ids: tuple[str, ...] = ()
     n_ops: int = 0
+    # Lovdata's own ``changesToDocuments`` list, recorded beside ``base_ids`` so
+    # the two can be compared. Storing it here binds nothing — no code reads this
+    # tuple back — but the list itself is NOT inert upstream: the grafter's
+    # sole-declared-ref ``default_base_id`` (``grafter.py`` ~:1500, outranking
+    # every extracted signal at ~:1557) is the only ``base_id`` 393 of the 2466
+    # entries have. Measured by counterfactual: strip every ``changesToDocuments``
+    # carrier and rebuild, and those 393 lose ``base_ids`` entirely.
+    declared_target_ids: tuple[str, ...] = ()
 
 
 @dataclass
@@ -89,6 +99,7 @@ class NOAmendmentIndex:
                 title=entry.get("title", ""),
                 base_ids=tuple(entry.get("base_ids", [])),
                 n_ops=int(entry.get("n_ops", 0)),
+                declared_target_ids=tuple(entry.get("declared_target_ids", [])),
             )
             for entry in raw_entries
             if isinstance(entry, dict)
@@ -229,6 +240,7 @@ def build_no_amendment_index(data_dir: Optional[Path] = None) -> NOAmendmentInde
                 )
             )
             continue
+        declared = declared_change_targets_from_amendment(artifact.payload)
         parser_adjudications: list[CompileAdjudication] = []
         grouped = iter_no_document_change_ops(
             artifact.payload,
@@ -242,6 +254,14 @@ def build_no_amendment_index(data_dir: Optional[Path] = None) -> NOAmendmentInde
                     artifact=artifact,
                 )
             )
+        base_ids = tuple(sorted({base_id for base_id, _ops in grouped}))
+        declared_target_gap = _no_index_declared_target_unbound_diagnostic(
+            artifact=artifact,
+            declared=declared,
+            base_ids=base_ids,
+        )
+        if declared_target_gap is not None:
+            index.diagnostics.append(declared_target_gap)
         if not grouped:
             index.diagnostics.append(
                 _no_index_skipped_artifact_diagnostic(
@@ -265,8 +285,9 @@ def build_no_amendment_index(data_dir: Optional[Path] = None) -> NOAmendmentInde
                 effective_date=effective.effective_date,
                 raw_date_in_force=effective.raw_text,
                 title=parse_header_value(artifact.payload, "title") or parse_header_value(artifact.payload, "titleShort"),
-                base_ids=tuple(sorted({base_id for base_id, _ops in grouped})),
+                base_ids=base_ids,
                 n_ops=sum(len(ops) for _base_id, ops in grouped),
+                declared_target_ids=declared.law_ids,
             )
         )
 
@@ -520,6 +541,48 @@ def _no_index_skipped_artifact_diagnostic(
         locator=artifact.locator,
         archive=artifact.source_name,
         member_name=artifact.member_name,
+    )
+
+
+def _no_index_declared_target_unbound_diagnostic(
+    *,
+    artifact: NOLocatedArtifact,
+    declared: NODeclaredChangeTargets,
+    base_ids: tuple[str, ...],
+) -> Optional[dict[str, Any]]:
+    """Adjudicate the targets Lovdata declared that the extracted ops never bound.
+
+    Measurement only: ``base_ids`` stays whatever extraction produced, and a
+    declared id that is absent from it is recorded here rather than bound.
+    ``unnumbered_unbound_target_ids`` labels the ``no/lov/<date>`` declarations
+    that carry no trailing act number. They are labelled inside the gap, not
+    held apart from it: they stay in ``unbound_target_ids`` and in
+    ``declared_target_count``, which is what makes the emitted totals reconcile
+    with ``scripts/probes/no_declared_target_coverage.py`` (4,088 unbound across
+    1,245 acts). The label is not an unreachability verdict — 65 of the 92
+    unnumbered ids emitted corpus-wide do name a corpus law, filed under a
+    ``<date>-0`` id — so these are real gaps, reported as such and merely
+    distinguished by the form in which Lovdata declared them.
+    """
+    unbound = tuple(sorted(set(declared.law_ids) - set(base_ids)))
+    if not unbound:
+        return None
+    return diagnostic_detail(
+        rule_id="no_amendment_index_declared_target_unbound",
+        family="source_pathology",
+        phase="acquisition",
+        reason="Norway amendment act declared amendment targets that no extracted operation bound",
+        blocking=True,
+        strict_disposition="block",
+        quirks_disposition=QuirksDisposition.RECORD,
+        source_id=artifact.logical_id,
+        locator=artifact.locator,
+        archive=artifact.source_name,
+        member_name=artifact.member_name,
+        declared_target_count=len(declared.law_ids),
+        bound_base_id_count=len(base_ids),
+        unbound_target_ids=list(unbound),
+        unnumbered_unbound_target_ids=sorted(set(declared.unnumbered_law_ids) & set(unbound)),
     )
 
 
