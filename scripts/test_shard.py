@@ -1443,6 +1443,8 @@ TOOLING_SHARD_PATHS: dict[str, tuple[str, ...]] = {
     "scripts/probes/no_declared_target_coverage.py": ("norway",),
     "scripts/probes/no_declared_target_gap_nature.py": ("norway",),
     "scripts/probes/no_unbound_binding_causes.py": ("norway",),
+    "scripts/probes/no_w7_unlock_landscape.py": ("norway",),
+    "scripts/probes/no_zero_amendment_divergence.py": ("norway",),
 }
 TOOL_SOURCE_SHARD_GROUPS: dict[tuple[str, ...], tuple[str, ...]] = {
     ("estonia", "tools_cli_debug"): (

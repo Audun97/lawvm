@@ -150,6 +150,17 @@ whether mixed dates must demote to `contingent` (blocking) pending evidence.
 Note the same act carries 82 ops against rekonstruksjonsloven, so misdating it
 touches multiple corpus laws.
 
+> **Field evidence (2026-07-31, W-7 tranche 1).** The zero-amendment sweep
+> (`scripts/probes/no_zero_amendment_divergence.py`) independently corroborates
+> the hypothesis. `no/lovtid/2026-06-19-48` declares `no/lov/2025-04-10-9` as a
+> target the index never bound; if the act were in force act-wide at
+> 2026-06-19, that law's consolidation should differ from its original text.
+> It does not — `no/lov/2025-04-10-9` was the **only** one of six
+> predicted-divergent zero-amendment laws to come back `consistent` at
+> 2026-07-10. Lovdata's own consolidation treats this act's changes as not yet
+> commenced, at least for that target, exactly what "premature commencement"
+> predicts.
+
 ### F-04 — Statsforvalter renaming absent from the amendment index — reclassified (see F-10)
 
 `no/lov/2015-05-12-27` (forsvunne personar): 5 MISMATCHes are all
@@ -366,6 +377,45 @@ table-of-contents heading carried by nearly every omnibus act — inflating fami
 acts and reading the matched text: only 3 were real. The probe now requires the
 verb and colon, and says so in a comment.
 
+#### Re-priced 2026-07-31 (W-7 tranche 1): the payoff is 8, not 2, and 5 of it is field-confirmed
+
+Step (b)'s decisive "2" was measured against the 20-law scan. W-7 tranche 1
+widened the comparable set to every executable law replayable today — the 20
+amended fully-replayable laws plus the **100 zero-amendment executable laws**,
+for which replay is trivially the original act and verification is a pure
+consolidation-equality check. Against that 120-law set
+(`scripts/probes/no_zero_amendment_divergence.py`):
+
+- **8** unbound bindings from `dated` acts touch the set (up from 2). The six
+  new targets are all zero-amendment laws — laws our index believes untouched.
+- The sweep verified all 100 zero-amendment laws at 2026-07-10:
+  **57 consistent / 43 divergent / 0 error**. Every divergence is Lovdata's
+  consolidation differing from original text on a law with no bound amendment.
+- **5 of the 6 predicted targets are confirmed divergent** — the unbound
+  binding join predicted, from receipts alone, which laws would diverge, and
+  the field agreed. The sixth (`no/lov/2025-04-10-9`, declared by F-03's
+  mixed-commencement act `no/lovtid/2026-06-19-48`) came back consistent,
+  which is evidence for F-03, not against the join.
+
+| act (dated) | unbound target | sweep verdict |
+|---|---|---|
+| `no/lovtid/2012-12-14-82` | `no/lov/2012-01-27-10` | divergent (1) |
+| `no/lovtid/2015-06-19-65` | `no/lov/2001-06-15-73` | divergent (1) |
+| `no/lovtid/2015-06-19-65` | `no/lov/2009-05-15-28` | divergent (2) |
+| `no/lovtid/2015-06-19-65` | `no/lov/2013-06-21-75` | divergent (3) |
+| `no/lovtid/2026-06-19-59` | `no/lov/2025-06-20-99` | divergent (1) |
+| `no/lovtid/2026-06-19-48` | `no/lov/2025-04-10-9` | consistent (F-03) |
+
+**This softens the step-(b) verdict.** Binding recovery on `dated` acts now has
+a nonzero, named, field-visible payoff without W-7: recovering these bindings
+would move up to 5 currently-divergent laws toward consistency (and 11 more
+unbound bindings from `contingent` acts touch the set — recovering those would
+correctly reclassify their targets from "divergent" to commencement-blocked
+rather than leaving a false claim of divergence). The remaining ~38 divergent
+zero-amendment laws are unexplained by declared-target receipts and need
+triage: candidates are bindings missed by *both* extraction and declaration,
+editorial changes (F-07 territory), or original-act extraction noise.
+
 #### Settled 2026-07-31: the adjudication is blocking, and that is not a policy choice
 
 W-8 was held pending a "blocking vs evidentiary" decision. **The question was
@@ -566,15 +616,41 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    504 of the 676 field-relevant ones — but only **2** unbound bindings in the
    whole corpus touch a law the 20-law scan covers, so step (b) is **not** a
    batch now. F-10 (b)/(c) join W-2, F-03 and F-04 behind W-7.
-5. **W-4 (F-01):** make `no-verify-scan`'s default comparison date
+5. **W-7 (active, tranche 1 done 2026-07-31):** the commencement-evidence
+   programme (`NORWAY_LAWVM_STATUS.md` §7 item 4), in three measured tranches:
+   - ~~**Tranche 1** — measure the unlock landscape and widen the comparable
+     corpus without engine changes.~~ **Done.** The 20-law scan was already at
+     its ceiling: of 237 amended executable laws, **217 (91%) are
+     commencement-blocked** (1,436 of 2,466 amendment acts unresolved, 1,430
+     of them `contingent`). The unlock curve is steep at the head — 56 laws
+     blocked by a single act, 97 by ≤2, 120 by ≤3
+     (`scripts/probes/no_w7_unlock_landscape.py`). The corpus DID grow anyway:
+     the **100 zero-amendment executable laws** are verifiable today as pure
+     consolidation-equality checks — 57 consistent / 43 divergent, with the
+     F-10 join predicting 5 of the divergences exactly
+     (`scripts/probes/no_zero_amendment_divergence.py`; see F-10 re-pricing).
+   - **Tranche 2 (next)** — re-ingest so the commencement-instrument lane gets
+     its instruments. The farchive holds **zero** `no://forskrift/` locators
+     (it predates the lane) while the public tarballs carry **~35,955**
+     `sf-*.xml` instruments. Data-only; candidates stay
+     `replay_authorized=False`. Then re-run the landscape probe to size
+     tranche 3 before writing any engine code.
+   - **Tranche 3 (batch 03, gated on tranche 2's sizing)** — the typed
+     execution-authorization validator of §7 item 4: whole-act scope, single
+     date, exact `basedOn` binding, no conflicting instrument; flips
+     `effective_status` through a typed authorized lane distinct from the
+     manual-override sidecar; everything else stays a blocking residual.
+6. **W-4 (F-01):** make `no-verify-scan`'s default comparison date
    snapshot-commensurable.
-5. **W-5 (F-03):** check the forskrift lane for a 2026-06-19-48 commencement
-   instrument; decide whether mixed "DATE, Kongen bestemmer" in-force fields
-   must demote to `contingent` (blocking) pending typed evidence.
-6. **W-6 (F-07, F-08):** pin the editorial correction; triage the
-   CONSOLIDATED_MISSING clusters.
-7. **W-7:** only then return to the commencement-evidence programme
-   (`NORWAY_LAWVM_STATUS.md` §7 items 4 and 7) to grow the corpus past 20.
+7. **W-5 (F-03):** check the forskrift lane for a 2026-06-19-48 commencement
+   instrument (unblocked by tranche 2); decide whether mixed "DATE, Kongen
+   bestemmer" in-force fields must demote to `contingent` (blocking) pending
+   typed evidence. Tranche 1 added field evidence: the act's unbound declared
+   target `no/lov/2025-04-10-9` is the only predicted-divergent zero-amendment
+   law that came back `consistent` — Lovdata itself has not applied this act.
+8. **W-6 (F-07, F-08):** pin the editorial correction; triage the
+   CONSOLIDATED_MISSING clusters. The 43-law divergent set from tranche 1's
+   sweep (~38 unexplained by declared-target receipts) feeds this triage.
 
 ## 5. Demo / Inspection Tooling
 
@@ -593,6 +669,27 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
 
+- **2026-07-31 (W-7 tranche 1)** — **The commencement wall measured, and a
+  hundred-law corpus found behind it.** Three results. *First*, the 20-law scan
+  was already at its ceiling: `build_no_verify_scan` admits every amended
+  executable fully-replayable law and there are exactly 20 — 217 of 237 (91%)
+  are commencement-blocked, so no scan parameter grows the corpus; only W-7
+  does. The unlock curve is steep (56 laws blocked by one act, 97 by ≤2).
+  *Second*, the instrument lane is starving, not broken: the farchive has zero
+  `no://forskrift/` locators because it was ingested before the lane existed,
+  while the public tarballs hold ~35,955 `sf-*.xml` instruments — tranche 2 is
+  a re-ingest, no engine change. *Third*, the corpus grew anyway, sideways: the
+  100 zero-amendment executable laws are verifiable today as pure
+  consolidation-equality checks, and the sweep came back **57 consistent / 43
+  divergent** — each divergence a law Lovdata amended that our index believes
+  untouched. The F-10 receipts predicted 6 specific divergences; **5
+  confirmed**, and the sixth (`no/lov/2025-04-10-9`) is the F-03
+  mixed-commencement act showing Lovdata itself hasn't applied it — the
+  prediction failing in the exact direction F-03's hypothesis requires. F-10's
+  step-(b) verdict re-priced from "payoff is 2, don't batch" to "payoff is 8,
+  5 field-confirmed"; the ~38 unexplained divergent laws feed W-6 triage.
+  Probes: `no_w7_unlock_landscape.py`, `no_zero_amendment_divergence.py`.
+  Scan re-run at 2026-07-10 unchanged: 12/8/0.
 - **2026-07-31 (F-10 step b)** — **Cause of the 4,088-binding gap measured; still
   not batchable.** Step (a)'s receipts made the split possible: joining each
   act's unbound targets to the parse diagnostics it already emits shows
