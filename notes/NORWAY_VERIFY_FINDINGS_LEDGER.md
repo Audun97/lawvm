@@ -161,6 +161,17 @@ touches multiple corpus laws.
 > commenced, at least for that target, exactly what "premature commencement"
 > predicts.
 
+> **Second field evidence (2026-07-31, W-7 tranche 2).** The forskrift lane is
+> now ingested (35,955 instruments), and the check this entry asked for has an
+> answer: **no commencement instrument cites `no/lov/2026-06-19-48`** anywhere
+> in the lane, through the archive's 2026 horizon. 520 other "Kongen
+> bestemmer" acts have exactly such an instrument; this act does not. Replay
+> applies it at 2026-06-19 with no published commencement decision in
+> evidence. Two independent confirmations now support demoting mixed
+> "DATE, Kongen bestemmer" fields to `contingent` pending typed evidence —
+> W-5 is ready to be decided, and tranche 3's validator would then be the
+> mechanism that re-dates such acts when their instrument exists.
+
 ### F-04 — Statsforvalter renaming absent from the amendment index — reclassified (see F-10)
 
 `no/lov/2015-05-12-27` (forsvunne personar): 5 MISMATCHes are all
@@ -629,17 +640,30 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
      consolidation-equality checks — 57 consistent / 43 divergent, with the
      F-10 join predicting 5 of the divergences exactly
      (`scripts/probes/no_zero_amendment_divergence.py`; see F-10 re-pricing).
-   - **Tranche 2 (next)** — re-ingest so the commencement-instrument lane gets
-     its instruments. The farchive holds **zero** `no://forskrift/` locators
-     (it predates the lane) while the public tarballs carry **~35,955**
-     `sf-*.xml` instruments. Data-only; candidates stay
-     `replay_authorized=False`. Then re-run the landscape probe to size
-     tranche 3 before writing any engine code.
-   - **Tranche 3 (batch 03, gated on tranche 2's sizing)** — the typed
-     execution-authorization validator of §7 item 4: whole-act scope, single
-     date, exact `basedOn` binding, no conflicting instrument; flips
+   - ~~**Tranche 2** — re-ingest so the commencement-instrument lane gets its
+     instruments.~~ **Done 2026-07-31.** `no-ingest --skip-existing` stored
+     exactly **35,955** `no://forskrift/` locators and nothing else; the 6,944
+     pre-existing (locator, digest) pairs hash identically before and after
+     (`abda820f…`), the 20-law scan is byte-identical at 12/8/0, and the
+     norway shard passed 475/475 after the mutation. Coverage partition:
+     608 whole-act candidates / 33,590 benign / 1,757 blocked-unresolved.
+     **Tranche 3 sizing: 520 of the 1,436 unresolved acts have a single-date
+     whole-act instrument with zero conflicting dates, and authorizing them
+     flips 38 blocked laws — the scan corpus would grow 20 → 58.** A 10-pair
+     random sample is clean: every instrument is "Ikraftsetting/Ikrafttredelse
+     av lov <date> nr. <num> …" naming the matched act verbatim, and every
+     matched act sits at "Kongen bestemmer" — the instrument is the awaited
+     royal decision. One join subtlety the validator must inherit: `basedOn`
+     cites the amending act's *law* id (`no/lov/D-N`), the index keys it as
+     `no/lovtid/D-N`, and many instruments commence a *forskrift* while citing
+     its enabling statutes in `basedOn` — matching against unresolved
+     amendment acts is what filters those out.
+   - **Tranche 3 (batch 03, next)** — the typed execution-authorization
+     validator of §7 item 4: whole-act scope, single date, exact `basedOn`
+     binding to an unresolved amendment act, no conflicting instrument; flips
      `effective_status` through a typed authorized lane distinct from the
      manual-override sidecar; everything else stays a blocking residual.
+     Sized: 520 acts, 38 laws, scan 20 → 58.
 6. **W-4 (F-01):** make `no-verify-scan`'s default comparison date
    snapshot-commensurable.
 7. **W-5 (F-03):** check the forskrift lane for a 2026-06-19-48 commencement
@@ -669,6 +693,27 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
 
+- **2026-07-31 (W-7 tranche 2)** — **The instrument lane fed, tranche 3 sized
+  at 38 laws, and F-03 confirmed a second way.** `no-ingest --skip-existing`
+  stored exactly 35,955 `no://forskrift/` locators and nothing else — additive
+  by construction and by proof (the 6,944 pre-existing locator/digest pairs
+  hash identically, the 20-law scan is byte-identical at 12/8/0, norway shard
+  475/475 after the mutation). The parser partitions them 608 whole-act
+  candidates / 33,590 benign / 1,757 blocked-unresolved. The sizing the
+  tranche existed for: **520 of 1,436 unresolved acts carry a single-date
+  whole-act instrument, zero conflicting dates, and authorizing them flips 38
+  blocked laws — scan corpus 20 → 58.** A 10-pair random sample is clean;
+  every instrument is the awaited royal decision for its "Kongen bestemmer"
+  act, title-matched verbatim. One probe correction worth keeping: the first
+  join measured **0** because `basedOn` cites the amending act's law id
+  (`no/lov/D-N`) while the index keys `no/lovtid/D-N` — and that same alias is
+  what filters out the many instruments that commence a forskrift while citing
+  its enabling statutes. Bonus: the lane answers W-5's question — **no
+  instrument cites `no/lov/2026-06-19-48`**, so F-03's act is applied by
+  replay with no published commencement decision in evidence; the
+  premature-commencement hypothesis now has two independent field
+  confirmations. Next: tranche 3, the execution-authorization validator, as
+  batch 03.
 - **2026-07-31 (W-7 tranche 1)** — **The commencement wall measured, and a
   hundred-law corpus found behind it.** Three results. *First*, the 20-law scan
   was already at its ceiling: `build_no_verify_scan` admits every amended

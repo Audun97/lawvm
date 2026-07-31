@@ -75,22 +75,32 @@ def main() -> int:
         cum += blocker_hist[k]
         print(f"  {k:>3} blocker(s): {blocker_hist[k]:>3} laws   (cumulative {cum})")
 
-    # whole-act single-date instrument candidates binding an unresolved act
+    # Whole-act single-date instrument candidates binding an unresolved act.
+    # An instrument's basedOn cites the amending act by its LAW id
+    # (no/lov/<date>-<num>) while the index keys amendment acts by lovtid id
+    # (no/lovtid/<date>-<num>); the date-and-number part is shared, so alias
+    # one onto the other. Matching against unresolved acts also filters out
+    # the many instruments that commence a forskrift and cite its enabling
+    # statutes in basedOn — those laws are not unresolved amendment acts.
+    lov_alias = {
+        "no/lov/" + sid.removeprefix("no/lovtid/"): sid for sid in unresolved
+    }
     authorizable: dict[str, str] = {}
     multi_date = conflicts = 0
     for c in idx.commencement_instruments:
         if str(c.scope_status) != "whole_act":
             continue
         for law_id in c.affected_law_ids:
-            if law_id not in unresolved:
+            sid = lov_alias.get(law_id)
+            if sid is None:
                 continue
             if len(c.effective_dates) != 1:
                 multi_date += 1
                 continue
-            prev = authorizable.get(law_id)
+            prev = authorizable.get(sid)
             if prev is not None and prev != c.effective_dates[0]:
                 conflicts += 1
-            authorizable[law_id] = c.effective_dates[0]
+            authorizable[sid] = c.effective_dates[0]
     would_flip = [law for law in blocked
                   if all(e.source_id in authorizable for e in by_base[law]
                          if e.effective_status in NO_UNRESOLVED_EFFECTIVE_STATUSES)]
