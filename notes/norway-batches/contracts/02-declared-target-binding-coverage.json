@@ -112,7 +112,7 @@
     "Verify the helper reads <li> elements rather than reusing the string(...) flattening. parse_header_value returns 'lov/1950-12-15-7lov/1967-02-10...' as ONE token for this field; a regex that splits that string back apart is a workaround for using the wrong helper and should be challenged.",
     "Verify normalize_lovdata_refid was reused rather than reimplemented, and that the 109 non-resolving 'lov/<date>' ids are bucketed separately rather than counted as ordinary unbound targets — otherwise the headline gap is inflated by 109 and the number stops reconciling with the probe.",
     "Check the no-gap case is actually tested and actually passes. If every act emits an adjudication the check is vacuous — the same vacuous-test failure batch 01's reviewers caught.",
-    "Confirm the 148 artifacts with no declared block, and the single literal 'null' item, take a path that neither raises nor invents an unbound target.",
+    "Confirm the 147 artifacts with no declared block, the forskrift-only act no/lovtid/2021-06-18-115, and the single literal 'null' item each take a path that neither raises nor invents an unbound target.",
     "A new no_* rule id is discovered by AST scan and must be cataloged; confirm the _NO_RULE_SPECS entry exists and reads in the siblings voice. Batch 01 aborted on exactly this coupling.",
     "Confirm the round-trip: build an index, to_dict, from_dict, and assert the declared targets and the adjudications survive unchanged."
   ],
