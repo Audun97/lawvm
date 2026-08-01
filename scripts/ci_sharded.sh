@@ -151,6 +151,21 @@ if [[ ${#AFFECTED_PATHS[@]} -gt 0 ]]; then
         PYTEST_SELECTORS=("${AFFECTED_PATHS[@]}")
     fi
 fi
+# Tree-wide hygiene ratchets scan all of src/lawvm but live in narrow shards no
+# jurisdiction ladder selects, so they get their own always-run stage. A ladder
+# that touches no src/lawvm/ path cannot regress them, and only then is the
+# stage skipped: with no --affected argument (full CI) it always runs.
+RUN_TREE_WIDE_HYGIENE=1
+if [[ ${#AFFECTED_PATHS[@]} -gt 0 ]]; then
+    RUN_TREE_WIDE_HYGIENE=0
+    for path in "${AFFECTED_PATHS[@]}"; do
+        normalized="${path//\\//}"
+        if [[ "$normalized" == src/lawvm/* ]]; then
+            RUN_TREE_WIDE_HYGIENE=1
+            break
+        fi
+    done
+fi
 if [[ "$DOCS_ONLY_AFFECTED" -eq 1 ]]; then
     echo "=== [affected docs-only] no CI execution required ==="
     echo "Affected paths: ${AFFECTED_PATHS[*]}"
@@ -174,7 +189,7 @@ if [[ -n "$TIMING_JSONL" ]]; then
     export LAWVM_SHARD_TIMING_RUN_ID="${LAWVM_CI_TIMING_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)-$$}"
 fi
 
-echo "=== [1/7] compile gate ==="
+echo "=== [1/8] compile gate ==="
 uv run python -m compileall -q -j 0 "${STATIC_CHECK_PATHS[@]}" || {
     echo "FAIL: Python sources failed to byte-compile."
     exit 1
@@ -182,7 +197,7 @@ uv run python -m compileall -q -j 0 "${STATIC_CHECK_PATHS[@]}" || {
 echo "PASS: compile"
 
 echo ""
-echo "=== [2/7] ruff check ==="
+echo "=== [2/8] ruff check ==="
 uv run ruff check "${STATIC_CHECK_PATHS[@]}" --no-fix 2>&1 || {
     echo "FAIL: ruff found issues. Fix before finishing."
     exit 1
@@ -190,7 +205,7 @@ uv run ruff check "${STATIC_CHECK_PATHS[@]}" --no-fix 2>&1 || {
 echo "PASS: ruff"
 
 echo ""
-echo "=== [3/7] ty check ==="
+echo "=== [3/8] ty check ==="
 uv run ty check "${STATIC_CHECK_PATHS[@]}" 2>&1 || {
     echo "FAIL: ty found type errors."
     exit 1
@@ -198,7 +213,7 @@ uv run ty check "${STATIC_CHECK_PATHS[@]}" 2>&1 || {
 echo "PASS: ty"
 
 echo ""
-echo "=== [4/7] shard ownership ==="
+echo "=== [4/8] shard ownership ==="
 ./scripts/test_shard.sh validate || {
     echo "FAIL: pytest shard ownership is invalid."
     exit 1
@@ -206,7 +221,7 @@ echo "=== [4/7] shard ownership ==="
 echo "PASS: shard ownership"
 
 echo ""
-echo "=== [5/7] boundary guards ==="
+echo "=== [5/8] boundary guards ==="
 ./scripts/test_shard.sh run boundary || {
     echo "FAIL: boundary shard failed."
     exit 1
@@ -214,7 +229,38 @@ echo "=== [5/7] boundary guards ==="
 echo "PASS: boundary"
 
 echo ""
-echo "=== [6/7] bounded pytest shards ==="
+echo "=== [6/8] tree-wide hygiene ratchets ==="
+if [[ "$RUN_TREE_WIDE_HYGIENE" -eq 0 ]]; then
+    echo "SKIP: no affected path under src/lawvm/; tree-wide ratchets cannot regress."
+else
+    if ! HYGIENE_OUTPUT="$(./scripts/test_shard.sh hygiene-files)"; then
+        echo "$HYGIENE_OUTPUT" >&2
+        echo "FAIL: tree-wide hygiene test list is invalid."
+        exit 1
+    fi
+    mapfile -t HYGIENE_FILES <<< "$HYGIENE_OUTPUT"
+    HYGIENE_WORKERS="${LAWVM_PYTEST_WORKERS:-4}"
+    if [[ "$HYGIENE_WORKERS" == "0" ]]; then
+        HYGIENE_XDIST=(-p no:xdist)
+    else
+        HYGIENE_XDIST=(-n "$HYGIENE_WORKERS")
+    fi
+    echo "=== hygiene: ${#HYGIENE_FILES[@]} files ==="
+    uv run python -m pytest \
+        --override-ini=addopts= \
+        -x \
+        -q \
+        "${HYGIENE_XDIST[@]}" \
+        -m "not network and not slow" \
+        "${HYGIENE_FILES[@]}" || {
+        echo "FAIL: tree-wide hygiene ratchets failed."
+        exit 1
+    }
+    echo "PASS: tree-wide hygiene ratchets"
+fi
+
+echo ""
+echo "=== [7/8] bounded pytest shards ==="
 if [[ ${#AFFECTED_PATHS[@]} -gt 0 ]]; then
     echo "Affected paths: ${AFFECTED_PATHS[*]}"
     if [[ -n "$SHARDS" ]]; then
@@ -240,7 +286,7 @@ done
 echo "PASS: bounded pytest shards"
 
 echo ""
-echo "=== [7/7] release hygiene ==="
+echo "=== [8/8] release hygiene ==="
 ./scripts/release_hygiene.sh --allow-dirty || {
     echo "FAIL: release hygiene gate failed."
     exit 1

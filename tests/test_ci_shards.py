@@ -161,6 +161,50 @@ def test_test_shard_keeps_known_expensive_files_explicitly_excluded() -> None:
     }
 
 
+def test_tree_wide_hygiene_tests_exist_and_are_owned_by_one_shard() -> None:
+    # These files run as their own always-run CI stage because no jurisdiction
+    # ladder selects their home shards. A rename or deletion would otherwise
+    # make the stage fail loudly at pytest-collection time (or, worse, quietly
+    # stop covering something); catch it here instead.
+    module = _load_test_shard_module()
+    test_dir = Path(__file__).resolve().parent
+    assignments = module.shard_assignments()
+
+    assert module.TREE_WIDE_HYGIENE_TESTS
+    assert len(set(module.TREE_WIDE_HYGIENE_TESTS)) == len(module.TREE_WIDE_HYGIENE_TESTS)
+
+    missing = [
+        filename
+        for filename in module.TREE_WIDE_HYGIENE_TESTS
+        if not (test_dir / filename).is_file()
+    ]
+    assert missing == []
+
+    owners = {
+        filename: sorted(
+            shard
+            for shard, filenames in assignments.items()
+            if filename in filenames
+        )
+        for filename in module.TREE_WIDE_HYGIENE_TESTS
+    }
+    assert {filename: shards for filename, shards in owners.items() if len(shards) != 1} == {}
+
+
+def test_tree_wide_hygiene_stage_is_wired_into_sharded_ci() -> None:
+    script = Path(__file__).resolve().parents[1] / "scripts" / "ci_sharded.sh"
+    text = script.read_text(encoding="utf-8")
+
+    assert "./scripts/test_shard.sh hygiene-files" in text
+    assert "FAIL: tree-wide hygiene ratchets failed." in text
+
+
+def test_test_shard_hygiene_files_lists_tests_relative_paths() -> None:
+    module = _load_test_shard_module()
+
+    assert module.list_hygiene_files() == 0
+
+
 def test_test_shard_plan_is_jsonable_and_filterable() -> None:
     module = _load_test_shard_module()
 
