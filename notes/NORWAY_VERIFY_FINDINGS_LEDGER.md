@@ -746,26 +746,56 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    effective date. Investigate and pin the intended ordering before treating
    the divergence shapes of `no/lov/2010-02-19-5` and
    `no/lov/2010-06-25-28` as pure replay-fidelity evidence.
-8. **W-11 (FW-07 classifier-wrap ratchet red at HEAD, pre-existing):**
+8. ~~**W-11 (FW-07 classifier-wrap ratchet red at HEAD, pre-existing):**
    `tests/test_classifier_wrap_ratchet.py` fails on the clean tree —
    `commencement_instruments.py` carries 3 raw `re.compile` (baseline 0),
-   `sources.py` 8 (baseline 5), `verify.py` 13 (baseline 12). The regexes
-   arrived with batch 01 (verify.py) and the W-7/batch-03 instrument lane;
-   like PROJ-02, the ratchet test sits in shard `core_discipline_gates`,
-   which Norway-scoped affected ladders never select. Needs a decision per
-   regex: adopt `compile_classifier_regex` (the module already imports it for
-   its other patterns) for classifier-over-prose regexes, or consciously bump
-   the baseline for genuine bounded lexers/locators
-   (`uv run python tests/test_classifier_wrap_ratchet.py --update-baseline`).
-   Proven pre-existing 2026-08-01 by stash-and-rerun during W-9.
-8. **W-4 (F-01):** make `no-verify-scan`'s default comparison date
+   `sources.py` 8 (baseline 5), `verify.py` 13 (baseline 12).~~
+   **Fixed 2026-08-01** (`0c45508ba`). The investigation found a *second*
+   standing red behind the first, and the two were fixed opposite ways.
+
+   *FW-07 (shard `core_discipline_gates`)* — all 7 raw `re.compile` sites were
+   adjudicated bounded lexers/locators over ids, filenames, locators, metadata
+   fields, or whitespace, not classifiers over adversarial prose, and all pass
+   `lawvm_regex_risks` clean. Disposition: the ratchet's own documented
+   conscious baseline bump (total **1273 → 1280**), not wrap adoption. The bump
+   is a *ratification of a correct judgment*, not an exemption: the module's
+   three genuine Norwegian-prose classifiers (`_COMMENCEMENT_TITLE_RE`,
+   `_LAW_COMMENCEMENT_RE`, `_WHOLE_ACT_RE`) already carry
+   `compile_classifier_regex`, so the author drew the classifier/lexer line
+   correctly and only the over-including heuristic disagreed. All seven
+   patterns were additionally proven **behaviorally inert under the wrap** on
+   the full 35,955-artifact corpus (0 mismatches, instrument partition
+   byte-identical) — the evidence that made the bump safe rather than merely
+   convenient. Wrap adoption was rejected on top of that: the `verify.py` site
+   fails `ty` type-checking under the wrap.
+
+   *Regex ratchet (shard `core_ir_contracts`)* — `tests/test_regex_ratchet.py`
+   was red on **6 un-waived call sites** (total 2363 vs baseline 2357):
+   `commencement_instruments.py` :487 (`_LAW_REF_RE.finditer`), :518 (both
+   classifier `.search` calls on one line), :525 (`_ISO_DATE_RE.findall`), and
+   `sources.py` :409 (`_NO_FORSKRIFT_FILENAME_RE.search`), :518
+   (`_NO_UNNUMBERED_LAW_ID_RE.match`). Disposition: **per-site
+   `# lawvm-regex:` waivers, not a baseline bump** — `owning_parser` for the
+   instrument-family and source-plane-locator owners, `prefilter` for the two
+   already-wrapped classifier guards. The waivers return the un-waived count to
+   exactly the committed 2357 with `regex_ratchet_baseline.json` untouched.
+
+   *Attribution corrected.* The red dates to **2026-07-11** (`e2d17d171`, W-7
+   tranche 2), which introduced 5 of the 7 sites: all three in
+   `commencement_instruments.py` plus `sources.py`'s
+   `_NO_FORSKRIFT_FILENAME_RE` and `_NO_FORSKRIFT_LOCATOR_RE`. Batch 01
+   (`f4eae341a`) added `verify.py`'s `_NO_VERIFY_PAREN_CLOSE_RE`; batch 02
+   (`f15b11aee`) added `_NO_UNNUMBERED_LAW_ID_RE`; **batch 03 added none.** The
+   earlier "batches 01 and 03" reading above was wrong — the instrument lane,
+   not the batch that consumed it, is where these landed.
+9. **W-4 (F-01):** make `no-verify-scan`'s default comparison date
    snapshot-commensurable.
-9. **W-5 (F-03):** decide whether mixed "DATE, Kongen bestemmer" in-force
+10. **W-5 (F-03):** decide whether mixed "DATE, Kongen bestemmer" in-force
    fields must demote to `contingent` (blocking) pending typed evidence. The
    forskrift lane and batch 03 now prove that no instrument cites
    `no/lov/2026-06-19-48`; its zero-amendment target is consistent, and the act
    remained merely `dated` through the authorization gate.
-10. **W-6 (F-07, F-08):** pin the editorial correction; triage the
+11. **W-6 (F-07, F-08):** pin the editorial correction; triage the
    CONSOLIDATED_MISSING clusters. Both the 43-law divergent zero-amendment set
    from tranche 1 (~38 unexplained by declared-target receipts) and batch 03's
    32 newly visible divergences feed this family-first triage.
@@ -786,6 +816,60 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-01 (W-11)** — **Two standing hygiene ratchets went green, fixed in
+  opposite directions, after three weeks red in shards no Norway batch ever
+  ran.** The FW-07 classifier-wrap ratchet
+  (`tests/test_classifier_wrap_ratchet.py`, shard `core_discipline_gates`) was
+  red on 7 raw `re.compile` sites; the regex ratchet
+  (`tests/test_regex_ratchet.py`, shard `core_ir_contracts`) was red on 6
+  un-waived call sites. Neither was caused by current work, and the two
+  disposals differ because the two gates ask different questions.
+
+  FW-07 asks *is this a classifier over adversarial prose?* — and for all seven
+  the honest answer is no: they are bounded lexers and locators over law ids,
+  archive filenames, `no://` locators, `dateInForce` metadata, and whitespace,
+  all clean under `lawvm_regex_risks`. So the disposition is the ratchet's
+  documented conscious baseline bump, **1273 → 1280**
+  (`commencement_instruments.py` 0 → 3, `sources.py` 5 → 8, `verify.py`
+  12 → 13). The bump ratifies a judgment the author already made correctly:
+  the same module's three real Norwegian-prose classifiers
+  (`_COMMENCEMENT_TITLE_RE`, `_LAW_COMMENCEMENT_RE`, `_WHOLE_ACT_RE`) do carry
+  `compile_classifier_regex`. FW-07's own docstring concedes it over-includes —
+  it cannot statically separate lexer from classifier — so a bump on a
+  correctly-drawn line is the sanctioned outcome, not a dodge. Safety was not
+  assumed: all seven patterns were proven behaviorally inert under the wrap
+  across the full 35,955-artifact corpus (0 mismatches, instrument partition
+  byte-identical). Wrap adoption was additionally blocked at the `verify.py`
+  site, which fails `ty` under the wrap.
+
+  The regex ratchet asks a different question — *does a semantic-plane regex
+  use-site carry an accountable owner?* — and that one is answered per site,
+  not per baseline. Five `# lawvm-regex:` waivers (one covers the two
+  classifier `.search` calls sharing line 518) name `owning_parser` for the
+  instrument parser and the source-plane locator owners, and `prefilter` for
+  the two already-wrapped guards. The un-waived count returns to exactly the
+  committed 2357 and `regex_ratchet_baseline.json` is untouched — the right
+  shape, since waiving a site is an accountability claim while bumping the
+  baseline would have been an amnesty.
+
+  Attribution in the W-11 entry was wrong and is corrected: the red dates to
+  **2026-07-11** (`e2d17d171`, W-7 tranche 2 — 5 of 7 sites), not to batches 01
+  and 03. Batch 01 (`f4eae341a`) and batch 02 (`f15b11aee`) contributed one
+  site each; batch 03 contributed none.
+
+  The blind spot is the finding worth keeping. W-9 already recorded that a
+  ratchet scanning all of `src/lawvm` but testing in one shard is invisible to
+  Norway-scoped affected ladders (norway, tools_cli_debug). This is the same
+  defect twice more, across **two** shards — `core_discipline_gates` *and*
+  `core_ir_contracts` — undetected for three weeks. Global hygiene ratchets are
+  not affected-ladder material; they need to run on every batch regardless of
+  touched-file scope, or the ladder needs to map "any file under `src/lawvm`"
+  to the shards that gate it. Documentation defect noted in passing: FW-07's
+  failure message directs the author to `notes/LAWVM_AUDIT_INVARIANT_REGISTRY.md`
+  row FW-07, and **that file does not exist in the repo** — 16 test modules,
+  two `src/lawvm` modules, a script, and three notes cite the registry, so the
+  pointer every ratchet hands its reader is dead.
 
 - **2026-08-01 (W-9)** — **The commencement-candidate report stopped lying
   about authorization, and the fix caught a latent ratchet violation.** Two
