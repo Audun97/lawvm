@@ -330,7 +330,7 @@ def build_no_amendment_index(data_dir: Optional[Path] = None) -> NOAmendmentInde
                     "locator": artifact.locator,
                     "archive": artifact.source_name,
                     "member_name": artifact.member_name,
-                    "quirks_disposition": "record",
+                    "quirks_disposition": QuirksDisposition.RECORD,
                 }
             )
 
