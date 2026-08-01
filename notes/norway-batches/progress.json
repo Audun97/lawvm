@@ -3,7 +3,7 @@
   "branch": "audun/norway-receipt-spine",
   "sourceReview": {
     "path": "notes/NORWAY_VERIFY_FINDINGS_LEDGER.md",
-    "sha256": "524f911f7cd89d079aba3052b7930aee201631c5e0ec0d1ff04eb666b06934d2"
+    "sha256": "86f87806c686ff0ffed4194e0d3bed2405ebd6e2fec6f794adb3e9838a6d6f62"
   },
   "executionPolicy": {
     "runnableState": "ready",
@@ -135,44 +135,196 @@
             "divergent": 32,
             "error": 0,
             "rows": [
-              {"baseId": "no/lov/2010-06-25-28", "verdict": "divergent", "divergences": 29},
-              {"baseId": "no/lov/2013-06-21-102", "verdict": "divergent", "divergences": 55},
-              {"baseId": "no/lov/2017-06-16-67", "verdict": "divergent", "divergences": 6},
-              {"baseId": "no/lov/2019-06-14-21", "verdict": "divergent", "divergences": 28},
-              {"baseId": "no/lov/2001-06-15-65", "verdict": "divergent", "divergences": 4},
-              {"baseId": "no/lov/2010-02-19-5", "verdict": "divergent", "divergences": 32},
-              {"baseId": "no/lov/2015-05-22-33", "verdict": "divergent", "divergences": 3},
-              {"baseId": "no/lov/2017-06-16-51", "verdict": "divergent", "divergences": 215},
-              {"baseId": "no/lov/2004-05-28-29", "verdict": "divergent", "divergences": 9},
-              {"baseId": "no/lov/2005-06-03-34", "verdict": "divergent", "divergences": 3},
-              {"baseId": "no/lov/2016-06-17-29", "verdict": "divergent", "divergences": 21},
-              {"baseId": "no/lov/2017-06-16-65", "verdict": "divergent", "divergences": 57},
-              {"baseId": "no/lov/2005-05-27-31", "verdict": "divergent", "divergences": 10},
-              {"baseId": "no/lov/2018-06-15-38", "verdict": "divergent", "divergences": 716},
-              {"baseId": "no/lov/2021-06-18-115", "verdict": "consistent", "divergences": 0},
-              {"baseId": "no/lov/2022-03-18-12", "verdict": "consistent", "divergences": 0},
-              {"baseId": "no/lov/2024-12-13-76", "verdict": "divergent", "divergences": 1},
-              {"baseId": "no/lov/2002-04-26-12", "verdict": "divergent", "divergences": 8},
-              {"baseId": "no/lov/2003-06-27-57", "verdict": "divergent", "divergences": 2},
-              {"baseId": "no/lov/2007-06-29-89", "verdict": "divergent", "divergences": 1},
-              {"baseId": "no/lov/2009-03-06-12", "verdict": "divergent", "divergences": 3},
-              {"baseId": "no/lov/2012-01-27-9", "verdict": "divergent", "divergences": 6},
-              {"baseId": "no/lov/2012-11-30-70", "verdict": "divergent", "divergences": 1},
-              {"baseId": "no/lov/2013-06-07-31", "verdict": "consistent", "divergences": 0},
-              {"baseId": "no/lov/2016-06-17-46", "verdict": "divergent", "divergences": 2},
-              {"baseId": "no/lov/2017-05-22-28", "verdict": "divergent", "divergences": 1},
-              {"baseId": "no/lov/2017-05-22-29", "verdict": "divergent", "divergences": 6},
-              {"baseId": "no/lov/2017-05-22-30", "verdict": "divergent", "divergences": 6},
-              {"baseId": "no/lov/2020-06-19-95", "verdict": "divergent", "divergences": 1},
-              {"baseId": "no/lov/2020-11-27-131", "verdict": "divergent", "divergences": 15},
-              {"baseId": "no/lov/2020-12-04-136", "verdict": "divergent", "divergences": 3},
-              {"baseId": "no/lov/2020-12-18-153", "verdict": "consistent", "divergences": 0},
-              {"baseId": "no/lov/2021-04-16-18", "verdict": "divergent", "divergences": 1},
-              {"baseId": "no/lov/2021-06-18-121", "verdict": "divergent", "divergences": 2},
-              {"baseId": "no/lov/2022-12-20-118", "verdict": "divergent", "divergences": 8},
-              {"baseId": "no/lov/2022-12-20-97", "verdict": "divergent", "divergences": 6},
-              {"baseId": "no/lov/2024-06-25-69", "verdict": "consistent", "divergences": 0},
-              {"baseId": "no/lov/2024-12-13-77", "verdict": "consistent", "divergences": 0}
+              {
+                "baseId": "no/lov/2010-06-25-28",
+                "verdict": "divergent",
+                "divergences": 29
+              },
+              {
+                "baseId": "no/lov/2013-06-21-102",
+                "verdict": "divergent",
+                "divergences": 55
+              },
+              {
+                "baseId": "no/lov/2017-06-16-67",
+                "verdict": "divergent",
+                "divergences": 6
+              },
+              {
+                "baseId": "no/lov/2019-06-14-21",
+                "verdict": "divergent",
+                "divergences": 28
+              },
+              {
+                "baseId": "no/lov/2001-06-15-65",
+                "verdict": "divergent",
+                "divergences": 4
+              },
+              {
+                "baseId": "no/lov/2010-02-19-5",
+                "verdict": "divergent",
+                "divergences": 32
+              },
+              {
+                "baseId": "no/lov/2015-05-22-33",
+                "verdict": "divergent",
+                "divergences": 3
+              },
+              {
+                "baseId": "no/lov/2017-06-16-51",
+                "verdict": "divergent",
+                "divergences": 215
+              },
+              {
+                "baseId": "no/lov/2004-05-28-29",
+                "verdict": "divergent",
+                "divergences": 9
+              },
+              {
+                "baseId": "no/lov/2005-06-03-34",
+                "verdict": "divergent",
+                "divergences": 3
+              },
+              {
+                "baseId": "no/lov/2016-06-17-29",
+                "verdict": "divergent",
+                "divergences": 21
+              },
+              {
+                "baseId": "no/lov/2017-06-16-65",
+                "verdict": "divergent",
+                "divergences": 57
+              },
+              {
+                "baseId": "no/lov/2005-05-27-31",
+                "verdict": "divergent",
+                "divergences": 10
+              },
+              {
+                "baseId": "no/lov/2018-06-15-38",
+                "verdict": "divergent",
+                "divergences": 716
+              },
+              {
+                "baseId": "no/lov/2021-06-18-115",
+                "verdict": "consistent",
+                "divergences": 0
+              },
+              {
+                "baseId": "no/lov/2022-03-18-12",
+                "verdict": "consistent",
+                "divergences": 0
+              },
+              {
+                "baseId": "no/lov/2024-12-13-76",
+                "verdict": "divergent",
+                "divergences": 1
+              },
+              {
+                "baseId": "no/lov/2002-04-26-12",
+                "verdict": "divergent",
+                "divergences": 8
+              },
+              {
+                "baseId": "no/lov/2003-06-27-57",
+                "verdict": "divergent",
+                "divergences": 2
+              },
+              {
+                "baseId": "no/lov/2007-06-29-89",
+                "verdict": "divergent",
+                "divergences": 1
+              },
+              {
+                "baseId": "no/lov/2009-03-06-12",
+                "verdict": "divergent",
+                "divergences": 3
+              },
+              {
+                "baseId": "no/lov/2012-01-27-9",
+                "verdict": "divergent",
+                "divergences": 6
+              },
+              {
+                "baseId": "no/lov/2012-11-30-70",
+                "verdict": "divergent",
+                "divergences": 1
+              },
+              {
+                "baseId": "no/lov/2013-06-07-31",
+                "verdict": "consistent",
+                "divergences": 0
+              },
+              {
+                "baseId": "no/lov/2016-06-17-46",
+                "verdict": "divergent",
+                "divergences": 2
+              },
+              {
+                "baseId": "no/lov/2017-05-22-28",
+                "verdict": "divergent",
+                "divergences": 1
+              },
+              {
+                "baseId": "no/lov/2017-05-22-29",
+                "verdict": "divergent",
+                "divergences": 6
+              },
+              {
+                "baseId": "no/lov/2017-05-22-30",
+                "verdict": "divergent",
+                "divergences": 6
+              },
+              {
+                "baseId": "no/lov/2020-06-19-95",
+                "verdict": "divergent",
+                "divergences": 1
+              },
+              {
+                "baseId": "no/lov/2020-11-27-131",
+                "verdict": "divergent",
+                "divergences": 15
+              },
+              {
+                "baseId": "no/lov/2020-12-04-136",
+                "verdict": "divergent",
+                "divergences": 3
+              },
+              {
+                "baseId": "no/lov/2020-12-18-153",
+                "verdict": "consistent",
+                "divergences": 0
+              },
+              {
+                "baseId": "no/lov/2021-04-16-18",
+                "verdict": "divergent",
+                "divergences": 1
+              },
+              {
+                "baseId": "no/lov/2021-06-18-121",
+                "verdict": "divergent",
+                "divergences": 2
+              },
+              {
+                "baseId": "no/lov/2022-12-20-118",
+                "verdict": "divergent",
+                "divergences": 8
+              },
+              {
+                "baseId": "no/lov/2022-12-20-97",
+                "verdict": "divergent",
+                "divergences": 6
+              },
+              {
+                "baseId": "no/lov/2024-06-25-69",
+                "verdict": "consistent",
+                "divergences": 0
+              },
+              {
+                "baseId": "no/lov/2024-12-13-77",
+                "verdict": "consistent",
+                "divergences": 0
+              }
             ]
           },
           "authorization": {
@@ -225,8 +377,8 @@
             "effectiveDate": "2026-06-19"
           },
           "followUps": [
-            "Replay currently orders amendments by source_id, which can invert effective-date order for no/lov/2010-02-19-5 and no/lov/2010-06-25-28.",
-            "src/lawvm/tools/no_commencement_candidates.py still hardcodes replay_authorized=False in its report output."
+            "Replay currently orders amendments by source_id, which can invert effective-date order for no/lov/2010-02-19-5 and no/lov/2010-06-25-28 (open as W-10).",
+            "src/lawvm/tools/no_commencement_candidates.py hardcoded replay_authorized=False in its report output at application time (resolved 2026-08-01 as W-9; the fix also replaced the gate's author-set replay_authorized=True literal with a derived verdict after the PROJ-02 ratchet, in shard core_discipline_gates and outside this batch's affected ladder, was found red at HEAD)."
           ]
         }
       }

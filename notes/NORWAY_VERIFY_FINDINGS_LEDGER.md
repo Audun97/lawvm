@@ -726,15 +726,38 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
      `no/lovtid/2012-01-27-9` is authorized at 2012-03-01 by
      `no/forskrift/2012-01-27-71`; F-03's negative anchor
      `no/lovtid/2026-06-19-48` remains `dated`.
-6. **W-9 (commencement report residue):**
-   `src/lawvm/tools/no_commencement_candidates.py` still hardcodes
-   `replay_authorized=False`. Replay and the index are correct, but the
-   operator-facing report contradicts authorized candidates; align it with the
-   typed index result without creating a second authorization model.
+6. ~~**W-9 (commencement report residue):** align
+   `src/lawvm/tools/no_commencement_candidates.py` with the typed index
+   authorization.~~ **Done 2026-08-01** (`35111fd82`; the PROJ-02 gate
+   correction is `f434589c0`) — the report row and the plain-text
+   renderer both mirror the index's `replay_authorized` verdict; no second
+   authorization model was created (the row reads the flag off the index's own
+   candidate). 523 authorized instruments now report `True` across 524 report
+   rows (`no/forskrift/2012-04-27-364` is the sole instrument binding two
+   indexed acts). Fixing W-9 also surfaced a latent batch-03 defect: the
+   authorization gate's `replace(candidate, replay_authorized=True)` violated
+   the PROJ-02 author-set-replay-authority ratchet, unseen because the ratchet
+   test lives in shard `core_discipline_gates`, outside batch 03's affected
+   selection (norway, tools_cli_debug). Fixed by deriving the flag from the
+   gate verdict (`candidate.source_id in authorized_instrument_ids`) inside the
+   `NOCommencementExecutionAuthorization` construction; the 520/523/0 counts
+   are byte-identical.
 7. **W-10 (temporal ordering):** replay orders amendments by `source_id`, not
    effective date. Investigate and pin the intended ordering before treating
    the divergence shapes of `no/lov/2010-02-19-5` and
    `no/lov/2010-06-25-28` as pure replay-fidelity evidence.
+8. **W-11 (FW-07 classifier-wrap ratchet red at HEAD, pre-existing):**
+   `tests/test_classifier_wrap_ratchet.py` fails on the clean tree —
+   `commencement_instruments.py` carries 3 raw `re.compile` (baseline 0),
+   `sources.py` 8 (baseline 5), `verify.py` 13 (baseline 12). The regexes
+   arrived with batch 01 (verify.py) and the W-7/batch-03 instrument lane;
+   like PROJ-02, the ratchet test sits in shard `core_discipline_gates`,
+   which Norway-scoped affected ladders never select. Needs a decision per
+   regex: adopt `compile_classifier_regex` (the module already imports it for
+   its other patterns) for classifier-over-prose regexes, or consciously bump
+   the baseline for genuine bounded lexers/locators
+   (`uv run python tests/test_classifier_wrap_ratchet.py --update-baseline`).
+   Proven pre-existing 2026-08-01 by stash-and-rerun during W-9.
 8. **W-4 (F-01):** make `no-verify-scan`'s default comparison date
    snapshot-commensurable.
 9. **W-5 (F-03):** decide whether mixed "DATE, Kongen bestemmer" in-force
@@ -764,6 +787,31 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
 
+- **2026-08-01 (W-9)** — **The commencement-candidate report stopped lying
+  about authorization, and the fix caught a latent ratchet violation.** Two
+  hardcodes in `no_commencement_candidates.py` — the row dict's
+  `"replay_authorized": False` and the renderer's literal
+  `replay_authorized=no` — now mirror the index's verdict instead. 523
+  authorized instruments report `True` across 524 rows; the 1,842
+  non-authorized instrument rows stay `False`; the anchor
+  `no/forskrift/2012-01-27-71` reads `yes` and F-03's
+  `no/lovtid/2026-06-19-48` still shows zero instruments. The residue test
+  batch 03 wrote (blanket `all(... is False)`) became a per-instrument mirror
+  of the index assertion beside it, plus a fake-index passthrough test and a
+  renderer pin. The discovery: running the PROJ-02
+  author-set-replay-authority ratchet as part of verification found it RED at
+  HEAD — batch 03's own `replace(candidate, replay_authorized=True)` was an
+  author-set truthy literal outside the `ExecutionAuthorization` carrier, and
+  the ratchet test (shard `core_discipline_gates`) was never selected by the
+  batch's affected ladder (norway, tools_cli_debug). A ratchet that scans all
+  of `src/lawvm` but tests in one shard is a standing blind spot for
+  Norway-scoped batches; worth remembering when composing affected ladders.
+  Fixed by deriving the flag from the gate verdict inside the carrier
+  construction — proven identity-preserving by the unchanged 2,365/523/520
+  counts and the full norway shard. The same blind spot hides a second
+  standing red: the FW-07 classifier-wrap ratchet fails at HEAD on regexes
+  batches 01 and 03 added (stash-proven pre-existing; recorded as W-11, not
+  fixed here because wrap-vs-baseline is a per-regex decision).
 - **2026-07-31 (batch 03, applied)** — **Whole-act commencement evidence now
   authorizes execution** (`2c76cedec`). The typed gate runs over already-parsed
   instruments inside index construction: candidate parse + whole-act scope +
