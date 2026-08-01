@@ -484,6 +484,7 @@ def _law_ids(root: etree._Element) -> tuple[str, ...]:
         candidates.extend(str(value) for value in cast(list[str], node.xpath(".//@*")))
     law_ids: set[str] = set()
     for value in candidates:
+        # lawvm-regex: owning_parser harvests lov/<date>-<num> ids from basedOn locators, not prose
         for match in _LAW_REF_RE.finditer(value.replace("https://lovdata.no/dokument/NL/", "")):
             law_ids.add(f"no/lov/{match.group('date')}-{int(match.group('num'))}")
     return tuple(sorted(law_ids))
@@ -515,6 +516,7 @@ def parse_no_commencement_instrument(
     text = _normalized_text(root)
     title = _document_title(root)
     body_text = _body_text(root) or text
+    # lawvm-regex: prefilter compile_classifier_regex-built title/clause guards; route non-commencement out
     if not _COMMENCEMENT_TITLE_RE.search(title) and not _LAW_COMMENCEMENT_RE.search(body_text):
         return NOCommencementInstrumentParseResult(
             parse_status=NOCommencementParseStatus.BENIGN_NOT_COMMENCEMENT
@@ -522,6 +524,7 @@ def parse_no_commencement_instrument(
 
     affected_law_ids = _law_ids(root)
     effective_text = _class_text(root, "dateInForce")
+    # lawvm-regex: owning_parser reads ISO dates from the instrument's own dateInForce field
     effective_dates = tuple(sorted(set(_ISO_DATE_RE.findall(effective_text))))
     operative_blocks = _operative_blocks(root)
     whole_act = (

@@ -406,6 +406,7 @@ def no_amendment_locator(source_id: str) -> str:
 
 
 def no_forskrift_id_from_filename(member_name: str) -> str | None:
+    # lawvm-regex: owning_parser derives the forskrift id from its archive member filename
     match = _NO_FORSKRIFT_FILENAME_RE.search(member_name)
     if not match:
         return None
@@ -515,6 +516,7 @@ def declared_change_targets_from_root(root: etree._Element) -> NODeclaredChangeT
         block_present=block_present,
         law_ids=ordered,
         unnumbered_law_ids=tuple(
+            # lawvm-regex: owning_parser shape-tests an id for the unnumbered no/lov/<date> form
             law_id for law_id in ordered if _NO_UNNUMBERED_LAW_ID_RE.match(law_id)
         ),
     )

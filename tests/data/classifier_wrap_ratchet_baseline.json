@@ -82,11 +82,12 @@
     "src/lawvm/new_zealand/operation_surface.py": 4,
     "src/lawvm/new_zealand/source_tree.py": 7,
     "src/lawvm/norway/commencement.py": 1,
+    "src/lawvm/norway/commencement_instruments.py": 3,
     "src/lawvm/norway/grafter.py": 13,
     "src/lawvm/norway/replay.py": 1,
-    "src/lawvm/norway/sources.py": 5,
+    "src/lawvm/norway/sources.py": 8,
     "src/lawvm/norway/statsrad.py": 8,
-    "src/lawvm/norway/verify.py": 12,
+    "src/lawvm/norway/verify.py": 13,
     "src/lawvm/open_law/maryland.py": 1,
     "src/lawvm/open_law/xml.py": 1,
     "src/lawvm/semantic/diff.py": 19,
@@ -200,5 +201,5 @@
     "src/lawvm/us_federal/table3.py": 4,
     "src/lawvm/us_federal/usc_witness.py": 4
   },
-  "total_raw_re_compile": 1273
+  "total_raw_re_compile": 1280
 }
