@@ -240,7 +240,7 @@ def build_no_commencement_candidate_report(
                 "locator": instrument.locator,
                 "scope_status": instrument.scope_status,
                 "rule_id": instrument.rule_id,
-                "replay_authorized": False,
+                "replay_authorized": bool(instrument.replay_authorized),
             }
         )
 
@@ -391,9 +391,10 @@ def main(args: "argparse.Namespace") -> None:
     if report.get("lovtidend_commencement_instruments"):
         print("  Lovtidend commencement instruments:")
         for item in report["lovtidend_commencement_instruments"]:
+            authorized = "yes" if item["replay_authorized"] else "no"
             print(
                 f"  {item['source_id']} | scope={item['scope_status']}"
-                f" | replay_authorized=no | {item['title'] or '(untitled)'}"
+                f" | replay_authorized={authorized} | {item['title'] or '(untitled)'}"
             )
 if __name__ == "__main__":
     import argparse

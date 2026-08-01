@@ -1199,6 +1199,53 @@ def test_no_commencement_candidates_tool_writes_artifact(tmp_path, monkeypatch, 
     assert artifact["candidate_source_counts"] == {"local_corpus": 1, "statsrad": 1}
 
 
+def test_no_commencement_candidates_tool_prints_instrument_authorization(tmp_path, monkeypatch, capsys) -> None:
+    monkeypatch.setattr(
+        "lawvm.tools.no_commencement_candidates.build_no_commencement_candidate_report",
+        lambda **kwargs: {
+            "source_id": "no/lovtid/2025-02-02-5",
+            "source_title": "A",
+            "source_effective_status": "instrument_authorized",
+            "source_raw_date_in_force": "Kongen bestemmer",
+            "direct_only": False,
+            "candidate_count": 2,
+            "local_candidate_count": 0,
+            "lovtidend_commencement_instrument_count": 2,
+            "statsrad_candidate_count": 0,
+            "local_candidates": [],
+            "statsrad_candidates": [],
+            "lovtidend_commencement_instruments": [
+                {
+                    "source_id": "no/forskrift/2025-06-27-900",
+                    "scope_status": "whole_act",
+                    "replay_authorized": True,
+                    "title": "Ikrafttredelse av lov",
+                },
+                {
+                    "source_id": "no/forskrift/2025-06-27-901",
+                    "scope_status": "unresolved",
+                    "replay_authorized": False,
+                    "title": "Delvis ikrafttredelse av lov",
+                },
+            ],
+        },
+    )
+    args = Namespace(
+        source_id="no/lovtid/2025-02-02-5",
+        data_dir=None,
+        index=None,
+        commencement=None,
+        limit=None,
+        json=False,
+    )
+
+    no_commencement_candidates_main(args)
+    out = capsys.readouterr().out
+
+    assert "no/forskrift/2025-06-27-900 | scope=whole_act | replay_authorized=yes" in out
+    assert "no/forskrift/2025-06-27-901 | scope=unresolved | replay_authorized=no" in out
+
+
 def test_no_commencement_backfill_tool_writes_artifact(tmp_path, monkeypatch, capsys) -> None:
     index_path = tmp_path / "no_index.json"
     index_path.write_text(

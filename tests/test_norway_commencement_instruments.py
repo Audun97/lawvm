@@ -439,10 +439,16 @@ def test_ingest_index_and_replay_execute_the_whole_act_lovtidend_instrument(tmp_
         ("no/forskrift/2025-03-01-100", True),
         ("no/forskrift/2025-03-01-101", False),
     ]
-    # The backfill-candidate advisory lane still authorizes nothing itself: the
-    # authorization is the index's, and the report only reports evidence.
+    # The backfill-candidate advisory lane authorizes nothing itself: it mirrors
+    # the index's authorization verdicts and never computes its own.
     assert report["lovtidend_commencement_instrument_count"] == 2
-    assert all(item["replay_authorized"] is False for item in report["lovtidend_commencement_instruments"])
+    assert [
+        (item["source_id"], item["replay_authorized"])
+        for item in report["lovtidend_commencement_instruments"]
+    ] == [
+        ("no/forskrift/2025-03-01-100", True),
+        ("no/forskrift/2025-03-01-101", False),
+    ]
     assert report["candidate_source_counts"]["lovtidend_commencement_instrument"] == 2
 
     replay = replay_no_to_pit(

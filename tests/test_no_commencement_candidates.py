@@ -226,6 +226,62 @@ def test_no_commencement_candidates_direct_only_filters_indirect_base_overlap(mo
     assert report["candidate_count"] == 0
 
 
+def test_no_commencement_candidates_mirrors_index_replay_authorization(monkeypatch, tmp_path) -> None:
+    def instrument(source_id: str, replay_authorized: bool) -> SimpleNamespace:
+        return SimpleNamespace(
+            source_id=source_id,
+            title="Ikrafttredelse av lov 20. juni 2025 nr. 96",
+            affected_law_ids=["no/lov/2025-06-20-96"],
+            effective_dates=["2025-07-01"],
+            source_excerpt="lov 20. juni 2025 nr. 96",
+            archive="norway.farchive",
+            member_name=f"no://forskrift/{source_id.removeprefix('no/forskrift/')}/original.lti.xml",
+            locator=f"no://forskrift/{source_id.removeprefix('no/forskrift/')}/original.lti.xml",
+            scope_status="whole_act",
+            rule_id="no_lovtidend_commencement_instrument_candidate",
+            replay_authorized=replay_authorized,
+        )
+
+    fake_index = SimpleNamespace(
+        commencement_instruments=[
+            instrument("no/forskrift/2025-06-27-900", True),
+            instrument("no/forskrift/2025-06-27-901", False),
+        ],
+        data_dir="",
+        entries=[
+            SimpleNamespace(
+                source_id="no/lovtid/2025-06-20-96",
+                title="Lov om dokumentasjon og arkiv (arkivlova)",
+                effective_status="instrument_authorized",
+                raw_date_in_force="Kongen fastset",
+                base_ids=["no/lov/2024-12-13-77"],
+            )
+        ],
+    )
+
+    monkeypatch.setattr("lawvm.norway.index.load_no_amendment_index", lambda path: fake_index)
+    monkeypatch.setattr("lawvm.norway.sources.resolve_no_source_path", lambda path=None: path)
+    monkeypatch.setattr("lawvm.norway.sources.load_no_current_law_titles", lambda data_dir=None: {})
+    monkeypatch.setattr("lawvm.norway.sources.iter_no_amendment_artifacts", lambda data_dir=None: iter(()))
+    monkeypatch.setattr("lawvm.norway.statsrad.iter_no_statsrad_event_artifacts", lambda data_dir=None, diagnostics_out=None: [])
+
+    report = build_no_commencement_candidate_report(
+        source_id="no/lovtid/2025-06-20-96",
+        data_dir=None,
+        index_path=tmp_path / "no_index_farchive.json",
+        limit=10,
+    )
+
+    assert report["lovtidend_commencement_instrument_count"] == 2
+    assert [
+        (item["source_id"], item["replay_authorized"])
+        for item in report["lovtidend_commencement_instruments"]
+    ] == [
+        ("no/forskrift/2025-06-27-900", True),
+        ("no/forskrift/2025-06-27-901", False),
+    ]
+
+
 def test_no_commencement_candidates_includes_statsrad_evidence(monkeypatch, tmp_path) -> None:
     fake_index = SimpleNamespace(
         commencement_instruments=[],
