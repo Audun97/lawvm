@@ -398,9 +398,10 @@ def authorize_no_commencement_instruments(
 
     return NOCommencementExecutionAuthorization(
         instruments=tuple(
-            replace(candidate, replay_authorized=True)
-            if candidate.source_id in authorized_instrument_ids
-            else candidate
+            replace(
+                candidate,
+                replay_authorized=candidate.source_id in authorized_instrument_ids,
+            )
             for _parse_status, candidate in parsed_instruments
         ),
         authorizations=tuple(authorizations),
