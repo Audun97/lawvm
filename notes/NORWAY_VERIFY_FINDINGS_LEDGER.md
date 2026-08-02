@@ -120,16 +120,24 @@ comparison framing misleads.
 
 > **Fixed for the scan (2026-08-02, W-4).** The default is now DERIVED from
 > the corpus: `no_consolidation_snapshot_date` in `sources.py` takes the
-> latest `observed_from` over the `no://lov/%/current.xml` locator family —
-> the consolidated artifacts replay is actually compared against — and it
-> reproduces exactly the documented 2026-07-10 horizon (763 spans, all
-> observed 2026-07-10T21:46Z; the archive's later 2026-07-31 forskrift
-> observations cannot move it because they are outside the family). An
-> explicit `--as-of` passes through verbatim. Fallback
+> latest `last_confirmed_at` over the `no://lov/%/current.xml` locator
+> family — the consolidated artifacts replay is actually compared against —
+> and it reproduces exactly the documented 2026-07-10 horizon (763 spans,
+> all observed 2026-07-10T21:46Z; the archive's later 2026-07-31 forskrift
+> observations cannot move it because they are outside the family).
+> (Originally shipped reading `observed_from`; the same-day code review
+> caught that a change-free re-crawl extends spans without touching
+> `observed_from`, which would have frozen the horizon at the last content
+> change — re-opening F-01. Corrected to `last_confirmed_at` before the
+> defect could ever fire; the two coincide on today's corpus.) An explicit
+> `--as-of` passes through verbatim. Fallback
 > `NO_FALLBACK_CONSOLIDATION_SNAPSHOT_DATE = "2026-07-10"` covers only
-> legacy tar-directory corpora, which record no observation instant.
-> Seven sibling CLI commands still carry the stale 2026-03-29 default —
-> that residue is W-14.
+> legacy tar-directory corpora, which record no observation instant; an
+> farchive with no consolidated artifacts now raises the named
+> `NOConsolidationSnapshotError` instead of borrowing the constant, and a
+> corpus-gated test asserts the derivation reproduces the constant so it
+> rots loudly on a re-capture. Seven sibling CLI commands still carry the
+> stale 2026-03-29 default — that residue is W-14.
 
 ### F-02 — Sentence-level (punktum) unstructured leads not lowered — open (engine, deferred behind W-7)
 
@@ -926,6 +934,28 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
 
+- **2026-08-02 (W-4 review fixes)** — **The snapshot-derivation helper
+  hardened on five same-day code-review findings** (`9b3e5c8e5`).
+  The substantive one: `no_consolidation_snapshot_date` read
+  `span.observed_from`, but farchive's digest-identity branch extends a
+  span's `last_confirmed_at` without touching `observed_from`, so a future
+  change-free re-crawl would have frozen the derived horizon at the last
+  content change — recreating exactly the F-01 staleness the helper exists
+  to prevent (latent today: all 763 spans have `observation_count == 1`).
+  Now reads `last_confirmed_at`, with a re-confirmation test that stores
+  identical bytes twice and proves the horizon advances (it fails under the
+  old code). Also: an farchive holding zero `no://lov/%/current.xml`
+  artifacts now raises the named `NOConsolidationSnapshotError`
+  (AGENTS.md §1.10) instead of silently borrowing the legacy-directory
+  constant; a corpus-gated test makes the fallback constant's licensing
+  claim executable (it passed against the real corpus, not skipped); the
+  gate's docstring no longer duplicates index.py's offering policy (the
+  coupling the `offered_act_ids` rename was meant to sever); and the
+  per-locator `history()` materialization became a single-open-span
+  `resolve()` — O(1 row) per locator as spans accumulate on future
+  re-crawls. Real-corpus derivation unchanged at 2026-07-10. Norway shard
+  503 passed / 1 skipped in the fixer worktree.
+
 - **2026-08-02 (W-13 a/c + W-4 hygiene pass)** — **The gate's offered-set
   naming stopped lying, the scan's default date is now derived from the
   corpus, and the one "inert" cleanup turned out not to be**
@@ -952,7 +982,7 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
 
   *W-4.* `no-verify-scan`'s default `--as-of` (was the frozen literal
   2026-03-29, F-01's incommensurable horizon) is now
-  `no_consolidation_snapshot_date(data_dir)`: the latest `observed_from`
+  `no_consolidation_snapshot_date(data_dir)`: the latest `last_confirmed_at`
   over the `no://lov/%/current.xml` family, read as UTC — which
   independently reproduces the documented 2026-07-10 snapshot date (763
   spans, one observation window; the archive's later 2026-07-31 forskrift
