@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 
 
 def main(args: "argparse.Namespace") -> None:
+    from lawvm.norway.sources import no_consolidation_snapshot_date
     from lawvm.norway.verify import build_no_verify_scan
 
     data_dir_arg = getattr(args, "data_dir", None)
@@ -20,8 +21,14 @@ def main(args: "argparse.Namespace") -> None:
     commencement_arg = getattr(args, "commencement", None)
     commencement_path = Path(commencement_arg) if commencement_arg else None
 
+    # An explicit --as-of is honoured verbatim. Absent one, the comparison date
+    # is derived from the corpus itself rather than frozen at a literal: a
+    # default that predates the consolidation snapshot makes every law amended
+    # in the gap read as spuriously divergent (finding F-01).
+    as_of = getattr(args, "as_of", None) or no_consolidation_snapshot_date(data_dir)
+
     report = build_no_verify_scan(
-        as_of=args.as_of,
+        as_of=as_of,
         data_dir=data_dir,
         index_path=index_path,
         commencement_path=commencement_path,

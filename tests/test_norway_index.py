@@ -1197,3 +1197,46 @@ def test_no_amendment_index_staleness_report_detects_archive_change(tmp_path) ->
 
     assert stale["index_stale"] is True
     assert stale["stale_archives"][0]["archive"] == "lovtidend-avd1-2025.tar.bz2"
+
+
+def test_no_consolidation_snapshot_date_reads_the_archive_observation_instant(tmp_path) -> None:
+    """The scan's default comparison date is derived, not frozen (finding F-01).
+
+    The consolidated ``current.xml`` artifacts ARE the snapshot replay is
+    compared against, so their latest observation instant is the horizon; a
+    later observation of anything else must not move it.
+    """
+    from datetime import datetime, timezone
+
+    from farchive import Farchive
+
+    from lawvm.norway.sources import (
+        NO_FALLBACK_CONSOLIDATION_SNAPSHOT_DATE,
+        no_consolidation_snapshot_date,
+    )
+
+    db_path = tmp_path / "norway.farchive"
+    archive = Farchive(db_path)
+    archive.store(
+        "no://lov/2025-01-01-1/current.xml",
+        b"<html><body/></html>",
+        # 23:30Z falls on the NEXT day in the local Norwegian timezone, so a
+        # passing assertion also pins that the instant is read as UTC.
+        observed_at=datetime(2025, 3, 4, 23, 30, tzinfo=timezone.utc),
+    )
+    archive.store(
+        "no://lovtid/2025-02-02-5/amendment.xml",
+        b"<html><body/></html>",
+        observed_at=datetime(2025, 9, 9, 12, 0, tzinfo=timezone.utc),
+    )
+    archive.close()
+
+    assert no_consolidation_snapshot_date(db_path) == "2025-03-04"
+
+    # A legacy tar-directory corpus records no observation instant at all.
+    legacy_dir = tmp_path / "legacy"
+    legacy_dir.mkdir()
+    assert (
+        no_consolidation_snapshot_date(legacy_dir)
+        == NO_FALLBACK_CONSOLIDATION_SNAPSHOT_DATE
+    )

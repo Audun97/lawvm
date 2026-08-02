@@ -2911,6 +2911,62 @@ def test_no_verify_scan_tool_emits_json(tmp_path, capsys) -> None:
     assert data["summary"]["consistent"] == 1
 
 
+def test_no_verify_scan_tool_defaults_as_of_to_the_corpus_snapshot(tmp_path, monkeypatch, capsys) -> None:
+    """Finding F-01: an absent ``--as-of`` must land ON the corpus snapshot.
+
+    A default that predates the consolidation the scan compares against makes
+    every law amended in the gap read as spuriously divergent. An explicit
+    ``--as-of`` still wins verbatim, including one before the snapshot.
+    """
+    from datetime import datetime, timezone
+
+    from farchive import Farchive
+
+    db_path = tmp_path / "norway.farchive"
+    archive = Farchive(db_path)
+    archive.store(
+        "no://lov/2025-01-01-1/current.xml",
+        b"<html><body/></html>",
+        observed_at=datetime(2025, 3, 4, 23, 30, tzinfo=timezone.utc),
+    )
+    archive.close()
+
+    seen: dict = {}
+
+    def _capture(**kwargs):
+        seen.update(kwargs)
+        return {
+            "data_dir": str(db_path),
+            "as_of": kwargs["as_of"],
+            "candidate_count": 0,
+            "scanned_count": 0,
+            "summary": {"consistent": 0, "divergent": 0, "error": 0},
+            "source_signal_counts": {},
+            "results": [],
+        }
+
+    monkeypatch.setattr("lawvm.norway.verify.build_no_verify_scan", _capture)
+
+    def _run(as_of):
+        no_verify_scan_main(
+            Namespace(
+                as_of=as_of,
+                data_dir=str(db_path),
+                index=None,
+                commencement=None,
+                limit=3,
+                json=True,
+            )
+        )
+        return json.loads(capsys.readouterr().out)
+
+    assert _run(None)["as_of"] == "2025-03-04"
+    assert seen["as_of"] == "2025-03-04"
+
+    assert _run("2024-01-02")["as_of"] == "2024-01-02"
+    assert seen["as_of"] == "2024-01-02"
+
+
 def test_no_statsrad_tool_emits_json(monkeypatch, capsys) -> None:
     monkeypatch.setattr(
         "lawvm.norway.statsrad.build_no_statsrad_index_report",

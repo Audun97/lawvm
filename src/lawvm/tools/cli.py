@@ -3251,9 +3251,12 @@ examples (-j selects jurisdiction, default fi; Finnish IDs unless shown as ukpga
     )
     no_verify_scan_p.add_argument(
         "--as-of",
-        default="2026-03-29",
+        default=None,
         metavar="DATE",
-        help="comparison date for replay materialization (default: 2026-03-29)",
+        help=(
+            "comparison date for replay materialization "
+            "(default: the corpus consolidation snapshot date)"
+        ),
     )
     no_verify_scan_p.add_argument(
         "--data-dir",

@@ -410,7 +410,7 @@ def _authorize_no_commencement_instruments_into_index(
     """
     authorization = authorize_no_commencement_instruments(
         parsed_instruments,
-        unresolved_act_ids={
+        offered_act_ids={
             entry.source_id
             for entry in index.entries
             if entry.effective_status in NO_UNRESOLVED_EFFECTIVE_STATUSES

@@ -317,20 +317,30 @@ def authorize_no_commencement_instruments(
         tuple[NOCommencementParseStatus, NOCommencementInstrumentCandidate]
     ],
     *,
-    unresolved_act_ids: Collection[str],
+    offered_act_ids: Collection[str],
 ) -> NOCommencementExecutionAuthorization:
     """Gate already-parsed instruments into whole-act re-dating authorizations.
 
     Consumes parse results; it never re-parses instrument XML and never
     reclassifies a parse. An (instrument, act) pair authorizes only when every
     conjunct of ``NOCommencementAuthorizationConjunct`` holds and the cited law
-    id aliases to an act in ``unresolved_act_ids``. An instrument citing no
-    unresolved act authorizes nothing and records nothing: that is the
-    enabling-statute filter — an instrument commencing a *forskrift* cites the
-    forskrift's hjemmel statutes, which are principal laws, not unresolved
-    amendment acts.
+    id aliases to an act in ``offered_act_ids``.
+
+    ``offered_act_ids`` is whatever set the caller judges re-datable by an
+    official instrument — this gate does not define it and does not inspect the
+    acts' statuses. In production (``index.py``) the offered set is
+    ``unresolved ∪ staged_delegated``: acts with no date at all, plus acts whose
+    date is only the ``min(dates)`` collapse of a metadata field that also says
+    the executive fixes the real commencement. Both are outranked by a whole-act
+    Norsk Lovtidend instrument; a plain dated / immediate / override act is
+    never offered.
+
+    An instrument citing no offered act authorizes nothing and records nothing:
+    that is the enabling-statute filter — an instrument commencing a *forskrift*
+    cites the forskrift's hjemmel statutes, which are principal laws, not
+    offered amendment acts.
     """
-    unresolved = frozenset(unresolved_act_ids)
+    offered = frozenset(offered_act_ids)
     proposals: dict[str, dict[str, list[str]]] = {}
     refusals: list[NOCommencementRefusalReceipt] = []
     for parse_status, candidate in parsed_instruments:
@@ -342,7 +352,7 @@ def authorize_no_commencement_instruments(
                         no_commencement_act_id_from_law_id(law_id)
                         for law_id in candidate.affected_law_ids
                     )
-                    if act_id in unresolved
+                    if act_id in offered
                 }
             )
         )

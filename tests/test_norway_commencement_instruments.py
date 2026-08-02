@@ -184,7 +184,7 @@ def test_execution_authorization_redates_the_cited_unresolved_act() -> None:
 
     authorization = authorize_no_commencement_instruments(
         [(NOCommencementParseStatus.CANDIDATE, candidate)],
-        unresolved_act_ids={"no/lovtid/2025-02-02-5"},
+        offered_act_ids={"no/lovtid/2025-02-02-5"},
     )
 
     assert authorization.authorized_effective_dates() == {"no/lovtid/2025-02-02-5": "2025-04-01"}
@@ -213,7 +213,7 @@ def test_execution_authorization_refuses_a_partial_commencement_candidate() -> N
 
     authorization = authorize_no_commencement_instruments(
         [(NOCommencementParseStatus.BLOCKED_UNRESOLVED, candidate)],
-        unresolved_act_ids={"no/lovtid/2025-02-02-5"},
+        offered_act_ids={"no/lovtid/2025-02-02-5"},
     )
 
     assert authorization.authorizations == ()
@@ -241,7 +241,7 @@ def test_execution_authorization_refuses_a_multi_date_instrument() -> None:
 
     authorization = authorize_no_commencement_instruments(
         [(NOCommencementParseStatus.CANDIDATE, candidate)],
-        unresolved_act_ids={"no/lovtid/2025-02-02-5"},
+        offered_act_ids={"no/lovtid/2025-02-02-5"},
     )
 
     assert authorization.authorizations == ()
@@ -268,7 +268,7 @@ def test_execution_authorization_refuses_both_instruments_on_a_date_conflict() -
             (NOCommencementParseStatus.CANDIDATE, first),
             (NOCommencementParseStatus.CANDIDATE, second),
         ],
-        unresolved_act_ids={"no/lovtid/2025-02-02-5"},
+        offered_act_ids={"no/lovtid/2025-02-02-5"},
     )
 
     assert authorization.authorizations == ()
@@ -303,7 +303,7 @@ def test_execution_authorization_dedupes_two_instruments_agreeing_on_one_date() 
             (NOCommencementParseStatus.CANDIDATE, first),
             (NOCommencementParseStatus.CANDIDATE, second),
         ],
-        unresolved_act_ids={"no/lovtid/2025-02-02-5"},
+        offered_act_ids={"no/lovtid/2025-02-02-5"},
     )
 
     assert authorization.conflicts == ()
@@ -328,7 +328,7 @@ def test_execution_authorization_ignores_enabling_statute_citations() -> None:
 
     authorization = authorize_no_commencement_instruments(
         [(NOCommencementParseStatus.CANDIDATE, candidate)],
-        unresolved_act_ids={"no/lovtid/2025-02-02-5"},
+        offered_act_ids={"no/lovtid/2025-02-02-5"},
     )
 
     assert authorization.authorizations == ()
@@ -348,7 +348,7 @@ def test_execution_authorization_never_redates_an_already_resolved_act() -> None
 
     authorization = authorize_no_commencement_instruments(
         [(NOCommencementParseStatus.CANDIDATE, candidate)],
-        unresolved_act_ids=set(),
+        offered_act_ids=set(),
     )
 
     assert authorization.authorizations == ()
@@ -365,7 +365,7 @@ def test_commencement_candidate_replay_authorized_round_trips() -> None:
     )
     authorization = authorize_no_commencement_instruments(
         [(NOCommencementParseStatus.CANDIDATE, candidate)],
-        unresolved_act_ids={"no/lovtid/2025-02-02-5"},
+        offered_act_ids={"no/lovtid/2025-02-02-5"},
     )
 
     payload = authorization.instruments[0].to_dict()

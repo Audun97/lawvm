@@ -17,6 +17,7 @@ import os
 import re
 import tarfile
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Iterator, Optional, cast
@@ -193,9 +194,17 @@ class NOCommencementShape(StrEnum):
 
     STAGED_DELEGATED = "staged_delegated"
     """The field carried at least one ISO date AND a delegated-commencement
-    tail (``Kongen bestemmer`` and its siblings) — Lovdata's way of writing
-    STAGED commencement: part of the act enters force at the stated date(s) and
-    the rest on a date the executive later fixes.
+    tail (``Kongen bestemmer`` and its siblings).
+
+    That conjunction — dates plus a tail — is the whole guarantee. It is a
+    shape read off the raw field, not a claim about what the dates *do*: the
+    common member is Lovdata's way of writing STAGED commencement (part of the
+    act enters force at the stated date(s), the rest on a date the executive
+    later fixes), but the label does not certify that reading of every member.
+    ``no/lovtid/2024-06-21-50`` is the counterexample in the corpus — its
+    ``Kongen bestemmer, oppheves 2026-07-01`` puts the delegated tail beside a
+    REPEAL date, so its stated date takes force away rather than granting it.
+    A reader who needs the dates' direction must go to ``raw_date_in_force``.
 
     This is emphatically NOT deferred commencement. Measured over the corpus,
     Lovdata's own consolidation shows most such acts ARE in force at their
@@ -473,6 +482,49 @@ def open_no_archive(db_path: Path | None = None, *, readonly: bool = True):  # r
     if not is_no_farchive_path(path):
         raise ValueError(f"Norway source path is not an farchive DB: {path}")
     return Farchive(path, readonly=readonly)
+
+
+# Fallback consolidation horizon, used only when the source path carries no
+# observation metadata (legacy tar directory). Source: the `gjeldende-lover`
+# consolidation snapshot this corpus was captured from, recorded in
+# ``notes/NORWAY_VERIFY_FINDINGS_LEDGER.md`` section 1 and used there as the
+# commensurable comparison date behind every scan reading in the scoreboard.
+# The farchive derivation below independently reproduces this date, which is
+# what licenses it as the fallback rather than a second guess.
+NO_FALLBACK_CONSOLIDATION_SNAPSHOT_DATE: str = "2026-07-10"
+
+
+def no_consolidation_snapshot_date(source_path: Path | None = None) -> str:
+    """Return the ISO date of the consolidated snapshot the corpus carries.
+
+    Replay is compared against the ``current.xml`` consolidated artifacts, and
+    an farchive records when each artifact was observed. The latest observation
+    over that family therefore *is* the consolidation horizon: a comparison at
+    or after this date is commensurable with the snapshot, one before it is not
+    — laws then read as defective purely because an amendment took effect in
+    the gap (finding F-01 in ``notes/NORWAY_VERIFY_FINDINGS_LEDGER.md``).
+
+    Observation instants are stored UTC and read as UTC, so the answer does not
+    move with the reader's timezone. Falls back to
+    :data:`NO_FALLBACK_CONSOLIDATION_SNAPSHOT_DATE` when the source is a legacy
+    directory or an archive holding no consolidated artifact — those record no
+    observation instant to derive from.
+    """
+    source_path = resolve_no_source_path(source_path)
+    if not is_no_farchive_path(source_path) or not source_path.exists():
+        return NO_FALLBACK_CONSOLIDATION_SNAPSHOT_DATE
+    latest: datetime | None = None
+    archive = open_no_archive(source_path)
+    try:
+        for locator in archive.locators("no://lov/%/current.xml"):
+            for span in archive.history(locator):
+                if latest is None or span.observed_from > latest:
+                    latest = span.observed_from
+    finally:
+        archive.close()
+    if latest is None:
+        return NO_FALLBACK_CONSOLIDATION_SNAPSHOT_DATE
+    return latest.astimezone(timezone.utc).date().isoformat()
 
 
 def no_current_locator(base_id: str) -> str:
