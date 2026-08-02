@@ -1500,11 +1500,19 @@ def _iter_unstructured_no_change_groups(
     if sections:
         children = []
         section_base_ids: list[str | None] = []
-        for section in sections:
+        # Which flattened ``<section>`` (part) each child came from. Parts are a
+        # law boundary in this grammar ("I ... II I lov X ... gjøres følgende
+        # endringer:"), so the walk below needs to see the boundary the flatten
+        # would otherwise erase.
+        child_part_indexes: list[int] = []
+        # The base act each part resolved from its own lead, indexed by part.
+        part_base_ids: list[str | None] = []
+        for part_index, section in enumerate(sections):
             section_children: list[etree._Element] = []
             section_child_base_ids: list[str | None] = []
             direct_children = _direct_children(section)
             section_base_id = _infer_no_unstructured_section_base_id(direct_children)
+            part_base_ids.append(section_base_id)
             for direct_child in direct_children:
                 if _local_name(direct_child) == "article" and "legalArticle" in _classes(direct_child):
                     article_children = _direct_children(direct_child)
@@ -1515,12 +1523,15 @@ def _iter_unstructured_no_change_groups(
                 section_child_base_ids.append(section_base_id)
             children.extend(section_children)
             section_base_ids.extend(section_child_base_ids)
+            child_part_indexes.extend([part_index] * len(section_children))
     else:
         mains = cast(list[etree._Element], root.xpath("//main"))
         if not mains:
             return []
         children = []
         section_base_ids = []
+        child_part_indexes = []
+        part_base_ids = [None]
         for container in _direct_children(mains[0]):
             if _local_name(container) != "article":
                 continue
@@ -1528,15 +1539,36 @@ def _iter_unstructured_no_change_groups(
                 direct_children = _direct_children(container)
                 children.extend(direct_children)
                 section_base_ids.extend([None] * len(direct_children))
+                child_part_indexes.extend([0] * len(direct_children))
             else:
                 children.append(container)
                 section_base_ids.append(None)
+                child_part_indexes.append(0)
+
+    def _part_index(position: int) -> int | None:
+        return child_part_indexes[position] if position < len(child_part_indexes) else None
 
     idx = 0
     active_base_id: str | None = None
+    active_part_index: int | None = None
     while idx < len(children):
         child = children[idx]
         section_base_id = section_base_ids[idx] if idx < len(section_base_ids) else None
+        child_part_index = _part_index(idx)
+        # Crossing into a new part whose own lead resolved a base act makes that
+        # act authoritative for everything the part introduces: the previous
+        # part's carried-over ``active_base_id`` is stale by construction and
+        # must not outrank it. Parts that resolve no law of their own keep the
+        # carried-over id, which is the only evidence they have.
+        if child_part_index != active_part_index:
+            active_part_index = child_part_index
+            part_base_id = (
+                part_base_ids[child_part_index]
+                if child_part_index is not None and child_part_index < len(part_base_ids)
+                else None
+            )
+            if part_base_id is not None:
+                active_base_id = part_base_id
         child_classes = _classes(child)
         if _local_name(child) != "article" or not ({"defaultP", "legalP"} & child_classes):
             idx += 1
@@ -1554,6 +1586,12 @@ def _iter_unstructured_no_change_groups(
         cursor = idx + 1
         while cursor < len(children):
             nxt = children[cursor]
+            # Stop at the part boundary as well as at the next ``defaultP``
+            # lead: the next part's law-switch lead is a ``legalP``, and
+            # swallowing it as this lead's payload both loses the payload
+            # boundary and leaves the switch unprocessed.
+            if _part_index(cursor) != child_part_index:
+                break
             if _local_name(nxt) == "article" and "defaultP" in _classes(nxt):
                 break
             payload_nodes.append(nxt)

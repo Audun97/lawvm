@@ -1026,7 +1026,13 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
     ]
     assert index.status_counts() == {
         "contingent": 914,
-        "dated": 1021,
+        # 1021 -> 1020 at W-15 (multi-part misbinding fix): the sole moved entry
+        # is no/lovtid/2018-12-20-119, whose only "op" was its own part II
+        # commencement sentence ("Lova tek til å gjelde straks.") swallowed as a
+        # payload and misbound onto kulturminnelova §28(1). With part boundaries
+        # respected the act emits zero ops and leaves the index entirely — pure
+        # corruption removal, verified at op level by implementer and reviewer.
+        "dated": 1020,
         "immediate": 1,
         "instrument_authorized": 528,
         "unknown": 2,
@@ -1175,7 +1181,15 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
         if law_id in by_base
         and not any(status in NO_UNRESOLVED_EFFECTIVE_STATUSES for status in by_base[law_id])
     ]
-    assert len(fully_replayable) == 58
+    # 58 -> 56 at W-15 (multi-part misbinding fix). Both directions are the
+    # certifiability predicate doing its job on newly-CORRECT bindings, not a
+    # tuned pin: four laws (2002-04-26-12, 2005-05-27-31, 2010-02-19-5,
+    # 2015-05-12-27) gained a newly-bound, correctly-cited amending act whose
+    # commencement is contingent — exactly what this predicate excludes — and
+    # two laws (2012-01-27-10, 2021-06-11-79) gained their first bound source
+    # with a resolved status. Verified cause-by-cause by the independent
+    # reviewer; signed off 2026-08-02.
+    assert len(fully_replayable) == 56
 
 
 def test_no_amendment_index_staleness_report_detects_archive_change(tmp_path) -> None:

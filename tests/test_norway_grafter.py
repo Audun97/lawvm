@@ -4,6 +4,8 @@ import asyncio
 from dataclasses import replace
 import io
 import json
+import os
+from pathlib import Path
 import tarfile
 from typing import cast
 
@@ -37,6 +39,7 @@ from lawvm.norway.grafter import (
     parse_no_amendment_ops,
     parse_no_statute,
 )
+from lawvm.norway.sources import load_no_amendment_bytes
 from lawvm.tools.build import _build_no
 
 
@@ -1215,6 +1218,95 @@ def test_iter_no_document_change_ops_unstructured_supports_direct_section_lead_w
     assert [(op.action, op.target.path, op.payload.kind if op.payload else None) for op in ops] == [
         (StructuralAction.REPLACE, (("section", "13"),), IRNodeKind.SECTION),
     ]
+
+
+def test_iter_no_document_change_ops_unstructured_multi_part_binds_each_part_to_its_own_law() -> None:
+    """W-15: a ``<section>`` part binds its ops to the law ITS OWN lead resolves.
+
+    Shape of the corpus witness ``no/lovtid/2019-06-21-57``: several parts, each
+    opening with a ``legalP`` law-switch lead, each part's last lead carrying a
+    ``legalP`` payload. Before the fix, the payload scan after part I's last
+    ``defaultP`` lead ran past the ``</section>`` to the next ``defaultP``,
+    swallowing part II's law-switch lead so it was never processed as a lead;
+    the stale ``active_base_id`` from part I then outranked the (correctly
+    resolved) part base id, and part II's ops landed on part I's law.
+    """
+    amendment_xml = """<?xml version="1.0" encoding="utf-8"?>
+<html lang="no">
+  <body>
+    <dd class="changesToDocuments">
+      <ul>
+        <li>lov/2017-06-16-51</li>
+        <li>lov/1997-06-13-55</li>
+      </ul>
+    </dd>
+    <main>
+      <section data-name="kapI">
+        <h2>I</h2>
+        <article class="legalP">I lov 16. juni 2017 nr. 51 om likestilling og forbud mot diskriminering gjøres følgende endringer:</article>
+        <article class="defaultP">§ 13 sjette ledd skal lyde:</article>
+        <article class="legalP">Arbeidsgivere skal forebygge trakassering.</article>
+      </section>
+      <section data-name="kapII">
+        <h2>II</h2>
+        <article class="legalP">I lov av 13. juni 1997 nr. 55 om serveringsvirksomhet (serveringsloven) gjøres følgende endringer:</article>
+        <article class="defaultP">§ 6 første ledd skal lyde:</article>
+        <article class="legalP">Bevillingshaver og daglig leder må ha utvist uklanderlig vandel.</article>
+      </section>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+    grouped = dict(iter_no_document_change_ops(amendment_xml, "no/lovtid/2019-06-21-57"))
+
+    assert sorted(grouped) == ["no/lov/1997-06-13-55", "no/lov/2017-06-16-51"]
+    assert [(op.target.path, op.payload.text if op.payload else None) for op in grouped["no/lov/2017-06-16-51"]] == [
+        ((("section", "13"), ("subsection", "6")), "Arbeidsgivere skal forebygge trakassering."),
+    ]
+    # The op the defect misfiled: § 6 belongs to serveringsloven, not to the
+    # anti-discrimination act that part I amended.
+    assert [(op.target.path, op.payload.text if op.payload else None) for op in grouped["no/lov/1997-06-13-55"]] == [
+        ((("section", "6"), ("subsection", "1")), "Bevillingshaver og daglig leder må ha utvist uklanderlig vandel."),
+    ]
+
+
+def test_iter_no_document_change_ops_unstructured_payload_stops_at_part_boundary() -> None:
+    """W-15: a commencement part is never absorbed as the previous part's payload.
+
+    Shape of ``no/lovtid/2018-12-20-119``: one amending part whose payload is a
+    ``futureLegalArticle`` (which the subsection family does not accept as a
+    text article), followed by a commencement part. Before the fix the payload
+    scan crossed the boundary and the commencement sentence became the new text
+    of § 28 first subsection.
+    """
+    amendment_xml = """<?xml version="1.0" encoding="utf-8"?>
+<html lang="no">
+  <body>
+    <dd class="changesToDocuments"><ul><li>lov/1978-06-09-50</li></ul></dd>
+    <main>
+      <section data-name="kapI">
+        <h2>I</h2>
+        <article class="legalP">I lov 9. juni 1978 nr. 50 om kulturminner blir følgjande endring gjort:</article>
+        <article class="defaultP">§ 28 første ledd skal lyde:</article>
+        <article class="futureLegalArticle" data-name="§28">
+          <span class="futureLegalArticleHeader">§ 28. Rette myndighet etter loven</span>
+        </article>
+      </section>
+      <section data-name="kapII">
+        <h2>II</h2>
+        <article class="legalP">Lova tek til å gjelde straks.</article>
+      </section>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+    grouped = dict(iter_no_document_change_ops(amendment_xml, "no/lovtid/2018-12-20-119"))
+
+    payload_texts = [op.payload.text for ops in grouped.values() for op in ops if op.payload is not None]
+    assert "Lova tek til å gjelde straks." not in payload_texts
+    assert grouped == {}
 
 
 def test_parse_no_amendment_ops_unstructured_supports_plural_section_repeal() -> None:
@@ -3970,3 +4062,51 @@ def test_build_no_populates_amendment_index_from_lovtidend_archives(tmp_path) ->
     assert stats["n_statutes"] == 1
     assert stats["n_amendment_links"] == 1
     assert statutes["no/lov/2025-01-01-1"]["title"] == "Testlov om data"
+
+
+def _no_farchive_path() -> Path | None:
+    """Resolve ``norway.farchive`` the way the other NO archive tests do."""
+    root = os.environ.get("LAWVM_CANONICAL_DATA_ROOT")
+    if root:
+        candidate = Path(root) / "data" / "norway.farchive"
+        if candidate.exists():
+            return candidate
+    fallback = Path(__file__).resolve().parent.parent / "data" / "norway.farchive"
+    return fallback if fallback.exists() else None
+
+
+_NO_FARCHIVE_PATH = _no_farchive_path()
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_multi_part_misbinding_witness_stays_pinned() -> None:
+    """W-15 corpus witness: ``no/lovtid/2019-06-21-57`` binds all five amended laws.
+
+    Before the fix, parts III/IV/V (serveringsloven, regnskapsloven,
+    kommuneloven) all landed on part II's law ``no/lov/2017-06-16-51``, so
+    replaying the anti-discrimination act put serveringsloven's
+    "Bevillingshaver, daglig leder …" text at its § 6 first subsection.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2019-06-21-57", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    grouped = dict(iter_no_document_change_ops(html_bytes, "no/lovtid/2019-06-21-57"))
+
+    assert sorted(grouped) == [
+        "no/lov/1997-06-13-55",
+        "no/lov/1998-07-17-56",
+        "no/lov/2017-06-16-50",
+        "no/lov/2017-06-16-51",
+        "no/lov/2018-06-22-83",
+    ]
+    # The witnessed contamination: § 6 first subsection is serveringsloven's.
+    assert (("section", "6"), ("subsection", "1")) in [op.target.path for op in grouped["no/lov/1997-06-13-55"]]
+    assert (("section", "6"), ("subsection", "1")) not in [op.target.path for op in grouped["no/lov/2017-06-16-51"]]
+    assert not any(
+        "Bevillingshaver" in (op.payload.text or "")
+        for op in grouped["no/lov/2017-06-16-51"]
+        if op.payload is not None
+    )
