@@ -784,6 +784,91 @@ def test_effective_date_from_amendment_marks_contingent_force() -> None:
     assert effective.effective_date is None
 
 
+def test_effective_date_from_amendment_marks_contingent_for_the_nynorsk_markers() -> None:
+    """The batch-04 marker widening, on the two acts it moves out of UNKNOWN.
+
+    ``Kongen avgjer`` is nynorsk for ``Kongen bestemmer``; a date-free field
+    saying it delegates commencement exactly as the bokmål phrase does, so
+    reading it as an uninterpretable in-force signal was a vocabulary gap, not
+    a genuinely opaque source. Corpus-wide this phrase is the whole in-force
+    field of ``no/lovtid/2016-06-17-56`` and ``no/lovtid/2021-04-23-23``.
+    """
+    for raw in ("Kongen avgjer", "Departementet fastset"):
+        xml = f'<html><body><dd class="dateInForce">{raw}</dd></body></html>'.encode("utf-8")
+
+        effective = _effective_date_from_amendment(xml, source_date="2025-02-02")
+
+        assert effective.effective_status == "contingent", raw
+        assert effective.effective_date is None, raw
+        assert effective.commencement_shape == "plain", raw
+
+
+def test_effective_date_from_amendment_labels_a_date_beside_a_delegated_tail() -> None:
+    """A date AND a delegation is STAGED commencement: dated, labelled, receipted.
+
+    The act enters force at the earliest stated date — Lovdata's consolidated
+    text says so — and delegates only the remainder, so demoting it to
+    contingent would withdraw a date the source actually asserts. It stays
+    DATED at ``min(dates)`` and carries the shape label instead.
+    """
+    xml = (
+        b'<html><body><dd class="dateInForce">'
+        b"2020-07-01, 2020-01-01, Kongen bestemmer"
+        b"</dd></body></html>"
+    )
+
+    effective = _effective_date_from_amendment(xml, source_date="2019-12-20")
+
+    assert effective.effective_status == "dated"
+    assert effective.effective_date == "2020-01-01"
+    assert effective.commencement_shape == "staged_delegated"
+    assert effective.date_count == 2
+
+
+def test_effective_date_from_amendment_leaves_a_bare_date_plain() -> None:
+    xml = b'<html><body><dd class="dateInForce">2025-02-10</dd></body></html>'
+
+    effective = _effective_date_from_amendment(xml, source_date="2025-02-02")
+
+    assert effective.effective_status == "dated"
+    assert effective.effective_date == "2025-02-10"
+    assert effective.commencement_shape == "plain"
+    assert effective.date_count == 1
+
+
+def test_replay_no_to_pit_applies_a_staged_delegated_amendment_like_a_plain_one(tmp_path) -> None:
+    """The label changes what the index SAYS, not what replay DOES.
+
+    The whole point of refusing W-5's blanket demotion: a staged act is applied
+    at its earliest stated date exactly as a plain dated act is. Replay reads no
+    ``commencement_shape`` and needs no case for it — if this ever has to skip,
+    the classification leaked out of the resolved set.
+    """
+    archive_path = tmp_path / "lovtidend-avd1-2001-2025.tar.bz2"
+    _write_archive(
+        archive_path,
+        [
+            ("lti/2025/nl-20250101-001.xml", _BASE_XML),
+            (
+                "lti/2025/nl-20250202-005.xml",
+                _amendment_xml("2025-02-10, 2025-06-01, Kongen bestemmer"),
+            ),
+        ],
+    )
+    index = build_no_amendment_index(tmp_path)
+    entry = index.entries[0]
+    assert entry.effective_status == "dated"
+    assert entry.effective_date == "2025-02-10"
+    assert entry.commencement_shape == "staged_delegated"
+
+    result = replay_no_to_pit("no/lov/2025-01-01-1", as_of="2025-02-15", data_dir=tmp_path)
+
+    assert result.error is None
+    assert result.amendments_applied == ["no/lovtid/2025-02-02-5"]
+    assert result.amendments_skipped_contingent == []
+    assert result.n_ops == 3
+
+
 def test_effective_date_from_amendment_uses_source_date_for_straks() -> None:
     xml = b"""<html><body><dd class=\"dateInForce\">Trer i kraft straks.</dd></body></html>"""
 

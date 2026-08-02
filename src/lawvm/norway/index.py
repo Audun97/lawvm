@@ -20,9 +20,12 @@ from lawvm.norway.commencement_instruments import (
 from lawvm.norway.grafter import iter_no_document_change_ops, lovdata_amendment_filename_to_id
 from lawvm.norway.sources import (
     NO_UNRESOLVED_EFFECTIVE_STATUSES,
+    NOCommencementShape,
     NODeclaredChangeTargets,
+    NOEffectiveDate,
     NOEffectiveStatus,
     NOLocatedArtifact,
+    coerce_no_commencement_shape,
     declared_change_targets_from_amendment,
     effective_date_from_amendment,
     iter_no_amendment_artifacts,
@@ -36,6 +39,9 @@ from lawvm.replay_adjudication import CompileAdjudication
 from lawvm.core.quirks_disposition import QuirksDisposition, coerce_quirks_disposition
 
 NO_ACQUISITION_DUPLICATE_LOGICAL_LOCATOR = "no_acquisition_duplicate_logical_locator"
+NO_AMENDMENT_INDEX_STAGED_COMMENCEMENT_COLLAPSED = (
+    "no_amendment_index_staged_commencement_collapsed"
+)
 
 
 @dataclass(frozen=True)
@@ -57,6 +63,13 @@ class NOAmendmentIndexEntry:
     # entries have. Measured by counterfactual: strip every ``changesToDocuments``
     # carrier and rebuild, and those 393 lose ``base_ids`` entirely.
     declared_target_ids: tuple[str, ...] = ()
+    # The shape of the ``dateInForce`` field this entry's date was read off
+    # (:class:`NOCommencementShape`), carried as its ``StrEnum`` value so the
+    # staged-commencement population is queryable off a serialized index without
+    # re-parsing ``raw_date_in_force``. Orthogonal to ``effective_status``: the
+    # 8 staged acts an instrument re-dates keep ``staged_delegated`` here while
+    # their status moves to ``instrument_authorized``.
+    commencement_shape: str = NOCommencementShape.PLAIN
 
 
 @dataclass
@@ -103,6 +116,9 @@ class NOAmendmentIndex:
                 base_ids=tuple(entry.get("base_ids", [])),
                 n_ops=int(entry.get("n_ops", 0)),
                 declared_target_ids=tuple(entry.get("declared_target_ids", [])),
+                commencement_shape=coerce_no_commencement_shape(
+                    entry.get("commencement_shape") or NOCommencementShape.PLAIN
+                ),
             )
             for entry in raw_entries
             if isinstance(entry, dict)
@@ -279,6 +295,14 @@ def build_no_amendment_index(data_dir: Optional[Path] = None) -> NOAmendmentInde
             artifact.payload,
             source_date=source_id.removeprefix("no/lovtid/"),
         )
+        if effective.commencement_shape is NOCommencementShape.STAGED_DELEGATED:
+            index.diagnostics.append(
+                _no_index_staged_commencement_diagnostic(
+                    artifact=artifact,
+                    source_id=source_id,
+                    effective=effective,
+                )
+            )
         index.entries.append(
             NOAmendmentIndexEntry(
                 source_id=source_id,
@@ -291,6 +315,7 @@ def build_no_amendment_index(data_dir: Optional[Path] = None) -> NOAmendmentInde
                 base_ids=base_ids,
                 n_ops=sum(len(ops) for _base_id, ops in grouped),
                 declared_target_ids=declared.law_ids,
+                commencement_shape=effective.commencement_shape,
             )
         )
 
@@ -357,14 +382,31 @@ def _authorize_no_commencement_instruments_into_index(
         tuple[NOCommencementParseStatus, NOCommencementInstrumentCandidate]
     ],
 ) -> None:
-    """Re-date unresolved amendment acts from their whole-act commencement instruments.
+    """Re-date acts whose own date is weak from their whole-act commencement instruments.
 
     Runs inside the index build so inventory, scan, replay, and the commencement
-    reports all read one authorized view; no consumer authorizes for itself. Only
-    acts whose ``effective_status`` is unresolved are offered to the gate, so a
-    ``dated`` / ``immediate`` / ``override`` entry can never be re-dated here, and
-    the manual override sidecar — applied after the build — still outranks an
+    reports all read one authorized view; no consumer authorizes for itself. The
+    manual override sidecar — applied after the build — still outranks an
     instrument authorization.
+
+    Two populations are offered, and offering is all that changed here: the
+    gate's own conjuncts (candidate parse, whole-act scope, exactly one
+    effective date, cited act present in the offered set) are untouched.
+
+    1. Acts with an unresolved ``effective_status``. They have no date at all,
+       so any authorized date is strictly more than they had.
+    2. Acts labelled :attr:`NOCommencementShape.STAGED_DELEGATED`. These DO
+       carry a date, but it is the weakest kind the index issues: ``min(dates)``
+       over a metadata field that also says the executive fixes the real
+       commencement. An official Norsk Lovtidend whole-act instrument outranks
+       that guess, so the instrument's date wins where one exists. Measured
+       corpus-wide this re-dates 8 of the 167 staged acts, every one of them
+       EARLIER than the metadata guess (the metadata named a planned date the
+       instrument then superseded); the other 159 keep ``min(dates)`` and replay
+       exactly as before.
+
+    A ``plain`` dated / ``immediate`` / ``override`` entry is still never
+    offered and so can never be re-dated here.
     """
     authorization = authorize_no_commencement_instruments(
         parsed_instruments,
@@ -372,6 +414,7 @@ def _authorize_no_commencement_instruments_into_index(
             entry.source_id
             for entry in index.entries
             if entry.effective_status in NO_UNRESOLVED_EFFECTIVE_STATUSES
+            or entry.commencement_shape == NOCommencementShape.STAGED_DELEGATED
         },
     )
     index.commencement_instruments = list(authorization.instruments)
@@ -591,6 +634,47 @@ def _no_index_skipped_artifact_diagnostic(
         locator=artifact.locator,
         archive=artifact.source_name,
         member_name=artifact.member_name,
+    )
+
+
+def _no_index_staged_commencement_diagnostic(
+    *,
+    artifact: NOLocatedArtifact,
+    source_id: str,
+    effective: NOEffectiveDate,
+) -> dict[str, Any]:
+    """Receipt one act whose ``dateInForce`` staged its commencement.
+
+    Emitted once per act whose field carries both ISO dates and a
+    delegated-commencement tail, so the population is total and queryable rather
+    than an unremarked DATED. Non-blocking on purpose: the act IS in force at
+    ``min(dates)`` — Lovdata's own consolidation says so — and the recorded fact
+    is the narrower one that ``date_count`` dates collapsed to one and a
+    delegated tail was dropped, because the engine represents commencement at
+    act rather than provision granularity (``NORWAY_LAWVM_STATUS.md`` 2.3).
+    Naming the raw field and the collapsed date is what lets a reader recover
+    what the collapse discarded without re-reading the source.
+    """
+    return diagnostic_detail(
+        rule_id=NO_AMENDMENT_INDEX_STAGED_COMMENCEMENT_COLLAPSED,
+        family="temporal_recovery",
+        phase="temporal",
+        reason=(
+            "Norway amendment act states a commencement date AND delegates the rest of its "
+            "commencement to the executive; the act is dated at the earliest stated date and "
+            "the staged tail is recorded, not represented."
+        ),
+        blocking=False,
+        strict_disposition="record",
+        quirks_disposition=QuirksDisposition.RECORD,
+        source_id=source_id,
+        locator=artifact.locator,
+        archive=artifact.source_name,
+        member_name=artifact.member_name,
+        commencement_shape=str(effective.commencement_shape),
+        raw_date_in_force=effective.raw_text,
+        effective_date=effective.effective_date,
+        date_count=effective.date_count,
     )
 
 

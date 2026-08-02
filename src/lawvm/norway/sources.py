@@ -176,6 +176,82 @@ NO_UNRESOLVED_EFFECTIVE_STATUSES: frozenset[NOEffectiveStatus] = frozenset(
 )
 
 
+class NOCommencementShape(StrEnum):
+    """Closed set of shapes a *resolved* ``dateInForce`` field can have.
+
+    Orthogonal to :class:`NOEffectiveStatus`, which says *how* the in-force date
+    was resolved. This says what the Lovdata metadata field the date came from
+    actually looked like — the distinction between "a date and nothing else" and
+    "a date plus a delegated-commencement tail". A ``StrEnum`` so it flows
+    through the serialized ``commencement_shape`` index field byte-for-byte
+    while the value set stays closed, which is the point: the shape must be
+    readable off a serialized index without re-parsing ``raw_date_in_force``.
+    """
+
+    PLAIN = "plain"
+    """The field carried ISO dates and no delegated-commencement language."""
+
+    STAGED_DELEGATED = "staged_delegated"
+    """The field carried at least one ISO date AND a delegated-commencement
+    tail (``Kongen bestemmer`` and its siblings) — Lovdata's way of writing
+    STAGED commencement: part of the act enters force at the stated date(s) and
+    the rest on a date the executive later fixes.
+
+    This is emphatically NOT deferred commencement. Measured over the corpus,
+    Lovdata's own consolidation shows most such acts ARE in force at their
+    leading date, so the act stays resolved at ``min(dates)`` and stays inside
+    :data:`NO_RESOLVED_EFFECTIVE_STATUSES`. The shape is a label on a resolved
+    date, recording that the collapse to ``min(dates)`` threw away a staged tail
+    the engine cannot yet represent at provision level (see
+    ``notes/NORWAY_LAWVM_STATUS.md`` 2.3). Its operational use is that such an
+    act is offered to the commencement-instrument authorization gate: an
+    official whole-act instrument outranks a ``min(dates)`` metadata guess.
+    """
+
+
+def coerce_no_commencement_shape(value: object) -> NOCommencementShape:
+    """Coerce a stored/loaded value to a ``NOCommencementShape``, failing loud.
+
+    Used where ``commencement_shape`` re-enters from an untyped mapping
+    (mirrors ``lawvm.core.quirks_disposition.coerce_quirks_disposition``): an
+    unrecognized string is a registration gap, never a silently-carried label
+    outside the closed set.
+    """
+    if isinstance(value, NOCommencementShape):
+        return value
+    return NOCommencementShape(str(value))
+
+
+# Lovdata's delegated-commencement vocabulary in ``dateInForce``: the phrases
+# that say "the executive fixes the (rest of the) commencement date". Read on
+# the lowercased field, prefix-matched, so bokmål/nynorsk inflections of the
+# same phrase (``fastsetter`` / ``fastsetjer`` after ``fastset``) are covered by
+# one member.
+#
+# Which axis a marker lands on depends on whether the field ALSO carries a date:
+# with no date it is the whole in-force signal, so the act is CONTINGENT; beside
+# a date it is a staged tail, so the act stays DATED and is labelled
+# :attr:`NOCommencementShape.STAGED_DELEGATED`.
+#
+# ``departementet fastset`` and ``kongen avgjer`` are the nynorsk siblings of
+# ``departementet bestemmer`` / ``kongen bestemmer``; both were measured absent
+# and are the batch-04 widening. Their total corpus effect is three acts and
+# nothing else: ``no/lovtid/2016-06-17-56`` and ``no/lovtid/2021-04-23-23``
+# (bare ``Kongen avgjer``, previously UNKNOWN — an in-force signal the reader
+# could not interpret — now correctly CONTINGENT), and ``no/lovtid/2020-06-23-103``
+# (``departementet fastset`` beside three dates, previously an unremarked plain
+# DATED, now labelled STAGED_DELEGATED).
+NO_DELEGATED_COMMENCEMENT_MARKERS: tuple[str, ...] = (
+    "kongen bestemmer",
+    "kongen fastset",
+    "kongen avgjer",
+    "departementet bestemmer",
+    "departementet fastset",
+    "fastsettes ved lov",
+    "fra den tid",
+)
+
+
 class NOReplayStatus(StrEnum):
     """Closed set of per-base-law replayability classifications.
 
@@ -327,6 +403,12 @@ class NOEffectiveDate:
     effective_status: NOEffectiveStatus
     effective_date: Optional[str] = None
     raw_text: str = ""
+    # The shape of the ``dateInForce`` field the status was read off, and how
+    # many ISO dates it held. ``date_count`` is carried here rather than
+    # recomputed downstream so the staged-commencement receipt can name the
+    # count of collapsed dates without re-parsing ``raw_text``.
+    commencement_shape: NOCommencementShape = NOCommencementShape.PLAIN
+    date_count: int = 0
 
 
 @dataclass(frozen=True)
@@ -528,28 +610,39 @@ def declared_change_targets_from_amendment(html_bytes: bytes) -> NODeclaredChang
 
 
 def effective_date_from_amendment(html_bytes: bytes, source_date: str = "") -> NOEffectiveDate:
+    """Classify one act's ``dateInForce`` metadata field.
+
+    The field is read on two axes, not one. :class:`NOEffectiveStatus` answers
+    "is there a resolved date, and where did it come from"; ``date_count`` and
+    :class:`NOCommencementShape` answer "what did the field say". A field with
+    no ISO date and delegated-commencement language is CONTINGENT — nothing is
+    resolved. A field carrying BOTH is not: Lovdata writes staged commencement
+    that way, and the corpus shows the leading date is real. Such an act stays
+    DATED at ``min(dates)`` and is merely labelled ``STAGED_DELEGATED``, so the
+    collapse is queryable instead of silent.
+    """
     raw = parse_header_value(html_bytes, "dateInForce")
     dates = ISO_DATE_RE.findall(raw)
+    lowered = raw.lower()
+    delegated = any(marker in lowered for marker in NO_DELEGATED_COMMENCEMENT_MARKERS)
     if not dates:
-        lowered = raw.lower()
         if not raw:
             return NOEffectiveDate(effective_status=NOEffectiveStatus.MISSING, raw_text="")
         if "straks" in lowered and source_date:
             return NOEffectiveDate(
                 effective_status=NOEffectiveStatus.IMMEDIATE, effective_date=source_date, raw_text=raw
             )
-        contingent_markers = (
-            "kongen bestemmer",
-            "kongen fastset",
-            "departementet bestemmer",
-            "fastsettes ved lov",
-            "fra den tid",
-        )
-        if any(marker in lowered for marker in contingent_markers):
+        if delegated:
             return NOEffectiveDate(effective_status=NOEffectiveStatus.CONTINGENT, raw_text=raw)
         return NOEffectiveDate(effective_status=NOEffectiveStatus.UNKNOWN, raw_text=raw)
     return NOEffectiveDate(
-        effective_status=NOEffectiveStatus.DATED, effective_date=min(dates), raw_text=raw
+        effective_status=NOEffectiveStatus.DATED,
+        effective_date=min(dates),
+        raw_text=raw,
+        commencement_shape=(
+            NOCommencementShape.STAGED_DELEGATED if delegated else NOCommencementShape.PLAIN
+        ),
+        date_count=len(dates),
     )
 
 

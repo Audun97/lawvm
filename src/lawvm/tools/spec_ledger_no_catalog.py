@@ -79,6 +79,14 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "operations; the artifact is recorded as a no-op finding, not silently "
         "absorbed into the denominator."
     ),
+    "no_amendment_index_staged_commencement_collapsed": (
+        "A Norwegian act whose dateInForce states a commencement date AND delegates "
+        "the remainder to the executive ('Kongen bestemmer' beside a date) IS in "
+        "force at the earliest stated date — the delegation stages the rest of the "
+        "act, it does not defer the whole of it — so the act stays dated at "
+        "min(dates) and the collapsed date count and dropped staged tail are "
+        "receipted rather than silently discarded."
+    ),
     "no_amendment_index_unmapped_lovtidend_xml_member": (
         "A Norway Lovtidend XML member filename could not be mapped to a law or "
         "amendment source id; recorded as blocking source-pathology under strict "

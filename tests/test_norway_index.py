@@ -14,6 +14,7 @@ from lawvm.norway.commencement_instruments import (
 )
 from lawvm.norway.index import (
     NO_ACQUISITION_DUPLICATE_LOGICAL_LOCATOR,
+    NO_AMENDMENT_INDEX_STAGED_COMMENCEMENT_COLLAPSED,
     NOAmendmentIndex,
     build_no_amendment_index,
     load_no_amendment_index,
@@ -21,6 +22,7 @@ from lawvm.norway.index import (
 )
 from lawvm.norway.sources import (
     NO_UNRESOLVED_EFFECTIVE_STATUSES,
+    NOCommencementShape,
     NOLocatedArtifact,
     declared_change_targets_from_amendment,
     load_available_lti_law_ids,
@@ -753,6 +755,349 @@ def test_commencement_override_outranks_an_instrument_authorization(tmp_path) ->
     assert overridden.entries[0].effective_date == "2025-05-01"
 
 
+def test_build_no_amendment_index_labels_and_receipts_a_staged_delegated_act(tmp_path) -> None:
+    """A dateInForce carrying a date AND a delegated tail is labelled, not demoted."""
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [
+            (
+                "lti/2025/nl-20250202-005.xml",
+                _amendment_xml("2025-07-01, 2025-02-10, Kongen bestemmer"),
+            ),
+            ("lti/2025/nl-20250303-006.xml", _amendment_xml("2025-03-15")),
+        ],
+    )
+
+    index = build_no_amendment_index(tmp_path)
+
+    staged, plain = index.entries
+    # The staged act keeps a resolved date at min(dates) — the collapse is
+    # unchanged — and gains only the label saying the field staged commencement.
+    assert (staged.effective_status, staged.effective_date) == ("dated", "2025-02-10")
+    assert staged.commencement_shape == NOCommencementShape.STAGED_DELEGATED
+    assert (plain.effective_status, plain.effective_date) == ("dated", "2025-03-15")
+    assert plain.commencement_shape == NOCommencementShape.PLAIN
+
+    receipts = [
+        diagnostic
+        for diagnostic in index.diagnostics
+        if diagnostic["rule_id"] == NO_AMENDMENT_INDEX_STAGED_COMMENCEMENT_COLLAPSED
+    ]
+    assert len(receipts) == 1
+    assert receipts[0]["source_id"] == "no/lovtid/2025-02-02-5"
+    assert receipts[0]["raw_date_in_force"] == "2025-07-01, 2025-02-10, Kongen bestemmer"
+    assert receipts[0]["effective_date"] == "2025-02-10"
+    assert receipts[0]["date_count"] == 2
+    assert receipts[0]["commencement_shape"] == "staged_delegated"
+    # Non-blocking: the act IS in force at the stated date; what is recorded is
+    # the narrower fact that a staged tail was collapsed away.
+    assert receipts[0]["blocking"] is False
+    assert receipts[0]["strict_disposition"] == "record"
+
+    # Readable off a serialized index without re-parsing raw_date_in_force.
+    reloaded = NOAmendmentIndex.from_dict(index.to_dict())
+    assert reloaded.entries[0].commencement_shape == "staged_delegated"
+    assert reloaded.entries[1].commencement_shape == "plain"
+
+
+def test_no_amendment_index_from_dict_loads_json_written_before_commencement_shape() -> None:
+    loaded = NOAmendmentIndex.from_dict(
+        {
+            "data_dir": "data/norway",
+            "entries": [
+                {
+                    "source_id": "no/lovtid/2025-02-02-5",
+                    "archive": "a.tar.bz2",
+                    "member_name": "m.xml",
+                    "effective_status": "dated",
+                    "effective_date": "2025-02-10",
+                }
+            ],
+        }
+    )
+
+    assert loaded.entries[0].commencement_shape == "plain"
+
+
+def test_no_amendment_index_from_dict_coerces_commencement_shape() -> None:
+    entry = {
+        "source_id": "no/lovtid/2025-02-02-5",
+        "archive": "a.tar.bz2",
+        "member_name": "m.xml",
+        "effective_status": "dated",
+        "effective_date": "2025-02-10",
+    }
+
+    # A null shape (or any falsy carrier) is the "written before the field
+    # existed" case and coerces to PLAIN — never to the string "None".
+    loaded = NOAmendmentIndex.from_dict(
+        {"data_dir": "data/norway", "entries": [dict(entry, commencement_shape=None)]}
+    )
+    assert loaded.entries[0].commencement_shape is NOCommencementShape.PLAIN
+
+    loaded = NOAmendmentIndex.from_dict(
+        {
+            "data_dir": "data/norway",
+            "entries": [dict(entry, commencement_shape="staged_delegated")],
+        }
+    )
+    assert loaded.entries[0].commencement_shape is NOCommencementShape.STAGED_DELEGATED
+
+    # A string outside the closed set is a registration gap and fails loud.
+    with pytest.raises(ValueError):
+        NOAmendmentIndex.from_dict(
+            {
+                "data_dir": "data/norway",
+                "entries": [dict(entry, commencement_shape="staged_delegatd")],
+            }
+        )
+
+
+def test_build_no_amendment_index_lets_an_instrument_redate_a_staged_delegated_act(tmp_path) -> None:
+    """Official instrument evidence outranks the min(dates) metadata guess.
+
+    The act's own header names a planned date; the Lovtidend instrument names
+    the date commencement was actually executed. Corpus-wide this fires on 8 of
+    the 167 staged acts and always moves the date EARLIER.
+    """
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [
+            (
+                "lti/2025/nl-20250202-005.xml",
+                _amendment_xml("2026-01-01, Kongen bestemmer"),
+            ),
+            (
+                "lti/2025/sf-20250301-0100.xml",
+                _whole_act_instrument_xml("lov/2025-02-02-5", "2025-04-01"),
+            ),
+        ],
+    )
+
+    index = build_no_amendment_index(tmp_path)
+
+    entry = index.entries[0]
+    assert entry.effective_status == "instrument_authorized"
+    assert entry.effective_date == "2025-04-01"
+    # The act carries BOTH receipts, and keeps the label: the shape records how
+    # its own metadata was written and is not overwritten by the authorization.
+    assert entry.commencement_shape == NOCommencementShape.STAGED_DELEGATED
+    assert entry.raw_date_in_force == "2026-01-01, Kongen bestemmer"
+    assert [
+        diagnostic["rule_id"]
+        for diagnostic in index.diagnostics
+        if diagnostic["source_id"] == "no/lovtid/2025-02-02-5"
+    ] == [
+        NO_AMENDMENT_INDEX_STAGED_COMMENCEMENT_COLLAPSED,
+        NO_COMMENCEMENT_EXECUTION_AUTHORIZED,
+    ]
+
+
+def test_build_no_amendment_index_never_offers_a_plain_dated_act_to_the_gate(tmp_path) -> None:
+    """The widening is offer-side and narrow: only the staged label is added.
+
+    A plainly dated act cited by a perfectly valid whole-act instrument still
+    keeps its own date and produces no authorization — otherwise the instrument
+    lane would start rewriting ordinary commencement dates wholesale.
+    """
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [
+            ("lti/2025/nl-20250202-005.xml", _amendment_xml("2026-01-01")),
+            (
+                "lti/2025/sf-20250301-0100.xml",
+                _whole_act_instrument_xml("lov/2025-02-02-5", "2025-04-01"),
+            ),
+        ],
+    )
+
+    index = build_no_amendment_index(tmp_path)
+
+    assert index.entries[0].effective_status == "dated"
+    assert index.entries[0].effective_date == "2026-01-01"
+    assert index.entries[0].commencement_shape == NOCommencementShape.PLAIN
+    assert not [
+        diagnostic
+        for diagnostic in index.diagnostics
+        if diagnostic["rule_id"]
+        in {NO_COMMENCEMENT_EXECUTION_AUTHORIZED, NO_COMMENCEMENT_EXECUTION_REFUSED}
+    ]
+    assert all(item.replay_authorized is False for item in index.commencement_instruments)
+
+
+# The eight staged acts an official instrument re-dates, with the metadata date
+# their own header stated and the instrument date that supersedes it. Every one
+# moves EARLIER: the header named a planned commencement the instrument then
+# executed ahead of schedule (or, for 2013-01-11-1, retroactively).
+_STAGED_INSTRUMENT_REDATINGS = {
+    "no/lovtid/2013-01-11-1": ("2013-01-11", "2013-01-01"),
+    "no/lovtid/2020-05-07-38": ("2022-01-01", "2020-05-11"),
+    "no/lovtid/2022-06-10-35": ("2023-07-01", "2022-06-15"),
+    "no/lovtid/2022-06-17-58": ("2024-01-01", "2022-07-01"),
+    "no/lovtid/2022-06-17-60": ("2023-07-01", "2022-06-24"),
+    "no/lovtid/2024-06-21-50": ("2026-07-01", "2024-07-01"),
+    "no/lovtid/2024-06-25-53": ("2026-07-01", "2024-07-01"),
+    "no/lovtid/2026-06-12-22": ("2028-07-01", "2026-07-01"),
+}
+
+
+def test_corpus_staged_commencement_population_reconciles() -> None:
+    """W-5's answer, asserted against the ingested corpus rather than a fixture.
+
+    W-5 asked whether the mixed ``DATE, Kongen bestemmer`` field must demote to
+    contingent. Measured: demoting all of them costs 8 of the 58 replayable
+    laws and makes 7 of those 8 diverge MORE, because Lovdata's consolidation
+    shows the acts ARE in force at their leading date. So the population is
+    typed and receipted, and nothing is demoted.
+    """
+    data_dir = resolve_no_source_path(None)
+    if not data_dir.exists():
+        pytest.skip("local Norway corpus is not installed")
+    index = build_no_amendment_index(data_dir)
+    if index.commencement_instrument_coverage.total_instruments == 0:
+        pytest.skip("local Norway corpus is not installed")
+
+    staged = [
+        entry
+        for entry in index.entries
+        if entry.commencement_shape == NOCommencementShape.STAGED_DELEGATED
+    ]
+    # 166 under the marker vocabulary this batch inherited, plus exactly one act
+    # the batch's own marker widening adds; see the widening test below.
+    assert len(staged) == 167
+    assert len([entry for entry in staged if entry.source_id != _WIDENED_MARKER_STAGED_ACT]) == 166
+
+    # Total and queryable: one receipt per staged act, no more and no fewer.
+    receipts = [
+        diagnostic
+        for diagnostic in index.diagnostics
+        if diagnostic["rule_id"] == NO_AMENDMENT_INDEX_STAGED_COMMENCEMENT_COLLAPSED
+    ]
+    assert len(receipts) == len(staged)
+    assert {receipt["source_id"] for receipt in receipts} == {
+        entry.source_id for entry in staged
+    }
+    assert all(receipt["date_count"] >= 1 for receipt in receipts)
+    assert all(receipt["blocking"] is False for receipt in receipts)
+
+    # Every staged act stays resolved: the label is orthogonal to the status.
+    assert {entry.effective_status for entry in staged} == {"dated", "instrument_authorized"}
+    assert all(entry.effective_date for entry in staged)
+
+    # Exactly the eight instrument-proved acts move, each to the pinned date.
+    redated = {
+        entry.source_id: entry.effective_date
+        for entry in staged
+        if entry.effective_status == "instrument_authorized"
+    }
+    assert redated == {
+        act_id: instrument_date
+        for act_id, (_metadata_date, instrument_date) in _STAGED_INSTRUMENT_REDATINGS.items()
+    }
+    # The displaced metadata dates are read back off the staged receipts, which
+    # are emitted before authorization runs and so keep the collapsed
+    # ``min(dates)`` value. Both halves of the pinned table are thereby checked
+    # against the corpus (instrument dates via the entries above, metadata dates
+    # here), and the EARLIER claim is asserted over corpus values, not over the
+    # table's own literals.
+    receipt_metadata_dates = {
+        receipt["source_id"]: receipt["effective_date"] for receipt in receipts
+    }
+    assert {act_id: receipt_metadata_dates[act_id] for act_id in redated} == {
+        act_id: metadata_date
+        for act_id, (metadata_date, _instrument_date) in _STAGED_INSTRUMENT_REDATINGS.items()
+    }
+    assert all(
+        redated[act_id] < receipt_metadata_dates[act_id] for act_id in redated
+    )
+    authorized_ids = {
+        diagnostic["source_id"]
+        for diagnostic in index.diagnostics
+        if diagnostic["rule_id"] == NO_COMMENCEMENT_EXECUTION_AUTHORIZED
+    }
+    # The eight carry BOTH the staged receipt and the authorization receipt.
+    assert set(redated) <= authorized_ids
+    # 520 acts batch 03 authorized + the 8 this batch adds; no conflicts appear.
+    assert len(authorized_ids) == 528
+    assert not [
+        diagnostic
+        for diagnostic in index.diagnostics
+        if diagnostic["rule_id"] == NO_COMMENCEMENT_EXECUTION_DATE_CONFLICT
+    ]
+    assert index.status_counts() == {
+        "contingent": 914,
+        "dated": 1021,
+        "immediate": 1,
+        "instrument_authorized": 528,
+        "unknown": 2,
+    }
+
+    # F-03's act is the one act carrying a not-in-force signal, and even it
+    # carries counter-evidence on one law. It belongs to the manual-override /
+    # provision-level lane, so this batch labels it and moves nothing.
+    f03 = next(entry for entry in index.entries if entry.source_id == "no/lovtid/2026-06-19-48")
+    assert f03.commencement_shape == NOCommencementShape.STAGED_DELEGATED
+    assert (f03.effective_status, f03.effective_date) == ("dated", "2026-06-19")
+
+
+# The one act the widened marker vocabulary adds to the staged population: its
+# field reads ``departementet fastset`` (nynorsk) beside three dates, so it was
+# an unremarked plain DATED before the widening.
+_WIDENED_MARKER_STAGED_ACT = "no/lovtid/2020-06-23-103"
+
+
+def test_corpus_marker_vocabulary_widening_moves_exactly_three_acts() -> None:
+    """The widening's whole corpus effect, recorded — not tuned."""
+    data_dir = resolve_no_source_path(None)
+    if not data_dir.exists():
+        pytest.skip("local Norway corpus is not installed")
+    index = build_no_amendment_index(data_dir)
+    if index.commencement_instrument_coverage.total_instruments == 0:
+        pytest.skip("local Norway corpus is not installed")
+
+    by_id = {entry.source_id: entry for entry in index.entries}
+
+    # 1. ``departementet fastset`` beside dates: plain dated -> staged, same date.
+    widened = by_id[_WIDENED_MARKER_STAGED_ACT]
+    assert widened.commencement_shape == NOCommencementShape.STAGED_DELEGATED
+    assert (widened.effective_status, widened.effective_date) == ("dated", "2020-06-23")
+    assert "departementet fastset" in widened.raw_date_in_force.lower()
+
+    # 2. Bare ``Kongen avgjer``: UNKNOWN (an uninterpretable signal) -> CONTINGENT
+    #    (a delegated one). Both are unresolved, so replay is unaffected; what
+    #    changes is that the act is now classified for the right reason.
+    unknown_to_contingent = by_id["no/lovtid/2016-06-17-56"]
+    assert unknown_to_contingent.raw_date_in_force == "Kongen avgjer"
+    assert unknown_to_contingent.effective_status == "contingent"
+
+    # 3. The other bare ``Kongen avgjer`` act was already re-dated by an
+    #    instrument, so its final status is unchanged — UNKNOWN and CONTINGENT
+    #    are both offered to the gate.
+    already_authorized = by_id["no/lovtid/2021-04-23-23"]
+    assert already_authorized.raw_date_in_force == "Kongen avgjer"
+    assert already_authorized.effective_status == "instrument_authorized"
+
+    # Nothing else moves: no other act's field matches only a widened marker.
+    widened_only = {
+        entry.source_id
+        for entry in index.entries
+        if any(
+            marker in entry.raw_date_in_force.lower()
+            for marker in ("departementet fastset", "kongen avgjer")
+        )
+        and not any(
+            marker in entry.raw_date_in_force.lower()
+            for marker in ("kongen bestemmer", "kongen fastset", "departementet bestemmer",
+                           "fastsettes ved lov", "fra den tid")
+        )
+    }
+    assert widened_only == {
+        _WIDENED_MARKER_STAGED_ACT,
+        "no/lovtid/2016-06-17-56",
+        "no/lovtid/2021-04-23-23",
+    }
+
+
 def test_corpus_commencement_authorization_reconciles_with_the_measured_landscape() -> None:
     """W-7 tranche 3's frozen reconciliation, asserted against the ingested corpus."""
     data_dir = resolve_no_source_path(None)
@@ -775,14 +1120,25 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     authorized = [
         entry for entry in index.entries if entry.effective_status == "instrument_authorized"
     ]
-    assert len(authorized) == 520
+    # 520 acts whose own commencement was unresolved (W-7 tranche 3), plus the 8
+    # staged acts batch 04 added to the offer set; the gate's conjuncts are the
+    # same four, only the population offered to them grew.
+    assert len(authorized) == 528
+    assert (
+        len([
+            entry
+            for entry in authorized
+            if entry.commencement_shape != NOCommencementShape.STAGED_DELEGATED
+        ])
+        == 520
+    )
     assert all(entry.effective_date for entry in authorized)
     authorization_receipts = [
         diagnostic
         for diagnostic in index.diagnostics
         if diagnostic["rule_id"] == NO_COMMENCEMENT_EXECUTION_AUTHORIZED
     ]
-    assert len(authorization_receipts) == 520
+    assert len(authorization_receipts) == 528
     assert not [
         diagnostic
         for diagnostic in index.diagnostics
