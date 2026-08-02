@@ -36,6 +36,17 @@ consolidation; every class below is evidence to triage, not a repair license.
 | **2026-07-10, batch 03 newly unlocked 38** | **6** | **32** | 0 |
 | **2026-07-10, after batch 03 (all 58)** | **18** | **40** | 0 |
 | **2026-07-10, after batch 04 (all 58, byte-identical rows)** | **18** | **40** | 0 |
+| **2026-07-10, after W-15 (56 candidates; see caveat)** | **21** | **35** | 0 |
+
+W-15 commensurability caveat: the candidate set moved 58 → 56, so the 21/35
+row is not row-for-row comparable with the 18/40 row above. On the 54 laws
+present in both scans, divergences went 1,515 → 1,504 and 48 rows are
+byte-identical; two laws became consistent (`no/lov/2005-06-03-34`,
+`no/lov/2020-06-19-95`) and the witness improved (215 → 210). Four
+previously-divergent laws (58 divergences between them) left the candidate
+set because they gained a newly-bound, correctly-cited amending act with
+contingent commencement — unresolved, not repaired — and two laws entered
+(`2012-01-27-10` consistent, `2021-06-11-79` at 4).
 
 Batch 03 increased coverage rather than changing an existing verdict: all 20
 old rows stayed byte-identical, and 38 laws that had previously been excluded
@@ -646,6 +657,16 @@ accounts for ~30% of F-10's 4,088 unbound bindings (1,249 lost (part, act)
 pairs across 485 acts, 1,247 of them declared). Fixing W-15 first, then
 re-measuring, is the ordered plan.
 
+> **W-15 landed (2026-08-02): re-measured.** Lost (part, act) pairs
+> 1,249 → 361; `no_amendment_index_declared_target_unbound` receipts
+> 1,245 → 1,038 (−207), with the new failure modes receipted
+> (`lead_unmatched` +220, `payload_unresolved` +8) rather than silent.
+> F-10's residual unbound mass is now ~3,200 bindings corpus-wide; the
+> scan-visible slice is the 4 laws that left the candidate set (their
+> newly-bound amenders are contingent — the commencement lane's problem,
+> not binding's) plus the possibly-F-10 laws from the triage. Next
+> re-price after W-16/W-19/W-20 land.
+
 ### F-05 — Footnote-marker digits leak into the published compare text — reclassified (not fixable as a normalization rule)
 
 Published-side extraction keeps trailing footnote reference digits:
@@ -1005,24 +1026,30 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    `no_consolidation_snapshot_date`. (`data/norway/bench_corpus.csv` pins
    2026-03-29 per row deliberately — recorded benchmark baseline, not a
    default; leave it.)
-15. **W-15 (multi-part misbinding, live bug, IN FLIGHT):** multi-part
-   unstructured amending acts misbind ops onto the PREVIOUS part's law —
-   replay-corrupting, not merely incomplete. Witness:
-   `no/lov/2017-06-16-51` §6(1) replays as serveringsloven text
-   ("Bevillingshaver, daglig leder …") from `no/lovtid/2019-06-21-57` seq 17,
-   whose part III is "I lov av 13. juni 1997 nr. 55 om serveringsvirksomhet …
-   gjøres følgende endringer:". Mechanism (per W-6 triage): in
-   `grafter.py::_iter_unstructured_no_change_groups`, payload collection
-   after a `defaultP` lead runs to the next `defaultP` and does not stop at
-   `<section>` boundaries, so the next part's law-switch lead is swallowed as
-   the previous part's payload; and the precedence chain at ~grafter.py:1548
-   (`default_base_id or explicit_section_base_id or active_base_id or
-   section_base_id`) lets the stale `active_base_id` outrank the
-   already-correctly-resolved `section_base_id`. Corpus-wide sizing: 644
-   multi-part unstructured acts, 485 with ≥1 part whose own law never bound,
-   1,249 lost (part, act) pairs (1,247 declared) — ~30% of F-10's 4,088
-   unbound bindings from this one defect; 234 victim laws corpus-wide, 2 in
-   the scan (`2017-06-16-51` witnessed, `2013-06-21-102` mechanism present).
+15. **W-15 (multi-part misbinding, live bug):** DONE (`779554cb2`,
+   2026-08-02). Multi-part unstructured amending acts misbound ops onto the
+   PREVIOUS part's law — replay-corrupting. Witness: `no/lov/2017-06-16-51`
+   §6(1) replayed as serveringsloven text from `no/lovtid/2019-06-21-57`
+   (which contaminated it with 5 ops, not 1). Both diagnosed mechanisms
+   confirmed: payload collection crossed `<section>` part boundaries, and a
+   stale `active_base_id` outranked the correctly-resolved
+   `section_base_id`. Fix: part boundaries are payload boundaries, and part
+   entry re-seeds `active_base_id` from the part's own resolved law — the
+   precedence chain itself is deliberately UNCHANGED (reordering would
+   regress 1,343 intra-part law-switch leads across 30 acts, measured by
+   the reviewer). Corpus effect: lost (part, act) pairs 1,249 → 361 (893
+   bound / 5 lost), bindings +902/−6, n_ops 24,659 → 25,021, one
+   pure-corruption index entry removed (`2018-12-20-119`), declared-target
+   unbound receipts 1,245 → 1,038 with new failures receipted rather than
+   silent. Independent review: APPROVE WITH FINDINGS — 18/18
+   binding-correctness sample, 120-law replay sweep −9.8% divergences, zero
+   genuine replay regressions. Two stop conditions fired (scan moved on 6
+   rows; candidate set 58 → 56; two corpus pins) — verified cause-by-cause
+   and signed off by the user 2026-08-02; pins updated with explanations
+   in-place. Known costs, all recorded: 2 splitter casualties (W-19), one
+   genuine lost binding inside them (`2016-12-16-91` finanstilsynsloven
+   §7(1) s3), and 6 dropped global-text-replace ops (W-20, one previously
+   correctly bound).
 16. **W-16 (compare-lane masking bug):** `verify.py:105`'s inline-footnote
    rule `(?<=[a-zæøå])\s+\d+\s+(?=[A-ZÆØÅ])` deletes structural numbering on
    BOTH sides — "Kapittel 2 X" and "Kapittel 3 X" compare EQUAL (verified in
@@ -1044,6 +1071,26 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    corpus-wide, 23 operative). Payoff today: 1 divergence,
    `no/lov/2020-12-18-156` goes consistent. Regression gate:
    `no/lovtid/2022-05-12-28`'s law is currently consistent and must stay so.
+19. **W-19 (`_split_no_sentences` is abbreviation-unaware, small):**
+   sentence splitting does not know Norwegian legal abbreviations, so e.g.
+   "jfr." and "m.m. § 4, verdipapirregister …" over-split, breaking the
+   all-or-nothing multi-sentence-target family's arity check. Exposed (not
+   created) by W-15: 2 corpus casualties, `no/lovtid/2021-12-22-166` §25(1)
+   s2 and `no/lovtid/2016-12-16-91` §7(1) s3 (the latter the one genuine
+   binding W-15 lost, finanstilsynsloven). In the same 21-lead family the
+   splitter arity is correct in 19, where W-15 improved the ops. Fix: teach
+   `_SENTENCE_ABBREVIATIONS` the missing forms; likely recovers a handful
+   of ops corpus-wide.
+20. **W-20 (global-text-replace branch ignores `lead_base_id`, one-liner):**
+   `_extract_no_global_text_replace_pairs` binds only from citations
+   harvested from lead+payload, never falling back to the part's resolved
+   law. W-15's boundary closure removed its accidental citation source, so
+   6 ops drop rather than re-bind (`2014-06-20-24` ×4, `2018-12-20-113` ×1
+   — both previously misbound to the NEXT part's law, so dropping is a net
+   correctness win — and `2005-12-16-118` ×1, a genuine loss: its correct
+   binding to `no/lov/2005-04-29-21` existed before). Fix per reviewer:
+   fall back to `lead_base_id` when `cited_base_ids` is empty; re-measure
+   the scan on landing.
 
 ## 5. Demo / Inspection Tooling
 
@@ -1061,6 +1108,37 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-02 (W-15 applied)** — **Multi-part amending acts now bind each
+  part to its own law, and five laws' worth of cross-contaminated replay
+  text is gone** (`779554cb2`). The fix is 40 lines in
+  `_iter_unstructured_no_change_groups`: part boundaries are payload
+  boundaries, and entering a part re-seeds `active_base_id` from the part's
+  own resolved law. The precedence chain is deliberately unchanged — the
+  reviewer measured that the triage's implied reorder would regress 1,343
+  intra-part law-switch leads across 30 acts (witness
+  `no/lovtid/2001-06-15-64` kapII, four law switches in one section). The
+  implementer found a mechanism detail the triage missed: the defect fires
+  only after a lead that actually consumes payload, which is why part I→II
+  often transitioned correctly "by luck". Corpus effect: 893 (part, act)
+  pairs newly bound / 5 lost (net 888), bindings +902/−6 with the −6
+  inspected op-by-op, n_ops +362, one pure-corruption entry removed
+  (`2018-12-20-119` — its only "op" was its own commencement sentence
+  overwriting kulturminnelova §28(1)). Independent correctness review:
+  APPROVE WITH FINDINGS — every headline number reproduced exactly, an
+  18/18 random binding-correctness sample, a 120-law replay sweep with
+  divergences −9.8% and zero genuine regressions. The review corrected the
+  implementer on three points, all recorded: one of the six lost bindings
+  was real (finanstilsynsloven, via the splitter — W-19's second casualty),
+  the splitter casualty count is 2 not 1, and the global-text-replace
+  branch drops 6 ops for want of a `lead_base_id` fallback (W-20). Scan:
+  56 candidates at 21 consistent / 35 divergent (commensurability caveat
+  in §2 — two laws genuinely repaired, incl. the exact "+1 consistent law"
+  the triage priced for F-10; four departures are honest decertification).
+  Both fired stop conditions (scan movement beyond the named victims; the
+  two corpus pins 1021→1020 and 58→56) were verified cause-by-cause by the
+  reviewer and signed off by the user 2026-08-02; the pins carry their
+  explanations in-place.
 
 - **2026-08-02 (W-6 triage complete)** — **Every one of the corpus's 1,573
   provision-level divergences now has a causal family, and the programme's
