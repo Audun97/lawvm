@@ -620,6 +620,32 @@ not kept. One is worth repeating if that family is revisited: measuring the list
 grammar needs the XML flattened to text first, because list numbering is split
 across markup and a raw-byte regex silently reports zero.
 
+#### W-6 triage measurement (2026-08-02): the scan-visible payoff is real but modest, and ~30% of the unbound mass is one extraction defect
+
+The family-first triage of all 40 divergent laws (1,573 provision-level
+divergences) measured F-10's payoff against the scan honestly. 31 applicable
+unbound bindings (declaring act `dated`/`instrument_authorized`, effective ≤
+2026-07-10) touch the 58-law scan — 30 on divergent laws, 1 on a consistent
+one — across 14 divergent laws. **Definitely F-10: 8 laws, 24 provision-level
+divergences**, proven by requiring the published wording to appear as an
+8-gram inside the amending act's segment citing THAT law under an
+amending-verb lead (the unsegmented test said 30; segmentation removed 6
+table-of-contents false matches). Possibly F-10: 6 further laws with an
+applicable unbound act but no proven provision link. Exactly one law goes
+fully consistent on binding alone (`no/lov/2005-06-03-34`, 3/3 proven, from
+`no/lovtid/2016-12-16-102`). Cleanest witness: `no/lov/2002-04-26-12` §5
+from `no/lovtid/2007-01-26-3` ("126. I lov 26. april 2002 nr. 12 om notarius
+publicus skal § 5 … lyde: **Anke** …") — replay still says
+kjæremål/tvistemålslova. This confirms and modestly raises the re-priced 8;
+it does NOT support treating F-10 as a thousand-divergence prize (72% of the
+corpus's divergences are the annex representation ceiling, W-17).
+
+**And the biggest single cause of the unbound mass is a live extraction
+defect, not missing binding logic**: the multi-part misbinding bug (W-15)
+accounts for ~30% of F-10's 4,088 unbound bindings (1,249 lost (part, act)
+pairs across 485 acts, 1,247 of them declared). Fixing W-15 first, then
+re-measuring, is the ordered plan.
+
 ### F-05 — Footnote-marker digits leak into the published compare text — reclassified (not fixable as a normalization rule)
 
 Published-side extraction keeps trailing footnote reference digits:
@@ -662,6 +688,18 @@ is typed rather than inlined) or a diff-time tolerance that is not a text rule.
 Both are larger than a compare-lane batch. Left as recorded noise: 2 divergences
 across the corpus, both in the commencement formula.
 
+> **W-6 triage (2026-08-02): sizing confirmed, and the masking mode this
+> entry warns about turns out to already EXIST in the lane.** The triage's
+> digit probe re-confirmed exactly 2 genuine inline footnote-marker
+> divergences corpus-wide (`2007-06-29-89` §6(1), `2017-05-22-28` §5(2)).
+> But `verify.py:105`'s inline-footnote rule
+> (`(?<=[a-zæøå])\s+\d+\s+(?=[A-ZÆØÅ])`) deletes STRUCTURAL numbering:
+> `'Kapittel 1 Innledende bestemmelser'` normalizes to
+> `'Kapittel Innledende bestemmelser'`, so "Kapittel 2 X" and
+> "Kapittel 3 X" compare EQUAL — verified directly against
+> `normalize_no_comparison_text` in the main checkout. A live masking bug,
+> queued as W-16.
+
 ### F-06 — Footnote-anchor whitespace in published text — fixed (f4eae341a, batch 01)
 
 "(forordning (EU) nr. 910/2014 **)**" vs replay "910/2014)"
@@ -677,14 +715,29 @@ law's divergence count moved. The batch's boundedness test also pins F-05
 shut — it asserts a trailing digit inside the parenthesis survives
 normalization, so the `\s+\d*\s*\)` variant cannot be re-introduced.
 
-### F-07 — Published editorial correction without an amending act — open (oracle pin)
+### F-07 — Published editorial correction without an amending act — re-scoped (Rettelser lowering, W-18)
 
 `no/lov/2020-12-18-156` §5(1) item 2: replay "skatteloven § **23** første ledd
 bokstav b" (faithful to source bytes); published "§ **2-3**". Lovdata corrected
-a typo editorially. Per `NORWAY_LAWVM_STATUS.md` §2.2 this becomes an
-exact-text-pinned oracle finding, not a replay change.
+a typo editorially. ~~Per `NORWAY_LAWVM_STATUS.md` §2.2 this becomes an
+exact-text-pinned oracle finding, not a replay change.~~
 
-### F-08 — CONSOLIDATED_MISSING / mixed clusters needing triage — open
+> **Misdiagnosed — the correction IS in the source bytes (W-6 triage,
+> 2026-08-02).** The act's own artifact `no/lovtid/2020-12-18-156` carries a
+> published `Rettelser` block in canonical amending grammar ("Det som er
+> rettet er satt i kursiv. § 5 første ledd annet strekpunkt skal lyde: …
+> § 2-3 …"), header-flagged `rettelse 2021-01-05 (se nederst)`. Negative
+> evidence: only 2 acts bind this law, neither touching §5; zero unbound
+> declared targets; the 13 forskrift citations are tilskudd regulations;
+> exactly 1 amendment artifact corpus-wide carries the typo form, 6 the
+> corrected form. Disposition: a **`Rettelser` lowering** (W-18) — derivable
+> from source bytes, so §2.2 is satisfied without preferring the
+> consolidation. Corpus: 25 artifacts carry a `Det som er rettet` block, 23
+> operative; payoff today 1 divergence and this law goes consistent.
+> Regression gate: `no/lovtid/2022-05-12-28` (advokatloven) has an operative
+> erratum and its law is currently CONSISTENT — it must stay so.
+
+### F-08 — CONSOLIDATED_MISSING / mixed clusters needing triage — triaged (W-6, 2026-08-02)
 
 Replay retains provisions the published text no longer carries:
 
@@ -697,12 +750,43 @@ Replay retains provisions the published text no longer carries:
 - `no/lov/2015-05-12-27` §24(1): published shows "– – –" (collapsed
   consequential-amendment list) where replay keeps the introduction line.
 
-### F-09 — Sparse-source ceiling (known class, recorded) — recorded
+> **Triaged (W-6).** 232 CONSOLIDATED_MISSING rows across 22 laws, in five
+> clusters: annex addressing 108 rows / 1 law (recorded ceiling, see the
+> annex families under W-17); unlowered repeals from real amending acts ~90
+> rows / 6 laws (actionable, downstream of the binding/lowering work);
+> **event-conditioned self-repeal** 14 rows / 3 laws — a NEW family: e.g.
+> `no/lov/2022-12-20-118` §9(2) "§§ 2 og 4 oppheves når utvalget har
+> avsluttet sitt arbeid", no amending act and no date, only Lovdata's
+> footnote records the trigger fired; §2.3's floor applied to repeal
+> (recorded ceiling; confirmed on `2022-12-20-118`, `2022-12-20-97`,
+> `2020-12-04-136`); consequential-amendment sections dropped 9 rows / 8
+> laws (recorded ceiling); and one small ACTIONABLE case —
+> `no/lov/2022-06-17-49`'s own text says "§ 2 oppheves 31. desember 2022.",
+> an explicit past date replay can execute, covering all 3 of that law's
+> divergences (unqueued; ride along a future repeal-lowering batch). The
+> third bullet above has MOVED: zero divergences corpus-wide now show a
+> dash-only published side; `2015-05-12-27`'s 8 remaining rows are the F-04
+> rename family.
+
+### F-09 — Sparse-source ceiling (known class, recorded) — recorded; one law re-filed
 
 `no/lov/2006-06-30-50` (SCE-loven, 212 divergences, 1 indexed amendment) and
 `no/lov/2001-01-05-1` (vaktvirksomhetsloven, 83, 2 indexed) both carry
 `sparse_indexed_history`. Per `NORWAY_LAWVM_STATUS.md` §5 these are
 acquisition ceilings, not replay failures; excluded from engine-defect counts.
+
+> **Re-filed (W-6 triage, 2026-08-02).** `2006-06-30-50`'s cause attribution
+> was wrong: its divergences are the ANNEX family, not sparsity — the SCE
+> Regulation sits on BOTH sides at different addresses (replay
+> `chapter:1/chapter:I/section:a1/…`, published `chapter:v22c/…`); all 104
+> OPS_MISSING rows pair 1:1 with a CONSOLIDATED_MISSING row after
+> normalizing the annex prefix, and 93 of 104 are text-identical once the
+> published `[EØS]` bracket adaptations are stripped. It moves to the annex
+> ceiling (W-17). Also measured: the `sparse_indexed_history` signal
+> OVER-FIRES — it flags 4 laws, not 2 (`2018-06-15-38` carries it while its
+> divergences are annex). F-09 proper retains `2001-01-05-1` (83) plus the
+> smaller genuine-sparsity rows measured in the triage (97 divergences / 3
+> laws total for the family).
 
 ## 4. Work Queue (ordered)
 
@@ -864,10 +948,15 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    widened the marker vocabulary by the two measured-absent nynorsk siblings.
    F-03's act stays `dated` and re-routes to the override / provision-level
    lane (see the F-03 entry).
-11. **W-6 (F-07, F-08):** pin the editorial correction; triage the
-   CONSOLIDATED_MISSING clusters. Both the 43-law divergent zero-amendment set
-   from tranche 1 (~38 unexplained by declared-target receipts) and batch 03's
-   32 newly visible divergences feed this family-first triage.
+11. **W-6 (F-07, F-08):** DONE (2026-08-02) — family-first triage of all 40
+   divergent laws complete; artifacts in `.tmp/w6/triage.{json,md}`. 16
+   families over 1,573 divergences, every assignment witnessed. Headline: 72%
+   is annexed-instrument representation (W-17 ceiling), F-10's proven scan
+   payoff is 24 divergences / 8 laws (see F-10's W-6 subsection), F-07 was
+   misdiagnosed (Rettelser lowering, W-18), F-08 triaged into clusters (see
+   F-08), and two live bugs surfaced: the multi-part misbinding defect (W-15)
+   and the compare-lane numbering-deletion masking bug (W-16). Honest
+   unclassified bucket: 64 divergences across 17 laws (4.1%).
 12. **W-12 (heading groups bypass the ordering kernel):** the W-10
    investigation's one live finding. Heading groups accumulate in
    `replay.py:300` collection order (`replay.py:389`) and are folded in list
@@ -916,6 +1005,45 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    `no_consolidation_snapshot_date`. (`data/norway/bench_corpus.csv` pins
    2026-03-29 per row deliberately — recorded benchmark baseline, not a
    default; leave it.)
+15. **W-15 (multi-part misbinding, live bug, IN FLIGHT):** multi-part
+   unstructured amending acts misbind ops onto the PREVIOUS part's law —
+   replay-corrupting, not merely incomplete. Witness:
+   `no/lov/2017-06-16-51` §6(1) replays as serveringsloven text
+   ("Bevillingshaver, daglig leder …") from `no/lovtid/2019-06-21-57` seq 17,
+   whose part III is "I lov av 13. juni 1997 nr. 55 om serveringsvirksomhet …
+   gjøres følgende endringer:". Mechanism (per W-6 triage): in
+   `grafter.py::_iter_unstructured_no_change_groups`, payload collection
+   after a `defaultP` lead runs to the next `defaultP` and does not stop at
+   `<section>` boundaries, so the next part's law-switch lead is swallowed as
+   the previous part's payload; and the precedence chain at ~grafter.py:1548
+   (`default_base_id or explicit_section_base_id or active_base_id or
+   section_base_id`) lets the stale `active_base_id` outrank the
+   already-correctly-resolved `section_base_id`. Corpus-wide sizing: 644
+   multi-part unstructured acts, 485 with ≥1 part whose own law never bound,
+   1,249 lost (part, act) pairs (1,247 declared) — ~30% of F-10's 4,088
+   unbound bindings from this one defect; 234 victim laws corpus-wide, 2 in
+   the scan (`2017-06-16-51` witnessed, `2013-06-21-102` mechanism present).
+16. **W-16 (compare-lane masking bug):** `verify.py:105`'s inline-footnote
+   rule `(?<=[a-zæøå])\s+\d+\s+(?=[A-ZÆØÅ])` deletes structural numbering on
+   BOTH sides — "Kapittel 2 X" and "Kapittel 3 X" compare EQUAL (verified in
+   main). This is the masking mode F-05's entry documents as forbidden for
+   this lane. Fix wants the rule bounded to genuine footnote positions or
+   removed with the 2 real F-05 cases left as recorded noise; re-run the
+   scan after — masked divergences may surface.
+17. **W-17 (annex families → typed ceiling):** 1,129 divergences (72% of the
+   corpus total) are annexed-instrument representation: `2018-06-15-38`
+   (GDPR, 714 rows under `chapter:gdpr/…`), `2017-06-16-51` (one convention
+   in bokmål+nynorsk, 204 rows), `2006-06-30-50` (SCE Regulation on both
+   sides at different addresses, 211 rows — re-filed from F-09). The
+   consolidation incorporates the instrument; the original-act lane never
+   had it. Record as a typed, receipted ceiling (not repair) so the
+   scoreboard becomes readable — today these three laws drown out every
+   other family.
+18. **W-18 (F-07 → Rettelser lowering):** lower published `Det som er
+   rettet` errata blocks (canonical amending grammar, 25 artifacts
+   corpus-wide, 23 operative). Payoff today: 1 divergence,
+   `no/lov/2020-12-18-156` goes consistent. Regression gate:
+   `no/lovtid/2022-05-12-28`'s law is currently consistent and must stay so.
 
 ## 5. Demo / Inspection Tooling
 
@@ -933,6 +1061,32 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-02 (W-6 triage complete)** — **Every one of the corpus's 1,573
+  provision-level divergences now has a causal family, and the programme's
+  priorities inverted.** Research-only (no product change); artifacts in
+  `.tmp/w6/triage.{json,md}`; run by a sub-agent, verified spot-wise by the
+  main session (the W-16 masking reproduction was re-run in main directly).
+  16 families, every assignment carrying a witnessed replay-vs-published
+  example, 4.1% honestly unclassified. The dominant family is one the ledger
+  did not have: **annexed-instrument representation, 72%** (GDPR inside
+  `2018-06-15-38`, a convention inside `2017-06-16-51`, the SCE Regulation
+  on both sides of `2006-06-30-50` — the last re-filed out of F-09, where
+  its cause attribution was wrong). F-10's scan payoff measured honestly:
+  24 proven divergences across 8 laws, one law fully repaired by binding
+  alone — confirms the re-priced 8, kills the thousand-divergence reading.
+  F-07 was misdiagnosed: the "editorial" correction is a published
+  `Rettelser` block in the act's own source bytes (→ W-18 lowering). F-08
+  triaged into five clusters incl. the new event-conditioned self-repeal
+  family (a §2.3-floor ceiling). Two live bugs found: **W-15, multi-part
+  amending acts misbind ops onto the previous part's law** —
+  replay-corrupting, ~30% of F-10's unbound mass from one defect — and
+  **W-16, the compare lane's inline-footnote rule deletes structural
+  numbering** so "Kapittel 2 X" == "Kapittel 3 X" (the masking mode F-05
+  forbids). Negative results kept: relocation small (13 pairs), F-05 sized
+  exactly as recorded, F-02 not a distinct family,
+  `sparse_indexed_history` over-fires (4 laws, not 2). Next: W-15 fix →
+  W-16 → W-18 → re-measure F-10.
 
 - **2026-08-02 (W-4 review fixes)** — **The snapshot-derivation helper
   hardened on five same-day code-review findings** (`9b3e5c8e5`).
