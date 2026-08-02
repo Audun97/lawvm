@@ -26,6 +26,7 @@ from lawvm.norway.verify import (
     _no_base_year,
     _no_compare_child_path,
     _no_kind_value,
+    _NO_VERIFY_INLINE_FOOTNOTE_RE,
     _normalize_no_compare_tree,
     _partition_primary_divergences,
     no_paths_related,
@@ -608,8 +609,61 @@ def test_normalize_no_comparison_text_close_paren_keeps_adjacent_wording_distinc
 
 
 def test_normalize_no_comparison_text_strips_inline_footnote_marker() -> None:
+    # The rule's genuine corpus case: the published-side extraction leaves the
+    # commencement formula's superscript footnote reference inline, next to the
+    # word it annotates (23 of the 56 candidate laws carry this shape).
     assert normalize_no_comparison_text("Loven gjelder fra den tid 1 Kongen bestemmer.") == (
         "Loven gjelder fra den tid Kongen bestemmer."
+    )
+    # Nynorsk and the non-"Kongen bestemmer" continuation of the same formula.
+    assert normalize_no_comparison_text("Lova gjeld frå den tida 1 Kongen fastset.") == (
+        "Lova gjeld frå den tida Kongen fastset."
+    )
+    assert normalize_no_comparison_text(
+        "Loven gjelder fra den tid 1 Roma-vedtektene trer i kraft for Norge."
+    ) == "Loven gjelder fra den tid Roma-vedtektene trer i kraft for Norge."
+
+
+def test_normalize_no_comparison_text_inline_footnote_marker_keeps_structural_numbering() -> None:
+    # Boundedness (W-16). The rule used to be
+    # ``(?<=[a-zæøå])\s+\d+\s+(?=[A-ZÆØÅ])``, which deleted the number out of
+    # every "Kapittel N Tittel" heading on BOTH sides of the comparison, so two
+    # genuinely different headings compared EQUAL — the masking mode the
+    # findings-ledger F-05 entry documents as forbidden for this lane. A
+    # measured probe over the 56 candidate laws found 487 structural headings
+    # and 15 other content digits altered against 49 genuine markers; the
+    # assertions below fail if any of those bounds is dropped again.
+    assert normalize_no_comparison_text("Kapittel 2 X") != normalize_no_comparison_text("Kapittel 3 X")
+    assert normalize_no_comparison_text("Kapittel 1 Innledende bestemmelser") == (
+        "Kapittel 1 Innledende bestemmelser"
+    )
+    assert normalize_no_comparison_text("Avsnitt 2 Alminnelige regler") == "Avsnitt 2 Alminnelige regler"
+    # Rule-unit level: the regex itself must not fire on any of the measured
+    # false-positive shapes, and must still fire on the genuine one.
+    assert _NO_VERIFY_INLINE_FOOTNOTE_RE.search("Loven gjelder fra den tid 1 Kongen bestemmer.")
+    for untouched in (
+        "Kapittel 2 X",  # structural heading numbering (487 corpus alterations)
+        "Avsnitt 2 Alminnelige regler",  # ditto
+        "sjøloven kapittel 6 A. Politiets kompetanse",  # chapter cross-reference
+        "§§ 5 A-2 og 5 A-3 gjelder ikke",  # section cross-reference
+        "oppgradert til å yte minst 100 Mbit/s nedlastningshastighet.",  # quantity
+        "General Assembly resolution 47/111 of 16 December 1992",  # date in an annex
+    ):
+        assert not _NO_VERIFY_INLINE_FOOTNOTE_RE.search(untouched), untouched
+        assert normalize_no_comparison_text(untouched) == untouched
+
+
+def test_normalize_no_comparison_text_keeps_marker_before_terminal_period() -> None:
+    # The findings-ledger F-05 shape — the marker sits BEFORE the period, with
+    # only a word to its left ("no/lov/2007-06-29-89" §6(1),
+    # "no/lov/2017-05-22-28" §5(2)). It is indistinguishable from an ordinary
+    # cross-reference ("i samsvar med artikkel 12."), so the lane leaves it as
+    # recorded noise; no footnote rule may start eating it.
+    assert normalize_no_comparison_text("Loven trer i kraft fra den tid Kongen bestemmer 1.") == (
+        "Loven trer i kraft fra den tid Kongen bestemmer 1."
+    )
+    assert normalize_no_comparison_text("i samsvar med artikkel 12.") != (
+        normalize_no_comparison_text("i samsvar med artikkel 13.")
     )
 
 

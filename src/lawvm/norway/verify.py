@@ -48,6 +48,33 @@ _NO_VERIFY_OTHER_LAWS_PLACEHOLDER_RE = re.compile(
 )
 _NO_VERIFY_TRAILING_FOOTNOTE_RE = re.compile(r"([.!?])\s+\d+$")
 _NO_VERIFY_STANDALONE_FOOTNOTE_RE = re.compile(r"([.!?])\s+\d+\s+(?=[A-ZÆØÅ])")
+# Inline footnote marker: a superscript reference digit that the published-side
+# extraction leaves *inside* a sentence, next to the word it annotates — the
+# commencement formula "Loven gjelder fra den tid[1] Kongen bestemmer."
+#
+# W-16: this rule used to be written ``(?<=[a-zæøå])\s+\d+\s+(?=[A-ZÆØÅ])``,
+# which also ate STRUCTURAL numbering — "Kapittel 2 X" and "Kapittel 3 X"
+# normalized to the same string, so genuinely different headings compared
+# EQUAL. A compare-lane rule runs on both sides, so that MASKS divergences
+# instead of merely adding noise (findings-ledger F-05). The probe behind W-16
+# enumerated all 551 alterations this rule made over 25,742 compare-lane text
+# units of the 56 candidate laws: 49 genuine markers, 487 structural headings
+# ("Kapittel N …", "Avsnitt N …"), 15 other content digits (cross-references
+# "§§ 5 A-2 og 5 A-3", the quantity "minst 100 Mbit/s", English convention
+# dates "of 16 December 1992"). The three bounds below fire on exactly the 49
+# genuine markers and on none of the 502 false positives:
+#   * the annotated word must be a lowercase-initial whitespace-delimited token
+#     — a word inside a sentence, never a structural label ("Kapittel",
+#     "Avsnitt"), which is capitalized because it opens its heading;
+#   * the marker is a single digit — every genuine marker measured is "1", and
+#     multi-digit runs are content ("100 Mbit/s", "16 December");
+#   * what follows must be a capitalized WORD, not a label token — this rejects
+#     "§§ 5 A-2 og 5 A-3", "sjøloven kapittel 6 A." and "§§ 33 og 34 I …".
+# Under-firing here is recorded noise; over-firing is masking, so the bounds
+# are deliberately measured-tight.
+_NO_VERIFY_INLINE_FOOTNOTE_RE = re.compile(
+    r"(?<![^\s])([a-zæøå](?:\S*[a-zæøå])?)\s+\d\s+(?=[A-ZÆØÅ][a-zæøå])"
+)
 _NO_VERIFY_CONTINGENT_OTHER_LAWS_RE = re.compile(
     r"^(?:Fra|Frå|Med virkning fra den tid)\b.*?(?:Kongen fastsetter|Kongen bestemmer).*?(?:gjøres følgende endringer|gjerast i andre lover|skal desse endringane gjerast i andre lover)",
     re.IGNORECASE,
@@ -101,9 +128,13 @@ _NO_COMPARISON_NORMALIZATION_RULES = (
         name="no_compare_inline_footnote_marker",
         rule_class="presentation_cleanup",
         kind="regex",
-        description="Remove inline numeric footnote markers between sentences.",
-        pattern=re.compile(r"(?<=[a-zæøå])\s+\d+\s+(?=[A-ZÆØÅ])"),
-        replacement=" ",
+        description=(
+            "Remove a single-digit inline footnote marker attached to a "
+            "lowercase-initial word inside a sentence, leaving structural "
+            "numbering intact."
+        ),
+        pattern=_NO_VERIFY_INLINE_FOOTNOTE_RE,
+        replacement=r"\1 ",
     ),
     ComparisonNormalizationRule(
         name="no_compare_standalone_footnote_marker",

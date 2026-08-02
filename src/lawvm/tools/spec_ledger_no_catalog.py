@@ -494,8 +494,11 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "equivalent wording is not flagged as a divergence."
     ),
     "no_compare_inline_footnote_marker": (
-        "Norway comparison text removes inline numeric footnote markers between "
-        "sentences so equivalent wording is not flagged as a divergence."
+        "Norway comparison text removes a single-digit footnote marker attached "
+        "to a lowercase-initial word inside a sentence so equivalent wording is "
+        "not flagged as a divergence; structural numbering (\"Kapittel 2 …\") is "
+        "left intact because deleting it on both sides would mask real "
+        "divergences (findings-ledger F-05 / W-16)."
     ),
     "no_compare_standalone_footnote_marker": (
         "Norway comparison text removes standalone numeric footnote markers after "
