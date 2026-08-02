@@ -35,6 +35,7 @@ consolidation; every class below is evidence to triage, not a repair license.
 | **2026-07-10, after batch 03 (original 20, 2c76cedec)** | **12** | **8** | 0 |
 | **2026-07-10, batch 03 newly unlocked 38** | **6** | **32** | 0 |
 | **2026-07-10, after batch 03 (all 58)** | **18** | **40** | 0 |
+| **2026-07-10, after batch 04 (all 58, byte-identical rows)** | **18** | **40** | 0 |
 
 Batch 03 increased coverage rather than changing an existing verdict: all 20
 old rows stayed byte-identical, and 38 laws that had previously been excluded
@@ -185,7 +186,7 @@ the blocked pile, and scope it then as three explicit sub-batches (period +
 action + payload-free repeal path; then the 49 unmodelled shapes; then the
 range form), not one.
 
-### F-03 — Mixed `dateInForce` ("DATE, Kongen bestemmer") applied at the date — open (engine/temporal, hypothesis)
+### F-03 — Mixed `dateInForce` ("DATE, Kongen bestemmer") applied at the date — open (engine/temporal, re-routed to the override / provision-level lane)
 
 `no/lov/2019-12-20-109` (kredittopplysningsloven) chapter:2/section:9/subsection:2:
 at as-of 2026-07-10 replay says "konkurs, **rekonstruksjonsforhandling** og
@@ -236,6 +237,23 @@ touches multiple corpus laws.
 > `dated` at `2026-06-19`, not `instrument_authorized`, because no instrument
 > cites it. Batch 03 therefore supplies no accidental repair for F-03; W-5 must
 > still decide the mixed-field classification.
+
+> **W-5 decided (2026-08-02, batch 04): no demotion; F-03 re-routes.** The
+> corpus answered the class-wide question against the hypothesis: a blanket
+> demotion of the mixed acts to `contingent` would cost 8 of the 58 scan laws
+> and make 7 of those 8 diverge MORE, because Lovdata's own consolidation
+> shows most mixed acts ARE in force at their leading date — the mixed field
+> marks STAGED commencement (§2.3's unrepresentable case), not deferred
+> commencement. Batch 04 instead typed the population
+> (`NOCommencementShape.STAGED_DELEGATED`, 167 acts, one receipt each) and
+> offered it to batch 03's authorization gate, which re-dated exactly 8 acts
+> to EARLIER instrument-proved dates. This entry's act is the leave-one-out
+> residual: `no/lovtid/2026-06-19-48` is the only staged act with a
+> not-in-force field signal, and even it carries counter-evidence on one law,
+> so it belongs to a manual-override / provision-level commencement lane, not
+> to a class-wide rule. It remains `dated`/2026-06-19, un-re-dated, carrying
+> the staged receipt — the premature-commencement exposure it names is still
+> real and still open, now scoped to that lane.
 
 ### F-04 — Statsforvalter renaming absent from the amendment index — reclassified (see F-10)
 
@@ -813,11 +831,16 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    not the batch that consumed it, is where these landed.
 9. **W-4 (F-01):** make `no-verify-scan`'s default comparison date
    snapshot-commensurable.
-10. **W-5 (F-03):** decide whether mixed "DATE, Kongen bestemmer" in-force
-   fields must demote to `contingent` (blocking) pending typed evidence. The
-   forskrift lane and batch 03 now prove that no instrument cites
-   `no/lov/2026-06-19-48`; its zero-amendment target is consistent, and the act
-   remained merely `dated` through the authorization gate.
+10. **W-5 (F-03):** DONE — decided against demotion (batch 04, 2026-08-02).
+   The corpus's leave-one-out evidence settled it: blanket demotion of the
+   mixed acts would cost 8 of the 58 scan laws and worsen 7 of them, because
+   Lovdata's consolidation shows most mixed acts in force at their leading
+   date. Batch 04 typed the population instead
+   (`NOCommencementShape.STAGED_DELEGATED`, 167 receipted acts), offered it to
+   the batch 03 gate (8 acts re-dated EARLIER on instrument evidence), and
+   widened the marker vocabulary by the two measured-absent nynorsk siblings.
+   F-03's act stays `dated` and re-routes to the override / provision-level
+   lane (see the F-03 entry).
 11. **W-6 (F-07, F-08):** pin the editorial correction; triage the
    CONSOLIDATED_MISSING clusters. Both the 43-law divergent zero-amendment set
    from tranche 1 (~38 unexplained by declared-target receipts) and batch 03's
@@ -830,6 +853,23 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    (one law in the 58 has heading groups, from one amendment) but it will bite
    silently the first time two amendments contribute heading groups to one
    law. Wants a guard or a kernel-routed fold, sized as a small batch.
+13. **W-13 (batch 04 doc/naming follow-ups, small):** three recorded review
+   findings that touch files outside batch 04's allowed paths or are
+   behaviorally inert today. (a) `commencement_instruments.py`'s
+   `unresolved_act_ids` parameter and docstring are now false for their only
+   production caller — the offered set is `unresolved ∪ staged_delegated`;
+   rename to `offered_act_ids` and fix the docstring. (b) `commencement.py`'s
+   `normalize_no_commencement_phrase` still hardcodes the old 5-marker tuple
+   instead of `NO_DELEGATED_COMMENCEMENT_MARKERS` (behaviorally inert today —
+   nothing routes the two new markers through it). (c) The `STAGED_DELEGATED`
+   docstring over-claims: for `no/lovtid/2024-06-21-50` the delegated tail
+   sits beside a repeal date ("Kongen bestemmer, oppheves 2026-07-01"), so
+   "part of the act enters force at the stated date(s)" is not literally true
+   of every member. Also note: the staged receipt's `effective_date` is the
+   pre-authorization `min(dates)` value by design; for the 8 re-dated acts it
+   differs from the entry's post-authorization date — that gap is what the
+   corpus test now asserts on, but a reader of raw diagnostics should know it
+   is deliberate.
 
 ## 5. Demo / Inspection Tooling
 
@@ -847,6 +887,65 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-02 (batch 04, applied)** — **Mixed "DATE, Kongen bestemmer"
+  commencement is now a typed, receipted population, and W-5 is decided
+  against demotion** (`6fa7b77fd`). `NOCommencementShape`
+  (`plain`/`staged_delegated`) is a field on `NOEffectiveDate` and a
+  serialized column on the index entry — a label on a *resolved* date,
+  orthogonal to `NOEffectiveStatus`, deliberately NOT a new status: a status
+  member could not express the 8 acts that are simultaneously staged and
+  instrument-authorized. 167 staged acts each carry one non-blocking
+  `temporal_recovery` receipt (`no_amendment_index_staged_commencement_collapsed`)
+  naming the raw field, the collapsed date, and `date_count`. The population
+  is offered to batch 03's authorization gate (`unresolved ∪ staged`), whose
+  conjuncts are byte-untouched: exactly 8 staged acts re-date, every one
+  EARLIER, to instrument-proved dates; 528 acts now authorized (batch 03's
+  520 receipts byte-identical by full JSON compare, verified independently by
+  the correctness reviewer), 0 conflicts. The marker vocabulary widened 5 → 7
+  with the two measured-absent nynorsk siblings (`kongen avgjer`,
+  `departementet fastset`); corpus effect exactly three acts —
+  `no/lovtid/2016-06-17-56` and `no/lovtid/2021-04-23-23` (bare `Kongen
+  avgjer`: pre-gate classification UNKNOWN → CONTINGENT; the latter was
+  already instrument-authorized by batch 03's gate, so only
+  `2016-06-17-56`'s final status moves) and `no/lovtid/2020-06-23-103`
+  (`departementet fastset` beside three dates: unremarked DATED → staged).
+  Status distribution moved 1029/913/520/3/1 → 1021 dated / 914 contingent /
+  528 instrument_authorized / 2 unknown / 1 immediate; all 58 scan rows
+  byte-identical at 18/40/0; commencement-blocked laws stayed 179.
+
+  *Contract deviation, signed off.* stopCondition 1 ("mixed-act count not
+  exactly 166") literally fired: requirement 3's 166 was written against the
+  pre-widening marker vocabulary while requirement 5 mandated the widening
+  that preflight fact 12 already predicted would add `2020-06-23-103`. The
+  correctness reviewer reproduced the pre-widening state exactly
+  (166/913/1021/528/3) by monkeypatching the old tuple — nothing was tuned —
+  and both reviewers adjudicated for the implementer. Signed off by the user
+  2026-08-02; the frozen contract is left byte-identical and this record is
+  the deviation's home. The build-state numbers are 167 staged / 159
+  min(dates)-keepers, with 166/158 the pre-widening values.
+
+  *Review pipeline and fixer.* Implementer plus two independent reviewers
+  (architecture, correctness) ran in isolated worktrees off frozen baseline
+  `31954739d`; both returned APPROVE WITH FINDINGS. The one substantive
+  finding was a proven-vacuous test assertion — the "all eight move EARLIER"
+  check compared two of the test's own literals and survived a mutated
+  2099-12-31 pin — replaced by assertions over corpus values: the displaced
+  metadata dates are read back off the staged receipts (emitted before
+  authorization, so they keep the collapsed `min(dates)` value), checked
+  against the pinned table, and the EARLIER claim is asserted
+  receipt-vs-entry. The fixer also corrected stale 166/158 docstring counts
+  and added `coerce_no_commencement_shape`
+  (mirroring `coerce_quirks_disposition`): `from_dict` now coerces into the
+  closed StrEnum — null coerces to PLAIN rather than the string `"None"`, an
+  unregistered string fails loud. Also measured and recorded, not changed:
+  the offer widening grows the gate's refusal receipts 1120 → 1285 (+165 —
+  staged acts offered but uncited by any instrument); the one plausible
+  design-leak hypothesis (marker widening moving an act across the
+  CONTINGENT/UNKNOWN boundary inside `no_base_replay_status_from_statuses`)
+  was tested and its counterfactual measured empty. Doc/naming follow-ups
+  recorded as W-13. Norway shard 499 passed / 1 skipped after the fixer;
+  full affected ladder run once at apply.
 
 - **2026-08-02 (W-10 closed, fourth red fixed, blind spot closed)** — Three
   landings from the two parallel investigations the W-11 incident triggered.
