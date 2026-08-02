@@ -109,16 +109,27 @@ across 7 laws**, classified below. Batch 01 cleared one of them (F-06), leaving
 
 Statuses: `open`, `fixed (<commit>)`, `reclassified`, `wontfix (<reason>)`.
 
-### F-01 — Scan default `as_of` is not snapshot-commensurable — open (tooling)
+### F-01 — Scan default `as_of` is not snapshot-commensurable — fixed for `no-verify-scan` (W-4); sibling commands remain (W-14)
 
-`no-verify-scan` defaults to an `--as-of` (2026-03-29 at the time of the scan)
-that predates the consolidation snapshot it compares against, exactly the
-incommensurability `NORWAY_LAWVM_STATUS.md` §5 warns about. Effect measured
-above. The skip lane works correctly (`no_replay_future_effective_skipped`
-receipts were emitted); only the comparison framing misleads.
+`no-verify-scan` defaulted to an `--as-of` (2026-03-29 at the time of the
+scan) that predates the consolidation snapshot it compares against, exactly
+the incommensurability `NORWAY_LAWVM_STATUS.md` §5 warns about. Effect
+measured above. The skip lane works correctly
+(`no_replay_future_effective_skipped` receipts were emitted); only the
+comparison framing misleads.
 
-Action: derive the default comparison date from the consolidation package
-date (or refuse/warn when `as_of` < snapshot horizon).
+> **Fixed for the scan (2026-08-02, W-4).** The default is now DERIVED from
+> the corpus: `no_consolidation_snapshot_date` in `sources.py` takes the
+> latest `observed_from` over the `no://lov/%/current.xml` locator family —
+> the consolidated artifacts replay is actually compared against — and it
+> reproduces exactly the documented 2026-07-10 horizon (763 spans, all
+> observed 2026-07-10T21:46Z; the archive's later 2026-07-31 forskrift
+> observations cannot move it because they are outside the family). An
+> explicit `--as-of` passes through verbatim. Fallback
+> `NO_FALLBACK_CONSOLIDATION_SNAPSHOT_DATE = "2026-07-10"` covers only
+> legacy tar-directory corpora, which record no observation instant.
+> Seven sibling CLI commands still carry the stale 2026-03-29 default —
+> that residue is W-14.
 
 ### F-02 — Sentence-level (punktum) unstructured leads not lowered — open (engine, deferred behind W-7)
 
@@ -829,8 +840,12 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    (`f15b11aee`) added `_NO_UNNUMBERED_LAW_ID_RE`; **batch 03 added none.** The
    earlier "batches 01 and 03" reading above was wrong — the instrument lane,
    not the batch that consumed it, is where these landed.
-9. **W-4 (F-01):** make `no-verify-scan`'s default comparison date
-   snapshot-commensurable.
+9. **W-4 (F-01):** DONE (hygiene pass, 2026-08-02) — `no-verify-scan`'s
+   default `--as-of` is now derived from the corpus via
+   `no_consolidation_snapshot_date` (latest `current.xml` observation
+   instant), which independently reproduces the documented 2026-07-10
+   horizon. Explicit `--as-of` wins verbatim. The seven sibling commands'
+   stale defaults are W-14.
 10. **W-5 (F-03):** DONE — decided against demotion (batch 04, 2026-08-02).
    The corpus's leave-one-out evidence settled it: blanket demotion of the
    mixed acts would cost 8 of the 58 scan laws and worsen 7 of them, because
@@ -853,23 +868,46 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    (one law in the 58 has heading groups, from one amendment) but it will bite
    silently the first time two amendments contribute heading groups to one
    law. Wants a guard or a kernel-routed fold, sized as a small batch.
-13. **W-13 (batch 04 doc/naming follow-ups, small):** three recorded review
-   findings that touch files outside batch 04's allowed paths or are
-   behaviorally inert today. (a) `commencement_instruments.py`'s
-   `unresolved_act_ids` parameter and docstring are now false for their only
-   production caller — the offered set is `unresolved ∪ staged_delegated`;
-   rename to `offered_act_ids` and fix the docstring. (b) `commencement.py`'s
-   `normalize_no_commencement_phrase` still hardcodes the old 5-marker tuple
-   instead of `NO_DELEGATED_COMMENCEMENT_MARKERS` (behaviorally inert today —
-   nothing routes the two new markers through it). (c) The `STAGED_DELEGATED`
-   docstring over-claims: for `no/lovtid/2024-06-21-50` the delegated tail
-   sits beside a repeal date ("Kongen bestemmer, oppheves 2026-07-01"), so
-   "part of the act enters force at the stated date(s)" is not literally true
-   of every member. Also note: the staged receipt's `effective_date` is the
-   pre-authorization `min(dates)` value by design; for the 8 re-dated acts it
-   differs from the entry's post-authorization date — that gap is what the
-   corpus test now asserts on, but a reader of raw diagnostics should know it
-   is deliberate.
+13. **W-13 (batch 04 doc/naming follow-ups):** (a) and (c) DONE (hygiene
+   pass, 2026-08-02): `unresolved_act_ids` renamed to `offered_act_ids`
+   tree-wide with an accurate docstring (the gate does not define the offered
+   set; production passes `unresolved ∪ staged_delegated`), and the
+   `STAGED_DELEGATED` docstring now states only the real guarantee — dates
+   plus delegated tail, a shape read off the raw field — naming
+   `no/lovtid/2024-06-21-50` (repeal-date tail, corpus-verified) as the
+   counterexample to the staged reading. **(b) remains OPEN and is
+   reclassified: NOT behaviorally inert.** Routing
+   `normalize_no_commencement_phrase` through the 7-member
+   `NO_DELEGATED_COMMENCEMENT_MARKERS` changes `lawvm no-source --json`'s
+   `normalized_phrase` for exactly one act, `no/lovtid/2020-06-23-103`
+   (`dated`; its field contains the new `departementet fastset` marker), via
+   the unguarded `build_no_source_report` site (`commencement.py:386`,
+   reached from `tools/no_source.py:37` for ANY entry). The other three call
+   sites are safe (two filtered to unresolved statuses; the `--phrase`
+   filter agrees old-vs-new on both new markers). Measured over all 2466
+   index entries: exactly 1 divergence, and no routing avoids it — the
+   function has no status input to exclude `dated` entries. So (b) is a
+   decided behavior change for a future batch: either accept the one-act
+   `normalized_phrase` change deliberately (arguably the better value — it
+   groups the act under its marker) or add an explicit label map pinning
+   emitted labels while single-sourcing the vocabulary. Also note: the
+   staged receipt's `effective_date` is the pre-authorization `min(dates)`
+   value by design; for the 8 re-dated acts it differs from the entry's
+   post-authorization date — deliberate, and what the corpus test asserts
+   on.
+14. **W-14 (F-01 residue):** seven sibling Norway CLI commands still default
+   `--as-of` to the stale 2026-03-29: `no-frontier` (cli.py:2770),
+   `no-divergence` (2809), `no-coverage` (2849), `no-debug` (2889),
+   `no-verify` (3211), `no-verify-partition` (3308), `no-verify-workqueue`
+   (3364), plus a second-layer `getattr(args, "as_of", "2026-03-29")` default
+   in `no_frontier.py:99,108` and the demo script
+   `scripts/demos/no_browser_index.py:138`. `no-divergence` matters most:
+   §1 pairs it with the scan at the commensurable horizon, so dropping the
+   flag on the drill-down lands back at the incommensurable date the scan
+   now avoids. Each is a one-line application of
+   `no_consolidation_snapshot_date`. (`data/norway/bench_corpus.csv` pins
+   2026-03-29 per row deliberately — recorded benchmark baseline, not a
+   default; leave it.)
 
 ## 5. Demo / Inspection Tooling
 
@@ -887,6 +925,58 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-02 (W-13 a/c + W-4 hygiene pass)** — **The gate's offered-set
+  naming stopped lying, the scan's default date is now derived from the
+  corpus, and the one "inert" cleanup turned out not to be**
+  (`30cf4df9b`). Implemented by a sub-agent in an isolated worktree off
+  `42b898e57`, reviewed and applied by the main session.
+
+  *W-13(a).* `authorize_no_commencement_instruments`'s parameter is now
+  `offered_act_ids` (tree-wide, no alias), and its docstring says what is
+  true: the gate does not define the offered set and never inspects act
+  statuses; production offers `unresolved ∪ staged_delegated`.
+
+  *W-13(c).* The `STAGED_DELEGATED` docstring claims only the shape (ISO
+  date(s) + delegated tail) and names the corpus-verified counterexample
+  `no/lovtid/2024-06-21-50`, whose only date is a repeal date.
+
+  *W-13(b) stopped — reclassified as not inert.* The implementer measured old
+  vs new normalization over all 2466 entries before touching
+  `normalize_no_commencement_phrase`: routing it through the widened marker
+  tuple changes `no-source --json`'s `normalized_phrase` for exactly one act
+  (`no/lovtid/2020-06-23-103`, `dated`, via the unguarded
+  `build_no_source_report` site). The batch-04 review premise ("nothing
+  routes the new markers through it") was false. `commencement.py` is
+  untouched; the item stays open as a decided behavior change (see W-13).
+
+  *W-4.* `no-verify-scan`'s default `--as-of` (was the frozen literal
+  2026-03-29, F-01's incommensurable horizon) is now
+  `no_consolidation_snapshot_date(data_dir)`: the latest `observed_from`
+  over the `no://lov/%/current.xml` family, read as UTC — which
+  independently reproduces the documented 2026-07-10 snapshot date (763
+  spans, one observation window; the archive's later 2026-07-31 forskrift
+  observations are outside the family and cannot move it). Explicit
+  `--as-of` passes through verbatim; legacy directory corpora fall back to
+  the documented literal. Tests pin the derivation, the UTC read, the
+  fallback, and flag-wins. Field check: a flagless
+  `no-verify-scan --limit 200` now lands on 2026-07-10 and reproduces
+  58 candidates at 18/40/0 exactly. Seven sibling commands still carry the
+  stale default — recorded as W-14, not silently absorbed here.
+
+  *Environment finding, corrected in-session:* the implementer reported the
+  three "pre-existing" tools_cli_debug Finland failures gone in its
+  worktree and credited the exported env vars — the real mechanism is data
+  layout. The tests guard on `data/finlex.farchive` existing relative to
+  the repo root of the test file: an agent worktree has NO finlex archive,
+  so the whole Finland-corpus family SKIPS (604 passed / 41 skipped,
+  green); the main checkout carries a STUB finlex.farchive that passes the
+  existence guard and then fails on missing content (statute 2018/301).
+  The env vars are irrelevant to these three. Stash-proof rerun at
+  `42b898e57`: identical 3 failures on base. So the red stays exactly what
+  batches 03/04 recorded — the stub archive — and a worktree's green
+  tools_cli_debug is weaker evidence than main's, since ~41 corpus tests
+  skip there.
 
 - **2026-08-02 (batch 04, applied)** — **Mixed "DATE, Kongen bestemmer"
   commencement is now a typed, receipted population, and W-5 is decided
