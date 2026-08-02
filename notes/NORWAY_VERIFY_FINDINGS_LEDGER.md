@@ -81,10 +81,14 @@ for unresolved commencement entered the scan. Their first durable baseline is:
 | `no/lov/2024-06-25-69` | consistent | 0 |
 | `no/lov/2024-12-13-77` | consistent | 0 |
 
-Two rows need a temporal-ordering caveat before their divergence shape is used
-as replay-fidelity evidence: `no/lov/2010-02-19-5` and
+~~Two rows need a temporal-ordering caveat before their divergence shape is
+used as replay-fidelity evidence: `no/lov/2010-02-19-5` and
 `no/lov/2010-06-25-28` have amendment sanction-date order different from
-commencement-date order, while replay currently orders by `source_id`.
+commencement-date order, while replay currently orders by `source_id`.~~
+Caveat lifted 2026-08-02 — W-10's investigation proved apply order is decided
+by the shared ordering kernel with effective date primary, and both laws'
+replayed text is byte-identical under either collection order. Their rows are
+trustworthy replay-fidelity evidence.
 
 The delta between the first two rows is itself finding F-01: three laws
 (`no/lov/2020-05-07-38`, `no/lov/2025-06-20-102`, `no/lov/2025-12-22-116`)
@@ -742,10 +746,29 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    gate verdict (`candidate.source_id in authorized_instrument_ids`) inside the
    `NOCommencementExecutionAuthorization` construction; the 520/523/0 counts
    are byte-identical.
-7. **W-10 (temporal ordering):** replay orders amendments by `source_id`, not
+7. ~~**W-10 (temporal ordering):** replay orders amendments by `source_id`, not
    effective date. Investigate and pin the intended ordering before treating
    the divergence shapes of `no/lov/2010-02-19-5` and
-   `no/lov/2010-06-25-28` as pure replay-fidelity evidence.
+   `no/lov/2010-06-25-28` as pure replay-fidelity evidence.~~
+   **Closed 2026-08-02 — not a defect; the premise was false at the layer that
+   matters.** The `source_id` sort at `replay.py:300` only orders op
+   *collection*; the apply fold re-sorts every op through the shared kernel
+   (`grafter.py:3641` → `core/op_ordering.py:210`) by
+   `(effective, enacted, source_id, sequence)` — effective date primary,
+   matching Estonia (`estonia/replay.py:78`) and Finland
+   (`finland/amendment_selection.py:155`). Field-proven: forcing
+   effective-date collection order genuinely flips the two laws'
+   `amendments_applied` sequences while the replayed text hashes identically,
+   and the 58-law scan stays byte-identical at 18/40/0. Only the two named
+   laws reorder among the 58, both from the single pair
+   `no/lovtid/2024-04-12-14` / `no/lovtid/2024-12-20-81`, whose targets are
+   fully disjoint. The genuine underlying item is that `2024-12-20-81` is a
+   staged commencement collapsed to `min(dates)` — the documented
+   `NORWAY_LAWVM_STATUS.md` §2.3 floor, not a sort bug. Residuals worth
+   remembering: the kernel's `OrderedOps.justification` receipt is unreachable
+   from production, and `replay.py:300`'s string tie-break compares the
+   trailing Lovtidend number lexically (harmless while the kernel decides
+   order). The one live risk moved to W-12.
 8. ~~**W-11 (FW-07 classifier-wrap ratchet red at HEAD, pre-existing):**
    `tests/test_classifier_wrap_ratchet.py` fails on the clean tree —
    `commencement_instruments.py` carries 3 raw `re.compile` (baseline 0),
@@ -799,6 +822,14 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    CONSOLIDATED_MISSING clusters. Both the 43-law divergent zero-amendment set
    from tranche 1 (~38 unexplained by declared-target receipts) and batch 03's
    32 newly visible divergences feed this family-first triage.
+12. **W-12 (heading groups bypass the ordering kernel):** the W-10
+   investigation's one live finding. Heading groups accumulate in
+   `replay.py:300` collection order (`replay.py:389`) and are folded in list
+   order by `apply_no_heading_groups` (`grafter.py:3265`) with no temporal
+   sort — the only surface where collection order is not inert. Harmless today
+   (one law in the 58 has heading groups, from one amendment) but it will bite
+   silently the first time two amendments contribute heading groups to one
+   law. Wants a guard or a kernel-routed fold, sized as a small batch.
 
 ## 5. Demo / Inspection Tooling
 
@@ -816,6 +847,42 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-02 (W-10 closed, fourth red fixed, blind spot closed)** — Three
+  landings from the two parallel investigations the W-11 incident triggered.
+
+  *W-10 closed as not-a-defect.* Norway replay was never applying amendments
+  in `source_id` order: the shared ordering kernel re-sorts every op by
+  `(effective, enacted, source_id, sequence)` before the apply fold, exactly
+  as Estonia and Finland do. Proven by experiment — forcing the "corrected"
+  collection order flips the two suspect laws' applied sequences while the
+  replayed text hashes byte-identical, and the 58-law scan is unchanged at
+  18/40/0. The caveat on `no/lov/2010-02-19-5` and `no/lov/2010-06-25-28` is
+  lifted; their divergence rows are trustworthy triage evidence. The real
+  item behind the scare is staged commencement collapsed to `min(dates)`
+  (§2.3 floor), and the one live residual — heading groups folding outside
+  the kernel — is now W-12.
+
+  *A fourth silent red fixed* (`88986c876`): `index.py:333` passed the free
+  string `'record'` where `QuirksDisposition.RECORD` is required, breaking
+  `test_quirks_disposition_enum.py` (shard `core_ir_contracts`) since the same
+  2026-07-11 commit as the FW-07 red. Serialized diagnostics proven
+  byte-identical (StrEnum), all 1,757 blocked-instrument residuals checked,
+  norway shard 489 green.
+
+  *The blind spot itself is closed* (`31954739d`). The full inventory
+  measured **24 tree-wide hygiene tests** whose scan roots exceed their home
+  shard's scope — 23 unreachable from any Norway ladder, and the 24th
+  (`test_no_semantic_notes_reads.py`, wildcard-owned by `norway`) blind for
+  every *other* jurisdiction. All 24 are hermetic; their home shards are not
+  (Finland corpus reds), so `ci_sharded.sh` now runs the FILES in a new
+  always-run stage 6/8 whenever any affected path is under `src/lawvm/`
+  (~100-105s at `-n 4`), with `TREE_WIDE_HYGIENE_TESTS` in
+  `scripts/test_shard.py` as the single source of truth, a `hygiene-files`
+  subcommand, and guard tests in `test_ci_shards.py`. Negative-proven: the
+  quirks free string reintroduced makes a Norway-only ladder fail at the
+  hygiene stage in ~100s, before the seven-minute shard. Maintenance rule
+  lives on the constant: a new tree-wide ratchet must add itself to the list.
 
 - **2026-08-01 (W-11)** — **Two standing hygiene ratchets went green, fixed in
   opposite directions, after three weeks red in shards no Norway batch ever
