@@ -1,0 +1,174 @@
+{
+  "schemaVersion": 1,
+  "id": "04-mixed-commencement-typing",
+  "slug": "mixed-commencement-typing",
+  "title": "Type the mixed dateInForce lane and let instruments re-date it; do NOT demote it to contingent",
+  "classification": "confirmed",
+  "source": {
+    "path": "notes/NORWAY_VERIFY_FINDINGS_LEDGER.md",
+    "sections": [
+      "W-5 (F-03) — Mixed dateInForce",
+      "F-03",
+      "NORWAY_LAWVM_STATUS.md 2.3"
+    ]
+  },
+  "branch": "audun/norway-receipt-spine",
+  "productBaseline": "31954739d309d708e1929c0e1f8540deca384107",
+  "dependsOn": [
+    "03-commencement-execution-authorization"
+  ],
+  "objective": "W-5 asked whether mixed 'DATE, Kongen bestemmer' dateInForce fields must demote from dated to contingent. The corpus answers no: a blanket demotion of the 166 mixed acts costs 8 of the 58 scan laws and makes 7 of those 8 diverge MORE, because Lovdata's consolidation shows most mixed acts ARE in force at their leading date. The mixed field marks STAGED commencement (2.3's unrepresentable case), not deferred commencement. This batch therefore does three provable things and no demotion: (1) make the 166 mixed acts a typed, receipted, queryable population instead of a silent DATED collapse; (2) offer them to batch 03's authorization gate so official instrument evidence outranks the min(dates) metadata guess — exactly 8 acts re-date, all to an EARLIER instrument-proved date, and all 58 scan rows stay byte-identical; (3) close the one measured marker-list gap ('departementet fastset'). F-03's own act keeps its date: it is the only act with a not-in-force signal, and even it carries counter-evidence on one law, so it belongs to the manual-override / provision-level lane, not to a class-wide rule.",
+  "preflightChecks": [
+    "effective_date_from_amendment tests ISO_DATE_RE.findall first and returns DATED at min(dates) when any date is present.",
+    "The contingent markers in sources.py are consulted only when the field has no ISO date.",
+    "The contingent marker tuple has exactly five members.",
+    "The marker tuple is kongen bestemmer, kongen fastset, departementet bestemmer, fastsettes ved lov, fra den tid.",
+    "The index over data/norway.farchive holds 2466 entries.",
+    "Index status counts are 1029 dated, 913 contingent, 520 instrument_authorized, 3 unknown, 1 immediate.",
+    "Exactly 166 entries carry both an ISO date and a contingent marker in raw_date_in_force.",
+    "All 166 mixed entries are classified dated.",
+    "The 166 mixed entries carry 2731 ops in total.",
+    "In 17 of the 166 mixed fields the marker precedes the first date.",
+    "16 index entries have min(dates) differing from the first date in the field.",
+    "no/lovtid/2020-06-23-103 reads departementet fastset and matches no contingent marker.",
+    "no/lovtid/2016-06-17-56 reads Kongen avgjer and classifies UNKNOWN.",
+    "no/lovtid/2021-04-23-23 reads Kongen avgjer and classifies UNKNOWN.",
+    "Offering the 166 mixed acts to authorize_no_commencement_instruments authorizes exactly 8 more acts with 0 conflicts.",
+    "With the mixed offer the 520 existing authorizations are byte-identical.",
+    "Instrument evidence re-dates no/lovtid/2013-01-11-1 from 2013-01-11 to 2013-01-01.",
+    "Instrument evidence re-dates no/lovtid/2020-05-07-38 from 2022-01-01 to 2020-05-11.",
+    "Instrument evidence re-dates no/lovtid/2022-06-10-35 from 2023-07-01 to 2022-06-15.",
+    "Instrument evidence re-dates no/lovtid/2022-06-17-58 from 2024-01-01 to 2022-07-01.",
+    "Instrument evidence re-dates no/lovtid/2022-06-17-60 from 2023-07-01 to 2022-06-24.",
+    "Instrument evidence re-dates no/lovtid/2024-06-21-50 from 2026-07-01 to 2024-07-01.",
+    "Instrument evidence re-dates no/lovtid/2024-06-25-53 from 2026-07-01 to 2024-07-01.",
+    "Instrument evidence re-dates no/lovtid/2026-06-12-22 from 2028-07-01 to 2026-07-01.",
+    "All eight instrument re-datings move earlier than the metadata date.",
+    "The base_ids of the 8 re-dated acts intersect the 58-law scan candidate set in the empty set.",
+    "no-verify-scan --as-of 2026-07-10 --limit 200 reports candidate_count 58.",
+    "The scan at 2026-07-10 reports 18 consistent, 40 divergent, 0 error.",
+    "Demoting all 166 mixed acts to contingent drops the scan candidate set to 50.",
+    "The blanket demotion removes no/lov/2020-05-07-38 from the scan even though it is consistent today.",
+    "Demoting no/lovtid/2020-12-18-149 alone raises no/lov/2019-06-14-21 from 28 to 39 divergences.",
+    "Demoting no/lovtid/2020-12-18-149 alone raises no/lov/2020-05-07-38 from 0 to 2 divergences.",
+    "Demoting no/lovtid/2026-06-19-48 alone drops no/lov/2019-12-20-109 from 2 to 1 divergences.",
+    "Demoting no/lovtid/2026-06-19-48 alone raises no/lov/2020-05-07-38 from 0 to 1 divergences.",
+    "No commencement override sidecar file is committed.",
+    "apply_no_commencement_overrides runs after build_no_amendment_index and outranks index statuses.",
+    "The index never binds no/lov/2025-04-10-9 as a base of any amendment."
+  ],
+  "scope": {
+    "boundary": [
+      "src/lawvm/norway/sources.py",
+      "src/lawvm/norway/index.py",
+      "src/lawvm/norway/commencement_instruments.py",
+      "src/lawvm/tools/spec_ledger_no_catalog.py",
+      "tests/test_norway_index.py",
+      "tests/test_norway_replay.py",
+      "tests/test_norway_commencement_instruments.py"
+    ],
+    "allowedPaths": [
+      "src/lawvm/norway/sources.py",
+      "src/lawvm/norway/index.py",
+      "src/lawvm/tools/spec_ledger_no_catalog.py",
+      "tests/test_norway_index.py",
+      "tests/test_norway_replay.py"
+    ],
+    "requiredChangedPaths": [
+      "src/lawvm/norway/sources.py",
+      "src/lawvm/norway/index.py",
+      "src/lawvm/tools/spec_ledger_no_catalog.py",
+      "tests/test_norway_index.py"
+    ],
+    "requiredAddedPaths": [],
+    "requiredDeletedPaths": []
+  },
+  "requirements": [
+    "Make the mixed shape a NAMED, typed classification rather than an unremarked DATED. effective_date_from_amendment must distinguish 'a date and nothing else' from 'a date plus a delegated-commencement tail'. Shape of the distinction is yours (a new NOEffectiveStatus member, or a typed field on NOEffectiveDate); it must be readable off a serialized index without re-parsing raw_date_in_force.",
+    "The mixed classification MUST stay in NO_RESOLVED_EFFECTIVE_STATUSES and keep effective_date == min(dates). Replay behaviour for the 158 acts with no instrument is unchanged. This batch changes what the index SAYS, not what replay DOES, except for the 8 instrument-proved acts.",
+    "Every mixed act emits one typed receipt naming the act, the raw dateInForce, the collapsed date, and the count of dates in the field — the repo invariant that new filter/recovery behaviour is never silent. Exactly 166 receipts.",
+    "Offer mixed acts to the batch-03 authorization gate. An official whole-act single-date instrument outranks the min(dates) metadata guess: exactly 8 acts take the instrument date and become instrument_authorized, each with the existing no_lovtidend_commencement_execution_authorized receipt. Do not widen the gate's conjuncts; only widen who is offered to it.",
+    "Add 'departementet fastset' (and 'kongen avgjer', which today lands 2 date-free acts in UNKNOWN rather than CONTINGENT) to the marker vocabulary, with a test naming the affected acts. Record the resulting status movement; do not tune it.",
+    "Every new rule id gets a _NO_RULE_SPECS entry in the sibling voice of the no_lovtidend_commencement_* family.",
+    "Reconcile in tests against the real corpus: 166 mixed acts, 8 instrument re-datings, 528 total instrument_authorized, scan candidate_count 58. Assert the counts; do not tune them."
+  ],
+  "invariants": [
+    "The scan at --as-of 2026-07-10 stays at candidate_count 58 and all 58 rows byte-identical at 18 consistent / 40 divergent / 0 error. Any row moving means a re-dating leaked into a replayable law.",
+    "The 520 acts batch 03 authorized keep their exact instrument and date; the gate's own conjuncts are untouched.",
+    "no/lovtid/2026-06-19-48 keeps effective_status resolved and effective_date 2026-06-19. F-03's act is NOT demoted by this batch — its disposition moves to the override / provision-level lane.",
+    "The instrument coverage partition stays 35955 = 608 + 33590 + 1757.",
+    "base_ids, n_ops, and op content unchanged on every entry; this batch re-dates and labels, it binds nothing.",
+    "The manual override sidecar still outranks every status assigned here.",
+    "no_base_replay_status_from_statuses, replay.py, inventory.py, and verify.py need no special-casing for the new classification. If one does, the design leaked — stop.",
+    "The norway and tools_cli_debug shards pass."
+  ],
+  "exclusions": [
+    "The blanket demotion W-5 originally proposed. Measured: it costs 8 scan laws and worsens 7 of them. Do not implement it.",
+    "Provision-level / staged commencement modelling (NORWAY_LAWVM_STATUS.md 2.3, section 7 item 4's LATER phase). The min(dates) collapse at sources.py:551 stays.",
+    "Multi-date whole-act instruments: still refused with receipts.",
+    "Binding recovery (F-10) and the declared-target gap on no/lov/2025-04-10-9.",
+    "Ledger and progress updates: the human apply step."
+  ],
+  "stopConditions": [
+    "The mixed-act count at build is not exactly 166: stop and record the delta and the differing acts.",
+    "The gate authorizes anything other than exactly 8 mixed acts, or any of the 8 lands on a date other than the one pinned in preflight: stop.",
+    "Any of the 58 scan rows moves at --as-of 2026-07-10: stop and revert. Re-dating leaked into a replayable law.",
+    "Widening the marker vocabulary moves more than the acts named in preflight: stop and record which.",
+    "Implementing the classification requires patching replay.py, inventory.py, or verify.py: stop; the status plumbing was designed to need none."
+  ],
+  "reviewFocus": [
+    "The central risk is that the new classification silently becomes unresolved somewhere. Confirm it is in NO_RESOLVED_EFFECTIVE_STATUSES and that no consumer treats it as blocking.",
+    "Confirm the gate widening is offer-side only: the four conjuncts (CANDIDATE parse, whole_act scope, single date, aliased act) are unchanged.",
+    "Confirm the 166 receipts are total and queryable, and that the 8 re-dated acts carry BOTH the mixed receipt and the authorization receipt.",
+    "Confirm the 58/18/40/0 numbers are asserted against the real corpus, not a fixture that cannot fail."
+  ],
+  "verification": {
+    "targeted": [
+      {
+        "id": "static",
+        "command": "uv run ruff check src/lawvm/norway/sources.py src/lawvm/norway/index.py src/lawvm/tools/spec_ledger_no_catalog.py tests/test_norway_index.py tests/test_norway_replay.py --no-fix",
+        "group": "static",
+        "required": true
+      },
+      {
+        "id": "types",
+        "command": "uv run ty check src/lawvm/norway/sources.py src/lawvm/norway/index.py src/lawvm/tools/spec_ledger_no_catalog.py tests/test_norway_index.py tests/test_norway_replay.py",
+        "group": "static",
+        "required": true
+      },
+      {
+        "id": "norway-shard",
+        "command": "./scripts/test_shard.sh run norway",
+        "group": "tests",
+        "required": true
+      },
+      {
+        "id": "spec-catalog-guard",
+        "command": "./scripts/test_shard.sh run tools_cli_debug -- tests/test_spec_ledger_no_catalog.py",
+        "group": "tests",
+        "required": true
+      }
+    ],
+    "full": [
+      {
+        "id": "ci-affected",
+        "command": "./scripts/ci.sh --affected src/lawvm/norway/sources.py src/lawvm/norway/index.py src/lawvm/tools/spec_ledger_no_catalog.py tests/test_norway_index.py tests/test_norway_replay.py",
+        "group": "ci",
+        "required": true
+      }
+    ]
+  },
+  "fieldVerification": {
+    "policy": "required-after-application",
+    "instructions": [
+      "uv run lawvm no-verify-scan --as-of 2026-07-10 --limit 200 — candidate_count MUST be 58 and the summary MUST be 18 consistent / 40 divergent / 0 error, with every row byte-identical to the pre-batch run. Any movement: revert.",
+      "The index status distribution MUST become 528 instrument_authorized (520 + 8) and 1021 plain dated (1029 - 8), with 166 mixed acts labelled and 913 contingent unchanged (before the marker-vocabulary widening; record its delta separately).",
+      "Spot-check no/lovtid/2026-06-12-22: effective_date moves 2028-07-01 -> 2026-07-01 on no/forskrift/2026-06-12-1076's evidence, so it newly applies at as-of 2026-07-10 across 27 ops and 10 base laws. None of those laws is in the 58 — confirm the scan is still 58.",
+      "Spot-check no/lovtid/2026-06-19-48: still resolved at 2026-06-19, no instrument, and carrying the new mixed receipt. It must not be demoted or re-dated.",
+      "uv run python scripts/probes/no_w7_unlock_landscape.py — commencement-blocked laws must stay at 179 (a demotion would push it to 187); the mixed batch must not block anything new.",
+      "Record the marker-vocabulary widening's effect on no/lovtid/2020-06-23-103, no/lovtid/2016-06-17-56, and no/lovtid/2021-04-23-23 as the new baseline. Record, do not tune.",
+      "Update the ledger: W-5 closes as decided-against-demotion with the leave-one-out evidence; F-03 stays open and re-routes to the override / provision-level lane."
+    ]
+  },
+  "recommendedAfter": []
+}

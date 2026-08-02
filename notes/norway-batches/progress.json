@@ -42,7 +42,7 @@
       "patch": {
         "sha256": "3920b47c81a5be5c86edf18414bb8ac80184fba1c4fc9c83c366a9f15c535ce1",
         "sizeBytes": 45344,
-        "sourceBaseline": "49ddf795ed3a7cbca69b1ec7eedd122e7d51fecf",
+        "sourceBaseline": "a6d92016646a34bffb310299eaf0fa712ff67667",
         "changedFiles": [
           "src/lawvm/norway/commencement_instruments.py",
           "src/lawvm/norway/index.py",
@@ -50,7 +50,8 @@
           "src/lawvm/tools/spec_ledger_no_catalog.py",
           "tests/test_norway_commencement_instruments.py",
           "tests/test_norway_index.py"
-        ]
+        ],
+        "note": "The reviewed recovery patch was generated at promotion commit 49ddf795e, whose product plane (src, scripts, tests) is byte-identical to frozen baseline a6d920166; sourceBaseline records the product baseline per the ledger convention."
       },
       "application": {
         "commit": "2c76cedecfb7fbbc020d4dbeb4930073fc1a72ae",
@@ -59,14 +60,6 @@
       },
       "evidence": {
         "verification": {
-          "orderedStagesRun": [
-            "uv run ruff check src/lawvm/norway/sources.py src/lawvm/norway/commencement_instruments.py src/lawvm/norway/index.py src/lawvm/tools/spec_ledger_no_catalog.py tests/test_norway_index.py tests/test_norway_commencement_instruments.py --no-fix",
-            "uv run ty check src/lawvm/norway/sources.py src/lawvm/norway/commencement_instruments.py src/lawvm/norway/index.py src/lawvm/tools/spec_ledger_no_catalog.py tests/test_norway_index.py tests/test_norway_commencement_instruments.py",
-            "./scripts/test_shard.sh run norway -- tests/test_norway_commencement_instruments.py tests/test_norway_index.py",
-            "./scripts/test_shard.sh run norway",
-            "./scripts/test_shard.sh run tools_cli_debug -- tests/test_spec_ledger_no_catalog.py",
-            "./scripts/ci.sh --affected src/lawvm/norway/sources.py src/lawvm/norway/commencement_instruments.py src/lawvm/norway/index.py src/lawvm/tools/spec_ledger_no_catalog.py tests/test_norway_index.py tests/test_norway_commencement_instruments.py"
-          ],
           "targetedResults": {
             "ruff": "passed",
             "ty": "passed",
@@ -89,7 +82,15 @@
               "tests/test_dangling_references.py::test_existence_oracle_real_corpus_witness"
             ],
             "proof": "The exact reviewed patch was reversed, the failing tools_cli_debug shard rerun on base with the identical 3 failures and 154 passes, and the exact patch reapplied. The full affected ladder itself ran once, as required."
-          }
+          },
+          "successfulStages": [
+            "uv run ruff check src/lawvm/norway/sources.py src/lawvm/norway/commencement_instruments.py src/lawvm/norway/index.py src/lawvm/tools/spec_ledger_no_catalog.py tests/test_norway_index.py tests/test_norway_commencement_instruments.py --no-fix",
+            "uv run ty check src/lawvm/norway/sources.py src/lawvm/norway/commencement_instruments.py src/lawvm/norway/index.py src/lawvm/tools/spec_ledger_no_catalog.py tests/test_norway_index.py tests/test_norway_commencement_instruments.py",
+            "./scripts/test_shard.sh run norway -- tests/test_norway_commencement_instruments.py tests/test_norway_index.py",
+            "./scripts/test_shard.sh run norway",
+            "./scripts/test_shard.sh run tools_cli_debug -- tests/test_spec_ledger_no_catalog.py",
+            "./scripts/ci.sh --affected src/lawvm/norway/sources.py src/lawvm/norway/commencement_instruments.py src/lawvm/norway/index.py src/lawvm/tools/spec_ledger_no_catalog.py tests/test_norway_index.py tests/test_norway_commencement_instruments.py"
+          ]
         },
         "reviewVerdicts": {
           "postFixFinalGate": {
@@ -538,6 +539,18 @@
           ],
           "note": "Every other law's divergence count byte-identical; nothing masked, nothing newly divergent."
         }
+      }
+    },
+    "04-mixed-commencement-typing": {
+      "state": "ready",
+      "readyAtHead": "31954739d309d708e1929c0e1f8540deca384107",
+      "contract": {
+        "path": "notes/norway-batches/contracts/04-mixed-commencement-typing.json",
+        "sha256": "5462f02bbc037453b72b06b96ac08d8add2a1d2f08f09aef86ff008fb99087ae"
+      },
+      "fieldVerification": {
+        "status": "required-after-application",
+        "completed": false
       }
     }
   }
