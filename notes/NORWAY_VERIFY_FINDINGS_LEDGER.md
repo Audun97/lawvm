@@ -698,8 +698,12 @@ is the opposite of what this lane is for.
 The lane already carries three footnote rules — `no_compare_inline_footnote_marker`
 (marker between sentences), `no_compare_standalone_footnote_marker` and
 `no_compare_trailing_footnote_marker` (`([.!?])\s+\d+$`, marker AFTER terminal
-punctuation). All three key on the marker sitting next to punctuation, which is
-what makes them safely bounded. F-05's shape is the one where the marker sits
+punctuation). ~~All three key on the marker sitting next to punctuation, which
+is what makes them safely bounded.~~ (Corrected at W-16: that claim was true
+of only two — the inline rule's regex never keyed on punctuation, and its
+"between sentences" description was never true of it either; W-16 re-bounded
+it by measured shape instead — lowercase-initial host word, single digit,
+capitalized-word follower.) F-05's shape is the one where the marker sits
 *before* the period, with nothing but a word to its left — precisely the
 position that is indistinguishable from a cross-reference.
 
@@ -720,6 +724,14 @@ across the corpus, both in the commencement formula.
 > "Kapittel 3 X" compare EQUAL — verified directly against
 > `normalize_no_comparison_text` in the main checkout. A live masking bug,
 > queued as W-16.
+
+> **W-16 fixed (2026-08-02, `6bdbb3b12`).** The rule is re-bounded to fire
+> on exactly the 49 measured genuine markers and none of the 502 false
+> positives; the masking proved LATENT (zero scan movement, four-counter
+> probe over all 56 laws under both regexes). This entry's two genuine
+> cases are byte-identical under old and new normalization and are now
+> test-pinned so no future footnote rule can start eating the
+> marker-before-period shape. See W-16 in the queue for the full record.
 
 ### F-06 — Footnote-anchor whitespace in published text — fixed (f4eae341a, batch 01)
 
@@ -1050,13 +1062,28 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    genuine lost binding inside them (`2016-12-16-91` finanstilsynsloven
    §7(1) s3), and 6 dropped global-text-replace ops (W-20, one previously
    correctly bound).
-16. **W-16 (compare-lane masking bug):** `verify.py:105`'s inline-footnote
-   rule `(?<=[a-zæøå])\s+\d+\s+(?=[A-ZÆØÅ])` deletes structural numbering on
-   BOTH sides — "Kapittel 2 X" and "Kapittel 3 X" compare EQUAL (verified in
-   main). This is the masking mode F-05's entry documents as forbidden for
-   this lane. Fix wants the rule bounded to genuine footnote positions or
-   removed with the 2 real F-05 cases left as recorded noise; re-run the
-   scan after — masked divergences may surface.
+16. **W-16 (compare-lane masking bug):** DONE (`6bdbb3b12`, 2026-08-02).
+   The inline-footnote rule deleted structural numbering on BOTH sides —
+   "Kapittel 2 X" == "Kapittel 3 X" — the masking mode F-05 forbids. The
+   fixer measured all 551 alterations the old regex made over 25,742
+   compare-lane text units of the 56 candidate laws: 49 genuine markers
+   (all the published-side commencement-formula superscript, all digit "1",
+   zero replay-side), 487 structural headings, 15 content digits. That
+   measurement killed both naive fixes: REMOVAL would add 49 sites of
+   published-side noise, and PUNCTUATION-BOUNDING fires on nothing (the
+   standalone rule already owns the between-sentences position — the
+   inline rule's "between sentences" description was never true of its
+   regex, which predates the named-rule refactor). Fix: measured-tight
+   bounds (lowercase-initial host word + single digit + capitalized-word
+   follower) — fires on exactly the 49 genuine markers and zero of the 502
+   false positives. Scan: ZERO rows moved, double-verified by a
+   four-counter probe over all 56 laws under both regexes — the masking
+   was real but LATENT (both sides agree at every matched address today;
+   the corpus even contains the collision pair "Kapittel 7/5 Avsluttende
+   bestemmelser" collapsing to one string, in different laws). The fix
+   converts a latent silent-failure mode into a guaranteed-visible one at
+   zero measured cost. F-05's two genuine cases proven byte-identical
+   under old and new normalization, now test-pinned shut.
 17. **W-17 (annex families → typed ceiling):** 1,129 divergences (72% of the
    corpus total) are annexed-instrument representation: `2018-06-15-38`
    (GDPR, 714 rows under `chapter:gdpr/…`), `2017-06-16-51` (one convention
@@ -1108,6 +1135,29 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-02 (W-16 applied)** — **The compare lane's one unbounded
+  footnote rule is re-bounded, and the masking it allowed is proven to
+  have been latent** (`6bdbb3b12`). The fixer refused to guess: it
+  enumerated all 551 alterations the old regex made across 25,742
+  compare-lane text units (49 genuine markers / 487 structural headings /
+  15 content digits), which ruled out both removal (would add 49 noise
+  sites) and punctuation-bounding (fires on nothing — the standalone rule
+  already owns that position; the inline rule's "between sentences"
+  description was never true of its regex, which predates the named-rule
+  refactor). The chosen bounds fire on exactly the 49 genuine markers and
+  zero false positives, and are documented in-place with the probe
+  numbers. Scan movement: none — double-verified with a four-counter probe
+  per law under both regexes, including filtered divergences the flagless
+  scan cannot see. So no divergence was actively hidden today; the fix
+  converts a latent silent-failure mode (chapter renumbering swallowed on
+  both sides — a shape the lane's own `_is_chapter_relocation_pair` family
+  proves occurs) into a guaranteed-visible one, at zero measured cost.
+  F-05's boundedness claim about the lane's three footnote rules is
+  corrected in place, its two genuine cases test-pinned. No pins moved; no
+  reviewer pass was spawned — zero corpus movement plus the main session's
+  direct re-verification of both directions in the main checkout stood in
+  for it.
 
 - **2026-08-02 (W-15 applied)** — **Multi-part amending acts now bind each
   part to its own law, and five laws' worth of cross-contaminated replay
