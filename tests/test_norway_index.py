@@ -1233,10 +1233,107 @@ def test_no_consolidation_snapshot_date_reads_the_archive_observation_instant(tm
 
     assert no_consolidation_snapshot_date(db_path) == "2025-03-04"
 
+    # A change-free re-crawl: the SAME bytes stored again at a later instant.
+    # farchive branches on digest identity, so this extends the open span
+    # rather than opening a new one — ``observed_from`` stays pinned at the
+    # first appearance while ``last_confirmed_at`` advances. The derived
+    # horizon must follow the re-confirmation: reading ``observed_from`` would
+    # freeze it at the last content CHANGE and re-open F-01 for every law
+    # amended between that change and the crawl that confirmed it.
+    reconfirmed = tmp_path / "reconfirmed.farchive"
+    archive = Farchive(reconfirmed)
+    archive.store(
+        "no://lov/2025-01-01-1/current.xml",
+        b"<html><body/></html>",
+        observed_at=datetime(2025, 3, 4, 23, 30, tzinfo=timezone.utc),
+    )
+    archive.store(
+        "no://lov/2025-01-01-1/current.xml",
+        b"<html><body/></html>",
+        # 23:40Z is again the next day in local Norwegian time, so the UTC
+        # read stays pinned across the re-confirmation too.
+        observed_at=datetime(2025, 6, 17, 23, 40, tzinfo=timezone.utc),
+    )
+    span = archive.resolve("no://lov/2025-01-01-1/current.xml")
+    assert span is not None
+    # Pin the farchive semantics this helper depends on: one extended span,
+    # not two, with the two instants genuinely disagreeing.
+    assert len(archive.history("no://lov/2025-01-01-1/current.xml")) == 1
+    assert span.observation_count == 2
+    assert span.observed_from == datetime(2025, 3, 4, 23, 30, tzinfo=timezone.utc)
+    assert span.last_confirmed_at == datetime(2025, 6, 17, 23, 40, tzinfo=timezone.utc)
+    archive.close()
+
+    assert no_consolidation_snapshot_date(reconfirmed) == "2025-06-17"
+
     # A legacy tar-directory corpus records no observation instant at all.
     legacy_dir = tmp_path / "legacy"
     legacy_dir.mkdir()
     assert (
         no_consolidation_snapshot_date(legacy_dir)
+        == NO_FALLBACK_CONSOLIDATION_SNAPSHOT_DATE
+    )
+
+
+def test_no_consolidation_snapshot_date_refuses_an_archive_without_consolidations(
+    tmp_path,
+) -> None:
+    """An farchive holding no ``current.xml`` fails loud, it does not borrow the constant.
+
+    The legacy tar directory legitimately has no observation instant to derive
+    from, so it keeps the documented fallback. An farchive is a different
+    animal: holding zero consolidated artifacts means the corpus is corrupt or
+    mis-populated, and silently returning the legacy constant would make the
+    two indistinguishable (AGENTS.md §1.10).
+    """
+    from datetime import datetime, timezone
+
+    from farchive import Farchive
+
+    from lawvm.norway.sources import (
+        NOConsolidationSnapshotError,
+        no_consolidation_snapshot_date,
+    )
+
+    db_path = tmp_path / "norway.farchive"
+    archive = Farchive(db_path)
+    # Populated, but with nothing from the consolidated family.
+    archive.store(
+        "no://lovtid/2025-02-02-5/amendment.xml",
+        b"<html><body/></html>",
+        observed_at=datetime(2025, 9, 9, 12, 0, tzinfo=timezone.utc),
+    )
+    archive.close()
+
+    with pytest.raises(NOConsolidationSnapshotError) as excinfo:
+        no_consolidation_snapshot_date(db_path)
+    message = str(excinfo.value)
+    # The diagnostic must name what was expected, what was found, and the fix.
+    assert "no://lov/%/current.xml" in message
+    assert "Found: none" in message
+    assert "no-ingest" in message
+
+
+def test_corpus_consolidation_snapshot_date_reproduces_the_fallback_constant() -> None:
+    """The licensing claim on the fallback constant, made executable.
+
+    ``NO_FALLBACK_CONSOLIDATION_SNAPSHOT_DATE`` is licensed by the farchive
+    derivation independently reproducing it. Asserting that against the
+    installed corpus is what makes the constant rot LOUDLY on a future corpus
+    re-capture instead of silently drifting away from the snapshot the legacy
+    path claims to describe.
+    """
+    from lawvm.norway.sources import (
+        NO_FALLBACK_CONSOLIDATION_SNAPSHOT_DATE,
+        is_no_farchive_path,
+        no_consolidation_snapshot_date,
+    )
+
+    data_dir = resolve_no_source_path(None)
+    if not data_dir.exists() or not is_no_farchive_path(data_dir):
+        pytest.skip("local Norway corpus is not installed")
+
+    assert (
+        no_consolidation_snapshot_date(data_dir)
         == NO_FALLBACK_CONSOLIDATION_SNAPSHOT_DATE
     )

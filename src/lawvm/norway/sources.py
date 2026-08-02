@@ -489,9 +489,16 @@ def open_no_archive(db_path: Path | None = None, *, readonly: bool = True):  # r
 # consolidation snapshot this corpus was captured from, recorded in
 # ``notes/NORWAY_VERIFY_FINDINGS_LEDGER.md`` section 1 and used there as the
 # commensurable comparison date behind every scan reading in the scoreboard.
-# The farchive derivation below independently reproduces this date, which is
-# what licenses it as the fallback rather than a second guess.
+# The farchive derivation below independently reproduces this date, and
+# ``test_corpus_consolidation_snapshot_date_reproduces_the_fallback_constant``
+# asserts that reproduction against the installed corpus — that executable
+# check is what licenses this constant as the fallback rather than a second
+# guess, and it is what makes it rot loudly on a corpus re-capture.
 NO_FALLBACK_CONSOLIDATION_SNAPSHOT_DATE: str = "2026-07-10"
+
+
+class NOConsolidationSnapshotError(ValueError):
+    """An farchive Norway source carries no consolidated ``current.xml`` observation."""
 
 
 def no_consolidation_snapshot_date(source_path: Path | None = None) -> str:
@@ -504,11 +511,32 @@ def no_consolidation_snapshot_date(source_path: Path | None = None) -> str:
     — laws then read as defective purely because an amendment took effect in
     the gap (finding F-01 in ``notes/NORWAY_VERIFY_FINDINGS_LEDGER.md``).
 
+    The instant read is :attr:`~farchive.StateSpan.last_confirmed_at`, not
+    ``observed_from``. farchive's ``store`` branches on digest identity: content
+    identical to the locator's head EXTENDS the open span — bumping
+    ``last_confirmed_at`` and ``observation_count`` while leaving
+    ``observed_from`` at the instant that content first appeared. Only
+    ``last_confirmed_at`` therefore answers "when did the crawl last see this
+    consolidation", which is the horizon; ``observed_from`` would freeze the
+    answer at the last content *change* and re-open F-01 after any change-free
+    re-crawl. The two coincide on today's corpus (every ``current.xml`` span has
+    ``observation_count == 1``), so the distinction is latent, not academic.
+
+    Only the newest span per locator is read, via :meth:`~farchive.Farchive.resolve`.
+    A locator keeps exactly one open span, and a digest change closes the old
+    span at the same instant the new one opens with that instant as its
+    ``last_confirmed_at`` — so the open span's ``last_confirmed_at`` is
+    monotonically the locator's maximum, and the closed spans behind it cannot
+    beat it. This is one indexed single-row query per locator instead of
+    materializing every locator's whole history.
+
     Observation instants are stored UTC and read as UTC, so the answer does not
     move with the reader's timezone. Falls back to
-    :data:`NO_FALLBACK_CONSOLIDATION_SNAPSHOT_DATE` when the source is a legacy
-    directory or an archive holding no consolidated artifact — those record no
-    observation instant to derive from.
+    :data:`NO_FALLBACK_CONSOLIDATION_SNAPSHOT_DATE` only for a legacy tar
+    directory, which records no observation instant at all. An farchive holding
+    no consolidated artifact is a corrupt or mis-populated corpus, not a legacy
+    one, and raises :class:`NOConsolidationSnapshotError` rather than borrowing
+    the legacy constant — a silent share would make the two indistinguishable.
     """
     source_path = resolve_no_source_path(source_path)
     if not is_no_farchive_path(source_path) or not source_path.exists():
@@ -517,13 +545,26 @@ def no_consolidation_snapshot_date(source_path: Path | None = None) -> str:
     archive = open_no_archive(source_path)
     try:
         for locator in archive.locators("no://lov/%/current.xml"):
-            for span in archive.history(locator):
-                if latest is None or span.observed_from > latest:
-                    latest = span.observed_from
+            span = archive.resolve(locator)
+            # ``locators()`` lists only locators that own a span, and a locator
+            # always retains exactly one open span, so this is never None on a
+            # well-formed archive; the guard is for the type checker.
+            if span is not None and (latest is None or span.last_confirmed_at > latest):
+                latest = span.last_confirmed_at
     finally:
         archive.close()
     if latest is None:
-        return NO_FALLBACK_CONSOLIDATION_SNAPSHOT_DATE
+        raise NOConsolidationSnapshotError(
+            f"Norway farchive {source_path} records no consolidated snapshot "
+            "observation, so the scan's comparison horizon cannot be derived. "
+            "Expected: at least one `no://lov/%/current.xml` artifact carrying "
+            "an observation instant. Found: none. Fix: re-ingest the "
+            "`gjeldende-lover` consolidation into this archive with "
+            "`uv run lawvm no-ingest`, or point LAWVM_NORWAY_DB at a populated "
+            "corpus. Do not substitute NO_FALLBACK_CONSOLIDATION_SNAPSHOT_DATE "
+            "here — that constant documents a legacy tar directory, and reusing "
+            "it would make a mis-populated archive read as a legitimate one."
+        )
     return latest.astimezone(timezone.utc).date().isoformat()
 
 

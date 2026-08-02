@@ -328,12 +328,9 @@ def authorize_no_commencement_instruments(
 
     ``offered_act_ids`` is whatever set the caller judges re-datable by an
     official instrument — this gate does not define it and does not inspect the
-    acts' statuses. In production (``index.py``) the offered set is
-    ``unresolved ∪ staged_delegated``: acts with no date at all, plus acts whose
-    date is only the ``min(dates)`` collapse of a metadata field that also says
-    the executive fixes the real commencement. Both are outranked by a whole-act
-    Norsk Lovtidend instrument; a plain dated / immediate / override act is
-    never offered.
+    acts' statuses. The production offering policy lives with the comprehension
+    that defines it, in ``index.py``'s
+    ``_authorize_no_commencement_instruments_into_index``.
 
     An instrument citing no offered act authorizes nothing and records nothing:
     that is the enabling-statute filter — an instrument commencing a *forskrift*
