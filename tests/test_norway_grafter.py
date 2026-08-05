@@ -1696,6 +1696,143 @@ def test_split_no_sentences_still_splits_after_section_citation() -> None:
     ]
 
 
+def test_split_no_sentences_does_not_split_after_jfr_abbreviation() -> None:
+    """W-19 casualty 1: ``no/lovtid/2021-12-22-166`` § 25 first subsection.
+
+    The lead declares two target sentences ("annet og tredje punktum"); the
+    unknown ``jfr.`` split the single payload into three, so the family's
+    all-or-nothing arity check emitted nothing.
+    """
+    assert _split_no_sentences(
+        "For forkynnelse av betalingsoppfordring etter konkursloven 8 juni 1984 nr. 58 § 63 "
+        "betales likevel 0,4 ganger rettsgebyret. For forkynnelse ved stevnevitne i andre "
+        "tilfelle enn nevnt i første, jfr. annet punktum, betales halvparten av rettsgebyret."
+    ) == [
+        "For forkynnelse av betalingsoppfordring etter konkursloven 8 juni 1984 nr. 58 § 63 "
+        "betales likevel 0,4 ganger rettsgebyret.",
+        "For forkynnelse ved stevnevitne i andre tilfelle enn nevnt i første, jfr. annet "
+        "punktum, betales halvparten av rettsgebyret.",
+    ]
+
+
+def test_split_no_sentences_does_not_split_after_mm_abbreviation() -> None:
+    """W-19 casualty 2: ``no/lovtid/2016-12-16-91`` § 7 first subsection.
+
+    This is the one genuine binding W-15 lost: the finanstilsynsloven
+    (``no/lov/1956-12-07-1``) sentences 3 and 4. ``m.m.`` in the cited
+    børsvirksomhet act's title split the second sentence in two.
+    """
+    assert _split_no_sentences(
+        "Taushetsplikten etter denne bestemmelse gjelder ikke overfor Norges Bank. "
+        "Taushetsplikten er heller ikke til hinder for at Finanstilsynet gir opplysninger "
+        "til børs med tillatelse etter lov 29. juni 2007 nr. 74 om børsvirksomhet m.m. § 4, "
+        "verdipapirregister med tillatelse etter lov 5. juli 2002 nr. 64 § 3-1."
+    ) == [
+        "Taushetsplikten etter denne bestemmelse gjelder ikke overfor Norges Bank.",
+        "Taushetsplikten er heller ikke til hinder for at Finanstilsynet gir opplysninger "
+        "til børs med tillatelse etter lov 29. juni 2007 nr. 74 om børsvirksomhet m.m. § 4, "
+        "verdipapirregister med tillatelse etter lov 5. juli 2002 nr. 64 § 3-1.",
+    ]
+
+
+def test_split_no_sentences_does_not_split_after_iht_abbreviation() -> None:
+    """W-19 casualty 3: ``no/lovtid/2022-02-18-5`` § 19-7 third subsection.
+
+    Found by the corpus sweep, not named in the ledger: ``iht.`` is the only
+    other abbreviation form that breaks an arity check corpus-wide.
+    """
+    assert _split_no_sentences(
+        "Retten til å fortsette forsikringsforholdet etter første ledd gjelder tilsvarende "
+        "for arbeidstaker som er medlem av pensjonsordning under permittering iht. "
+        "innskuddspensjonsloven § 4-3 fjerde ledd. Forsikringsforetaket skal sende melding "
+        "som nevnt i første ledd tredje punktum til medlemmene."
+    ) == [
+        "Retten til å fortsette forsikringsforholdet etter første ledd gjelder tilsvarende "
+        "for arbeidstaker som er medlem av pensjonsordning under permittering iht. "
+        "innskuddspensjonsloven § 4-3 fjerde ledd.",
+        "Forsikringsforetaket skal sende melding som nevnt i første ledd tredje punktum til "
+        "medlemmene.",
+    ]
+
+
+def test_split_no_sentences_still_splits_after_letter_item_label() -> None:
+    """W-19 guard: bare item letters DO end sentences, so they stay out of the set.
+
+    ``no/lovtid/2016-12-16-91`` § 11-15 relies on this: a two-target lead whose
+    first sentence ends "... bokstav e." Admitting single-letter abbreviations
+    to recover ``m.m.`` would have flipped this correct split to wrong.
+    """
+    assert _split_no_sentences(
+        "Kongen kan gjøre unntak for fordringer som nevnt i § 11-8 første ledd bokstav e. "
+        "Slike forskrifter kan fravike reglene i kapittel 11 II."
+    ) == [
+        "Kongen kan gjøre unntak for fordringer som nevnt i § 11-8 første ledd bokstav e.",
+        "Slike forskrifter kan fravike reglene i kapittel 11 II.",
+    ]
+
+
+def test_iter_no_document_change_ops_global_text_replace_falls_back_to_lead_base_id() -> None:
+    """W-20: a citation-less global text-replace lead binds to its part's own law.
+
+    The part announces its law once; the replace lead names only a section, so
+    no citation can be harvested from lead or payload. Before the fallback the
+    op was dropped outright.
+    """
+    amendment_xml = """<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="changesToDocuments">
+      <ul><li>lov/2003-12-12-108</li></ul>
+    </dd>
+    <main>
+      <section data-name="del1">
+        <article class="defaultP">I lov 12. desember 2003 nr. 108 om kompensasjon av merverdiavgift for kommuner, fylkeskommuner mv. gjøres følgende endringer:</article>
+        <article class="defaultP">I § 6 første ledd skal ordet «kompensasjon» erstattes med «refusjon».</article>
+      </section>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+    grouped = dict(iter_no_document_change_ops(amendment_xml, "no/lovtid/2025-01-01-1"))
+
+    assert sorted(grouped) == ["no/lov/2003-12-12-108"]
+    (op,) = grouped["no/lov/2003-12-12-108"]
+    assert op.action is StructuralAction.TEXT_PATCH
+    assert op.text_patch is not None
+    assert op.text_patch.selector.match_text == "kompensasjon"
+    assert op.text_patch.replacement == "refusjon"
+    assert "base_act:no/lov/2003-12-12-108" in op.provenance_tags
+    assert "scope:global" in op.provenance_tags
+
+
+def test_iter_no_document_change_ops_global_text_replace_prefers_cited_law_over_lead_base() -> None:
+    """W-20 guard: the fallback only fires when nothing was cited.
+
+    An explicit citation in the replace lead still wins over the part's law, so
+    the fallback cannot capture cross-act replaces that already bound correctly.
+    """
+    amendment_xml = """<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="changesToDocuments">
+      <ul><li>lov/2003-12-12-108</li></ul>
+    </dd>
+    <main>
+      <section data-name="del1">
+        <article class="defaultP">I lov 12. desember 2003 nr. 108 om kompensasjon av merverdiavgift for kommuner, fylkeskommuner mv. gjøres følgende endringer:</article>
+        <article class="defaultP">I lov 8. november 1991 nr. 76 om kommunale eldreråd § 2 skal ordet «kompensasjon» erstattes med «refusjon».</article>
+      </section>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+    grouped = dict(iter_no_document_change_ops(amendment_xml, "no/lovtid/2025-01-01-1"))
+
+    assert sorted(grouped) == ["no/lov/1991-11-08-76"]
+
+
 def test_parse_no_amendment_ops_recovers_malformed_cross_act_target_from_lead_text() -> None:
     xml = """<?xml version="1.0" encoding="utf-8"?>
 <html lang="nb">
@@ -4110,3 +4247,33 @@ def test_no_multi_part_misbinding_witness_stays_pinned() -> None:
         for op in grouped["no/lov/2017-06-16-51"]
         if op.payload is not None
     )
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_finanstilsynsloven_sentence_binding_recovered_by_abbreviation_set() -> None:
+    """W-19 corpus witness: the one genuine binding W-15 lost comes back.
+
+    ``no/lovtid/2016-12-16-91`` amends finanstilsynsloven § 7 first subsection
+    sentences 3 and 4. The payload is a single ``legalP`` whose second sentence
+    cites "... om børsvirksomhet m.m. § 4"; with ``m.m.`` unknown the splitter
+    produced three fragments for two targets and the all-or-nothing family
+    emitted nothing, so ``no/lov/1956-12-07-1`` was not bound by this act.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2016-12-16-91", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    grouped = dict(iter_no_document_change_ops(html_bytes, "no/lovtid/2016-12-16-91"))
+
+    assert "no/lov/1956-12-07-1" in grouped
+    ops = grouped["no/lov/1956-12-07-1"]
+    assert [op.target.path for op in ops] == [
+        (("section", "7"), ("subsection", "1"), ("sentence", "3")),
+        (("section", "7"), ("subsection", "1"), ("sentence", "4")),
+    ]
+    # The fourth sentence is the one the splitter used to tear in half.
+    assert ops[1].payload is not None
+    assert "om børsvirksomhet m.m. § 4" in (ops[1].payload.text or "")
+    assert (ops[1].payload.text or "").endswith("lovbestemte oppgaver.")

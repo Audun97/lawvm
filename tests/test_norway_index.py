@@ -1189,7 +1189,11 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     # two laws (2012-01-27-10, 2021-06-11-79) gained their first bound source
     # with a resolved status. Verified cause-by-cause by the independent
     # reviewer; signed off 2026-08-02.
-    assert len(fully_replayable) == 56
+    # 56 -> 57 at W-20 (citation-less global-replace fallback): 2014-08-15-59
+    # gained its first bound source with a resolved status — the recovered
+    # binding from no/lovtid/2019-05-24-18, the same mechanism as the two
+    # W-15 gains above. Signed off 2026-08-05.
+    assert len(fully_replayable) == 57
 
 
 def test_no_amendment_index_staleness_report_detects_archive_change(tmp_path) -> None:

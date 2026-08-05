@@ -113,7 +113,15 @@ _SPACE_RE = re.compile(r"\s+")
 _SECTION_LABEL_RE = re.compile(r"^\s*§\s*")
 _NUMBERED_SUBSECTION_RE = re.compile(r"^\(\s*(\d+)\s*\)\s*")
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
-_SENTENCE_ABBREVIATIONS = {"jf.", "nr.", "pkt.", "mv.", "osv."}
+# Abbreviations whose trailing period is NOT a sentence end. Every member is
+# corpus-measured: each appears at a split boundary only inside sentences the
+# multi-sentence-target family then mis-counts, and never as a legitimate
+# sentence-final token. ``jfr.``/``m.m.``/``iht.`` were added by W-19 after a
+# corpus sweep found 3 leads whose split arity goes wrong -> right and 0 that go
+# right -> wrong. Single-letter forms are deliberately absent: bare item letters
+# ("bokstav e.", "b.", "g.") DO end sentences in this corpus, so admitting them
+# would flip correct splits.
+_SENTENCE_ABBREVIATIONS = {"jf.", "jfr.", "nr.", "pkt.", "mv.", "m.m.", "iht.", "osv."}
 _CONTINUATION_PUNKTUM_RE = re.compile(
     r"^(?:Første|Fyrste|Andre|Annet|Tredje|Fjerde|Femte|Sjette|Sjuende|Syvende|Åttende|Niende|Tiende)\s+punktum\b",
     re.IGNORECASE,
@@ -1613,6 +1621,14 @@ def _iter_unstructured_no_change_groups(
                 cited_text = _normalize_space(" ".join(str(_t) for _t in node.itertext()))
                 cited_base_ids.extend(_extract_no_law_citation_base_ids(cited_text))
             cited_base_ids = list(dict.fromkeys(cited_base_ids))
+            # W-20: a global text-replace lead that cites no law of its own is
+            # still scoped to the part it sits in. Before W-15 these bound by
+            # accident, on citations harvested from the NEXT part's swallowed
+            # lead -- i.e. to the wrong law. With part boundaries closed there is
+            # no citation left to harvest, so fall back to the lead's own
+            # resolved base act rather than dropping the ops.
+            if not cited_base_ids and lead_base_id is not None:
+                cited_base_ids = [lead_base_id]
             if cited_base_ids:
                 for cited_base_id in cited_base_ids:
                     cited_doc_ops = doc_ops_by_base.setdefault(cited_base_id, [])
