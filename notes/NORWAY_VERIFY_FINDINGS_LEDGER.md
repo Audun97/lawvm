@@ -56,6 +56,14 @@ the 56th (`no/lov/2010-06-25-28`) gained one amendment/op with its
 divergence count unchanged. Corpus divergence total 1,508 → 1,513, all
 +5 from the entering law.
 
+W-17 note (verdicts unmoved, so no new scoreboard row): the 1,513
+divergences now read as `total=1513 (ceiling=1129, unexplained=384)` —
+the annexed-instrument ceiling typed per-row with receipts, conservation
+exact. Ranked by UNEXPLAINED divergences the corpus's top laws are
+`2001-01-05-1` (83, F-09 sparse), `2017-06-16-65` (57) and
+`2013-06-21-102` (55); the three annex laws report 2, 6 and 1
+unexplained rows respectively.
+
 Batch 03 increased coverage rather than changing an existing verdict: all 20
 old rows stayed byte-identical, and 38 laws that had previously been excluded
 for unresolved commencement entered the scan. Their first durable baseline is:
@@ -1092,15 +1100,38 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    converts a latent silent-failure mode into a guaranteed-visible one at
    zero measured cost. F-05's two genuine cases proven byte-identical
    under old and new normalization, now test-pinned shut.
-17. **W-17 (annex families → typed ceiling):** 1,129 divergences (72% of the
-   corpus total) are annexed-instrument representation: `2018-06-15-38`
-   (GDPR, 714 rows under `chapter:gdpr/…`), `2017-06-16-51` (one convention
-   in bokmål+nynorsk, 204 rows), `2006-06-30-50` (SCE Regulation on both
-   sides at different addresses, 211 rows — re-filed from F-09). The
-   consolidation incorporates the instrument; the original-act lane never
-   had it. Record as a typed, receipted ceiling (not repair) so the
-   scoreboard becomes readable — today these three laws drown out every
-   other family.
+17. **W-17 (annex families → typed ceiling):** DONE (`a41b79af4`,
+   2026-08-06). The annexed-instrument family is now a TYPED, RECEIPTED
+   ceiling in the verify lane — rows are annotated, never removed, so
+   `ceiling + unexplained == divergence_count` always and no verdict can
+   move (`classify_no_annex_ceiling` runs after `consistent` and
+   `divergence_count` are final). Two per-row mechanical criteria, both
+   cataloged with specs: `ceiling_annexed_instrument_address` (top step
+   is a chapter whose label is NOT an ordinary legislative label — the
+   four in corpus are `gdpr`, `rdk`, `rdkn`, `v22c` — with the annex
+   token duplicated as a slash prefix on an instrument-article section
+   label, shared-prefix test because bokmål writes `chapter:rdk` /
+   `section:rdke/a1`) and `ceiling_annexed_instrument_counterpart`
+   (present-on-one-side-only row at the CANONICAL address of an article
+   the same law also carries at an annex address; keyed on the witnessed
+   article number, which is what captures the SCE Regulation's 3
+   truncated Article-80 signature subsections; MISMATCH excluded — a
+   wording difference between the two copies stays unexplained;
+   self-limiting — no annex witness, nothing typed). Measured capture:
+   1,129 of 1,513 — EXACTLY the W-6 triage's number — as `2018-06-15-38`
+   716 = 714 + 2, `2017-06-16-51` 210 = 204 + 6, `2006-06-30-50` 212 =
+   211 (104 address + 107 counterpart) + 1, zero rows typed in the other
+   54 laws (negative-control-pinned on `2001-01-05-1` and
+   `2013-06-21-102`). Verdicts 21/36/0 unchanged, all 57 rows
+   byte-identical on every pre-existing field; scan/partition output
+   gains `divergence_totals` and `ceiling_rule_counts` conservation
+   receipts. Payoff: top laws by UNEXPLAINED divergences are now
+   `2001-01-05-1` 83, `2017-06-16-65` 57, `2013-06-21-102` 55 — the
+   annex laws no longer drown the scoreboard. Found alongside, recorded:
+   `2006-06-30-50`'s single unexplained row (§11a(1), an unlowered
+   forskrift-hjemmel present in replay, absent from published) is that
+   law's whole actionable surface — 211 of its 212 are ceiling; and the
+   `sparse_indexed_history` mis-routing became W-23.
 18. **W-18 (F-07 → Rettelser lowering):** lower published `Det som er
    rettet` errata blocks (canonical amending grammar, 25 artifacts
    corpus-wide, 23 operative). Payoff today: 1 divergence,
@@ -1167,6 +1198,17 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    fragments for 2 targets, a 4th arity recovery left on the table. Fix:
    `first_token.strip(".,;:")` plus a corpus re-sweep to confirm no split
    flips right → wrong.
+23. **W-23 (`sparse_indexed_history` mis-routes the partition, measured
+   contradiction):** the signal flags 4 laws, and 2 of them
+   (`2018-06-15-38`, `2006-06-30-50`) are ≥99.5% annex ceiling by W-17's
+   measurement — yet `build_no_verify_partition` routes on
+   `source_signal` before anything else, so those two land in
+   `source_sparse` while `2017-06-16-51` (identical cause, no signal)
+   lands elsewhere: the same family split across partition buckets.
+   Candidate fix is routing on W-17's `unexplained_divergence_count`
+   (e.g. annex-ceiling-dominated laws route by their unexplained residue,
+   not the over-firing signal), but that CHANGES partition membership, so
+   it needs its own measured pass — the W-17 fixer deliberately left it.
 
 ## 5. Demo / Inspection Tooling
 
@@ -1184,6 +1226,34 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-06 (W-17 applied)** — **The corpus's dominant divergence
+  family — annexed-instrument representation, 72% — is now a typed,
+  receipted ceiling, and the scoreboard is readable** (`a41b79af4`).
+  Purely additive in the verify lane: `classify_no_annex_ceiling` runs
+  AFTER a law's verdict and divergence count are final, annotating rows
+  rather than removing them, so `ceiling + unexplained ==
+  divergence_count` by construction (the F-05 rule made structural). Two
+  mechanical per-row criteria, both spec-cataloged: the annex-address
+  shape (non-legislative top chapter label + token-prefixed
+  instrument-article section label, shared-prefix agreement for bokmål's
+  `rdk`/`rdke`) and the counterpart shape (one-side-only row at the
+  canonical address of an annex-witnessed article; keyed on article
+  number, which is exactly what reaches the SCE Regulation's 3 truncated
+  Article-80 signature rows — the whole 1,126 → 1,129 gap; MISMATCH
+  stays unexplained). Capture: 1,129/1,513, the W-6 triage's number
+  reproduced exactly — `2018-06-15-38` 714, `2017-06-16-51` 204,
+  `2006-06-30-50` 211 — zero rows in the other 54 laws
+  (negative-control-pinned). Verdicts 21/36/0 and all 57 pre-existing
+  row fields byte-identical; scan and partition reports carry
+  `divergence_totals` + `ceiling_rule_counts` conservation receipts; 11
+  new tests incl. a corpus pin of every per-law/per-rule count. Found
+  alongside: `2006-06-30-50`'s actionable surface is ONE row (§11a(1)
+  unlowered forskrift-hjemmel); `sparse_indexed_history` mis-routing
+  measured into a contradiction (→ **W-23**); worktree venv drift
+  (`pillow`/`pypdfium2` in the main venv but not `pyproject.toml`, fails
+  a fresh worktree's `ty` on clean base — infra, unfixed); norway CI
+  shard at 427 s vs 21 s (imbalance 359, split candidate).
 
 - **2026-08-05 (W-19 + W-20 applied)** — **The two W-15 casualties are
   repaired: the sentence splitter knows `jfr.`/`m.m.`/`iht.`, and
