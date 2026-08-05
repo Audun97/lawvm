@@ -7,14 +7,18 @@ from lawvm.core.ir_helpers import irnode_to_text
 
 import io
 import tarfile
+
+import pytest
 from types import SimpleNamespace
 
 from lawvm.core.ir import IRNode
 from lawvm.core.semantic_types import IRNodeKind
 from lawvm.core.timeline import ingest_consolidated, verify_consistency
 from lawvm.core.timeline_consistency import ConsistencyDivergence
-from lawvm.norway.sources import ingest_no_public_archives
+from lawvm.norway.sources import ingest_no_public_archives, resolve_no_source_path
 from lawvm.norway.verify import (
+    NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_ADDRESS,
+    NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_COUNTERPART,
     NO_VERIFY_COMPARE_CONTINGENT_OTHER_LAWS_PLACEHOLDER_SUPPRESSED,
     NO_VERIFY_COMPARE_DEFINITION_SUBSECTION_PAIRS_COLLAPSED,
     NO_VERIFY_COMPARE_NESTED_ITEM_TAIL_SUPPRESSED,
@@ -22,6 +26,7 @@ from lawvm.norway.verify import (
     NO_VERIFY_COMPARE_REPEALED_SHELL_BLANKED,
     NO_VERIFY_COMPARE_SELF_SECTION_SHELL_BLANKED,
     NO_VERIFY_COMPARE_SENTENCE_CHILDREN_COLLAPSED,
+    classify_no_annex_ceiling,
     _infer_no_source_signal,
     _no_base_year,
     _no_compare_child_path,
@@ -1690,6 +1695,371 @@ def test_primary_divergence_partition_does_not_pair_annex_prefix_when_paths_equa
     assert all(
         row.rule_id != "no_verify.annex_prefixed_relocation_pair" for row in partition.filtered
     )
+
+
+# --- W-17: annexed-instrument representation ceiling ------------------------
+#
+# The classifier TYPES rows; it never removes them. Every test below therefore
+# also asserts that the input divergences are still divergences — a regression
+# that turned the ceiling into a filter would make the three affected laws go
+# spuriously consistent, exactly the masking failure F-05 forbids.
+
+
+def _no_div(path, divergence_type, ops_text="", consolidated_text="") -> ConsistencyDivergence:
+    return ConsistencyDivergence(
+        address=LegalAddress(path=tuple(path)),
+        divergence_type=divergence_type,
+        ops_text=ops_text,
+        consolidated_text=consolidated_text,
+    )
+
+
+def test_annex_ceiling_types_gdpr_annex_chapter_rows() -> None:
+    # Positive, no/lov/2018-06-15-38 (personopplysningsloven): Lovdata prints
+    # the whole GDPR as chapter:gdpr and duplicates the token onto the section
+    # label. 714 rows of the corpus have exactly this shape.
+    divergence = _no_div(
+        (("chapter", "gdpr"), ("chapter", "I"), ("section", "gdpr/a1"), ("subsection", "1")),
+        "OPS_MISSING",
+        consolidated_text="1. Denne forordning fastsetter regler om vern av fysiske personer.",
+    )
+
+    typed = classify_no_annex_ceiling([divergence])
+
+    assert len(typed) == 1
+    assert typed[0].rule_id == NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_ADDRESS
+    assert (typed[0].annex_token, typed[0].article) == ("gdpr", "1")
+    # Typed, not removed: the receipt points back at the same divergence.
+    assert typed[0].divergence is divergence
+
+
+def test_annex_ceiling_types_both_language_versions_of_one_convention() -> None:
+    # Positive, no/lov/2017-06-16-51: the SAME convention is annexed twice,
+    # bokmål under chapter:rdk (section token ``rdke``) and nynorsk under
+    # chapter:rdkn (section token ``rdkn``), 102 rows each. The bokmål half is
+    # why the token agreement is a shared-prefix test and not equality:
+    # ``rdke`` extends ``rdk``. The nynorsk half additionally proves the
+    # container step below the annex chapter may be a ``part``, not a
+    # ``chapter`` — the rule only constrains the top step and the section.
+    bokmal = _no_div(
+        (("chapter", "rdk"), ("chapter", "I"), ("section", "rdke/a1"), ("subsection", "1")),
+        "OPS_MISSING",
+        consolidated_text="1. In this Convention, the term «racial discrimination» shall mean …",
+    )
+    nynorsk = _no_div(
+        (("chapter", "rdkn"), ("part", "9-1"), ("section", "rdkn/a1"), ("subsection", "1")),
+        "OPS_MISSING",
+        consolidated_text="1. I denne konvensjonen tyder «rasediskriminering» …",
+    )
+
+    typed = classify_no_annex_ceiling([bokmal, nynorsk])
+
+    assert [record.rule_id for record in typed] == [
+        NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_ADDRESS,
+        NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_ADDRESS,
+    ]
+    assert [record.annex_token for record in typed] == ["rdk", "rdkn"]
+
+
+def test_annex_ceiling_types_both_sides_of_a_twice_addressed_instrument() -> None:
+    # Positive, no/lov/2006-06-30-50 (SCE-loven): the SCE Regulation is present
+    # on BOTH sides at different addresses — replay in the chapter body
+    # (chapter:1/…/section:a1), published in the annex (chapter:v22c/…/
+    # section:v22c/a1). The annex row is typed by address; the canonical row is
+    # typed as its counterpart and carries the annex address as its witness.
+    annexed = _no_div(
+        (("chapter", "v22c"), ("chapter", "I"), ("section", "v22c/a1"), ("subsection", "1")),
+        "OPS_MISSING",
+        consolidated_text="1. Det kan stiftes samvirkeforetak [EØS] på Fellesskapets territorium.",
+    )
+    canonical = _no_div(
+        (("chapter", "1"), ("chapter", "I"), ("section", "a1"), ("subsection", "1")),
+        "CONSOLIDATED_MISSING",
+        ops_text="1. Det kan stiftes samvirkeforetak på Fellesskapets territorium.",
+    )
+
+    typed = classify_no_annex_ceiling([annexed, canonical])
+
+    assert [record.rule_id for record in typed] == [
+        NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_ADDRESS,
+        NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_COUNTERPART,
+    ]
+    assert typed[1].witness_address == tuple(annexed.address.path)
+    assert typed[1].article == "1"
+
+
+def test_annex_ceiling_counterpart_covers_truncated_annex_article_tail() -> None:
+    # Positive, no/lov/2006-06-30-50 Article 80: the published annex truncates
+    # the Regulation's closing signature block, so replay's subsections 5-7
+    # ("For Rådet" / "G. ALEMANNO" / "Formann") have no annex row at the SAME
+    # normalized address — only subsection 3 does. The counterpart rule keys on
+    # the witnessed ARTICLE, not the full address, so all three are typed. This
+    # is the whole difference between the 1,126 an address-pairing rule reaches
+    # and the 1,129 the W-6 triage measured.
+    witness = _no_div(
+        (("chapter", "v22c"), ("chapter", "IX"), ("section", "v22c/a80"), ("subsection", "3")),
+        "OPS_MISSING",
+        consolidated_text="Utferdiget i Brussel.",
+    )
+    tail = [
+        _no_div(
+            (("chapter", "1"), ("chapter", "IX"), ("section", "a80"), ("subsection", str(n))),
+            "CONSOLIDATED_MISSING",
+            ops_text=text,
+        )
+        for n, text in ((5, "For Rådet"), (6, "G. ALEMANNO"), (7, "Formann"))
+    ]
+
+    typed = classify_no_annex_ceiling([witness, *tail])
+
+    assert len(typed) == 4
+    assert [record.rule_id for record in typed[1:]] == [
+        NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_COUNTERPART
+    ] * 3
+
+
+def test_annex_ceiling_does_not_type_ordinary_divergences_of_the_same_laws() -> None:
+    # §2.9 paired negative: the three annex laws also carry ordinary
+    # divergences, and those must stay unexplained. All three rows below are
+    # real corpus rows from the very laws the ceiling covers —
+    # 2018-06-15-38 §11(1) (§§ vs § § compare noise), 2017-06-16-51 §26(3)
+    # (subsection-boundary shift) and 2006-06-30-50 §11a(1) (sparse source).
+    # A rule that keyed on the law rather than the row would swallow them.
+    rows = [
+        _no_div(
+            (("chapter", "3"), ("section", "11"), ("subsection", "1")),
+            "MISMATCH",
+            ops_text="… samt §§ 6, 7 og 9 i loven her gjelder tilsvarende.",
+            consolidated_text="… samt § § 6, 7 og 9 i loven her gjelder tilsvarende.",
+        ),
+        _no_div(
+            (("chapter", "4"), ("section", "26"), ("subsection", "3")),
+            "MISMATCH",
+            ops_text="Det samme gjelder arbeidsgiver i private virksomheter …",
+            consolidated_text="Med ufrivillig deltidsarbeid menes deltidsarbeid …",
+        ),
+        _no_div(
+            (("section", "11a"), ("subsection", "1")),
+            "CONSOLIDATED_MISSING",
+            ops_text="Departementet kan gi forskrift for å gjennomføre forpliktelser …",
+        ),
+    ]
+
+    assert classify_no_annex_ceiling(rows) == ()
+
+
+def test_annex_ceiling_counterpart_is_self_limiting_without_an_annex_witness() -> None:
+    # §2.9 paired negative for no_verify.ceiling_annexed_instrument_counterpart:
+    # an article-shaped section label alone is NOT enough. Without a row of the
+    # same law at an annex address for that article number, nothing is typed —
+    # so the rule can never reach a law that annexes no instrument, and it can
+    # never reach an article the annex does not witness.
+    orphan = _no_div(
+        (("chapter", "1"), ("chapter", "I"), ("section", "a1"), ("subsection", "1")),
+        "CONSOLIDATED_MISSING",
+        ops_text="1. Det kan stiftes samvirkeforetak på Fellesskapets territorium.",
+    )
+    wrong_article = _no_div(
+        (("chapter", "v22c"), ("chapter", "I"), ("section", "v22c/a2"), ("subsection", "1")),
+        "OPS_MISSING",
+        consolidated_text="2. Noe annet.",
+    )
+
+    typed = classify_no_annex_ceiling([orphan])
+    assert typed == ()
+
+    # Witnessing a DIFFERENT article does not carry the orphan either.
+    typed = classify_no_annex_ceiling([orphan, wrong_article])
+    assert [record.rule_id for record in typed] == [NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_ADDRESS]
+    assert typed[0].divergence is wrong_article
+
+
+def test_annex_ceiling_counterpart_does_not_explain_a_text_mismatch() -> None:
+    # §2.9 paired negative: the counterpart rule explains a provision that is
+    # present on ONE side only — the shape a two-address representation makes.
+    # A MISMATCH at a canonical article address means the two copies of the
+    # instrument disagree in WORDING, which the annex ceiling does not explain,
+    # so it must stay unexplained and visible.
+    witness = _no_div(
+        (("chapter", "v22c"), ("chapter", "I"), ("section", "v22c/a1"), ("subsection", "1")),
+        "OPS_MISSING",
+        consolidated_text="1. Det kan stiftes samvirkeforetak.",
+    )
+    wording_conflict = _no_div(
+        (("chapter", "1"), ("chapter", "I"), ("section", "a1"), ("subsection", "1")),
+        "MISMATCH",
+        ops_text="1. Det kan stiftes samvirkeforetak.",
+        consolidated_text="1. Det kan ikke stiftes samvirkeforetak.",
+    )
+
+    typed = classify_no_annex_ceiling([witness, wording_conflict])
+
+    assert [record.rule_id for record in typed] == [NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_ADDRESS]
+
+
+def test_annex_ceiling_address_rule_requires_the_duplicated_annex_token() -> None:
+    # §2.9 paired negative for no_verify.ceiling_annexed_instrument_address:
+    # each half of the Lovdata annex encoding is load-bearing. A non-ordinary
+    # chapter label with an unprefixed or disagreeing section token, and an
+    # ordinary (decimal or roman) chapter label, all fail to type.
+    unprefixed_section = _no_div(
+        (("chapter", "gdpr"), ("chapter", "I"), ("section", "a1"), ("subsection", "1")),
+        "OPS_MISSING",
+        consolidated_text="Tekst.",
+    )
+    disagreeing_token = _no_div(
+        (("chapter", "gdpr"), ("chapter", "I"), ("section", "xyz/a1"), ("subsection", "1")),
+        "OPS_MISSING",
+        consolidated_text="Tekst.",
+    )
+    non_article_section = _no_div(
+        (("chapter", "gdpr"), ("chapter", "I"), ("section", "gdpr/11a"), ("subsection", "1")),
+        "OPS_MISSING",
+        consolidated_text="Tekst.",
+    )
+    roman_body_chapter = _no_div(
+        (("chapter", "IV"), ("section", "a1"), ("subsection", "1")),
+        "OPS_MISSING",
+        consolidated_text="Tekst.",
+    )
+    decimal_body_chapter = _no_div(
+        (("chapter", "10a"), ("section", "a1"), ("subsection", "1")),
+        "OPS_MISSING",
+        consolidated_text="Tekst.",
+    )
+
+    assert classify_no_annex_ceiling(
+        [
+            unprefixed_section,
+            disagreeing_token,
+            non_article_section,
+            roman_body_chapter,
+            decimal_body_chapter,
+        ]
+    ) == ()
+
+
+def test_annex_ceiling_conserves_the_divergence_total_and_the_verdict(tmp_path) -> None:
+    # The conservation contract, on a synthetic law whose replay lane is
+    # complete and whose current text carries an annex chapter: the ceiling
+    # types the annex rows but the law still reports divergent, and
+    # ceiling + unexplained reproduces divergence_count exactly.
+    # The consolidation carries an annex chapter that the enacting act never
+    # had, plus one ordinary text drift the ceiling must NOT explain.
+    annex_current = _CURRENT_DIVERGENT_XML.replace(
+        b"    </main>",
+        b"""      <section class="section" data-name="gdpr" data-lovdata-URL="NL/lov/2025-01-01-1/KAPITTEL_gdpr">
+        <h2>Vedlegg. Forordningen</h2>
+        <article class="legalArticle" data-name="gdpr/a1" data-lovdata-URL="NL/lov/2025-01-01-1/KAPITTEL_gdpr/gdpr/a1">
+          <h3 class="legalArticleHeader">Artikkel 1. Formaal</h3>
+          <article class="legalP" id="ledd1">1. Denne forordning fastsetter regler.</article>
+        </article>
+      </section>
+    </main>""",
+    )
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2001-2025.tar.bz2",
+        [
+            ("lti/2025/nl-20250101-001.xml", _BASE_XML),
+            ("lti/2025/nl-20250202-005.xml", _amendment_xml()),
+        ],
+    )
+    _write_archive(
+        tmp_path / "gjeldende-lover.tar.bz2",
+        [("nl/nl-20250101-001.xml", annex_current)],
+    )
+
+    result = verify_no_against_current("no/lov/2025-01-01-1", as_of="2025-02-15", data_dir=tmp_path)
+
+    assert result.error is None
+    # The verdict does NOT move: a typed row is still a divergence.
+    assert result.consistent is False
+    assert result.ceiling_divergence_count > 0
+    assert (
+        result.ceiling_divergence_count + result.unexplained_divergence_count
+        == result.divergence_count
+    )
+    assert len(result.divergences or []) == result.divergence_count
+    assert set(result.ceiling_divergence_rule_counts or {}) == {
+        NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_ADDRESS
+    }
+    # The receipt is carried out of the lane, per-row, with its criterion named.
+    receipt = (result.ceiling_divergences or [])[0].to_dict()
+    assert receipt["family"] == "annexed_instrument_representation"
+    assert receipt["annex_token"] == "gdpr"
+
+
+def test_annex_ceiling_corpus_counts_are_pinned() -> None:
+    """The measured capture set, asserted against the corpus rather than a fixture.
+
+    W-17's claim is a NUMBER: 1,129 of the 1,513 provision-level divergences in
+    the 57-law scan at as-of 2026-07-10 are annexed-instrument representation,
+    reproducing the W-6 triage's hand-verified count exactly (918
+    annex-consolidation-only + 211 annex-address-and-eea-adaptation). The pin
+    below asserts it per law and per rule, together with the two properties the
+    typing must never break: the three laws' divergence counts do not move, and
+    the two largest non-annex divergent laws stay wholly unexplained.
+    """
+    data_dir = resolve_no_source_path(None)
+    if not data_dir.exists():
+        pytest.skip("local Norway corpus is not installed")
+
+    report = build_no_verify_scan(
+        as_of="2026-07-10",
+        data_dir=data_dir,
+        limit=200,
+        base_ids=[
+            "no/lov/2018-06-15-38",
+            "no/lov/2017-06-16-51",
+            "no/lov/2006-06-30-50",
+            # Negative controls: the two largest divergent laws that annex
+            # nothing. Neither criterion may reach a single one of their rows.
+            "no/lov/2001-01-05-1",
+            "no/lov/2013-06-21-102",
+        ],
+    )
+    if report["scanned_count"] == 0:
+        pytest.skip("local Norway corpus is not installed")
+    rows = {item["base_id"]: item for item in report["results"]}
+    assert set(rows) == {
+        "no/lov/2018-06-15-38",
+        "no/lov/2017-06-16-51",
+        "no/lov/2006-06-30-50",
+        "no/lov/2001-01-05-1",
+        "no/lov/2013-06-21-102",
+    }
+
+    address = NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_ADDRESS
+    counterpart = NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_COUNTERPART
+    # (divergence_count, ceiling, unexplained, per-rule ceiling counts)
+    expected = {
+        # personopplysningsloven: the GDPR under chapter:gdpr. The 2 unexplained
+        # are the §§-vs-§ § compare noise at §11(1) and §31(1).
+        "no/lov/2018-06-15-38": (716, 714, 2, {address: 714}),
+        # One convention annexed twice, bokmål (102) + nynorsk (102). The 6
+        # unexplained are the §26 subsection-boundary shift family.
+        "no/lov/2017-06-16-51": (210, 204, 6, {address: 204}),
+        # SCE-loven: the SCE Regulation on BOTH sides. 104 annex-address rows
+        # and 107 canonical counterparts (104 pairing 1:1 with an annex-address
+        # row, plus Article 80's 3 truncated signature subsections). The 1
+        # unexplained is §11a(1), a genuine unlowered provision.
+        "no/lov/2006-06-30-50": (212, 211, 1, {address: 104, counterpart: 107}),
+        "no/lov/2001-01-05-1": (83, 0, 83, {}),
+        "no/lov/2013-06-21-102": (55, 0, 55, {}),
+    }
+    for base_id, (total, ceiling, unexplained, rule_counts) in expected.items():
+        row = rows[base_id]
+        assert row["divergence_count"] == total, base_id
+        assert row["ceiling_divergence_count"] == ceiling, base_id
+        assert row["unexplained_divergence_count"] == unexplained, base_id
+        assert row["ceiling_divergence_rule_counts"] == rule_counts, base_id
+        # Conservation, per law: nothing was deleted from either side.
+        assert ceiling + unexplained == total, base_id
+
+    # The whole family, corpus-wide: 1,022 + 107 = 1,129, and every one of them
+    # belongs to one of the three annexing laws.
+    assert report["ceiling_rule_counts"] == {address: 1022, counterpart: 107}
+    assert report["divergence_totals"]["ceiling"] == 1129
 
 
 def test_verify_no_against_current_ignores_section_heading_only_drift(tmp_path) -> None:

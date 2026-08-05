@@ -563,6 +563,52 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "no_verify.chapter_relocation_pair, which pairs provisionally-"
         "relocated provisions whose section labels match exactly."
     ),
+    # The three label lexers the annexed-instrument ceiling is built from.
+    # Bounded structural matchers over an address LABEL (never over prose), so
+    # they carry no legal claim of their own — they are cataloged because
+    # ``compile_classifier_regex``'s ``classifier_id`` is statically
+    # discoverable, and the shape each one accepts is the load-bearing part.
+    "no_verify.annex_body_chapter_label": (
+        "Recognizes an ORDINARY Norwegian legislative chapter label — decimal "
+        "(3, 10a) or roman (IV). A top-level chapter label that fails this "
+        "match is Lovdata's annex token for an incorporated instrument, which "
+        "is how the annexed-instrument ceiling tells an annex chapter from the "
+        "enacting law's own body."
+    ),
+    "no_verify.annex_article_label": (
+        "Recognizes an annexed instrument's article label as Lovdata addresses "
+        "it (a1 … a99). Norwegian section labels never take this form (they "
+        "are 11, 11a, 3-3c), so the shape separates an instrument article from "
+        "a section of the enacting law."
+    ),
+    "no_verify.annex_section_token": (
+        "Recognizes the annex token when it prefixes an article label "
+        "(the gdpr in gdpr/a1, the v22c in v22c/a80). Split off from the "
+        "article label with a one-shot partition so no optional prefix group "
+        "wraps a quantifier."
+    ),
+    "no_verify.ceiling_annexed_instrument_address": (
+        "A Norway divergence whose address sits inside a Lovdata annex chapter "
+        "carrying an incorporated international instrument (the chapter label "
+        "is the annex token and the section label is that token plus an "
+        "instrument article, e.g. chapter:gdpr/section:gdpr/a1) is typed as "
+        "the annexed-instrument representation ceiling: the consolidation "
+        "prints the instrument in full and the original-act replay lane never "
+        "had it. The row is NOT suppressed — it stays a counted divergence "
+        "and the verdict is unchanged; the receipt only lets the scoreboard "
+        "report annex and non-annex divergences separately."
+    ),
+    "no_verify.ceiling_annexed_instrument_counterpart": (
+        "A Norway present-on-one-side-only divergence at the canonical-body "
+        "address of an instrument article that the SAME law also carries at "
+        "an annex address (e.g. chapter:1/section:a80 against the witnessed "
+        "chapter:v22c/section:v22c/a80) is typed as the counterpart half of "
+        "the annexed-instrument representation ceiling: the instrument is "
+        "represented twice at two addresses, so each copy reads as missing "
+        "from the other side. Self-limiting — with no witnessing annex-address "
+        "row for that article the rule cannot fire. Like its sibling it types "
+        "rather than suppresses, so no verdict moves."
+    ),
     "no_verify.prefix_descendant_suppressed": (
         "A Norway divergence whose address is a strict prefix of another raw "
         "divergence address is suppressed on the primary surface (the more "

@@ -57,11 +57,32 @@ def main(args: "argparse.Namespace") -> None:
             "  source signals  : "
             + ", ".join(f"{k}={v}" for k, v in sorted(signal_counts.items()))
         )
+    totals = report.get("divergence_totals", {})
+    if totals:
+        print(
+            f"  divergences     : total={totals.get('total', 0)} "
+            f"(ceiling={totals.get('ceiling', 0)}, "
+            f"unexplained={totals.get('unexplained', 0)})"
+        )
+    ceiling_rules = report.get("ceiling_rule_counts", {})
+    if ceiling_rules:
+        print(
+            "  ceiling rules   : "
+            + ", ".join(f"{k}={v}" for k, v in sorted(ceiling_rules.items()))
+        )
     for item in report["results"]:
         tail = f" | error={item['error']}" if item["error"] else ""
         signal = f" | source_signal={item['source_signal']}" if item["source_signal"] else ""
+        # The ceiling split is only printed for the laws that have one, so the
+        # scan row of an unaffected law reads exactly as it did before W-17.
+        ceiling = (
+            f" | ceiling={item['ceiling_divergence_count']}"
+            f" | unexplained={item['unexplained_divergence_count']}"
+            if item.get("ceiling_divergence_count")
+            else ""
+        )
         print(
             f"    {item['base_id']} | consistent={item['consistent']} | "
-            f"divergences={item['divergence_count']} | amendments={item['amendment_count']} | "
+            f"divergences={item['divergence_count']}{ceiling} | amendments={item['amendment_count']} | "
             f"ops={item['replay_op_count']}{signal}{tail}"
         )
