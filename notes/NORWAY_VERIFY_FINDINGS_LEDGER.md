@@ -37,6 +37,7 @@ consolidation; every class below is evidence to triage, not a repair license.
 | **2026-07-10, after batch 03 (all 58)** | **18** | **40** | 0 |
 | **2026-07-10, after batch 04 (all 58, byte-identical rows)** | **18** | **40** | 0 |
 | **2026-07-10, after W-15 (56 candidates; see caveat)** | **21** | **35** | 0 |
+| **2026-07-10, after W-19/W-20 (57 candidates; see note)** | **21** | **36** | 0 |
 
 W-15 commensurability caveat: the candidate set moved 58 → 56, so the 21/35
 row is not row-for-row comparable with the 18/40 row above. On the 54 laws
@@ -47,6 +48,13 @@ previously-divergent laws (58 divergences between them) left the candidate
 set because they gained a newly-bound, correctly-cited amending act with
 contingent commencement — unresolved, not repaired — and two laws entered
 (`2012-01-27-10` consistent, `2021-06-11-79` at 4).
+
+W-19/W-20 note: the candidate set moved 56 → 57 — `no/lov/2014-08-15-59`
+entered divergent at 5 via its recovered sole binding (W-20 fallback, from
+`no/lovtid/2019-05-24-18`). 55 of the 56 shared rows are byte-identical;
+the 56th (`no/lov/2010-06-25-28`) gained one amendment/op with its
+divergence count unchanged. Corpus divergence total 1,508 → 1,513, all
++5 from the entering law.
 
 Batch 03 increased coverage rather than changing an existing verdict: all 20
 old rows stayed byte-identical, and 38 laws that had previously been excluded
@@ -1098,26 +1106,67 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    corpus-wide, 23 operative). Payoff today: 1 divergence,
    `no/lov/2020-12-18-156` goes consistent. Regression gate:
    `no/lovtid/2022-05-12-28`'s law is currently consistent and must stay so.
-19. **W-19 (`_split_no_sentences` is abbreviation-unaware, small):**
-   sentence splitting does not know Norwegian legal abbreviations, so e.g.
-   "jfr." and "m.m. § 4, verdipapirregister …" over-split, breaking the
-   all-or-nothing multi-sentence-target family's arity check. Exposed (not
-   created) by W-15: 2 corpus casualties, `no/lovtid/2021-12-22-166` §25(1)
-   s2 and `no/lovtid/2016-12-16-91` §7(1) s3 (the latter the one genuine
-   binding W-15 lost, finanstilsynsloven). In the same 21-lead family the
-   splitter arity is correct in 19, where W-15 improved the ops. Fix: teach
-   `_SENTENCE_ABBREVIATIONS` the missing forms; likely recovers a handful
-   of ops corpus-wide.
-20. **W-20 (global-text-replace branch ignores `lead_base_id`, one-liner):**
-   `_extract_no_global_text_replace_pairs` binds only from citations
-   harvested from lead+payload, never falling back to the part's resolved
-   law. W-15's boundary closure removed its accidental citation source, so
-   6 ops drop rather than re-bind (`2014-06-20-24` ×4, `2018-12-20-113` ×1
-   — both previously misbound to the NEXT part's law, so dropping is a net
-   correctness win — and `2005-12-16-118` ×1, a genuine loss: its correct
-   binding to `no/lov/2005-04-29-21` existed before). Fix per reviewer:
-   fall back to `lead_base_id` when `cited_base_ids` is empty; re-measure
-   the scan on landing.
+19. **W-19 (`_split_no_sentences` is abbreviation-unaware):** DONE
+   (`4c9e88757`, 2026-08-05, landed jointly with W-20). Added `jfr.`,
+   `m.m.`, `iht.` to `_SENTENCE_ABBREVIATIONS`. Corpus sweep over all
+   leads: exactly 3 splits change, all arity wrong → right — the two
+   ledger casualties (`2021-12-22-166` §25(1) via `jfr.`;
+   `2016-12-16-91` §7(1) via `m.m.`, recovering the one genuine binding
+   W-15 lost — finanstilsynsloven `1956-12-07-1` sentences 3–4) plus a
+   THIRD recovery the sweep found that was not in the ledger:
+   `2022-02-18-5` §19-7(3) → forsikringsavtaleloven `1989-06-16-69` (via
+   `iht.`). 0 splits go right → wrong; all three forms measured to have
+   zero legitimate sentence-final uses in the corpus. Single-letter forms
+   (`b.`, `e.`, `g.` …) deliberately excluded — bare item letters DO end
+   sentences (witness `2016-12-16-91` §11-15 "… bokstav e.") — and
+   guard-tested. Replay-side blast radius: 275 of 91,447 texts (0.30%), 4
+   in scan candidates, zero scan rows moved.
+20. **W-20 (global-text-replace branch ignores `lead_base_id`):** DONE
+   (`4c9e88757`, 2026-08-05). Five-line fallback in
+   `_iter_unstructured_no_change_groups`: when a global text-replace lead
+   cites no law of its own, bind to the part's resolved `lead_base_id`
+   instead of dropping the ops. Scale signed off 2026-08-05: 60 ops, not
+   6 — the fallback also emits 55 ops that never existed (classified
+   against a pre-W-15 dump: 4 REBIND, 1 RESTORE, 55 NEW); 25 of 26
+   (part, act) pairs bind to a declared change target and pass a
+   part-announcement check. All three ledger-named acts verified
+   op-by-op: `2014-06-20-24` ×4 and `2018-12-20-113` now on their own
+   parts' laws; `2005-12-16-118` returns to `no/lov/2005-04-29-21`. ONE
+   stop condition fired, verified, and signed off 2026-08-05: 6 inert ops
+   bind `2009-06-19-74` → `1975-06-13-39` (utleveringsloven) on a
+   `lead_base_id` that is wrong from a PRE-EXISTING inference defect (→
+   W-21, not narrowed here); measured harm zero — all 6 `match_text`
+   values absent from both original-LTI and current text, and the law is
+   not a scan candidate. Combined W-19+W-20 corpus effect: ops 25,021 →
+   25,087 (+66, 0 removed); bindings 5,736 → 5,742 (+6, 0 lost); lost
+   (part, act) pairs 361 → 356 (0 newly lost); status distribution and
+   coverage partition identical. Scan 56/21/35/1508 → 57/21/36/1513, both
+   movements traced: `2014-08-15-59` enters divergent at 5 via its
+   recovered sole binding (from `2019-05-24-18`), moving the
+   `fully_replayable` pin 56 → 57 (authorized, explained in-place), and
+   `2010-06-25-28` gains one amendment/op with divergences unchanged; 55
+   of 56 shared rows byte-identical.
+21. **W-21 (`_infer_no_unstructured_section_base_id` misses the
+   "Lov <date> nr. N om X endres slik:" lead form):** root cause behind
+   W-20's signed-off inert ops. In `no/lovtid/2009-06-19-74` the part
+   announces "Lov 20. mai 2005 nr. 28 om straff endres slik:", but the
+   inferrer doesn't recognise that lead form and falls through to a
+   nested consequential item deep inside new §412 text, resolving
+   `1975-06-13-39` (utleveringsloven). That wrong binding already carries
+   19 structural ops at base plus W-20's 6 inert ops, while the correct
+   target `2005-05-20-28` is bound by zero ops. Teaching the inferrer the
+   lead form auto-corrects all 25. A narrower interim guard ("fall back
+   only when `lead_base_id` is a declared change target", which separates
+   25/26 pairs) was considered and rejected: it needs declared targets
+   plumbed into the grafter — machinery this fix would obsolete.
+22. **W-22 (month-token punctuation in the splitter's day-number guard,
+   small):** found by the W-19 sweep. The guard tests
+   `first_token in _NORWEGIAN_MONTHS` without stripping trailing
+   punctuation, so a date whose month token carries `,` or `.` fails the
+   guard and the sentence still over-splits — one lead measured at 5
+   fragments for 2 targets, a 4th arity recovery left on the table. Fix:
+   `first_token.strip(".,;:")` plus a corpus re-sweep to confirm no split
+   flips right → wrong.
 
 ## 5. Demo / Inspection Tooling
 
@@ -1136,6 +1185,26 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
 
+- **2026-08-05 (W-19 + W-20 applied)** — **The two W-15 casualties are
+  repaired: the sentence splitter knows `jfr.`/`m.m.`/`iht.`, and
+  citation-less global text-replace leads bind to their own part's law
+  instead of dropping** (`4c9e88757`). W-19's corpus sweep found
+  exactly 3 splits change, all arity wrong → right, including a third
+  recovery not in the ledger (`2022-02-18-5` → forsikringsavtaleloven,
+  via `iht.`); single-letter forms measured as legitimate sentence-enders
+  and excluded with a guard test; replay-side blast radius 275/91,447
+  texts with zero scan rows moved. W-20's five-line `lead_base_id`
+  fallback emits 60 ops (4 REBIND / 1 RESTORE / 55 NEW against a pre-W-15
+  dump); all three ledger-named acts verified op-by-op, with
+  `2005-12-16-118`'s genuine loss returning to `no/lov/2005-04-29-21`.
+  One stop condition fired and was signed off: 6 harm-free inert ops on
+  `2009-06-19-74` → utleveringsloven, wrong via a pre-existing
+  lead-inference defect — opened as **W-21** rather than narrowed here; a
+  month-token punctuation defect from the same sweep opened as **W-22**.
+  Net: ops +66/−0, bindings +6/−0, lost pairs 361 → 356, partition and
+  status distribution unmoved, scan 56/21/35/1508 → 57/21/36/1513 with
+  both movements traced; `fully_replayable` pin 56 → 57 (authorized,
+  explained in-place).
 - **2026-08-02 (W-16 applied)** — **The compare lane's one unbounded
   footnote rule is re-bounded, and the masking it allowed is proven to
   have been latent** (`6bdbb3b12`). The fixer refused to guess: it
