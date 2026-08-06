@@ -39,6 +39,7 @@ consolidation; every class below is evidence to triage, not a repair license.
 | **2026-07-10, after W-15 (56 candidates; see caveat)** | **21** | **35** | 0 |
 | **2026-07-10, after W-19/W-20 (57 candidates; see note)** | **21** | **36** | 0 |
 | **2026-07-10, after W-18 (57 candidates)** | **22** | **35** | 0 |
+| **2026-07-10, after W-30 (56 candidates; see note)** | **22** | **34** | 0 |
 
 W-15 commensurability caveat: the candidate set moved 58 → 56, so the 21/35
 row is not row-for-row comparable with the 18/40 row above. On the 54 laws
@@ -68,6 +69,17 @@ unexplained rows respectively.
 W-18 note: `no/lov/2020-12-18-156` went divergent (1) → consistent (0)
 via its lowered erratum — the F-07 witness. 56 of 57 rows byte-identical;
 totals now `total=1512 (ceiling=1129, unexplained=383)`.
+
+W-30 note: candidates 57 → 56 — `no/lov/2006-06-30-50` decertified by
+its newly-bound contingent amender `2007-06-29-81` (took 212
+divergences off-scan: 211 annex ceiling incl. all 107 counterpart rows,
+1 unexplained; returns when the commencement resolves). Two repairs:
+`2017-06-16-65` 57 → 13 and `2017-06-16-67` 6 → 2 (instrument-
+authorized amenders). Totals `total=1252 (ceiling=918,
+unexplained=334)`; 53 of 56 shared rows byte-identical; the
+zero-amendment surface (97 laws, 57/40/0) fully byte-identical. The
+corpus-wide annex family measured at W-17 (1,129) is unchanged — only
+the candidate set shrank.
 
 Batch 03 increased coverage rather than changing an existing verdict: all 20
 old rows stayed byte-identical, and 38 laws that had previously been excluded
@@ -1451,26 +1463,46 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    commensurability witness. Landing it moves scan rows
    (`source_signal_counts` 4 → 2) — needs its own priced pass over
    those two consumers. Counterfactual data: `.tmp/w23/annex_coverage.json`.
-30. **W-30 (`section_intro_markers` is a closed 11-member list missing
-   18 corpus-attested tail variants):** the F-10 re-price's recommended
-   tranche — the only bounded, W-21-shaped binding work left.
-   `_extract_no_section_base_id_from_lead` gates part-announcement
-   resolution on a hard-coded tuple; a sweep of every
-   `I lov <citation> … :` lead whose tail is NOT in it found 756 leads
-   across 411 acts, of which **509 leads / 270 acts / 285 unbound
-   targets (9.1% of the residual gap)** are pure morphological
-   variants of the same construction (top tails: `blir det gjort
-   følgjande endringar:` 137, `gjer ein følgjande endringar:` 77,
-   `skal desse endringane gjerast:` 50, `blir desse endringane
-   gjort:` 38 …; full table `.tmp/f10-reprice/tail_sweep.json`). 137
-   acts applicable today; 10 scan-visible targets, all divergent.
-   PRICE HONESTLY per the F-10 standing rule: expected scan movement
-   small and possibly NEGATIVE — `2010-06-25-28` and `2017-06-16-67`
-   are also declared by contingent acts in this family, so landing it
-   can decertify them out of the candidate set. Independent of
-   W-24/W-27/W-28/W-29; same shape as W-21/W-25/W-26 (one shared
-   constant, corpus-wide differential sweep, wrong→right /
-   right→wrong classification).
+30. **W-30 (`section_intro_markers` closed list → measured morphology):**
+   DONE (`726da4f49`, 2026-08-06). The 11-literal tuple is replaced by
+   `_NO_SECTION_INTRO_MARKER_RE` — a closed morphology over the one
+   amending construction, measured on the EXACT gate population (47,455
+   distinct leads reaching `_extract_no_section_base_id_from_lead` in a
+   full corpus parse; the re-price's 509/270 was a diagnostics-side
+   sample — the gate sees 535 leads / 346 acts in 37 further
+   spellings). The determiner slot is CLOSED and load-bearing: a
+   bounded-wildcard draft admitted substantive varemerkeloven prose and
+   was rejected at design time; the cost is 2 genuine long-adverbial
+   leads, pinned as deliberate misses. All 11 old literals admit
+   identically. Sweep: 556 parts change — 553 first resolutions, 3
+   rebinds to the head-cited law, **0 right→wrong**; ops +958/−0 with
+   the identity multiset conserved in every one of the 116 changed
+   acts; exhaustive audits (part-vs-lead 0 violations; payload-vs-
+   target 958/958; 23-act deep sample clean). Corpus: bindings
+   5,793 → 6,084 (+311/−20 — the 20 are full rebinds, the same metric
+   honesty as W-25/W-26), 64 first-time index entries, declared-unbound
+   3,141 → 2,850 (receipts 1,031 → 975), `lead_base_unresolved` −1,648
+   with +674 honestly re-filed as `lead_unmatched` (the re-price's
+   lowering-gap re-diagnosis confirmed: 200 further acts already bound
+   right via inheritance, 38 emit no ops either side). Scan, signed off
+   2026-08-06: candidates 57 → 56 — ONE decertification
+   (`2006-06-30-50` via contingent `2007-06-29-81`, taking its 211
+   ceiling rows incl. all 107 counterpart rows off-scan; returns when
+   the commencement resolves), TWO repairs (`2017-06-16-65` 57 → 13,
+   `2017-06-16-67` 6 → 2, both via instrument-authorized amenders),
+   one ops-only change (`2010-06-25-28`); totals 1512/1129/383 →
+   1252/918/334 with exact conservation; zero-amendment surface
+   byte-identical. **The re-price's decertification prediction was
+   REFUTED**: it conflated this tail family with the bulk-rename
+   family — `2010-06-25-28`'s family act is dated and `2017-06-16-67`'s
+   only contingent declarer is `2021-05-07-34` (family 1, never
+   bindable by W-30); the real decertification was unpredicted. Pins
+   signed off and updated in-place: staged 174/173, authorized 539×3
+   (+531 non-staged), status 953/1049/539, fully_replayable 56, the
+   W-17 subset pin minus the departed law (ceiling 918), the W-23
+   partition pin at 56 rows. Found, left: 6 near-miss forms (2
+   misspelled nouns, `foretas`, 3 `foreslås` proposal forms — each a
+   different morphological dimension needing its own measurement).
 
 ## 5. Demo / Inspection Tooling
 
@@ -1488,6 +1520,25 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-06 (W-30 applied)** — **The part-announcement tail is a
+  measured morphology, not an 11-item list — the largest binding
+  tranche of the programme, and the one that proves the F-10 pricing
+  rule both ways** (`726da4f49`). 556 parts corrected (0 right→wrong),
+  +958 ops with op-identity conserved across all 116 changed acts, 64
+  first-time index entries, declared-unbound 3,141 → 2,850. The
+  bounded-wildcard design was rejected BY MEASUREMENT when it admitted
+  substantive prose; the shipped closed-determiner morphology admits
+  exactly the construction (2 genuine long-adverbial leads pinned as
+  deliberate misses). Scan: one decertification (`2006-06-30-50`,
+  contingent `2007-06-29-81` — recoverable) against two repairs
+  (`2017-06-16-65` 57 → 13, `2017-06-16-67` 6 → 2) — and the
+  re-price's specific decertification prediction was refuted (it
+  conflated this family with bulk-rename). Scoreboard
+  22/34 at 56 candidates, totals 1252/918/334, conservation exact.
+  Nine pins signed off and updated in-place. The +674 `lead_unmatched`
+  growth is the re-diagnosis made visible: parts that now resolve
+  correctly receipt their unlowerable items instead of hiding them.
 
 - **2026-08-06 (F-10 re-priced)** — **The declared-target gap is down
   to 36.3%, its residual is re-diagnosed as missing lowering grammar
