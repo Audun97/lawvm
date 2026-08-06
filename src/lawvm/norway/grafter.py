@@ -158,6 +158,15 @@ _NORWEGIAN_MONTHS = {
     "november",
     "desember",
 }
+# Trailing punctuation stripped off a month token before the day-number guard's
+# membership test below. Corpus-measured over a full index build (W-22): the only
+# suffixes that ever ride a month token at a split boundary are "," (2) and "."
+# (1), and all three sit in a single text — skattebetalingsloven's four payment
+# dates, "… terminer 15. mars, 15. juni, 15. september og 15. desember …" — which
+# the unstripped guard over-split into 5 fragments against 2 declared targets. A
+# 16-character strip set (adding ; : ! ? brackets quotes dashes) was swept and
+# changes exactly the same one split, so the set is held to what is measured.
+_MONTH_TOKEN_TRAILING_PUNCTUATION = ".,"
 _NORWEGIAN_MONTH_NUMBERS = {
     "januar": "01",
     "februar": "02",
@@ -848,7 +857,10 @@ def _split_no_sentences(text: str) -> list[str]:
             and parts[-1].split()
             and (
                 parts[-1].split()[-1].lower() in _SENTENCE_ABBREVIATIONS
-                or (re.fullmatch(r"\d+\.", parts[-1].split()[-1]) is not None and first_token in _NORWEGIAN_MONTHS)
+                or (
+                    re.fullmatch(r"\d+\.", parts[-1].split()[-1]) is not None
+                    and first_token.strip(_MONTH_TOKEN_TRAILING_PUNCTUATION) in _NORWEGIAN_MONTHS
+                )
             )
         ):
             parts[-1] = _normalize_space(f"{parts[-1]} {part}")

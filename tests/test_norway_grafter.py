@@ -1773,6 +1773,57 @@ def test_split_no_sentences_still_splits_after_letter_item_label() -> None:
     ]
 
 
+def test_split_no_sentences_does_not_split_after_punctuated_month_token() -> None:
+    """W-22 witness: ``no/lovtid/2020-12-21-166`` § 10-20 first subsection.
+
+    The lead declares two target sentences ("første og annet punktum"). The
+    payload's instalment list carries a comma on two of its month tokens
+    ("15. mars," / "15. juni,") and a period on the closing "15. juni.", and the
+    day-number guard tested membership on the raw token, so it failed at all
+    three — five fragments for two targets, and the all-or-nothing arity check
+    emitted nothing. Text verbatim from the corpus.
+    """
+    assert _split_no_sentences(
+        "Forskuddsskatt for personlige skattytere forfaller til betaling i fire like store "
+        "terminer 15. mars, 15. juni, 15. september og 15. desember i inntektsåret. Er "
+        "forskuddsskatten under 2 000 kroner, forfaller den i sin helhet til betaling 15. juni."
+    ) == [
+        "Forskuddsskatt for personlige skattytere forfaller til betaling i fire like store "
+        "terminer 15. mars, 15. juni, 15. september og 15. desember i inntektsåret.",
+        "Er forskuddsskatten under 2 000 kroner, forfaller den i sin helhet til betaling "
+        "15. juni.",
+    ]
+
+
+def test_split_no_sentences_still_splits_after_sentence_final_month() -> None:
+    """W-22 guard: a month token that genuinely ENDS a sentence still splits.
+
+    Corpus counterexample — ``no/lov/1999-01-29-6`` § 27 fourth subsection, one
+    of the 47 replay-side texts whose split the strip changes (7 -> 5). Two
+    boundaries are repaired ("senest 31." | "mars." and "senest 15." | "mai."),
+    but the three boundaries that follow a sentence-final "mars." / "februar
+    året …" / "mai." must survive: the strip is applied to the token AFTER a
+    candidate boundary, never to the token before it.
+    """
+    assert _split_no_sentences(
+        "Daglig leder skal utarbeide årsregnskapet senest 22. februar året etter "
+        "regnskapsåret. Styret skal avlegge årsregnskapet og årsberetningen senest 31. mars. "
+        "Årsregnskapet og årsberetningen skal revideres av regnskapsrevisor. "
+        "Revisjonsberetningen skal avgis til representantskapet med kopi til styret senest "
+        "15. mai. Styret legger frem forslag til vedtak om årsregnskap og årsberetning for "
+        "representantskapet."
+    ) == [
+        "Daglig leder skal utarbeide årsregnskapet senest 22. februar året etter "
+        "regnskapsåret.",
+        "Styret skal avlegge årsregnskapet og årsberetningen senest 31. mars.",
+        "Årsregnskapet og årsberetningen skal revideres av regnskapsrevisor.",
+        "Revisjonsberetningen skal avgis til representantskapet med kopi til styret senest "
+        "15. mai.",
+        "Styret legger frem forslag til vedtak om årsregnskap og årsberetning for "
+        "representantskapet.",
+    ]
+
+
 def test_iter_no_document_change_ops_global_text_replace_falls_back_to_lead_base_id() -> None:
     """W-20: a citation-less global text-replace lead binds to its part's own law.
 
@@ -4409,6 +4460,40 @@ def test_no_law_announcement_witness_stays_pinned() -> None:
     }
     # Utleveringsloven keeps only what its own nested item introduced: § 9.
     assert {op.target.path[0] for op in grouped["no/lov/1975-06-13-39"]} == {("section", "9")}
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_skattebetalingsloven_instalment_lead_recovered_by_month_token_strip() -> None:
+    """W-22 corpus witness: the fourth arity recovery the W-19 sweep left on the table.
+
+    ``no/lovtid/2020-12-21-166`` amends skattebetalingsloven § 10-20 first
+    subsection, "første og annet punktum" — two declared targets. The unstripped
+    day-number guard tore the instalment list at "15. mars," / "15. juni," and
+    the closing "15. juni.", giving five fragments, so the act emitted nothing
+    for this lead: 6 ops on ``no/lov/2005-06-17-67``, none of them § 10-20.
+    Measured 2026-08-06: 6 -> 8, no op removed and no binding moved corpus-wide.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2020-12-21-166", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    grouped = dict(iter_no_document_change_ops(html_bytes, "no/lovtid/2020-12-21-166"))
+
+    ops = grouped["no/lov/2005-06-17-67"]
+    assert len(ops) == 8
+    recovered = [op for op in ops if op.target.path[0] == ("section", "10-20")]
+    assert [op.target.path for op in recovered] == [
+        (("section", "10-20"), ("subsection", "1"), ("sentence", "1")),
+        (("section", "10-20"), ("subsection", "1"), ("sentence", "2")),
+    ]
+    assert [op.payload.text for op in recovered if op.payload is not None] == [
+        "Forskuddsskatt for personlige skattytere forfaller til betaling i fire like store "
+        "terminer 15. mars, 15. juni, 15. september og 15. desember i inntektsåret.",
+        "Er forskuddsskatten under 2 000 kroner, forfaller den i sin helhet til betaling "
+        "15. juni.",
+    ]
 
 
 # ── W-18: published ``Rettelser`` (errata) lowering ───────────────────────────
