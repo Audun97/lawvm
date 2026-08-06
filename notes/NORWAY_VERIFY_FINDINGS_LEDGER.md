@@ -1214,18 +1214,36 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    `2010-06-25-28` gains one amendment/op with divergences unchanged; 55
    of 56 shared rows byte-identical.
 21. **W-21 (`_infer_no_unstructured_section_base_id` misses the
-   "Lov <date> nr. N om X endres slik:" lead form):** root cause behind
-   W-20's signed-off inert ops. In `no/lovtid/2009-06-19-74` the part
-   announces "Lov 20. mai 2005 nr. 28 om straff endres slik:", but the
-   inferrer doesn't recognise that lead form and falls through to a
-   nested consequential item deep inside new §412 text, resolving
-   `1975-06-13-39` (utleveringsloven). That wrong binding already carries
-   19 structural ops at base plus W-20's 6 inert ops, while the correct
-   target `2005-05-20-28` is bound by zero ops. Teaching the inferrer the
-   lead form auto-corrects all 25. A narrower interim guard ("fall back
-   only when `lead_base_id` is a declared change target", which separates
-   25/26 pairs) was considered and rejected: it needs declared targets
-   plumbed into the grafter — machinery this fix would obsolete.
+   "Lov <date> nr. N om X endres slik:" lead form):** DONE
+   (`b895fc406`, 2026-08-06). New `_extract_no_law_announcement_base_id`
+   at THIRD rank in the existing inference (no precedence reorder):
+   recognises the nominative part announcement — head `Lov(a) …` plus a
+   MANDATORY amending tail, the four corpus-measured surfaces `endres
+   slik` (29) / `blir endra slik` (20) / `vert endra slik` (18) / `blir
+   endret slik` (2) — and resolves via the existing citation extractor.
+   The tail requirement is the guard: a bare `Lov … oppheves.` names a
+   law acted on as a whole and must not seed the part. Sweep over all
+   9,100 unstructured parts: 69 parts change — 67 wrong→right from
+   nothing, 2 wrong→right rebinds (`2009-06-19-74`; `2008-03-07-4`,
+   whose groups were already byte-identical via another route), 0
+   right→wrong, 0 unchanged parts disturbed. Witness: 22 ops move to
+   `2005-05-20-28` (16 structural + all 6 W-20 ex-inert text-patches,
+   each `match_text` verified present in straffeloven's original LTI
+   text and absent from utleveringsloven — the exact inverse of the
+   W-20 finding) and utleveringsloven keeps the 3 genuinely its own;
+   the "auto-corrects all 25" prediction over-counted by 3 (1 correctly
+   nested-bound, 2 belonging to `1891-06-06-2` via the `1 a.` ordinal
+   gap → W-26). Corpus: ops +140/−0, bindings +39/−0, 13 acts gain
+   their first index entry, diagnostics −140 (exact 1:1 with gained
+   ops), scan fully byte-identical (all 57 rows, all totals). Two stop
+   conditions signed off 2026-08-06: (a) 1 op in `no/lovtid/2009-01-30-7`
+   part III converts from receipted drop to harm-free silent misbinding
+   via the period-less `nr 16` citation gap (→ W-25); (b) pins staged
+   167→170 (+ sibling 166→169) and status contingent 914→920 / dated
+   1021→1028, all from the 13 first-time entries, updated with
+   explanations in-place. Straffeloven 2005 stays `blocked_contingent`
+   (30 blocking sources) and out of the scan — the rebind is
+   correctness groundwork, not scan movement.
 22. **W-22 (month-token punctuation in the splitter's day-number guard,
    small):** found by the W-19 sweep. The guard tests
    `first_token in _NORWEGIAN_MONTHS` without stripping trailing
@@ -1260,6 +1278,31 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    candidate at 57 divergences and decertify it out of the candidate set
    — a verdict change. Del-scoped errata need part→law resolution AND a
    commencement story before any of them can land.
+25. **W-25 (period-less `nr` citations defeat every citation regex,
+   small):** all Norway citation extraction requires `nr\.`, but 8
+   unstructured leads across 8 acts write `nr` bare (witness:
+   `no/lovtid/2009-01-30-7` part III, "I lov 19. mai 2006 nr 16 om rett
+   til innsyn … (offentleglova) skal § 26 nytt fjerde ledd lyde:").
+   Live cost, signed off at W-21: that part resolves nothing and
+   inherits part II's now-correct law, so its offentleglova §26 op is
+   SILENTLY misbound to `1981-05-22-25` (straffeprosessloven) — the one
+   misbinding among W-21's 140 gained ops; harm-free today (neither law
+   a scan candidate, act contingent) but wrong. Fix: widen to `nr\.?`
+   in the citation regexes plus a corpus re-sweep of all 8 leads;
+   verify the offentleglova op lands on `2006-05-19-16`. Full list in
+   `.tmp/w21/nr_nodot.txt`.
+26. **W-26 (`1 a.`-style item ordinals not stripped from leads,
+   small):** `_extract_no_section_base_id_from_lead` strips `^\d+\.\s*`
+   but not letter-suffixed ordinals (`1 a.`, `2 b.`), and the embedded
+   patterns don't match them either, so an enumerated consequential
+   item numbered that way resolves nothing and inherits
+   `active_base_id`. Witness: `no/lovtid/2009-06-19-74`'s "1 a. I lov
+   6. juni 1891 nr. 2 om Guld-, Sølv- og Platinavarers Finhed …" — its
+   2 ops (Ny § 9; nåværende § 9 blir ny § 10) sit on utleveringsloven
+   instead of `1891-06-06-2` (this is 2 of the witness's 3-op residue
+   at W-21; the third is genuine). Fix: widen the ordinal strip to
+   letter-suffixed forms (mirroring the strip W-21's announcement
+   extractor already uses) plus a corpus sweep.
 
 ## 5. Demo / Inspection Tooling
 
@@ -1277,6 +1320,29 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-06 (W-21 applied)** — **The nominative part announcement
+  ("Lov <date> nr. N om X endres slik:") is recognised, and 69 parts of
+  the older Lovtidend generation bind to the law their lead names**
+  (`b895fc406`). The fix is one extractor at third rank in the
+  existing inference — no precedence reorder (W-15's measured 1,343
+  intra-part leads keep their winners) — gated on a mandatory amending
+  tail (four corpus-measured surfaces; bare `Lov … oppheves.` stays
+  out). Sweep of all 9,100 unstructured parts: 67 parts bind from
+  nothing, 2 rebind wrong→right, 0 right→wrong, 0 unchanged parts
+  disturbed. The W-20/W-21 witness `2009-06-19-74` moves 22 ops to
+  straffeloven 2005 — including the six ex-inert text-patches, each
+  `match_text` now verified present in straffeloven and absent from
+  utleveringsloven, the exact inverse of the W-20 measurement — while
+  utleveringsloven keeps its genuine 3. Corpus: ops +140/−0, bindings
+  +39/−0, 13 first-time index entries, unresolved-lead diagnostics −140
+  exactly 1:1; the 57-law scan is fully byte-identical (straffeloven
+  remains `blocked_contingent`, so this is correctness groundwork, not
+  scan movement). Signed off: the period-less `nr 16` citation gap
+  converting 1 receipted drop into a harm-free misbinding (opened as
+  **W-25**, 8 leads corpus-wide), and pins staged 167→170 / contingent
+  914→920 / dated 1021→1028 (the 13 first-time entries). The `1 a.`
+  ordinal gap behind the witness's 2-op residue opened as **W-26**.
 
 - **2026-08-06 (W-18 applied)** — **F-07's misdiagnosed "editorial"
   correction now replays: typed `Rettelser` errata lower as same-act
