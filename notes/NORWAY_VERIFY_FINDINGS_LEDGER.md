@@ -1088,14 +1088,32 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    F-08), and two live bugs surfaced: the multi-part misbinding defect (W-15)
    and the compare-lane numbering-deletion masking bug (W-16). Honest
    unclassified bucket: 64 divergences across 17 laws (4.1%).
-12. **W-12 (heading groups bypass the ordering kernel):** the W-10
-   investigation's one live finding. Heading groups accumulate in
-   `replay.py:300` collection order (`replay.py:389`) and are folded in list
-   order by `apply_no_heading_groups` (`grafter.py:3265`) with no temporal
-   sort — the only surface where collection order is not inert. Harmless today
-   (one law in the 58 has heading groups, from one amendment) but it will bite
-   silently the first time two amendments contribute heading groups to one
-   law. Wants a guard or a kernel-routed fold, sized as a small batch.
+12. **W-12 (heading groups bypass the ordering kernel):** DONE
+   (`6c6d9fdf5`, 2026-08-06). `NOHeadingGroup` now carries the SAME
+   `OperationSource` provenance ordinary ops get, stamped by
+   `replay_no_to_pit` with the identical (statute_id, enacted,
+   effective) triple, and `apply_no_heading_groups` sorts by the
+   ordering kernel's own `no_ordering_profile().temporal_key` via a
+   key-only carrier — heading groups cannot go through `order_ops`
+   itself (no target/action; its op-semantics stages would fabricate
+   findings), but the KEY now has exactly one definition in the tree,
+   which is the drift this item existed to close. The fix found and
+   closed a WORSE second defect in the same latent region: `sequence`
+   is the namespace of the synthetic container label and the parser
+   restarts it per amendment, so two amendments touching one chapter
+   minted colliding labels and the second's group was SILENTLY DROPPED
+   by the idempotence guard (the fail-on-base test proves it: base
+   yields one group, not two mis-ordered). Fixed by re-stamping
+   sequence to fold position (identity for single contributors).
+   Liveness guard: `no_heading_group_multi_source_fold` receipt —
+   non-blocking when all contributors are dated (order proven by the
+   kernel key), BLOCKING when any is undated (order unproven, §1.10).
+   Still latent, re-measured against the post-W-30 corpus: census over
+   all 2,544 entries × declared base_ids finds heading groups for
+   exactly ONE law (`2024-01-12-1`, 3 groups, all from
+   `2024-12-20-92`); replay of all 3,089 original-LTI laws
+   byte-identical before/after; scan byte-identical; receipt fires on
+   0 laws. Found alongside → W-31.
 13. **W-13 (batch 04 doc/naming follow-ups):** (a) and (c) DONE (hygiene
    pass, 2026-08-02): `unresolved_act_ids` renamed to `offered_act_ids`
    tree-wide with an accurate docstring (the gate does not define the offered
@@ -1514,6 +1532,19 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    partition pin at 56 rows. Found, left: 6 near-miss forms (2
    misspelled nouns, `foretas`, 3 `foreslås` proposal forms — each a
    different morphological dimension needing its own measurement).
+31. **W-31 (`_apply_heading_group` has five receiptless failure paths,
+   small):** found at W-12. The heading-group fold returns `body`
+   unchanged on every failure path — start section not found, no
+   parent, no matched sections, no chapter ancestor, label already
+   present — with no receipt on any of them. The label-collision path
+   was a real silent drop (fixed at W-12 by the sequence re-stamp);
+   the other four are the same silent-no-op shape and should receipt,
+   mirroring `no_heading_group_multi_source_fold`'s pattern. Also
+   noted at W-12, related: `replay.py`'s collection sort tie-breaks on
+   the Lovtidend number LEXICALLY (`…-9` sorts after `…-92`) — now
+   inert (nothing downstream depends on collection order any more) but
+   it is the last reason that sort exists; and `OrderedOps.justification`
+   remains unreachable from production (the W-10 residual).
 
 ## 5. Demo / Inspection Tooling
 
@@ -1531,6 +1562,23 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-06 (W-12 applied)** — **The last parallel ordering surface
+  is closed: heading groups fold in kernel-keyed temporal order, and
+  the silent-drop defect hiding behind it is fixed** (`6c6d9fdf5`).
+  Heading groups now carry the same `OperationSource` ordinary ops get
+  and sort by `no_ordering_profile().temporal_key` — one key
+  definition tree-wide. The fix surfaced a worse latent defect: the
+  parser restarts `sequence` per amendment, and `sequence` namespaces
+  the synthetic container label, so two amendments touching one
+  chapter minted colliding labels and the second's group was silently
+  dropped (base-failure verified: one group survives, not two
+  mis-ordered). A liveness receipt (`no_heading_group_multi_source_fold`,
+  blocking iff any contributor is undated) makes the latent→live
+  transition visible. Re-measured against the post-W-30 corpus: still
+  latent — one law, one contributing amendment; all 3,089 replays and
+  the scan byte-identical; no pin moved. Opened **W-31** for the four
+  remaining receiptless failure paths in the fold.
 
 - **2026-08-06 (W-14 applied)** — **No Norway CLI command defaults to
   the stale horizon any more** (`08a199946`). The seven sibling
