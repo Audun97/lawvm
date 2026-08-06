@@ -38,6 +38,7 @@ consolidation; every class below is evidence to triage, not a repair license.
 | **2026-07-10, after batch 04 (all 58, byte-identical rows)** | **18** | **40** | 0 |
 | **2026-07-10, after W-15 (56 candidates; see caveat)** | **21** | **35** | 0 |
 | **2026-07-10, after W-19/W-20 (57 candidates; see note)** | **21** | **36** | 0 |
+| **2026-07-10, after W-18 (57 candidates)** | **22** | **35** | 0 |
 
 W-15 commensurability caveat: the candidate set moved 58 → 56, so the 21/35
 row is not row-for-row comparable with the 18/40 row above. On the 54 laws
@@ -63,6 +64,10 @@ exact. Ranked by UNEXPLAINED divergences the corpus's top laws are
 `2001-01-05-1` (83, F-09 sparse), `2017-06-16-65` (57) and
 `2013-06-21-102` (55); the three annex laws report 2, 6 and 1
 unexplained rows respectively.
+
+W-18 note: `no/lov/2020-12-18-156` went divergent (1) → consistent (0)
+via its lowered erratum — the F-07 witness. 56 of 57 rows byte-identical;
+totals now `total=1512 (ceiling=1129, unexplained=383)`.
 
 Batch 03 increased coverage rather than changing an existing verdict: all 20
 old rows stayed byte-identical, and 38 laws that had previously been excluded
@@ -786,6 +791,14 @@ exact-text-pinned oracle finding, not a replay change.~~
 > Regression gate: `no/lovtid/2022-05-12-28` (advokatloven) has an operative
 > erratum and its law is currently CONSISTENT — it must stay so.
 
+> **Fixed (W-18, `c8ffa7eb9`, 2026-08-06).** The witness lowers and
+> `no/lov/2020-12-18-156` is consistent; the advokatloven gate held
+> byte-identical. The "23 operative" figure repriced under measurement —
+> exactly 1 erratum is cleanly lowerable today; 7 correct unmodeled
+> publication metadata (permanent ceiling), 5 need Del→law resolution
+> (→ W-24), 14 are the untyped 2003–2011 generation with zero measured
+> payoff. See work-queue item 18 for the full accounting.
+
 ### F-08 — CONSOLIDATED_MISSING / mixed clusters needing triage — triaged (W-6, 2026-08-02)
 
 Replay retains provisions the published text no longer carries:
@@ -1132,11 +1145,34 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    forskrift-hjemmel present in replay, absent from published) is that
    law's whole actionable surface — 211 of its 212 are ceiling; and the
    `sparse_indexed_history` mis-routing became W-23.
-18. **W-18 (F-07 → Rettelser lowering):** lower published `Det som er
-   rettet` errata blocks (canonical amending grammar, 25 artifacts
-   corpus-wide, 23 operative). Payoff today: 1 divergence,
-   `no/lov/2020-12-18-156` goes consistent. Regression gate:
-   `no/lovtid/2022-05-12-28`'s law is currently consistent and must stay so.
+18. **W-18 (F-07 → Rettelser lowering):** DONE (`c8ffa7eb9`,
+   2026-08-06). Typed `gazettenote[data-gazette-note-type=rettelse]`
+   errata now lower as ordinary same-act REPLACE ops — keyed on
+   Lovdata's own erratum attribute, never the word "rettet". The
+   enumeration REPRICED the triage's "23 operative": 25 artifacts carry
+   the block, split into 11 artifacts / 12 machine-typed notes (2017→,
+   this rule's whole domain) and 14 untyped 2003–2011 narrative blocks
+   (no typed date, positional payload boundary, only 2 address law text
+   and neither law is a scan candidate — excluded, measured payoff
+   zero). Of the 12 typed notes exactly 1 lowers: the F-07 witness
+   (`2020-12-18-156` §5(1) item 2, "§ 23" → "§ 2-3"). The other 11 are
+   excluded with typed `no_rettelse_not_lowered` receipts: 7 correct
+   publication metadata the IR does not model (Referansefeltet /
+   Hjemmelsfeltet — permanent recorded ceiling) and 4+1 are part-scoped
+   or nested addresses needing Del→law resolution (→ W-24). Safety by
+   construction: anchored single-`§` grammar (the nested advokatloven
+   form `§ 73 nr. 7 § 6-7 …` names two sections and is rejected before
+   any regex runs), one-item-payload requirement, erratum ops dated by
+   the host act's own commencement (the announcement date rides in
+   provenance, apply-inert — dating at announcement would let a
+   correction overwrite genuine later amendments). Corpus effect: ops
+   25,087 → 25,088, bindings 5,742 → 5,743, entries 2,465 → 2,466, all
+   +1 = the witness op; zero pre-existing entries changed. Scan:
+   21/36 → 22/35, divergences 1,513 → 1,512 (ceiling 1,129 unmoved,
+   unexplained 384 → 383), 56/57 rows byte-identical, advokatloven gate
+   held byte-identical. One stop condition fired and was signed off
+   2026-08-06: status pin `dated` 1020 → 1021 (the witness artifact's
+   first index entry), updated with the explanation in-place.
 19. **W-19 (`_split_no_sentences` is abbreviation-unaware):** DONE
    (`4c9e88757`, 2026-08-05, landed jointly with W-20). Added `jfr.`,
    `m.m.`, `iht.` to `_SENTENCE_ABBREVIATIONS`. Corpus sweep over all
@@ -1209,6 +1245,21 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    (e.g. annex-ceiling-dominated laws route by their unexplained residue,
    not the over-firing signal), but that CHANGES partition membership, so
    it needs its own measured pass — the W-17 fixer deliberately left it.
+24. **W-24 (Del/part-scoped address → law resolution, general lowering
+   gap):** 5 of the 12 typed errata (W-18) are blocked on one missing
+   capability — resolving a host act's `Del <N>` / `§ X nr. Y` reference
+   to the law that part amends (`2019-12-20-110` Del I → kringkasting,
+   `2022-05-12-28` § 73 nr. 7 → nested, `2023-12-20-98` Del V →
+   skatteloven, `2025-06-20-101` del II, and the near-miss
+   `2020-12-04-137` Del IV → eierseksjonsloven `2017-06-16-65` § 49(2)
+   bokstav f, whose target is even explicitly cited and in-grammar). The
+   same address shape appears in ordinary amending grammar, so this is a
+   general lowering gap, not erratum-specific. CAUTION, measured at
+   W-18: lowering the eierseksjonsloven erratum today would attach a
+   CONTINGENT indexed amendment (`Kongen fastset` host act) to a scan
+   candidate at 57 divergences and decertify it out of the candidate set
+   — a verdict change. Del-scoped errata need part→law resolution AND a
+   commencement story before any of them can land.
 
 ## 5. Demo / Inspection Tooling
 
@@ -1226,6 +1277,31 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-06 (W-18 applied)** — **F-07's misdiagnosed "editorial"
+  correction now replays: typed `Rettelser` errata lower as same-act
+  ops, and the corpus count that justified the item repriced honestly**
+  (`c8ffa7eb9`). The rule keys on Lovdata's machine-typed
+  `gazettenote[data-gazette-note-type=rettelse]` attribute — the only
+  non-heuristic anchor — with an anchored single-`§` target grammar
+  that rejects the nested advokatloven shape (`§ 73 nr. 7 § 6-7 …`,
+  two sections) by construction, a one-item-payload requirement, and
+  ops dated by the host act's own commencement so a correction can
+  never overwrite genuine later amendments (announcement date rides in
+  provenance, apply-inert). Enumeration re-derived over 3,089
+  artifacts: 25 carry the block = 12 typed notes (1 lowered — the F-07
+  witness, "§ 23" → "§ 2-3" — 7 unmodeled-metadata + 4 Del-scoped
+  excluded with typed receipts) + 14 untyped 2003–2011 narrative
+  blocks (2 address law text, neither a scan candidate — zero payoff,
+  out of domain). Scan: 21/36 → 22/35, `2020-12-18-156` 1 → 0
+  divergences, 56/57 rows byte-identical, advokatloven gate
+  byte-identical, totals 1513 → 1512 with ceiling unmoved. Index: +1
+  op/binding/entry, zero pre-existing entries changed. One signed-off
+  pin: `dated` 1020 → 1021 (the witness's first index entry). Opened
+  **W-24** (Del→law resolution, the general lowering gap blocking the
+  remaining 5 typed errata — incl. the measured warning that lowering
+  the eierseksjonsloven one today would decertify a scan candidate via
+  its contingent host act).
 
 - **2026-08-06 (W-17 applied)** — **The corpus's dominant divergence
   family — annexed-instrument representation, 72% — is now a typed,
