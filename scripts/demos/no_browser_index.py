@@ -22,9 +22,14 @@ from no_browser_demo import amendment_dates, build_snapshots, render_html
 _VERDICT_ORDER = {"consistent": 0, "replay_defect": 1, "untouched_drift": 2, "sparse_source": 3}
 
 
-def scan_laws(limit: int, as_of: str) -> tuple[list[dict[str, Any]], str]:
+def scan_laws(limit: int, as_of: str | None) -> tuple[list[dict[str, Any]], str]:
+    from lawvm.norway.sources import no_consolidation_snapshot_date
     from lawvm.norway.verify import build_no_verify_scan
 
+    # F-01: absent --as-of, the comparison horizon comes from the corpus, not a
+    # literal that predates the consolidation this is compared against. Explicit
+    # flag passes through verbatim. Same derivation as `no-verify-scan`.
+    as_of = as_of or no_consolidation_snapshot_date()
     report = build_no_verify_scan(as_of=as_of, limit=limit)
     return list(report.get("results", [])), str(report.get("as_of") or as_of)
 
@@ -135,7 +140,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--out", type=Path, default=Path(".tmp/no_demo"))
     ap.add_argument("--limit", type=int, default=50)
-    ap.add_argument("--as-of", default="2026-03-29")
+    ap.add_argument("--as-of", default=None)
     args = ap.parse_args()
 
     rows, as_of = scan_laws(args.limit, args.as_of)

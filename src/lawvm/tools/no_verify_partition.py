@@ -11,10 +11,15 @@ if TYPE_CHECKING:
 
 
 def main(args: "argparse.Namespace") -> None:
+    from lawvm.norway.sources import no_consolidation_snapshot_date
     from lawvm.norway.verify import build_no_verify_partition
 
     data_dir_arg = getattr(args, "data_dir", None)
     data_dir = Path(data_dir_arg) if data_dir_arg else None
+    # F-01: absent --as-of, the comparison horizon comes from the corpus, not a
+    # literal that predates the consolidation this is compared against. Explicit
+    # flag passes through verbatim. Same derivation as `no-verify-scan`.
+    as_of = getattr(args, "as_of", None) or no_consolidation_snapshot_date(data_dir)
     index_arg = getattr(args, "index", None)
     index_path = Path(index_arg) if index_arg else None
     commencement_arg = getattr(args, "commencement", None)
@@ -23,7 +28,7 @@ def main(args: "argparse.Namespace") -> None:
     output_path = Path(output_arg) if output_arg else None
 
     report = build_no_verify_partition(
-        as_of=args.as_of,
+        as_of=as_of,
         data_dir=data_dir,
         index_path=index_path,
         commencement_path=commencement_path,

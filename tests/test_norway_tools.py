@@ -9,6 +9,8 @@ from argparse import Namespace
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from lawvm.tools.no_commencement_report import main as no_commencement_report_main
 from lawvm.tools.no_commencement_candidates import main as no_commencement_candidates_main
 from lawvm.tools.no_commencement_backfill import main as no_commencement_backfill_main
@@ -2971,6 +2973,124 @@ def test_no_verify_scan_tool_defaults_as_of_to_the_corpus_snapshot(tmp_path, mon
 
     assert _run("2024-01-02")["as_of"] == "2024-01-02"
     assert seen["as_of"] == "2024-01-02"
+
+
+class _AsOfConsumed(Exception):
+    """Aborts a command's ``main`` the moment its as-of reaches replay."""
+
+
+def _no_snapshot_corpus(tmp_path: Path) -> Path:
+    """An farchive whose only consolidation was observed on 2025-03-04."""
+    from datetime import datetime, timezone
+
+    from farchive import Farchive
+
+    db_path = tmp_path / "norway.farchive"
+    archive = Farchive(db_path)
+    archive.store(
+        "no://lov/2025-01-01-1/current.xml",
+        b"<html><body/></html>",
+        observed_at=datetime(2025, 3, 4, 23, 30, tzinfo=timezone.utc),
+    )
+    archive.close()
+    return db_path
+
+
+# W-14: the F-01 fix applied to `no-verify-scan` extended to its siblings. Each
+# row names the command, its ``main``, and the first downstream call that
+# consumes the as-of — patching *that* (rather than the derivation) is what
+# proves the derived date actually reaches replay instead of merely being
+# computed. ``no-verify-workqueue`` is listed without ``partition``: with one it
+# reads a prebuilt queue that already carries its horizon and must not derive.
+_AS_OF_SIBLINGS = (
+    (
+        "no-frontier",
+        "lawvm.tools.no_frontier",
+        "lawvm.norway.verify.build_no_verify_scan",
+        {"limit": 1, "min_blockers": 1, "min_amendments": 1},
+    ),
+    (
+        "no-divergence",
+        "lawvm.tools.no_divergence",
+        "lawvm.norway.verify.verify_no_against_current",
+        {"base_id": "no/lov/2025-01-01-1", "max_divergences": 10},
+    ),
+    (
+        "no-coverage",
+        "lawvm.tools.no_coverage",
+        "lawvm.norway.verify.verify_no_against_current",
+        {"base_id": "no/lov/2025-01-01-1", "limit": 20},
+    ),
+    (
+        "no-debug",
+        "lawvm.tools.no_debug",
+        "lawvm.tools.no_debug._build_report",
+        {"base_id": "no/lov/2025-01-01-1", "path": [], "limit": 5},
+    ),
+    (
+        "no-verify",
+        "lawvm.tools.no_verify",
+        "lawvm.norway.verify.verify_no_against_current",
+        {"base_id": "no/lov/2025-01-01-1"},
+    ),
+    (
+        "no-verify-partition",
+        "lawvm.tools.no_verify_partition",
+        "lawvm.norway.verify.build_no_verify_partition",
+        {"limit": 1, "base_id": [], "output": None, "progress": False},
+    ),
+    (
+        "no-verify-workqueue",
+        "lawvm.tools.no_verify_workqueue",
+        "lawvm.norway.verify.build_no_verify_partition",
+        {"limit": 1, "base_id": [], "bucket": "replay_defect", "partition": None, "progress": False},
+    ),
+)
+
+
+@pytest.mark.parametrize(
+    "command,module,downstream,extra",
+    _AS_OF_SIBLINGS,
+    ids=[row[0] for row in _AS_OF_SIBLINGS],
+)
+def test_no_sibling_tools_default_as_of_to_the_corpus_snapshot(
+    command, module, downstream, extra, tmp_path, monkeypatch
+) -> None:
+    """Finding F-01, residue W-14: the siblings share the scan's derived default.
+
+    A default frozen at a literal predating the consolidation makes every law
+    amended in the gap read as spuriously divergent, and it makes a drill-down
+    (`no-divergence` above all) incommensurable with the scan that sent the
+    triager there. An explicit ``--as-of`` still wins verbatim, including one
+    before the snapshot.
+    """
+    importlib.import_module("lawvm.norway.verify")
+    main = importlib.import_module(module).main
+    db_path = _no_snapshot_corpus(tmp_path)
+    seen: dict = {}
+
+    def _consume(*args, **kwargs):
+        seen["as_of"] = kwargs.get("as_of")
+        raise _AsOfConsumed(command)
+
+    monkeypatch.setattr(downstream, _consume)
+
+    def _run(as_of):
+        seen.clear()
+        args = Namespace(
+            as_of=as_of,
+            data_dir=str(db_path),
+            index=None,
+            commencement=None,
+            json=True,
+            **extra,
+        )
+        with pytest.raises(_AsOfConsumed):
+            main(args)
+        return seen["as_of"]
+
+    assert _run(None) == "2025-03-04"
+    assert _run("2024-01-02") == "2024-01-02"
 
 
 def test_no_statsrad_tool_emits_json(monkeypatch, capsys) -> None:

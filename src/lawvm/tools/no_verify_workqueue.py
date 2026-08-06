@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 
 
 def main(args: "argparse.Namespace") -> None:
+    from lawvm.norway.sources import no_consolidation_snapshot_date
     from lawvm.norway.verify import build_no_verify_partition
 
     bucket = str(getattr(args, "bucket", "replay_defect") or "replay_defect")
@@ -24,9 +25,15 @@ def main(args: "argparse.Namespace") -> None:
         index_path = Path(index_arg) if index_arg else None
         commencement_arg = getattr(args, "commencement", None)
         commencement_path = Path(commencement_arg) if commencement_arg else None
+        # F-01: absent --as-of, the comparison horizon comes from the corpus, not a
+        # literal that predates the consolidation this is compared against. Explicit
+        # flag passes through verbatim. Same derivation as `no-verify-scan`. Scoped
+        # to this branch: a --partition file already carries its own horizon, so
+        # reading a prebuilt queue must not need the corpus.
+        as_of = getattr(args, "as_of", None) or no_consolidation_snapshot_date(data_dir)
 
         report = build_no_verify_partition(
-            as_of=args.as_of,
+            as_of=as_of,
             data_dir=data_dir,
             index_path=index_path,
             commencement_path=commencement_path,

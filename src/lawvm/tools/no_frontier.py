@@ -48,10 +48,15 @@ def main(args: "argparse.Namespace") -> None:
     from lawvm.norway.commencement import build_no_commencement_report, build_no_blocked_law_report
     from lawvm.norway.index import build_no_amendment_index, load_no_amendment_index
     from lawvm.norway.inventory import build_no_inventory, build_no_missing_base_report
+    from lawvm.norway.sources import no_consolidation_snapshot_date
     from lawvm.norway.verify import build_no_verify_partition, build_no_verify_scan
 
     data_dir_arg = getattr(args, "data_dir", None)
     data_dir = Path(data_dir_arg) if data_dir_arg else None
+    # F-01: absent --as-of, the comparison horizon comes from the corpus, not a
+    # literal that predates the consolidation this is compared against. Explicit
+    # flag passes through verbatim. Same derivation as `no-verify-scan`.
+    as_of = getattr(args, "as_of", None) or no_consolidation_snapshot_date(data_dir)
     index_arg = getattr(args, "index", None)
     index_path = Path(index_arg) if index_arg else None
     index = load_no_amendment_index(index_path) if index_path else build_no_amendment_index(data_dir)
@@ -96,7 +101,7 @@ def main(args: "argparse.Namespace") -> None:
     missing_base_report["laws"] = missing_base_report["laws"][:limit]
 
     verify_report = build_no_verify_scan(
-        as_of=getattr(args, "as_of", "2026-03-29"),
+        as_of=as_of,
         data_dir=data_dir,
         index=index,
         commencement_path=commencement_path,
@@ -105,7 +110,7 @@ def main(args: "argparse.Namespace") -> None:
         progress_callback=(lambda msg: print(msg, file=sys.stderr)) if getattr(args, "progress", False) else None,
     )
     verify_partition = build_no_verify_partition(
-        as_of=getattr(args, "as_of", "2026-03-29"),
+        as_of=as_of,
         data_dir=data_dir,
         index=index,
         commencement_path=commencement_path,

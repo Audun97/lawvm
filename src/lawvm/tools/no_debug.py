@@ -231,8 +231,14 @@ def _build_report(
 
 
 def main(args: "argparse.Namespace") -> None:
+    from lawvm.norway.sources import no_consolidation_snapshot_date
+
     data_dir_arg = getattr(args, "data_dir", None)
     data_dir = Path(data_dir_arg) if data_dir_arg else None
+    # F-01: absent --as-of, the comparison horizon comes from the corpus, not a
+    # literal that predates the consolidation this is compared against. Explicit
+    # flag passes through verbatim. Same derivation as `no-verify-scan`.
+    as_of = getattr(args, "as_of", None) or no_consolidation_snapshot_date(data_dir)
     index_arg = getattr(args, "index", None)
     index_path = Path(index_arg) if index_arg else None
     commencement_arg = getattr(args, "commencement", None)
@@ -241,7 +247,7 @@ def main(args: "argparse.Namespace") -> None:
     limit = int(getattr(args, "limit", 5) or 5)
     report = _build_report(
         base_id=args.base_id,
-        as_of=args.as_of,
+        as_of=as_of,
         data_dir=data_dir,
         index_path=index_path,
         commencement_path=commencement_path,
@@ -330,7 +336,7 @@ def main(args: "argparse.Namespace") -> None:
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="lawvm no-debug")
     parser.add_argument("base_id")
-    parser.add_argument("--as-of", dest="as_of", default="2026-03-29")
+    parser.add_argument("--as-of", dest="as_of", default=None)
     parser.add_argument("--data-dir", dest="data_dir")
     parser.add_argument("--index", dest="index")
     parser.add_argument("--commencement", dest="commencement")
