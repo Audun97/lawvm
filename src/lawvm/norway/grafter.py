@@ -202,6 +202,67 @@ _NO_LAW_CITATION_PATTERN = (
     r"(?:^|\b)(?:Midlertidig\s+)?lov\s+" + _NO_LAW_CITATION_DATE + _NO_LAW_CITATION_NUMBER
 )
 _NO_LAW_CITATION_AV_PATTERN = r"av\s+" + _NO_LAW_CITATION_DATE + _NO_LAW_CITATION_NUMBER
+# The amending tail that turns an ``I lov <citation> …`` lead into a PART
+# ANNOUNCEMENT rather than a passing citation ("I lov 29. juni 1990 nr. 50 om
+# … blir det gjort følgjande endringar:"). The tail IS the guard: an ``I lov …``
+# lead without one names a law the item merely refers to and must not re-seed
+# the part's base act — the same reasoning as the sibling announcement
+# extractor's ``endres slik`` requirement below.
+#
+# W-30 replaced a hand-kept 11-member literal tuple with this shape. Measured
+# over the EXACT population the gate is asked about — every lead reaching
+# ``_extract_no_section_base_id_from_lead`` in a full corpus parse (47,455
+# distinct leads, 5,722 of which pass its ``i `` prefix guard): the 11 literals
+# admitted 1,907, this admits 2,442. The 535 newly-admitted leads (346 acts)
+# carry 37 further spellings of the ONE construction and nothing else; every
+# lead the literals admitted is still admitted, unchanged.
+#
+# The determiner slot is CLOSED, and that is load-bearing, not decoration. A
+# drafted alternative that allowed any ≤40 characters between the verb and the
+# noun also admitted substantive statutory prose — "I et varemerke som er søkt
+# registrert kan det gjøres uvesentlige endringer …" — which is not this
+# construction at all. Requiring an attested determiner immediately before the
+# noun excludes it, at the measured cost of 2 genuine leads whose scope
+# adverbial runs long ("… gjøres i avsnitt II om endringer i lov 2. juli 1999
+# nr. 64 … følgende endring:") and 1 whose noun phrase is coordinated ("…
+# gjøres følgende tillegg og endring:"). Those three are a deliberate
+# conservative miss, not an oversight.
+#
+# Both word orders occur — verb-first ("gjort følgjande endringar", 177 of the
+# newly admitted) and noun-first ("desse endringane gjerast", 41). ``ein``
+# ("gjer ein følgjande endring", 45), the expletive ``det`` ("gjøres det
+# følgende endringer", 3), a ``del``/``avsnitt`` scope ("gjøres i del II
+# følgende endringer" and "gjøres i avsnitt I følgende endringer", 1 each) and
+# ``midlertidige`` ("gjøres følgende midlertidige endringer", 1) are the only
+# fillers the corpus puts inside the phrase. Every
+# alternative listed below is corpus-attested, misspellings included
+# (``fylgjande`` 2, ``føljande`` 1, ``følgene`` 1, ``følge`` 1) — Lovtidend's
+# Nynorsk drafting is not spell-checked and the tail is the only guard there is.
+#
+# Word gaps are a single ``\s`` rather than ``\s+``, and the ``del``/``avsnitt``
+# ordinal is an alternation rather than ``[ivx]+``, because both callers feed
+# this ``_normalize_space``d text (every whitespace run is already one space) and
+# because ``compile_classifier_regex``'s backtracking lint refuses a repeat
+# nested inside the optional filler group. Verified equivalent: over all 47,455
+# leads the ``\s+``/``[ivx]+`` draft and this spelling admit the identical set.
+_NO_SECTION_INTRO_VERB = r"gj(?:erast|orde|orte|øres|eres|ere|ort|øre|ør|er)"
+_NO_SECTION_INTRO_QUANTIFIED_NOUN = (
+    r"(?:følgjande|fylgjande|føljande|følgande|følgende|følgene|følge"
+    r"|desse|disse|denne|slike|slik)"
+    r"(?:\smidlertidige)?\sendring(?:a|ar|ane|er|ene)?"
+)
+_NO_SECTION_INTRO_MARKER_RE = compile_classifier_regex(
+    r"\b"
+    + _NO_SECTION_INTRO_VERB
+    + r"\b(?:\s(?:ein|det|i\s(?:del|avsnitt)\s(?:i|ii|iii|iv|v|vi|vii|viii|ix|x)))?\s"
+    + _NO_SECTION_INTRO_QUANTIFIED_NOUN
+    + r"\b|\b"
+    + _NO_SECTION_INTRO_QUANTIFIED_NOUN
+    + r"\s"
+    + _NO_SECTION_INTRO_VERB
+    + r"\b",
+    classifier_id="no.lovtidend.section_intro_amending_tail",
+)
 # ``skal\s+(?:\S+\s+)*?`` tolerates intervening qualifier words between the
 # ``skal`` verb and the ``§`` target ("skal ny § 12 a lyde", "skal nytt § 4 a
 # lyde"). The capture begins at ``§`` so the rebuilt embedded lead stays a ``§ …``
@@ -2260,20 +2321,9 @@ def _extract_no_section_base_id_from_lead(lead: str) -> str | None:
     lowered = re.sub(_NO_LEAD_ITEM_ORDINAL_PREFIX, "", lowered)
     if not lowered.startswith("i "):
         return None
-    section_intro_markers = (
-        "gjøres følgende endring",
-        "gjøres følgende endringer",
-        "gjøres disse endringene",
-        "gjer følgjande endring",
-        "gjer følgjande endringar",
-        "gjerast følgjande endring",
-        "gjerast følgjande endringar",
-        "blir gjort følgende endring",
-        "blir gjort følgende endringer",
-        "blir gjort følgjande endring",
-        "blir gjort følgjande endringar",
-    )
-    if not any(marker in lowered for marker in section_intro_markers):
+    # ``lowered`` is already lower-cased, so the marker carries no IGNORECASE.
+    # lawvm-regex: owning_parser this IS the part-announcement lead parser
+    if _NO_SECTION_INTRO_MARKER_RE.search(lowered) is None:
         return None
     return _extract_no_law_citation_base_id(lead)
 

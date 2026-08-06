@@ -968,8 +968,12 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
     # acts that entered the index for the first time carry genuine mixed
     # date-plus-delegated commencement fields (2005-06-17-59, 2007-04-13-14,
     # 2009-06-19-108); no existing entry's shape changed. Signed off 2026-08-06.
-    assert len(staged) == 170
-    assert len([entry for entry in staged if entry.source_id != _WIDENED_MARKER_STAGED_ACT]) == 169
+    # 170 -> 174 at W-30 (intro-marker morphology): four of the 64 acts gaining
+    # their first index entry carry mixed date-plus-delegated fields; all four
+    # are first-time entries, none dropped, no existing entry's shape changed.
+    # Signed off 2026-08-06.
+    assert len(staged) == 174
+    assert len([entry for entry in staged if entry.source_id != _WIDENED_MARKER_STAGED_ACT]) == 173
 
     # Total and queryable: one receipt per staged act, no more and no fewer.
     receipts = [
@@ -1022,7 +1026,10 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
     # The eight carry BOTH the staged receipt and the authorization receipt.
     assert set(redated) <= authorized_ids
     # 520 acts batch 03 authorized + the 8 this batch adds; no conflicts appear.
-    assert len(authorized_ids) == 528
+    # 528 -> 539 at W-30: eleven of the 64 first-time entries have commencement
+    # instruments that authorize them; the offer-gate conjuncts are unchanged,
+    # only the population grew. Signed off 2026-08-06.
+    assert len(authorized_ids) == 539
     assert not [
         diagnostic
         for diagnostic in index.diagnostics
@@ -1039,7 +1046,12 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # Kongen bestemmer" — once the spaced item ordinals its <strong>-wrapped
         # numbers produce are stripped. No existing entry moved. Signed off
         # 2026-08-06.
-        "contingent": 921,
+        # 921 -> 953, 1028 -> 1049, 528 -> 539 at W-30 (intro-marker
+        # morphology): the 64 acts gaining their first index entry split
+        # +32 contingent / +21 dated / +11 instrument_authorized — exactly
+        # conserving the 64; no existing entry's status moved. Signed off
+        # 2026-08-06.
+        "contingent": 953,
         # 1021 -> 1020 at W-15 (multi-part misbinding fix): the sole moved entry
         # is no/lovtid/2018-12-20-119, whose only "op" was its own part II
         # commencement sentence ("Lova tek til å gjelde straks.") swallowed as a
@@ -1051,9 +1063,10 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # commencement field is a plain date (2020-12-18), so it lands in the
         # dated bucket. Every other bucket unchanged. Signed off 2026-08-06.
         # 1021 -> 1028 at W-21: see the contingent comment above.
-        "dated": 1028,
+        # 1028 -> 1049 at W-30: see the contingent comment above.
+        "dated": 1049,
         "immediate": 1,
-        "instrument_authorized": 528,
+        "instrument_authorized": 539,
         "unknown": 2,
     }
 
@@ -1148,14 +1161,16 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     # 520 acts whose own commencement was unresolved (W-7 tranche 3), plus the 8
     # staged acts batch 04 added to the offer set; the gate's conjuncts are the
     # same four, only the population offered to them grew.
-    assert len(authorized) == 528
+    # 528 -> 539 (and 520 -> 531 non-staged) at W-30: eleven first-time entries
+    # with authorizing instruments, none staged. Signed off 2026-08-06.
+    assert len(authorized) == 539
     assert (
         len([
             entry
             for entry in authorized
             if entry.commencement_shape != NOCommencementShape.STAGED_DELEGATED
         ])
-        == 520
+        == 531
     )
     assert all(entry.effective_date for entry in authorized)
     authorization_receipts = [
@@ -1163,7 +1178,7 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
         for diagnostic in index.diagnostics
         if diagnostic["rule_id"] == NO_COMMENCEMENT_EXECUTION_AUTHORIZED
     ]
-    assert len(authorization_receipts) == 528
+    assert len(authorization_receipts) == 539
     assert not [
         diagnostic
         for diagnostic in index.diagnostics
@@ -1212,7 +1227,57 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     # gained its first bound source with a resolved status — the recovered
     # binding from no/lovtid/2019-05-24-18, the same mechanism as the two
     # W-15 gains above. Signed off 2026-08-05.
-    assert len(fully_replayable) == 57
+    # 57 -> 56 at W-30 (intro-marker morphology): 2006-06-30-50 gained a
+    # newly-bound, correctly-cited amending act (no/lovtid/2007-06-29-81)
+    # whose commencement is contingent — the W-15 decertification mechanism.
+    # It returns whenever that commencement resolves. Signed off 2026-08-06.
+    assert len(fully_replayable) == 56
+
+
+def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> None:
+    """W-30's whole corpus effect on F-10's declared-vs-bound gap, recorded.
+
+    The part-announcement tail gate was a closed 11-member literal tuple; 535
+    leads across 346 acts carried the same amending construction in another
+    spelling and resolved nothing. Widening it to the measured morphology binds
+    291 declared targets that Lovdata's ``changesToDocuments`` list had named
+    and the index had receipted as unbound.
+
+    The 20 targets that become newly unbound are the counterpart of the 20
+    (act, law) group pairs the widening REMOVES: in each, ops that had been
+    inherited by a stale carried-over base act move to the law their own part
+    announces, and the act's genuine amendment to the old target turns out not
+    to lower at all. That is the same metric honesty W-25/W-26 recorded — a
+    lowering gap the misbinding had been masking, not a lost op. Nothing is
+    lost: the op-identity multiset is conserved act by act across all 116
+    changed acts (0 ops dropped, 958 gained).
+    """
+    data_dir = resolve_no_source_path(None)
+    if not data_dir.exists():
+        pytest.skip("local Norway corpus is not installed")
+    index = build_no_amendment_index(data_dir)
+    if index.commencement_instrument_coverage.total_instruments == 0:
+        pytest.skip("local Norway corpus is not installed")
+
+    unbound = [
+        diagnostic
+        for diagnostic in index.diagnostics
+        if diagnostic["rule_id"] == "no_amendment_index_declared_target_unbound"
+    ]
+    # 1,031 -> 975 receipts (one per act with a gap); 3,141 -> 2,850 unbound
+    # (act, target) pairs, net of the 20 newly unbound explained above.
+    assert len(unbound) == 975
+    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2850
+    assert len({diagnostic["source_id"] for diagnostic in unbound}) == 975
+
+    # 64 acts gain their FIRST index entry: they announced every one of their
+    # parts with an unlisted tail, so they had bound no law at all.
+    assert len(index.entries) == 2544
+    bindings = {
+        (entry.source_id, base_id) for entry in index.entries for base_id in entry.base_ids
+    }
+    assert len(bindings) == 6084
+    assert sum(entry.n_ops for entry in index.entries) == 26218
 
 
 def test_no_amendment_index_staleness_report_detects_archive_change(tmp_path) -> None:

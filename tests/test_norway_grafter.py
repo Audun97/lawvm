@@ -4593,6 +4593,157 @@ def test_no_letter_suffixed_ordinal_strip_cannot_invent_a_binding() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    "tail",
+    [
+        # The 11 tails the closed tuple already admitted, kept here so the
+        # widening can never silently drop one of them.
+        "gjøres følgende endring:",
+        "gjøres følgende endringer:",
+        "gjøres disse endringene:",
+        "gjer følgjande endring:",
+        "gjer følgjande endringar:",
+        "gjerast følgjande endring:",
+        "gjerast følgjande endringar:",
+        "blir gjort følgende endring:",
+        "blir gjort følgende endringer:",
+        "blir gjort følgjande endring:",
+        "blir gjort følgjande endringar:",
+        # W-30: every tail family the 2026-08-06 corpus sweep found outside the
+        # tuple, each taken verbatim off a real lead and re-headed onto one
+        # citation so the parametrization tests the TAIL, not the citation.
+        # Counts are that family's share of the 535 newly-admitted leads.
+        "blir det gjort følgjande endringar:",  # 119
+        "gjer ein følgjande endringar:",  # 77
+        "vert det gjort følgjande endringar:",  # 66
+        "gjer ein følgjande endring:",  # 61
+        "skal desse endringane gjerast:",  # 51
+        "blir desse endringane gjort:",  # 38
+        "blir det gjort desse endringane:",  # 21
+        "gjer ein desse endringane:",  # 20
+        "vert det gjort følgjande endring:",  # 19
+        "blir det gjort følgjande endring:",  # 18
+        "skal det gjerast desse endringane:",  # 14
+        "skal det gjerast slike endringar:",  # 11
+        "blir det gjort følgende endringer:",  # 10
+        "gjer ein denne endringa:",  # 8
+        "blir det gjort slike endringar:",  # 8
+        "vert gjort følgjande endringar:",  # 7
+        "blir desse endringane gjorde:",  # 7
+        "skal disse endringene gjøres:",  # 5
+        "vert det gjort slike endringar:",  # 4
+        "vert følgjande endringar gjort:",  # 4
+        "vert desse endringane gjort:",  # 2
+        "blir følgjande endring gjort:",  # 2
+        # The fillers the corpus puts INSIDE the phrase, each attested once or
+        # twice: the expletive ``det``, a ``del``/``avsnitt`` scope, and an
+        # adjective before the noun.
+        "gjøres det følgende endringer:",
+        "gjøres i del II følgende endringer:",
+        "gjøres i avsnitt I følgende endringer:",
+        "gjøres følgende midlertidige endringer:",
+        # Lovtidend's Nynorsk drafting is not spell-checked; these four
+        # misspellings are each a real corpus lead, and the tail is the only
+        # guard there is.
+        "vert det gjort fylgjande endringar:",
+        "vert det gjort føljande endringar:",
+        "gjøres følgene endring:",
+        "gjøres følge endringer:",
+    ],
+)
+def test_no_section_intro_marker_admits_every_attested_tail_spelling(tail: str) -> None:
+    """W-30: the part-announcement tail is a morphology, not an 11-item list.
+
+    ``_extract_no_section_base_id_from_lead`` gated on a hand-kept tuple of 11
+    literal tails. Measured over every lead the gate is actually asked about in
+    a full corpus parse (47,455 distinct, 5,722 passing its ``i `` guard), 535
+    further leads across 346 acts carry the same construction in 37 other
+    spellings and resolved nothing at all.
+    """
+    lead = f"I lov 20. mai 2005 nr. 28 om straff {tail}"
+    assert _extract_no_section_base_id_from_lead(lead) == "no/lov/2005-05-20-28"
+
+
+@pytest.mark.parametrize(
+    "lead",
+    [
+        # Every one of these is a corpus lead that reaches the gate, opens with
+        # ``I ``, and carries a RESOLVABLE citation — so the tail is the only
+        # thing keeping it out, which is exactly what makes it a guard.
+        "I lov 20. juni 2014 nr. 30 om kredittvurderingsbyråer skal § 1 lyde:",
+        "I lov 16. juni 1989 nr. 65 om yrkesskadeforsikring skal lovens tittel lyde:",
+        "I lov 21. desember 2020 nr. 168 om endringer i merverdiavgiftsloven skal romartal II lyde:",
+        "I lov 5. januar 2001 nr. 1 om vaktvirksomhet skal følgende bestemmelser lyde:",
+        "I lov 21. februar 2003 nr. 12 om biobanker (biobankloven) skal dette endrast:",
+        (
+            "I lov 24. mai 2013 nr. 19 om endringer i straffeprosessloven mv. "
+            "(elektronisk kontroll som varetektsurrogat mv.) oppheves del I."
+        ),
+        (
+            "I lov 19. februar 2021 nr. 4 om midlertidige endringer i smittevernloven "
+            "(oppholdssted under innreisekarantene mv.) oppheves nr. 2 i lovens del II."
+        ),
+    ],
+)
+def test_no_section_intro_marker_still_rejects_the_non_construction_tails(lead: str) -> None:
+    """W-30 guard: the 1,202 unlisted leads that are NOT this construction.
+
+    Of the 1,737 ``I lov <citation> …`` part leads whose tail the tuple did not
+    list, only 535 are the amending construction. The rest are §-addressed
+    operative leads, whole-act repeals, title changes and inline term
+    substitutions — each names a law the item acts on directly rather than
+    announcing a part of amendments to it, so none may seed a part's base act.
+    """
+    # The citation itself is resolvable; only the missing tail keeps the lead out.
+    assert _extract_no_law_citation_base_id(lead) is not None
+    assert _extract_no_section_base_id_from_lead(lead) is None
+
+
+def test_no_section_intro_marker_determiner_slot_is_closed() -> None:
+    """W-30: why the tail is a closed morphology and not a bounded wildcard.
+
+    A drafted alternative allowed any ≤40 characters between the "make" verb and
+    the ``endring`` noun. Measured over the same 5,722-lead population it
+    admitted one lead that is not this construction at all — a substantive
+    provision of varemerkeloven — so the determiner slot was closed to the
+    attested set instead. The corpus lead carries no citation, so it is pinned
+    beside a constructed twin that does: the tail, not the missing citation, is
+    what must reject it.
+    """
+    assert (
+        _extract_no_section_base_id_from_lead(
+            "I et varemerke som er søkt registrert kan det gjøres uvesentlige "
+            "endringer som ikke påvirker helhetsinntrykket av merket."
+        )
+        is None
+    )
+    assert (
+        _extract_no_section_base_id_from_lead(
+            "I lov 26. mars 2010 nr. 8 om beskyttelse av varemerker kan det gjøres "
+            "uvesentlige endringer som ikke påvirker helhetsinntrykket av merket."
+        )
+        is None
+    )
+    # The two genuine leads the closed slot costs, pinned so the trade stays
+    # visible: both are the construction with an over-long scope adverbial or a
+    # coordinated noun phrase, and both resolved nothing before W-30 as well.
+    assert (
+        _extract_no_section_base_id_from_lead(
+            "I lov 27. juni 2008 nr. 65 om endringer i lov 16. juni 1989 nr. 69 om "
+            "forsikringsavtaler m.m. gjøres i avsnitt II om endringer i lov 2. juli "
+            "1999 nr. 64 om helsepersonell m.v. følgende endring:"
+        )
+        is None
+    )
+    assert (
+        _extract_no_section_base_id_from_lead(
+            "I § 19-3 nr. 5 om endringer i lov 19. juni 1964 nr. 14 om avgift av arv "
+            "og visse gaver, gjøres følgende tillegg og endring:"
+        )
+        is None
+    )
+
+
 @pytest.mark.skipif(
     _NO_FARCHIVE_PATH is None,
     reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
@@ -4642,6 +4793,84 @@ def test_no_letter_suffixed_ordinal_witness_binds_the_1891_finhed_act() -> None:
     # The same widening recovers item ``93 a.``, whose embedded ``skal ny § 54 C
     # lyde`` form produced no op at all before.
     assert [op.target.path for op in grouped["no/lov/1975-05-30-18"]] == [(("section", "54C"),)]
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_industrial_property_act_splits_across_its_six_announcements() -> None:
+    """W-30 corpus witness: `no/lovtid/2012-06-22-58`, the cleanest misbinding.
+
+    Six numbered items each announce their own law; items 2-6 use the Nynorsk
+    ``blir følgjande endringar gjorde:`` tail the closed tuple did not list, so
+    only item 1's embedded ``skal § 3 … lyde`` form resolved and ALL 22 ops
+    inherited it — the act read as 22 amendments to the 1953 defence-invention
+    act, which genuinely receives exactly one. Each count below is that item's
+    own op count, audited against its own lead.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2012-06-22-58", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    grouped = dict(iter_no_document_change_ops(html_bytes, "no/lovtid/2012-06-22-58"))
+
+    assert {base_id: len(ops) for base_id, ops in grouped.items()} == {
+        "no/lov/1953-06-26-8": 1,  # item 1, the embedded form, unchanged
+        "no/lov/1967-12-15-9": 8,  # item 2, patentloven
+        "no/lov/1985-06-21-79": 2,  # item 3, foretaksnavneloven
+        "no/lov/1993-03-12-32": 1,  # item 4, planteforedlerretten
+        "no/lov/2003-03-14-15": 4,  # item 5, designloven
+        "no/lov/2010-03-26-8": 6,  # item 6, varemerkeloven
+    }
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_gjer_ein_folgjande_witness_enters_the_index_at_all() -> None:
+    """W-30 corpus witness for the ``gjer ein følgjande …`` family.
+
+    ``no/lovtid/2007-06-15-21`` is one of the 64 acts that gained their FIRST
+    index entry: every one of its parts announces its law with a tail outside
+    the tuple, so the act resolved no base at all and its 22 ops were dropped
+    whole. Nothing about it is exotic — it is simply written in Nynorsk.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2007-06-15-21", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    grouped = dict(iter_no_document_change_ops(html_bytes, "no/lovtid/2007-06-15-21"))
+
+    assert {base_id: len(ops) for base_id, ops in grouped.items()} == {
+        "no/lov/1991-11-08-76": 3,
+        "no/lov/1997-02-28-19": 13,
+        "no/lov/2005-06-17-58": 1,
+        "no/lov/2005-06-17-62": 5,
+    }
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_tvisteloven_part_reclaims_its_ops_from_a_stale_carryover() -> None:
+    """W-30 corpus witness for the rebind direction, not just first resolution.
+
+    ``no/lovtid/2007-12-21-127``'s tvisteloven part opens
+    "I lov 17. juni 2005 nr. 90 om mekling og rettergang i sivile tvister vert
+    det gjort følgjande endringar:". With that tail unlisted the part resolved
+    nothing and its 7 ops kept the previous part's 1932 arbitration act, which
+    then carried 8 ops instead of its own 1. This is one of only 3 parts in the
+    whole corpus whose base id the widening REPLACES rather than supplies, and
+    all 3 move to the law their own head lead cites.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2007-12-21-127", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    grouped = dict(iter_no_document_change_ops(html_bytes, "no/lovtid/2007-12-21-127"))
+
+    assert len(grouped["no/lov/2005-06-17-90"]) == 7
+    assert len(grouped["no/lov/1932-05-27-2"]) == 1
 
 
 @pytest.mark.skipif(

@@ -2170,10 +2170,15 @@ def test_annex_ceiling_corpus_counts_are_pinned() -> None:
     if report["scanned_count"] == 0:
         pytest.skip("local Norway corpus is not installed")
     rows = {item["base_id"]: item for item in report["results"]}
+    # W-30 (2026-08-06, signed off): no/lov/2006-06-30-50 is still requested
+    # above but no longer scanned — it left the candidate set when the
+    # intro-marker widening bound no/lovtid/2007-06-29-81 to it, whose
+    # commencement is contingent. Its 211 ceiling rows (104 address + all 107
+    # counterpart) left the scan with it; they are a property of the law, not
+    # of the candidate set, and return when that commencement resolves.
     assert set(rows) == {
         "no/lov/2018-06-15-38",
         "no/lov/2017-06-16-51",
-        "no/lov/2006-06-30-50",
         "no/lov/2001-01-05-1",
         "no/lov/2013-06-21-102",
     }
@@ -2188,11 +2193,8 @@ def test_annex_ceiling_corpus_counts_are_pinned() -> None:
         # One convention annexed twice, bokmål (102) + nynorsk (102). The 6
         # unexplained are the §26 subsection-boundary shift family.
         "no/lov/2017-06-16-51": (210, 204, 6, {address: 204}),
-        # SCE-loven: the SCE Regulation on BOTH sides. 104 annex-address rows
-        # and 107 canonical counterparts (104 pairing 1:1 with an annex-address
-        # row, plus Article 80's 3 truncated signature subsections). The 1
-        # unexplained is §11a(1), a genuine unlowered provision.
-        "no/lov/2006-06-30-50": (212, 211, 1, {address: 104, counterpart: 107}),
+        # SCE-loven's row (212, 211, 1, {address: 104, counterpart: 107}) is
+        # off-scan since W-30 — see the set(rows) comment above.
         "no/lov/2001-01-05-1": (83, 0, 83, {}),
         "no/lov/2013-06-21-102": (55, 0, 55, {}),
     }
@@ -2205,10 +2207,12 @@ def test_annex_ceiling_corpus_counts_are_pinned() -> None:
         # Conservation, per law: nothing was deleted from either side.
         assert ceiling + unexplained == total, base_id
 
-    # The whole family, corpus-wide: 1,022 + 107 = 1,129, and every one of them
-    # belongs to one of the three annexing laws.
-    assert report["ceiling_rule_counts"] == {address: 1022, counterpart: 107}
-    assert report["divergence_totals"]["ceiling"] == 1129
+    # Over the scanned subset: 714 + 204 = 918 address rows, no counterpart
+    # rows (all 107 were SCE-loven's, off-scan since W-30). The corpus-wide
+    # annexed-instrument family measured at W-17 (1,022 + 107 = 1,129) still
+    # exists — only the candidate set shrank.
+    assert report["ceiling_rule_counts"] == {address: 918}
+    assert report["divergence_totals"]["ceiling"] == 918
 
 
 def test_no_verify_partition_corpus_membership_is_pinned() -> None:
@@ -2234,12 +2238,17 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     if report["scanned_count"] == 0:
         pytest.skip("local Norway corpus is not installed")
 
-    # Conservation: W-23 moves no scan-level number at all.
-    assert report["scanned_count"] == 57
-    assert report["summary"] == {"consistent": 22, "divergent": 35, "error": 0}
-    assert report["divergence_totals"] == {"total": 1512, "ceiling": 1129, "unexplained": 383}
-    # The signal still fires on 4 laws; it simply no longer decides routing.
-    assert report["source_signal_counts"] == {"sparse_indexed_history": 4}
+    # Conservation: W-23 moves no scan-level number at all. (The numbers below
+    # are the post-W-30 corpus — W-30's intro-marker widening moved the SCAN
+    # itself, signed off 2026-08-06: no/lov/2006-06-30-50 left the candidate
+    # set with its 212 divergences and its sparse signal; 2017-06-16-65
+    # dropped 57 -> 13 and 2017-06-16-67 dropped 6 -> 2 via newly-bound
+    # instrument-authorized amenders.)
+    assert report["scanned_count"] == 56
+    assert report["summary"] == {"consistent": 22, "divergent": 34, "error": 0}
+    assert report["divergence_totals"] == {"total": 1252, "ceiling": 918, "unexplained": 334}
+    # The signal still fires; it simply no longer decides routing.
+    assert report["source_signal_counts"] == {"sparse_indexed_history": 3}
 
     expected = {
         "replay_defect": [
@@ -2286,8 +2295,10 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             "no/lov/2001-01-05-1",
             "no/lov/2020-11-27-131",
         ],
+        # no/lov/2006-06-30-50 left this bucket with the candidate set at
+        # W-30 (contingent amender no/lovtid/2007-06-29-81); it returns when
+        # that commencement resolves.
         "annex_ceiling": [
-            "no/lov/2006-06-30-50",
             "no/lov/2017-06-16-51",
             "no/lov/2018-06-15-38",
         ],
@@ -2325,8 +2336,8 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # Complete and disjoint, asserted directly rather than inferred from the
     # per-bucket lists.
     routed = [item["base_id"] for bucket in partitions.values() for item in bucket]
-    assert len(routed) == 57
-    assert len(set(routed)) == 57
+    assert len(routed) == 56
+    assert len(set(routed)) == 56
 
     # Every member of the ceiling bucket is ceiling-DOMINATED, and the margin
     # to the routing boundary is enormous in both directions: the smallest
