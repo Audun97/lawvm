@@ -74,6 +74,7 @@ def main(args: "argparse.Namespace") -> None:
         ("replay_defect", "Replay Defects"),
         ("untouched_drift", "Untouched Drift"),
         ("source_sparse", "Sparse Source Cases"),
+        ("annex_ceiling", "Annexed-Instrument Ceiling"),
         ("consistent", "Consistent"),
         ("error", "Errors"),
     ]:

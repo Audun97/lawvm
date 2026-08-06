@@ -34,6 +34,7 @@ from lawvm.norway.verify import (
     _NO_VERIFY_INLINE_FOOTNOTE_RE,
     _normalize_no_compare_tree,
     _partition_primary_divergences,
+    no_partition_is_annex_ceiling_dominated,
     no_paths_related,
     irnode_to_no_comparison_text,
     normalize_no_comparison_text,
@@ -533,6 +534,154 @@ def test_build_no_verify_partition_separates_untouched_drift(monkeypatch) -> Non
 
     assert [item["base_id"] for item in report["partitions"]["replay_defect"]] == ["no/lov/2024-01-12-1"]
     assert [item["base_id"] for item in report["partitions"]["untouched_drift"]] == ["no/lov/2020-12-18-156"]
+    # W-23 added a bucket; a scan whose rows carry no W-17 ceiling fields must
+    # still route exactly as before, with the new bucket simply empty.
+    assert report["partitions"]["annex_ceiling"] == []
+
+
+# --- W-23: annex-ceiling routing ------------------------------------------
+#
+# The measured contradiction this fixes, at as-of 2026-07-10 over the 57 scan
+# candidates: ``sparse_indexed_history`` fired on 4 laws and
+# build_no_verify_partition tested ``source_signal`` before anything else, so
+#
+#   2018-06-15-38  716 div = 714 ceiling + 2 unexplained  signal -> source_sparse
+#   2006-06-30-50  212 div = 211 ceiling + 1 unexplained  signal -> source_sparse
+#   2017-06-16-51  210 div = 204 ceiling + 6 unexplained  none   -> replay_defect
+#
+# — one cause (W-17's annexed-instrument representation), three laws, two
+# buckets, and the ``source_sparse`` story ("we never acquired the amending
+# history") false of two of its four members at 99.7% and 99.5% ceiling.
+#
+# The ledger's candidate fix — route the annex laws by their unexplained
+# residue through the existing touched/untouched coverage split — was MEASURED
+# AND REJECTED here (.tmp/w23/annex_coverage.json): it relocates the split
+# rather than closing it, because the residues fall on different sides of the
+# coverage test (2018-06-15-38 touched=0 -> untouched_drift; 2006-06-30-50
+# touched=1 and 2017-06-16-51 touched=6 -> replay_defect). Only a bucket keyed
+# on the ceiling itself puts one cause in one place.
+
+
+def test_no_partition_annex_ceiling_predicate_flags_ceiling_majority() -> None:
+    # 2018-06-15-38's shape: 714 of 716.
+    assert no_partition_is_annex_ceiling_dominated(
+        {"divergence_count": 716, "ceiling_divergence_count": 714, "unexplained_divergence_count": 2}
+    )
+
+
+def test_no_partition_annex_ceiling_predicate_ignores_law_with_no_ceiling() -> None:
+    # 2001-01-05-1's shape: the genuinely sparse law, 83 divergences, 0 ceiling.
+    # It must stay reachable by the source-signal branch.
+    assert not no_partition_is_annex_ceiling_dominated(
+        {"divergence_count": 83, "ceiling_divergence_count": 0, "unexplained_divergence_count": 83}
+    )
+
+
+def test_no_partition_annex_ceiling_predicate_is_a_strict_majority() -> None:
+    # A tie is NOT domination: at 50/50 the bucket's story ("this law's
+    # divergences are the representation ceiling") is not true of the law. No
+    # corpus law is anywhere near this boundary — the members sit at 97.1%,
+    # 99.5% and 99.7% and every non-member at 0% — so the boundary is pinned
+    # by its meaning, not by a measurement.
+    assert not no_partition_is_annex_ceiling_dominated(
+        {"divergence_count": 10, "ceiling_divergence_count": 5, "unexplained_divergence_count": 5}
+    )
+    assert no_partition_is_annex_ceiling_dominated(
+        {"divergence_count": 11, "ceiling_divergence_count": 6, "unexplained_divergence_count": 5}
+    )
+
+
+def test_no_partition_annex_ceiling_predicate_tolerates_pre_w17_rows() -> None:
+    # A row built without the W-17 split (both fields absent) is never routed
+    # to the ceiling bucket — the predicate cannot invent a ceiling.
+    assert not no_partition_is_annex_ceiling_dominated({"divergence_count": 716})
+
+
+def _w23_scan_row(base_id: str, *, total: int, ceiling: int, signal: str) -> dict[str, Any]:
+    return {
+        "base_id": base_id,
+        "current_title": base_id,
+        "replay_status": "replayed",
+        "consistent": False,
+        "divergence_count": total,
+        "divergence_counts": {"OPS_MISSING": total},
+        "ceiling_divergence_count": ceiling,
+        "ceiling_divergence_rule_counts": (
+            {NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_ADDRESS: ceiling} if ceiling else {}
+        ),
+        "unexplained_divergence_count": total - ceiling,
+        "amendment_count": 2,
+        "indexed_amendment_count": 2,
+        "applied_amendment_count": 2,
+        "replay_op_count": 3,
+        "source_signal": signal,
+        "error": "",
+    }
+
+
+def test_build_no_verify_partition_keeps_the_annex_family_in_one_bucket(monkeypatch) -> None:
+    """The family-split regression, in the three corpus laws' exact shapes.
+
+    Two of the three carry ``sparse_indexed_history`` and one does not; before
+    W-23 that difference alone decided their bucket. All three must now land
+    in ``annex_ceiling``, and the genuinely sparse law must still reach
+    ``source_sparse``.
+    """
+    monkeypatch.setattr(
+        "lawvm.norway.verify.build_no_verify_scan",
+        lambda **_: {
+            "data_dir": "data/norway.farchive",
+            "as_of": "2026-07-10",
+            "candidate_count": 4,
+            "scanned_count": 4,
+            "summary": {"consistent": 0, "divergent": 4, "error": 0},
+            "source_signal_counts": {"sparse_indexed_history": 3},
+            "results": [
+                _w23_scan_row(
+                    "no/lov/2018-06-15-38", total=716, ceiling=714, signal="sparse_indexed_history"
+                ),
+                _w23_scan_row("no/lov/2017-06-16-51", total=210, ceiling=204, signal=""),
+                _w23_scan_row(
+                    "no/lov/2006-06-30-50", total=212, ceiling=211, signal="sparse_indexed_history"
+                ),
+                _w23_scan_row(
+                    "no/lov/2001-01-05-1", total=83, ceiling=0, signal="sparse_indexed_history"
+                ),
+            ],
+        },
+    )
+    monkeypatch.setattr(
+        "lawvm.norway.verify.verify_no_against_current",
+        lambda base_id, **_: SimpleNamespace(base_id=base_id, divergences=[]),
+    )
+    monkeypatch.setattr(
+        "lawvm.norway.verify.build_no_verify_coverage_summary",
+        lambda *, verify_result, index, data_dir=None: {
+            "touched_path_count": 0,
+            "touched_source_count": 0,
+            "touched_op_count": 0,
+            "touched_divergence_count": 0,
+            "untouched_divergence_count": 1,
+        },
+    )
+    monkeypatch.setattr("lawvm.norway.verify._load_no_index", lambda **_: SimpleNamespace())
+
+    report = build_no_verify_partition(as_of="2026-07-10", data_dir=None, limit=10)
+    partitions = report["partitions"]
+
+    assert [item["base_id"] for item in partitions["annex_ceiling"]] == [
+        "no/lov/2018-06-15-38",
+        "no/lov/2006-06-30-50",
+        "no/lov/2017-06-16-51",
+    ]
+    # The signal is NOT what routes any more: it still fires on two of the
+    # three, and no longer decides where they go.
+    assert [item["base_id"] for item in partitions["source_sparse"]] == ["no/lov/2001-01-05-1"]
+    assert partitions["replay_defect"] == []
+    assert partitions["untouched_drift"] == []
+    # Complete and disjoint.
+    routed = [item["base_id"] for bucket in partitions.values() for item in bucket]
+    assert len(routed) == len(set(routed)) == 4
 
 
 def test_normalize_no_comparison_text_removes_spacing_noise_only() -> None:
@@ -2060,6 +2209,136 @@ def test_annex_ceiling_corpus_counts_are_pinned() -> None:
     # belongs to one of the three annexing laws.
     assert report["ceiling_rule_counts"] == {address: 1022, counterpart: 107}
     assert report["divergence_totals"]["ceiling"] == 1129
+
+
+def test_no_verify_partition_corpus_membership_is_pinned() -> None:
+    """W-23: the whole 57-law partition, bucket by bucket, after the re-routing.
+
+    Complete and disjoint is the property under test — every scan candidate in
+    exactly one bucket — plus the three bucket changes W-23 makes and nothing
+    else. Baseline captured at ``e95144e09`` in
+    ``.tmp/w23/partition_before.json``: the only differences from it are
+
+      * ``no/lov/2018-06-15-38``  source_sparse   -> annex_ceiling  (714/716)
+      * ``no/lov/2006-06-30-50``  source_sparse   -> annex_ceiling  (211/212)
+      * ``no/lov/2017-06-16-51``  replay_defect   -> annex_ceiling  (204/210)
+
+    The scan-level receipts (verdicts, divergence totals, ceiling totals) are
+    asserted UNMOVED alongside, because W-23 is a partition-view change only.
+    """
+    data_dir = resolve_no_source_path(None)
+    if not data_dir.exists():
+        pytest.skip("local Norway corpus is not installed")
+
+    report = build_no_verify_partition(as_of="2026-07-10", data_dir=data_dir, limit=200)
+    if report["scanned_count"] == 0:
+        pytest.skip("local Norway corpus is not installed")
+
+    # Conservation: W-23 moves no scan-level number at all.
+    assert report["scanned_count"] == 57
+    assert report["summary"] == {"consistent": 22, "divergent": 35, "error": 0}
+    assert report["divergence_totals"] == {"total": 1512, "ceiling": 1129, "unexplained": 383}
+    # The signal still fires on 4 laws; it simply no longer decides routing.
+    assert report["source_signal_counts"] == {"sparse_indexed_history": 4}
+
+    expected = {
+        "replay_defect": [
+            "no/lov/2001-06-15-65",
+            "no/lov/2004-05-28-29",
+            "no/lov/2010-06-25-28",
+            "no/lov/2012-11-30-70",
+            "no/lov/2013-06-21-102",
+            "no/lov/2014-08-15-59",
+            "no/lov/2015-05-22-33",
+            "no/lov/2016-06-17-29",
+            "no/lov/2016-06-17-46",
+            "no/lov/2017-05-22-29",
+            "no/lov/2017-05-22-30",
+            "no/lov/2019-06-14-21",
+            "no/lov/2019-12-20-109",
+            "no/lov/2021-06-11-79",
+            "no/lov/2022-03-11-9",
+        ],
+        "untouched_drift": [
+            "no/lov/2003-06-27-57",
+            "no/lov/2007-06-29-89",
+            "no/lov/2009-03-06-12",
+            "no/lov/2012-01-27-9",
+            "no/lov/2017-05-22-28",
+            "no/lov/2017-06-16-65",
+            "no/lov/2017-06-16-67",
+            "no/lov/2020-12-04-136",
+            "no/lov/2021-04-16-18",
+            "no/lov/2021-06-18-121",
+            "no/lov/2022-06-17-49",
+            "no/lov/2022-12-20-118",
+            "no/lov/2022-12-20-97",
+            "no/lov/2023-11-24-85",
+            "no/lov/2024-12-13-76",
+        ],
+        # F-09 proper: the two laws whose divergences really are an
+        # acquisition ceiling. Both carry 0 annex-ceiling rows, and both are
+        # the ONLY two on which the signal would still fire if it were
+        # re-derived from the W-17 residue instead of the raw total
+        # (.tmp/w23/annex_coverage.json) — the bucket's story is now true of
+        # every member.
+        "source_sparse": [
+            "no/lov/2001-01-05-1",
+            "no/lov/2020-11-27-131",
+        ],
+        "annex_ceiling": [
+            "no/lov/2006-06-30-50",
+            "no/lov/2017-06-16-51",
+            "no/lov/2018-06-15-38",
+        ],
+        "consistent": [
+            "no/lov/2004-05-14-25",
+            "no/lov/2005-06-03-34",
+            "no/lov/2006-08-18-61",
+            "no/lov/2012-01-27-10",
+            "no/lov/2013-06-07-31",
+            "no/lov/2017-06-16-60",
+            "no/lov/2018-06-15-44",
+            "no/lov/2019-06-21-70",
+            "no/lov/2020-05-07-38",
+            "no/lov/2020-06-19-95",
+            "no/lov/2020-12-18-153",
+            "no/lov/2020-12-18-156",
+            "no/lov/2021-05-21-42",
+            "no/lov/2021-06-18-115",
+            "no/lov/2022-03-18-12",
+            "no/lov/2022-05-12-28",
+            "no/lov/2023-06-16-62",
+            "no/lov/2024-01-12-1",
+            "no/lov/2024-06-25-69",
+            "no/lov/2024-12-13-77",
+            "no/lov/2025-06-20-102",
+            "no/lov/2025-12-22-116",
+        ],
+        "error": [],
+    }
+    partitions = report["partitions"]
+    assert set(partitions) == set(expected)
+    for bucket, base_ids in expected.items():
+        assert sorted(item["base_id"] for item in partitions[bucket]) == base_ids, bucket
+
+    # Complete and disjoint, asserted directly rather than inferred from the
+    # per-bucket lists.
+    routed = [item["base_id"] for bucket in partitions.values() for item in bucket]
+    assert len(routed) == 57
+    assert len(set(routed)) == 57
+
+    # Every member of the ceiling bucket is ceiling-DOMINATED, and the margin
+    # to the routing boundary is enormous in both directions: the smallest
+    # member sits at 97.1% ceiling, and no law outside the bucket carries a
+    # single ceiling row.
+    for item in partitions["annex_ceiling"]:
+        assert item["ceiling_divergence_count"] > item["unexplained_divergence_count"]
+        assert item["ceiling_divergence_count"] / item["divergence_count"] > 0.97
+    for bucket, items in partitions.items():
+        if bucket == "annex_ceiling":
+            continue
+        assert all(item["ceiling_divergence_count"] == 0 for item in items), bucket
 
 
 def test_verify_no_against_current_ignores_section_heading_only_drift(tmp_path) -> None:

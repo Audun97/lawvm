@@ -44,6 +44,7 @@ def main(args: "argparse.Namespace") -> None:
         "replay_defect": "Replay Defects",
         "untouched_drift": "Untouched Drift",
         "source_sparse": "Sparse Source Cases",
+        "annex_ceiling": "Annexed-Instrument Ceiling",
         "consistent": "Consistent",
         "error": "Errors",
     }
@@ -81,7 +82,16 @@ def main(args: "argparse.Namespace") -> None:
     if queue:
         print("  queue:")
         for item in queue:
+            # W-23: in a work QUEUE the actionable number for a ceiling-carrying
+            # law is its unexplained residue, not the total. Only rows that
+            # carry a ceiling grow the column; every other row is byte-identical.
+            ceiling = (
+                f" | ceiling={item['ceiling_divergence_count']}"
+                f" | unexplained={item['unexplained_divergence_count']}"
+                if item.get("ceiling_divergence_count")
+                else ""
+            )
             print(
-                f"    {item['base_id']} | divergences={item['divergence_count']} | "
+                f"    {item['base_id']} | divergences={item['divergence_count']}{ceiling} | "
                 f"ops={item['replay_op_count']} | amendments={item['indexed_amendment_count']}"
             )

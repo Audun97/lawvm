@@ -687,6 +687,11 @@ def test_no_frontier_tool_emits_json(tmp_path, monkeypatch, capsys) -> None:
                 "replay_defect": [],
                 "untouched_drift": [],
                 "source_sparse": [],
+                # W-23 added the annexed-instrument-ceiling lane; this stub
+                # mirrors build_no_verify_partition's return shape, so it grows
+                # the key too (no_frontier indexes the lanes directly rather
+                # than defaulting a missing one to empty).
+                "annex_ceiling": [],
                 "consistent": [],
                 "error": [],
             },
@@ -717,6 +722,7 @@ def test_no_frontier_tool_emits_json(tmp_path, monkeypatch, capsys) -> None:
         "replay_defect",
         "untouched_drift",
         "source_sparse",
+        "annex_ceiling",  # W-23
         "consistent",
         "error",
     }

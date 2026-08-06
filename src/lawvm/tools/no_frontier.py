@@ -116,7 +116,12 @@ def main(args: "argparse.Namespace") -> None:
     partitions = verify_partition["partitions"]
     active_lane = "consistent"
     active_lane_count = len(partitions["consistent"])
-    for lane in ("replay_defect", "untouched_drift", "source_sparse", "error"):
+    # W-23: ``annex_ceiling`` sits between ``source_sparse`` and ``error`` in the
+    # active-lane priority order — it is the least actionable divergent lane
+    # (typed representation ceiling, not a defect), so it must never outrank a
+    # lane a triager could work. Measured no-op on the 2026-07-10 corpus: the
+    # active lane is ``replay_defect`` (16) before and after.
+    for lane in ("replay_defect", "untouched_drift", "source_sparse", "annex_ceiling", "error"):
         lane_count = len(partitions[lane])
         if lane_count:
             active_lane = lane
@@ -126,6 +131,7 @@ def main(args: "argparse.Namespace") -> None:
         "replay_defect": "Replay Defects",
         "untouched_drift": "Untouched Drift",
         "source_sparse": "Sparse Source Cases",
+        "annex_ceiling": "Annexed-Instrument Ceiling",
         "consistent": "Consistent",
         "error": "Errors",
     }
@@ -183,6 +189,7 @@ def main(args: "argparse.Namespace") -> None:
         f"replay_defect={len(partitions['replay_defect'])}, "
         f"untouched_drift={len(partitions['untouched_drift'])}, "
         f"source_sparse={len(partitions['source_sparse'])}, "
+        f"annex_ceiling={len(partitions['annex_ceiling'])}, "
         f"consistent={len(partitions['consistent'])}, "
         f"error={len(partitions['error'])}"
     )
@@ -216,6 +223,16 @@ def main(args: "argparse.Namespace") -> None:
             print(
                 f"    {item['base_id']} | divergences={item['divergence_count']} | "
                 f"ops={item['replay_op_count']}"
+            )
+    if partitions["annex_ceiling"]:
+        # The actionable number for this lane is the residue, not the total —
+        # print it, or the lane reads like the biggest problem in the corpus.
+        print("  top annexed-instrument-ceiling cases:")
+        for item in partitions["annex_ceiling"][: min(3, limit)]:
+            print(
+                f"    {item['base_id']} | divergences={item['divergence_count']} | "
+                f"ceiling={item['ceiling_divergence_count']} | "
+                f"unexplained={item['unexplained_divergence_count']}"
             )
 
     entries = unlock_report["entries"]

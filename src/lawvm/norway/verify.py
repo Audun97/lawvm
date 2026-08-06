@@ -1608,6 +1608,29 @@ def build_no_verify_scan(
     }
 
 
+def no_partition_is_annex_ceiling_dominated(item: dict[str, Any]) -> bool:
+    """Is this scan row's divergence total dominated by the W-17 annex ceiling?
+
+    The partition's routing predicate for the ``annex_ceiling`` bucket. Reads
+    only the two W-17 conservation fields (``ceiling + unexplained ==
+    divergence_count``), so "dominated" is literally "more of this law's
+    divergences are the representation ceiling than are not".
+
+    Why a majority test and not a tuned ratio: the corpus separation is total,
+    not marginal. As-of 2026-07-10 over the 57 scan candidates the three
+    annexing laws sit at 714/716 (99.7%), 204/210 (97.1%) and 211/212 (99.5%)
+    ceiling; every one of the other 54 laws sits at 0/N. There is no law
+    anywhere near the boundary, so the weakest predicate that makes the
+    bucket's story true of every member is the one to use — a 90%-style
+    constant would claim a precision the measurement does not support.
+    """
+    # Both fields default to 0, so a row that predates the W-17 split (or any
+    # caller-built row without it) is never routed here.
+    ceiling = int(item.get("ceiling_divergence_count", 0) or 0)
+    unexplained = int(item.get("unexplained_divergence_count", 0) or 0)
+    return ceiling > unexplained
+
+
 def build_no_verify_partition(
     *,
     as_of: str,
@@ -1633,14 +1656,39 @@ def build_no_verify_partition(
     replay_defects: list[dict[str, Any]] = []
     untouched_drift: list[dict[str, Any]] = []
     source_sparse: list[dict[str, Any]] = []
+    annex_ceiling: list[dict[str, Any]] = []
     consistent: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
 
+    # W-23: the annex-ceiling test runs BEFORE ``source_signal``, because the
+    # signal over-fires on exactly the laws the ceiling explains and the
+    # routing order decided which story a law got told about it.
+    #
+    # Measured at 2026-07-10 before this change: ``sparse_indexed_history``
+    # flagged 4 laws, and 2 of them were ceiling-dominated annexing laws
+    # (``2018-06-15-38`` 714/716, ``2006-06-30-50`` 211/212) that landed in
+    # ``source_sparse`` — a bucket whose story is "we never acquired the
+    # amending history" — while the third law of the same causal family
+    # (``2017-06-16-51`` 204/210, no signal) landed in ``replay_defect``. One
+    # cause, three laws, two buckets, and the ``source_sparse`` story false of
+    # two of its four members. The signal itself is left alone: it is a
+    # pre-W-17 heuristic over ``divergence_count``, it is consumed elsewhere
+    # (no_bench SOURCE_UNAVAILABLE, no_anchor_manifest oracle-suspect), and
+    # ``source_signal`` is a scan-row field this change must not move.
+    #
+    # Routing here short-circuits the coverage branch, so an annex-ceiling row
+    # carries no ``touched_divergence_count`` column — same as ``source_sparse``,
+    # which has never carried one. Only ``2017-06-16-51`` loses it in practice
+    # (it was 6 touched / 204 untouched, i.e. the residue is exactly the touched
+    # part); nothing in the tree reads that field off a partition row, and
+    # ``lawvm no-coverage`` recomputes it per law on demand.
     for item in scan["results"]:
         if item["error"]:
             errors.append(item)
         elif item["consistent"]:
             consistent.append(item)
+        elif no_partition_is_annex_ceiling_dominated(item):
+            annex_ceiling.append(item)
         elif item["source_signal"]:
             source_sparse.append(item)
         else:
@@ -1674,6 +1722,7 @@ def build_no_verify_partition(
     replay_defects.sort(key=_sort_key)
     untouched_drift.sort(key=_sort_key)
     source_sparse.sort(key=_sort_key)
+    annex_ceiling.sort(key=_sort_key)
     consistent.sort(key=_sort_key)
     errors.sort(key=lambda item: str(item.get("base_id", "")))
 
@@ -1690,6 +1739,7 @@ def build_no_verify_partition(
             "replay_defect": replay_defects,
             "untouched_drift": untouched_drift,
             "source_sparse": source_sparse,
+            "annex_ceiling": annex_ceiling,
             "consistent": consistent,
             "error": errors,
         },
