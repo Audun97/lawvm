@@ -1123,19 +1123,30 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    value by design; for the 8 re-dated acts it differs from the entry's
    post-authorization date — deliberate, and what the corpus test asserts
    on.
-14. **W-14 (F-01 residue):** seven sibling Norway CLI commands still default
-   `--as-of` to the stale 2026-03-29: `no-frontier` (cli.py:2770),
-   `no-divergence` (2809), `no-coverage` (2849), `no-debug` (2889),
-   `no-verify` (3211), `no-verify-partition` (3308), `no-verify-workqueue`
-   (3364), plus a second-layer `getattr(args, "as_of", "2026-03-29")` default
-   in `no_frontier.py:99,108` and the demo script
-   `scripts/demos/no_browser_index.py:138`. `no-divergence` matters most:
-   §1 pairs it with the scan at the commensurable horizon, so dropping the
-   flag on the drill-down lands back at the incommensurable date the scan
-   now avoids. Each is a one-line application of
-   `no_consolidation_snapshot_date`. (`data/norway/bench_corpus.csv` pins
-   2026-03-29 per row deliberately — recorded benchmark baseline, not a
-   default; leave it.)
+14. **W-14 (F-01 residue):** DONE (`08a199946`, 2026-08-06). All seven
+   sibling commands (`no-frontier`, `no-divergence`, `no-coverage`,
+   `no-debug`, `no-verify`, `no-verify-partition`,
+   `no-verify-workqueue`) plus the demo script now derive their default
+   `--as-of` from `no_consolidation_snapshot_date`, lazily inside
+   `main()` exactly as the W-13 scan fix did, so missing-corpus behavior
+   is identical across all eight by construction; the explicit flag
+   still wins (guard-tested). The full-tree `2026-03-29` census (92
+   hits / 22 files) found FOUR same-class instances the item's list
+   missed and fixed them too: the three standalone `build_arg_parser`
+   defaults (`no_coverage`, `no_debug`, `no_divergence`) and
+   `build_no_coverage_report`'s LIBRARY-signature default (derived only
+   in the `verify_result is None` branch — a caller passing a
+   verify_result already fixed its horizon). One scoped deviation,
+   commented in-code: `no-verify-workqueue --partition FILE` reads the
+   prebuilt queue's own horizon without touching the corpus. Left
+   deliberately, adjudicated: `bench_corpus.csv` (recorded benchmark
+   baseline, 17 hits) and `no_anchor_manifest.py` (12 hits — the frozen
+   content-pinned CTSF gate corpus plus its ad-hoc-probe fallback date,
+   which deliberately matches the frozen rows for commensurability;
+   moving either moves gate pins). Verified per-command: all seven
+   derive 2026-07-10 with no flag; `no-divergence` with no flag now
+   agrees with the scan's horizon (the item's headline case). Corpus
+   pins unmoved; scan reproduced byte-exact.
 15. **W-15 (multi-part misbinding, live bug):** DONE (`779554cb2`,
    2026-08-02). Multi-part unstructured amending acts misbound ops onto the
    PREVIOUS part's law — replay-corrupting. Witness: `no/lov/2017-06-16-51`
@@ -1520,6 +1531,18 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-06 (W-14 applied)** — **No Norway CLI command defaults to
+  the stale horizon any more** (`08a199946`). The seven sibling
+  commands and the demo derive `--as-of` from
+  `no_consolidation_snapshot_date` lazily in `main()`, the W-13 scan
+  pattern extended verbatim, with uniform missing-corpus behavior by
+  construction and the explicit flag still winning. The census fixed
+  four same-class instances beyond the item's list (three standalone
+  parsers + one library default) and adjudicated the deliberate
+  keepers (bench baseline; the anchor-manifest's frozen gate corpus).
+  `no-divergence` without a flag now drills down at the scan's own
+  horizon — F-01's last residue closed. No pin moved; scan byte-exact.
 
 - **2026-08-06 (W-30 applied)** — **The part-announcement tail is a
   measured morphology, not an 11-item list — the largest binding
