@@ -1245,13 +1245,32 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    (30 blocking sources) and out of the scan — the rebind is
    correctness groundwork, not scan movement.
 22. **W-22 (month-token punctuation in the splitter's day-number guard,
-   small):** found by the W-19 sweep. The guard tests
-   `first_token in _NORWEGIAN_MONTHS` without stripping trailing
-   punctuation, so a date whose month token carries `,` or `.` fails the
-   guard and the sentence still over-splits — one lead measured at 5
-   fragments for 2 targets, a 4th arity recovery left on the table. Fix:
-   `first_token.strip(".,;:")` plus a corpus re-sweep to confirm no split
-   flips right → wrong.
+   small):** DONE (`2a8302b50`, 2026-08-06). The guard now strips
+   trailing punctuation from the month token before the
+   `_NORWEGIAN_MONTHS` membership test. The strip set is `.,` — NOT the
+   `.,;:` this item guessed — because an instrumented full index build
+   recorded every raw token after a day-number boundary and only `,`
+   (×2) and `.` (×1) ever occur, all three in the one witness text; a
+   16-character strip set was differentially swept and changes exactly
+   the same single split. Witness recovered: `no/lovtid/2020-12-21-166`
+   § 10-20(1) "første og annet punktum" on skattebetalingsloven
+   (`2005-06-17-67`) — the instalment list "15. mars, 15. juni,
+   15. september og 15. desember … 15. juni." went 5 fragments → 2, the
+   arity check now emits both sentence ops (act 6 → 8 ops), the 4th
+   arity recovery W-19 left on the table. Corpus: n_ops +2/−0 (both the
+   witness's), bindings/entries/status/`fully_replayable`/lost-pairs
+   all identical, scan output byte-identical (same sha256). Replay-side
+   blast radius: 47 of 91,447 texts (0.051%) in 31 laws, all 47
+   mechanical wrong→right joins, 0 ops re-addressed, the 3 affected
+   scan candidates' rows byte-identical. Guard-tested on a real corpus
+   counterexample (`1999-01-29-6` §27(4)): boundaries after a
+   sentence-final "mars." still split — the strip applies to the token
+   AFTER a boundary, never before. No stop condition fired, no pin
+   moved. Noted, zero corpus instances, no guard added: a sentence
+   ending in "§ N." followed by a sentence opening on a month word
+   would merge (the unpunctuated form already did pre-W-22), and the
+   guard never validates the day number is a plausible day — both
+   measured absent on index-build and replay sides.
 23. **W-23 (`sparse_indexed_history` mis-routes the partition, measured
    contradiction):** the signal flags 4 laws, and 2 of them
    (`2018-06-15-38`, `2006-06-30-50`) are ≥99.5% annex ceiling by W-17's
@@ -1320,6 +1339,22 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-06 (W-22 applied)** — **The splitter's day-number guard
+  tolerates punctuated month tokens, recovering the fourth arity
+  casualty the W-19 sweep found** (`2a8302b50`). One-function fix; the
+  strip set is `.,`, held to what an instrumented full index build
+  actually measured (a 16-character candidate set was differentially
+  swept and is corpus-identical). Exactly one index-build split changes
+  corpus-wide — skattebetalingsloven's instalment lead, 5 fragments →
+  2, emitting its 2 declared sentence ops (n_ops +2/−0) — and the scan
+  output is byte-identical to the same sha256. Replay side: 47/91,447
+  texts change (0.051%), all mechanical wrong→right joins, 0 ops
+  re-addressed, 3 affected scan candidates byte-identical. Guard-tested
+  on a real corpus counterexample that mixes repaired and genuine
+  boundaries in one subsection. Zero stop conditions, zero pin moves.
+  Measured on a post-W-21 base (W-21's 140 new ops flow through the
+  splitter) via a local worktree base commit of the W-21 patch.
 
 - **2026-08-06 (W-21 applied)** — **The nominative part announcement
   ("Lov <date> nr. N om X endres slik:") is recognised, and 69 parts of
