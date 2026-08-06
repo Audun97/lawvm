@@ -1297,31 +1297,70 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    candidate at 57 divergences and decertify it out of the candidate set
    — a verdict change. Del-scoped errata need part→law resolution AND a
    commencement story before any of them can land.
-25. **W-25 (period-less `nr` citations defeat every citation regex,
-   small):** all Norway citation extraction requires `nr\.`, but 8
-   unstructured leads across 8 acts write `nr` bare (witness:
-   `no/lovtid/2009-01-30-7` part III, "I lov 19. mai 2006 nr 16 om rett
-   til innsyn … (offentleglova) skal § 26 nytt fjerde ledd lyde:").
-   Live cost, signed off at W-21: that part resolves nothing and
-   inherits part II's now-correct law, so its offentleglova §26 op is
-   SILENTLY misbound to `1981-05-22-25` (straffeprosessloven) — the one
-   misbinding among W-21's 140 gained ops; harm-free today (neither law
-   a scan candidate, act contingent) but wrong. Fix: widen to `nr\.?`
-   in the citation regexes plus a corpus re-sweep of all 8 leads;
-   verify the offentleglova op lands on `2006-05-19-16`. Full list in
-   `.tmp/w21/nr_nodot.txt`.
-26. **W-26 (`1 a.`-style item ordinals not stripped from leads,
-   small):** `_extract_no_section_base_id_from_lead` strips `^\d+\.\s*`
-   but not letter-suffixed ordinals (`1 a.`, `2 b.`), and the embedded
-   patterns don't match them either, so an enumerated consequential
-   item numbered that way resolves nothing and inherits
-   `active_base_id`. Witness: `no/lovtid/2009-06-19-74`'s "1 a. I lov
-   6. juni 1891 nr. 2 om Guld-, Sølv- og Platinavarers Finhed …" — its
-   2 ops (Ny § 9; nåværende § 9 blir ny § 10) sit on utleveringsloven
-   instead of `1891-06-06-2` (this is 2 of the witness's 3-op residue
-   at W-21; the third is genuine). Fix: widen the ordinal strip to
-   letter-suffixed forms (mirroring the strip W-21's announcement
-   extractor already uses) plus a corpus sweep.
+25. **W-25 (period-less `nr` citations defeat every citation regex):**
+   DONE (`38d9bc686`, 2026-08-06, landed jointly with W-26). The
+   `nr` grammar now lives in ONE shared constant (`nr\.?\s+(\d+)`) used
+   by all four citation regexes, lead-side AND payload-side — unscoped
+   because the false-positive question was answered by measurement: a
+   sweep over EVERY text node of every amendment artifact found 29
+   wide-only spans across 9 acts, all 29 genuine citations, 0 false
+   positives (structurally guaranteed — the full `lov <day>. <month>
+   <year>` date prefix must already have matched, so the bare `nr` can
+   never be an address `nr` or prose). Outcomes across all 9
+   period-less leads (the sweep found a 9th the W-21 list missed): 3
+   wrong→right rebinds — the witness (offentleglova §26 op moves to
+   `2006-05-19-16`, straffeprosessloven absent from the act entirely),
+   `2015-06-19-59` (apotekloven → alternativ-behandling-loven), and
+   `2021-05-07-33` (våpenloven → straffeloven) — 2 neutral
+   already-right, 2 correctly-inert payload prose, 1 inert
+   global-replace lead, and 1 no-grammar-either-way (→ W-27).
+26. **W-26 (letter-suffixed item ordinals not stripped from leads):**
+   DONE (`38d9bc686`, 2026-08-06). The lead-side ordinal strip and
+   the enumerated embedded pattern now share W-21's announcement-side
+   spelling (`\d+\s*[a-zA-Z]?\.`) via one constant. Ordinal sweep over
+   every unstructured lead at any depth: 140 leads carry an ordinal the
+   widened strip admits and `\d+\.` does not — only 3 genuinely
+   letter-suffixed (all in `2009-06-19-74`), 137 the spaced `1 . ` form
+   Lovdata emits when the item number sits in its own `<strong>`; the
+   strip newly resolves 7, the post-strip guards hold the other 133
+   exactly where they were. No corpus lead opens with a bare
+   `<digit> <letter>.` that is a section LABEL (labels carry the `§`
+   sign, unreachable by the `^\d` anchor) — guard-tested on constructed
+   negatives including the real `5 a. Lov … oppheves.` repeal. Witness:
+   the 2-op W-21 residue moves to `1891-06-06-2`, utleveringsloven
+   drops to exactly its 1 genuine op (the W-21 witness assertion edited
+   in-place with justification), item `93 a.` newly emits sjømannsloven
+   §54C, and `2020-11-20-128` (revisorloven's consequential act, spaced
+   ordinals) goes from binding NOTHING to 29 audited ops across 8 laws
+   — per-item counts reconciling exactly, zero misbindings. Combined
+   W-25+W-26 corpus effect (fully independent, 3+2 acts): ops
+   25,230 → 25,260 (+30/−0), bindings 5,782 → 5,793 (13 gained / 2
+   lost — the 2 "lost" are the two parts whose own law is now correctly
+   NOT bound), entries +1, lost (part, act) pairs 362 → 364 — metric
+   honesty, not regression: both new lost pairs are lowering gaps
+   (`første stykket` ops that never lower; an apotekloven op) that the
+   misbindings had been masking. Scan fully byte-identical, all 57
+   rows. One pin signed off 2026-08-06: contingent 920 → 921
+   (revisorloven's act enters the index), updated in-place;
+   dated/staged/fully_replayable unchanged.
+27. **W-27 (nominative consequential item form, small):**
+   `no/lovtid/2003-12-19-124` items 4 and 5 write "Lov 14. juni 1985
+   nr 68 … § 5 nr. 3 skal lyde:" — nominative (no `I lov`), with a `§`
+   target, but no `endres slik` tail, so neither the announcement
+   extractor (requires the tail) nor the embedded/section extractors
+   (require `I lov`) cover it, dotted or not. A separate grammar gap
+   from W-21/W-25; needs its own measured pass (enumerate the form
+   corpus-wide, decide rank).
+28. **W-28 (law citations with no `nr` at all, small):** pre-1900s-style
+   acts carry no Lovtidend number, so no citation regex can resolve
+   them. Witnesses: `no/lovtid/2009-01-30-7` part I "I lov 10. februar
+   1967 om behandlingsmåten i forvaltningssaker (forvaltningsloven)
+   skal § 19 fyrste ledd lyde:" (the part resolves nothing; its §19 op
+   is dropped — harm-free, it is the FIRST part so there is no
+   `active_base_id` to inherit) and `2009-06-19-74` item 1
+   (Lappekodisillen 1751). Fix needs a date-plus-title resolution
+   (forvaltningsloven's id is `no/lov/1967-02-10`) and a sweep for
+   which numberless citations are resolvable at all.
 
 ## 5. Demo / Inspection Tooling
 
@@ -1339,6 +1378,28 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-06 (W-25 + W-26 applied)** — **The citation grammar's two
+  punctuation blind spots are closed from one constant each, and an
+  amending act that bound nothing now lowers 29 audited ops**
+  (`38d9bc686`). W-25: `nr\.?` widening across all four citation
+  regexes, payload-side included — unscoped because a sweep of every
+  text node in every artifact measured 29 wide-only spans, all genuine
+  (the mandatory full-date prefix makes a false positive structurally
+  impossible). Three misbindings corrected (offentleglova — the W-21
+  signed-off cost — plus alternativ-behandling-loven and straffeloven
+  leads), the rest of the 9-lead population neutral and audited. W-26:
+  the letter-suffix/spaced ordinal strip shared with W-21's
+  announcement extractor; the 1891 Finhed act takes its 2 residue ops,
+  utleveringsloven drops to its 1 genuine op, and revisorloven's
+  consequential act (`2020-11-20-128`, `<strong>`-spaced ordinals)
+  enters the index with 29 ops across 8 laws, each audited against its
+  own item lead. Net: ops +30/−0, bindings +13/−2 (the 2 are
+  correctly-unbound parts whose lowering gaps the misbindings had
+  masked; lost pairs 362 → 364 is the same honesty), scan byte-identical
+  on all 57 rows, contingent pin 920 → 921 signed off. Opened **W-27**
+  (nominative consequential form) and **W-28** (numberless law
+  citations) from the sweep's found-not-changed list.
 
 - **2026-08-06 (W-22 applied)** — **The splitter's day-number guard
   tolerates punctuated month tokens, recovering the fourth arity
