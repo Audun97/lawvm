@@ -244,6 +244,32 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "An unstructured Norway amendment lead looked operative but no base act "
         "could be resolved; recorded as a parse finding, not silently discarded."
     ),
+    "no_rettelse_lowered": (
+        "A published Rettelser correction carried by Lovdata's typed "
+        "gazettenote/rettelse marker resolved a clean same-act item address and "
+        "was lowered as an ordinary REPLACE op, dated by the host act's own "
+        "commencement (the rettelse announcement date rides in provenance, "
+        "apply-inert). W-18."
+    ),
+    "no_rettelse_not_lowered": (
+        "A published Rettelser correction was NOT lowered — excluded with a "
+        "typed, non-blocking receipt naming the reason (no same-act item "
+        "address, or no unique item payload) rather than silently skipped. "
+        "Covers publication-metadata errata the IR does not model and "
+        "part-scoped/nested addresses pending Del-to-law resolution (ledger "
+        "W-24). W-18."
+    ),
+    "no_same_act_item_address": (
+        "Reason detail on a no_rettelse_not_lowered receipt: the correction "
+        "directive did not resolve to a single same-act item address (metadata "
+        "field, part-scoped or nested-cross-act shape, or non-item leaf), so "
+        "no op was emitted."
+    ),
+    "no_unique_item_payload": (
+        "Reason detail on a no_rettelse_not_lowered receipt: the correction "
+        "directive resolved an address but its note did not yield exactly one "
+        "item payload, so binding would be a guess and no op was emitted."
+    ),
     "no_parse_unstructured_lead_unmatched": (
         "An unstructured Norway amendment lead looked operative but matched no "
         "supported lowering family; recorded as a parse finding, not silently "
