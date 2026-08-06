@@ -688,6 +688,63 @@ re-measuring, is the ordered plan.
 > not binding's) plus the possibly-F-10 laws from the triage. Next
 > re-price after W-16/W-19/W-20 land.
 
+#### Re-priced 2026-08-06 (after W-16→W-26): the gap is 36.3%, the residual is not a binding problem, and binding recovery is net-negative for the scan
+
+Full measurement in `.tmp/f10-reprice/`; every prior number reproduced
+exactly (declared total 8,643 invariant; pre-W-15 dump gives 1,245
+receipts / 4,088 unbound; the W-18→W-25/26 op chain reconciles to
+25,260). Headline: unbound **4,088 → 3,141 (47.3% → 36.3%)**, receipts
+1,245 → 1,038 → **1,031**, acts-with-gap 1,245 → 1,031. The landings
+recovered 951 bindings (393 acts shrank, 4 grew); `lead_unmatched`
+took the bulk (2,086 → 1,422), `lead_base_unresolved` 835 → 751;
+family 1 (bulk rename) −79 incidental; family 3 (numberless ids,
+W-28) exactly conserved at 92. Gap-nature sample: 250/251 declared-
+but-unbound verifiable targets named verbatim in the act body —
+still pure extraction failure.
+
+**Re-diagnosis (the important finding): the residual `lead_unmatched`
+mass is NOT binding-resolution failure.** Its excerpts on scan-visible
+acts show the base act resolved and the ADDRESS/ACTION grammar missing:
+`… innledningen skal lyde`, `Nåværende femte ledd blir sjette ledd.`,
+`nytt ellevte ledd`, `Innholdsfortegnelsen …`, punktum-level repeal
+(= F-02/W-2), inline `skal ordet «X» endres til «Y»`,
+amendment-of-an-amendment. F-10's own claim — "the index ignores the
+declared field" — is now largely paid off; the residue re-files as
+missing lowering families.
+
+**Scan payoff re-priced: 24 → 8 proven divergences (8 laws → 4), and
+the ledger's standing pricing rule is now: binding recovery
+decertifies more than it repairs.** Since W-6: 2 laws repaired
+end-to-end (`2005-06-03-34` consistent exactly as the triage
+predicted; `2012-01-27-10` bound and entered the scan consistent), 4
+decertified out of the candidate set by newly-bound CONTINGENT
+amenders (`2002-04-26-12`, `2005-05-27-31`, `2010-02-19-5`,
+`2015-05-12-27`), 3 improved. The corpus's cleanest witness —
+`2002-04-26-12` §5 "Anke", 7 divergences, 5 proven from the STILL
+UNBOUND `no/lovtid/2007-01-26-3` (dated 2007-02-27) — is alive but
+off-scan. Zero-amendment surface: 100 → 97 laws, 57/40/0; 4 of the 5
+field-confirmed predictions remain unbound+divergent, one new
+predicted-divergent target via `instrument_authorized`
+(`2012-05-25-27` ← `2020-06-23-98`, divergent at 6);
+`2001-06-15-73` is 1/1 proven — the ONLY law binding alone would make
+fully consistent today. Combined provable-today: **13 divergences
+across 7 laws**.
+
+**Family 1 (bulk rename) now reaches the scan, field-confirmed** by
+the rename-signature test (replay OLD term, published NEW — the
+8-gram proven test is structurally BLIND to substitution acts, which
+never quote the resulting sentence): `2004-05-28-29` 3/9 and
+`2009-03-06-12` 1/3 via `2009-06-19-48` (Kredittilsynet →
+Finanstilsynet, applicable), and the biggest single prize —
+arveloven `2019-06-14-21`, 19/28 via `2021-05-07-34` (fylkesmannen →
+statsforvalteren) — is contingent, so the original "only after W-7"
+judgment holds. **Family 3 / W-28 blocks nothing scan-visible** (0 of
+the 33 scan-visible unbound pairs). Recommended next tranche: the
+`section_intro_markers` closed list (→ **W-30**) — the only bounded
+W-21-shaped work left. Clarification for future re-prices: step (b)'s
+cause table is a TOP-SIX summing to 4,024 of 4,088 (six small tails
+hold the other 64).
+
 ### F-05 — Footnote-marker digits leak into the published compare text — reclassified (not fixable as a normalization rule)
 
 Published-side extraction keeps trailing footnote reference digits:
@@ -1394,6 +1451,26 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    commensurability witness. Landing it moves scan rows
    (`source_signal_counts` 4 → 2) — needs its own priced pass over
    those two consumers. Counterfactual data: `.tmp/w23/annex_coverage.json`.
+30. **W-30 (`section_intro_markers` is a closed 11-member list missing
+   18 corpus-attested tail variants):** the F-10 re-price's recommended
+   tranche — the only bounded, W-21-shaped binding work left.
+   `_extract_no_section_base_id_from_lead` gates part-announcement
+   resolution on a hard-coded tuple; a sweep of every
+   `I lov <citation> … :` lead whose tail is NOT in it found 756 leads
+   across 411 acts, of which **509 leads / 270 acts / 285 unbound
+   targets (9.1% of the residual gap)** are pure morphological
+   variants of the same construction (top tails: `blir det gjort
+   følgjande endringar:` 137, `gjer ein følgjande endringar:` 77,
+   `skal desse endringane gjerast:` 50, `blir desse endringane
+   gjort:` 38 …; full table `.tmp/f10-reprice/tail_sweep.json`). 137
+   acts applicable today; 10 scan-visible targets, all divergent.
+   PRICE HONESTLY per the F-10 standing rule: expected scan movement
+   small and possibly NEGATIVE — `2010-06-25-28` and `2017-06-16-67`
+   are also declared by contingent acts in this family, so landing it
+   can decertify them out of the candidate set. Independent of
+   W-24/W-27/W-28/W-29; same shape as W-21/W-25/W-26 (one shared
+   constant, corpus-wide differential sweep, wrong→right /
+   right→wrong classification).
 
 ## 5. Demo / Inspection Tooling
 
@@ -1411,6 +1488,33 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-06 (F-10 re-priced)** — **The declared-target gap is down
+  to 36.3%, its residual is re-diagnosed as missing lowering grammar
+  rather than unread metadata, and the programme learns its pricing
+  rule: binding recovery decertifies more than it repairs.**
+  Research-only (no product change); artifacts in `.tmp/f10-reprice/`;
+  every prior F-10 measurement reproduced exactly before anything new
+  was trusted (declared 8,643 invariant; op/binding/entry chains
+  reconcile landing-by-landing). Unbound 4,088 → 3,141; receipts
+  1,031; the seven landings since W-15 recovered 951 bindings, mostly
+  from `lead_unmatched` (2,086 → 1,422) — but the scan-visible proven
+  payoff moved 24 → 8 divergences, with 2 laws repaired end-to-end
+  (`2005-06-03-34`, `2012-01-27-10` — both predicted by the earlier
+  probes) against 4 decertified by newly-bound contingent amenders,
+  the cleanest witness ("Anke", 5 proven, its amender STILL unbound)
+  now invisible to the scan. Family 1 reaches the scan field-confirmed
+  (rename-signature test — the 8-gram test is structurally blind to
+  substitution acts); family 3 / W-28 blocks nothing scan-visible.
+  Only ONE law today would go fully consistent on binding alone
+  (`2001-06-15-73`). Opened **W-30** (`section_intro_markers` tail
+  variants, 509 leads / 270 acts, the one bounded W-21-shaped tranche
+  left, priced with possible negative scan movement). The
+  `lead_unmatched` residue re-files as missing lowering families
+  (`innledningen`, `nytt N ledd`, punktum repeal = F-02/W-2,
+  `Nåværende … blir …`, `Innholdsfortegnelsen`, inline word-change,
+  amendment-of-an-amendment) — future work items, not F-10 binding
+  work.
 
 - **2026-08-06 (W-23 applied)** — **The partition now tells one true
   story per bucket: the annex family shares a typed `annex_ceiling`
