@@ -35,6 +35,7 @@ from lawvm.core.filter_result import FilterResult, RejectedItem
 from lawvm.core.invariant_profiles import CORE_REPLAY_DELTA_MINIMAL_FAMILIES
 from lawvm.core.op_ordering import OrderingProfile, order_ops
 from lawvm.core.provenance import compute_source_anchor
+from lawvm.core.regex_safety import compile_classifier_regex
 from lawvm.core.apply_seam import (
     ApplyProfile,
     AppliedOp,
@@ -83,6 +84,8 @@ from lawvm.norway.totalization_table import NO_TOTALIZATION_TABLE
 NO_PARSE_REPLACE_PROMOTED_TO_INSERT_FOR_RENUMBER = "no_parse_replace_promoted_to_insert_for_same_target_renumber"
 NO_PARSE_STRUCTURED_TARGET_REBOUND_FROM_LEAD = "no_parse_structured_target_rebound_from_lead"
 NO_PARSE_ACTION_RECOVERED_FROM_STRUCTURED_LEAD = "no_parse_action_recovered_from_structured_lead"
+NO_RETTELSE_LOWERED = "no_rettelse_lowered"
+NO_RETTELSE_NOT_LOWERED = "no_rettelse_not_lowered"
 
 
 def _no_action_value(action: StructuralAction | str) -> str:
@@ -2447,6 +2450,211 @@ def _append_no_structured_parse_recovery_adjudications(
     )
 
 
+# ── Published errata (``Rettelser``) lowering — W-18 ──────────────────────────
+#
+# Lovdata publishes an editorial correction to an already-kunngjort act as a
+# ``Rettelser`` block INSIDE that act's own artifact, written in canonical
+# amending grammar ("§ 5 første ledd annet strekpunkt skal lyde: …"). The
+# correction is therefore derivable from source bytes, so replaying it is not
+# preferring the consolidation (NORWAY_LAWVM_STATUS.md §2.2) — it is reading the
+# act's own published text completely.
+#
+# Corpus measurement (2026-08-05, 3,089 amendment artifacts): 25 artifacts carry
+# a "Det som er rettet" block. They split into two generations:
+#
+#   * 11 artifacts / 12 notes (2017 →) wrap each correction in a machine-typed
+#     ``<article class="gazettenote" data-gazette-note-type="rettelse"
+#     data-gazette-note-date="…">``. That attribute is Lovdata's OWN erratum
+#     marker and the only non-heuristic anchor in the corpus, so it — not the
+#     word "rettet" — is what this rule keys on.
+#   * 14 artifacts (2003–2011) carry the block as untyped sibling paragraphs
+#     under an ``<h2>Rettelse(r)</h2>``, with the directive embedded in
+#     narrative prose ("Ved en inkurie ble …", "I 2010 hefte 5 (Rettelse)") and
+#     the target/payload boundary only positional. Deliberately OUT of this
+#     rule's domain: no typed date, no typed directive, and measured payoff zero
+#     — of those 14, only 2 address law text at all and neither law is a verify
+#     candidate, so lowering them would move nothing while risking text
+#     corruption.
+#
+# Of the 12 typed notes exactly 1 resolves a clean same-act address: the witness
+# ``no/lovtid/2020-12-18-156`` (§ 5 første ledd annet strekpunkt). The other 11
+# are excluded with a typed ``no_rettelse_not_lowered`` receipt and fall in two
+# measured shapes — publication-metadata fields the IR does not model
+# ("Referansefeltet …", "Hjemmelsfeltet …", 7 notes), and part-scoped or nested
+# addresses whose target law is reachable only through the host act's Del/nr.
+# structure ("Del V, § 5-42 bokstav a", "§ 73 nr. 7 § 6-7 første ledd bokstav e",
+# 4 notes). The single-``§`` guard below is what makes the nested form an
+# excluded shape by construction rather than by regex luck.
+_NO_RETTELSE_NOTE_TYPE = "rettelse"
+
+# Same-act ITEM addresses, anchored end to end. Both productions land on an
+# ITEM leaf, which is why they share the one payload path below; admitting a
+# second leaf kind would mean a second, unmeasured payload builder. A dash item
+# is addressed by ORDINAL ("annet strekpunkt" -> item 2, its position), a
+# lettered item by its own letter ("bokstav e" -> item e) — so the two
+# productions read their item token differently and must not share a fallback.
+_NO_RETTELSE_STREKPUNKT_LEAD_RE = compile_classifier_regex(
+    r"^§\s*([0-9A-Za-z-]+)\s+([A-Za-zÆØÅæøå]+)\s+ledd\s+([A-Za-zÆØÅæøå]+)\s+strekpunkt\s+skal\s+lyde$",
+    re.IGNORECASE,
+    classifier_id="norway.grafter.rettelse_item_strekpunkt_lead",
+)
+_NO_RETTELSE_BOKSTAV_LEAD_RE = compile_classifier_regex(
+    r"^§\s*([0-9A-Za-z-]+)\s+([A-Za-zÆØÅæøå]+)\s+ledd\s+bokstav\s+([A-Za-zÆØÅæøå])\s+skal\s+lyde$",
+    re.IGNORECASE,
+    classifier_id="norway.grafter.rettelse_item_bokstav_lead",
+)
+
+
+def _no_rettelse_item_target_from_lead(lead: str) -> Optional[LegalAddress]:
+    """Resolve a ``Rettelser`` directive to a same-act ITEM address, or ``None``.
+
+    Deliberately anchored and single-``§``: an erratum whose lead reaches into
+    another act through the host act's part structure ("§ 73 nr. 7 § 6-7 første
+    ledd bokstav e skal lyde") names two sections, and a search-anchored grammar
+    would silently bind the WRONG one. Requiring exactly one ``§`` makes that
+    whole family an excluded shape rather than a mis-lowering.
+    """
+    lead = _normalize_space(lead).rstrip(":")
+    if lead.count("§") != 1 or not lead.startswith("§"):
+        return None
+    # lawvm-regex: owning_parser this IS the Rettelser directive parser
+    match = _NO_RETTELSE_STREKPUNKT_LEAD_RE.match(lead)
+    if match is not None:
+        item_label = _NORWEGIAN_ORDINALS.get(match.group(3).lower()) or ""
+    else:
+        # lawvm-regex: owning_parser this IS the Rettelser directive parser
+        match = _NO_RETTELSE_BOKSTAV_LEAD_RE.match(lead)
+        if match is None:
+            return None
+        item_label = _normalize_label(match.group(3)).lower()
+    section_label = _normalize_no_section_label(match.group(1))
+    subsection_label = _NORWEGIAN_ORDINALS.get(match.group(2).lower()) or ""
+    if not section_label or not subsection_label or not item_label:
+        return None
+    return LegalAddress(
+        path=(
+            ("section", section_label),
+            ("subsection", subsection_label),
+            ("item", item_label),
+        )
+    )
+
+
+def _no_rettelse_groups(
+    root: etree._Element,
+    source_id: str,
+    *,
+    adjudications_out: Optional[List[CompileAdjudication]] = None,
+) -> list[tuple[str, list[LegalOperation]]]:
+    """Lower this artifact's typed ``Rettelser`` notes into same-act REPLACE ops.
+
+    An erratum corrects what was KUNNGJORT, so its op is dated by the host act's
+    own commencement (the index entry's effective date), not by the rettelse
+    announcement date: the corrected words have been the law since the act took
+    effect, and dating the op at the announcement would let it overwrite genuine
+    amendments enacted in between. The announcement date is carried in
+    provenance (``rettelse_date:<date>``) instead, where it is greppable but
+    apply-inert.
+    """
+    base_id = f"no/lov/{source_id.removeprefix('no/lovtid/')}"
+    groups: list[tuple[str, list[LegalOperation]]] = []
+    ops: list[LegalOperation] = []
+    for note in cast(
+        list[etree._Element],
+        root.xpath("//*[contains(concat(' ', normalize-space(@class), ' '), ' gazettenote ')]"),
+    ):
+        if (note.get("data-gazette-note-type") or "").strip() != _NO_RETTELSE_NOTE_TYPE:
+            continue
+        note_date = (note.get("data-gazette-note-date") or "").strip()
+        children = _direct_children(note)
+        raw_text = _normalize_space(" ".join(str(_t) for _t in note.itertext()))
+        lead = _normalize_space(" ".join(str(_t) for _t in children[0].itertext())) if children else raw_text
+        directive = lead.split(":", 1)[0] if ":" in lead else lead
+        target = _no_rettelse_item_target_from_lead(directive)
+        payload: Optional[IRNode] = None
+        if target is not None:
+            candidates = _extract_payload_candidates_from_nodes(children, [target])
+            item_payloads = [node for (kind, _label), node in candidates.items() if kind == "item"]
+            # One directive, one corrected provision: a note that yields more
+            # than one item payload has no unambiguous binding, so it is
+            # excluded rather than guessed at. The surviving payload is
+            # relabelled onto the target because its own label is its position
+            # INSIDE the erratum block (always "1"), not in the host act.
+            if len(item_payloads) == 1:
+                payload = _with_no_node_label(item_payloads[0], target.leaf_label())
+        if target is None or payload is None:
+            _append_no_parse_adjudication(
+                adjudications_out,
+                kind=NO_RETTELSE_NOT_LOWERED,
+                message="Norway parser did not lower a published Rettelser correction.",
+                source_id=source_id,
+                detail=diagnostic_detail(
+                    rule_id=NO_RETTELSE_NOT_LOWERED,
+                    phase="parse",
+                    family="unsupported_or_unresolved_action",
+                    blocking=False,
+                    quirks_disposition=QuirksDisposition.RECORD,
+                    base_id=base_id,
+                    rettelse_date=note_date,
+                    reason="no_same_act_item_address" if target is None else "no_unique_item_payload",
+                    directive=directive[:240],
+                    raw_text=raw_text[:240],
+                ),
+            )
+            continue
+        sequence = len(ops) + 1
+        ops.append(
+            LegalOperation(
+                op_id=f"{source_id}:rettelse:{sequence}",
+                sequence=sequence,
+                action=StructuralAction.REPLACE,
+                target=target,
+                payload=payload,
+                source=OperationSource(statute_id=source_id, raw_text=raw_text, title=base_id),
+                provenance_tags=(
+                    f"base_act:{base_id}",
+                    "rettelse:published_correction",
+                    f"rettelse_date:{note_date}",
+                ),
+                group_id=f"{source_id}:rettelse:{base_id}:{sequence}",
+                witness_rule_id=NO_RETTELSE_LOWERED,
+            )
+        )
+    if ops:
+        groups.append((base_id, ops))
+    return groups
+
+
+def _with_no_rettelse_groups(
+    grouped: list[tuple[str, list[LegalOperation]]],
+    root: etree._Element,
+    source_id: str,
+    *,
+    adjudications_out: Optional[List[CompileAdjudication]] = None,
+) -> list[tuple[str, list[LegalOperation]]]:
+    """Merge lowered erratum ops into the artifact's ordinary change groups.
+
+    Errata are appended to an existing group for the same base act rather than
+    forming a second group, so ``entries_for_base``/replay keep seeing one group
+    per (artifact, base act). Ordinary ops are never read or rewritten here.
+    """
+    rettelse_groups = _no_rettelse_groups(root, source_id, adjudications_out=adjudications_out)
+    if not rettelse_groups:
+        return grouped
+    merged = [(base_id, list(ops)) for base_id, ops in grouped]
+    by_base = {base_id: ops for base_id, ops in merged}
+    for base_id, rettelse_ops in rettelse_groups:
+        existing = by_base.get(base_id)
+        if existing is None:
+            merged.append((base_id, list(rettelse_ops)))
+            continue
+        offset = max((op.sequence for op in existing), default=0)
+        existing.extend(
+            dc_replace(op, sequence=op.sequence + offset) for op in rettelse_ops
+        )
+    return merged
+
+
 def iter_no_document_change_ops(
     html_bytes: bytes,
     source_id: str,
@@ -2470,7 +2678,12 @@ def iter_no_document_change_ops(
         root.xpath("//*[contains(concat(' ', normalize-space(@class), ' '), ' document-change ')]"),
     )
     if not change_nodes:
-        return _iter_unstructured_no_change_groups(root, source_id, adjudications_out=adjudications_out)
+        return _with_no_rettelse_groups(
+            _iter_unstructured_no_change_groups(root, source_id, adjudications_out=adjudications_out),
+            root,
+            source_id,
+            adjudications_out=adjudications_out,
+        )
     for doc_change in change_nodes:
         source_doc = doc_change.get("data-document", "").strip()
         base_id = normalize_lovdata_refid(source_doc)
@@ -2818,7 +3031,7 @@ def iter_no_document_change_ops(
         if doc_ops:
             grouped.append((base_id, _promote_no_replace_with_following_renumber_insert(doc_ops)))
 
-    return grouped
+    return _with_no_rettelse_groups(grouped, root, source_id, adjudications_out=adjudications_out)
 
 
 def _no_sort_key(

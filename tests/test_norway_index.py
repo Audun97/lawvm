@@ -1032,7 +1032,11 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # payload and misbound onto kulturminnelova §28(1). With part boundaries
         # respected the act emits zero ops and leaves the index entirely — pure
         # corruption removal, verified at op level by implementer and reviewer.
-        "dated": 1020,
+        # 1020 -> 1021 at W-18 (Rettelser lowering): no/lovtid/2020-12-18-156
+        # gains its FIRST index entry — its lowered erratum op — and its own
+        # commencement field is a plain date (2020-12-18), so it lands in the
+        # dated bucket. Every other bucket unchanged. Signed off 2026-08-06.
+        "dated": 1021,
         "immediate": 1,
         "instrument_authorized": 528,
         "unknown": 2,

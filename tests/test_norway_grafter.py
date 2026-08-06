@@ -24,6 +24,7 @@ from lawvm.core.ir import (
 from lawvm.core.semantic_types import IRNodeKind, StructuralAction, TextPatchKindEnum
 from lawvm.replay_adjudication import CompileAdjudication
 from lawvm.norway.grafter import (
+    _no_rettelse_item_target_from_lead,
     _normalize_no_chapter_scoped_section_lead,
     _no_unstructured_lead_looks_operative,
     _split_no_sentences,
@@ -4277,3 +4278,287 @@ def test_no_finanstilsynsloven_sentence_binding_recovered_by_abbreviation_set() 
     assert ops[1].payload is not None
     assert "om børsvirksomhet m.m. § 4" in (ops[1].payload.text or "")
     assert (ops[1].payload.text or "").endswith("lovbestemte oppgaver.")
+
+
+# ── W-18: published ``Rettelser`` (errata) lowering ───────────────────────────
+
+_RETTELSE_WITNESS_XML = """<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <main>
+      <article class="legalArticle" data-name="§5" id="paragraf-5">
+        <h2 class="legalArticleHeader"><span class="legalArticleValue">§ 5</span>. <span class="legalArticleTitle">Vilkår</span></h2>
+        <article class="numberedLegalP" data-numerator="1" id="paragraf-5-nummer-1">(1) Vilkårene er:<ul class="defaultList"><li data-li-identifier="-" data-name="-"><article class="listArticle"><article class="legalP">Foretaket må være registrert.</article></article></li><li data-li-identifier="-" data-name="-"><article class="listArticle"><article class="legalP">Foretaket må være skattepliktig etter skatteloven § 23 første ledd bokstav b.</article></article></li></ul></article>
+      </article>
+      <section class="section" id="kapittel-1">
+        <h2>Rettelser</h2>
+        <article class="defaultP" data-text-size="small">Det som er rettet er satt i kursiv.</article>
+        <article class="gazettenote" data-gazette-note-date="2021-01-05" data-gazette-note-type="rettelse">
+          <article class="defaultP">§ 5 første ledd annet strekpunkt skal lyde:<ul class="defaultList"><li data-li-identifier="-" data-name="-"><article class="listArticle"><article class="legalP">Foretaket må være skattepliktig etter skatteloven <i>§ 2-3</i> første ledd bokstav b.</article></article></li></ul></article>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def test_no_rettelse_lowers_witness_grammar_to_a_same_act_item_replace() -> None:
+    """The witness shape: an ordinal ``strekpunkt`` erratum against the act's own §.
+
+    The op binds to the host artifact's OWN law (an erratum corrects what that
+    act kunngjorde), and the payload is relabelled from its position inside the
+    erratum block ("1") onto the addressed item ("2").
+    """
+    adjudications: list[CompileAdjudication] = []
+    grouped = iter_no_document_change_ops(
+        _RETTELSE_WITNESS_XML,
+        "no/lovtid/2020-12-18-156",
+        adjudications_out=adjudications,
+    )
+
+    assert len(grouped) == 1
+    base_id, ops = grouped[0]
+    assert base_id == "no/lov/2020-12-18-156"
+    assert len(ops) == 1
+    op = ops[0]
+    assert op.action is StructuralAction.REPLACE
+    assert op.target.path == (("section", "5"), ("subsection", "1"), ("item", "2"))
+    assert op.witness_rule_id == "no_rettelse_lowered"
+    # Erratum-derived provenance is typed and greppable, and carries the
+    # announcement date WITHOUT letting it become the apply-ordering date.
+    assert "rettelse:published_correction" in op.provenance_tags
+    assert "rettelse_date:2021-01-05" in op.provenance_tags
+    assert f"base_act:{base_id}" in op.provenance_tags
+    assert op.payload is not None
+    assert op.payload.kind is IRNodeKind.ITEM
+    assert op.payload.label == "2"
+    assert "§ 2-3 første ledd bokstav b" in (op.payload.text or "")
+    assert not [a for a in adjudications if a.kind == "no_rettelse_not_lowered"]
+
+
+@pytest.mark.parametrize(
+    ("lead", "expected"),
+    [
+        # The witness: a dash item is addressed by its ORDINAL position.
+        (
+            "§ 5 første ledd annet strekpunkt skal lyde:",
+            (("section", "5"), ("subsection", "1"), ("item", "2")),
+        ),
+        # A lettered item is addressed by its own letter, not by position.
+        (
+            "§ 49 andre ledd bokstav f skal lyde:",
+            (("section", "49"), ("subsection", "2"), ("item", "f")),
+        ),
+        # Nested/part-scoped leads name a second act; excluded by construction.
+        ("§ 73 nr. 7 § 6-7 første ledd bokstav e skal lyde:", None),
+        ("Del V, § 5-42 bokstav a skal lyde:", None),
+        ("I del II skal § 28 b andre ledd tredje punktum skal lyde:", None),
+        ("Del I § 8-2 overskriften skal lyde:", None),
+        # Publication metadata has no IR address.
+        ("Referansefeltet første punktum skal lyde:", None),
+        ("Hjemmelsfeltet siste punktum skal lyde:", None),
+        # A strekpunkt addressed by a NON-ordinal word has no position to bind
+        # to; "siste" must not become the literal item label "siste".
+        ("§ 5 første ledd siste strekpunkt skal lyde:", None),
+        # An unknown subsection word is likewise not guessed at.
+        ("§ 5 ellevte ledd annet strekpunkt skal lyde:", None),
+    ],
+)
+def test_no_rettelse_item_target_grammar_is_anchored_and_single_section(
+    lead: str, expected: tuple[tuple[str, str], ...] | None
+) -> None:
+    target = _no_rettelse_item_target_from_lead(lead)
+    assert (target.path if target is not None else None) == expected
+
+
+def test_no_rettelse_non_operative_metadata_block_is_excluded_with_a_typed_receipt() -> None:
+    """A ``Referansefeltet …`` erratum corrects publication metadata, not law text.
+
+    Seven of the corpus's twelve typed notes are this shape. There is no IR
+    address for the reference field, so the note is excluded — with a receipt,
+    never silently.
+    """
+    amendment_xml = """<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <main>
+      <section class="section" id="kapittel-3">
+        <h2>Rettelser</h2>
+        <article class="defaultP" data-text-size="small">Det som er rettet er satt i kursiv.</article>
+        <article class="gazettenote" data-gazette-note-date="2019-12-03" data-gazette-note-type="rettelse">
+          <article class="defaultP">Referansefeltet skal lyde:</article>
+          <article class="defaultP">Prop.98 L (2018–2019), Innst.24 L (2019–2020).</article>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+    adjudications: list[CompileAdjudication] = []
+    grouped = iter_no_document_change_ops(
+        amendment_xml,
+        "no/lovtid/2019-11-29-73",
+        adjudications_out=adjudications,
+    )
+
+    assert grouped == []
+    receipts = [a for a in adjudications if a.kind == "no_rettelse_not_lowered"]
+    assert len(receipts) == 1
+    assert receipts[0].detail["reason"] == "no_same_act_item_address"
+    assert receipts[0].detail["rettelse_date"] == "2019-12-03"
+    assert receipts[0].blocking is False
+
+
+def test_no_rettelse_does_not_bind_a_nested_cross_act_address() -> None:
+    """``§ 73 nr. 7 § 6-7 …`` names two sections; binding either one is wrong.
+
+    The advokatloven regression gate. A search-anchored grammar would bind the
+    lead ``§ 73`` (or, on backtracking, ``§ 6-7``) onto the host act, corrupting
+    text. The single-``§`` precondition makes the whole nested family an
+    excluded shape by construction.
+    """
+    amendment_xml = """<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <main>
+      <section class="section" id="kapittel-16">
+        <h2>Rettelser</h2>
+        <article class="defaultP" data-text-size="small">Det som er rettet er satt i kursiv.</article>
+        <article class="gazettenote" data-gazette-note-date="2022-05-16" data-gazette-note-type="rettelse">
+          <article class="defaultP">§ 73 nr. 7 § 6-7 første ledd bokstav e skal lyde:<ul class="defaultList"><li data-li-identifier="e" data-name="e"><article class="listArticle"><article class="legalP">ansatt eller annen person,</article></article></li></ul></article>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+    adjudications: list[CompileAdjudication] = []
+    grouped = iter_no_document_change_ops(
+        amendment_xml,
+        "no/lovtid/2022-05-12-28",
+        adjudications_out=adjudications,
+    )
+
+    assert grouped == []
+    assert [a.detail["reason"] for a in adjudications if a.kind == "no_rettelse_not_lowered"] == [
+        "no_same_act_item_address"
+    ]
+
+
+def test_no_rettelse_rule_ignores_ordinary_act_text_containing_rettet() -> None:
+    """The rule keys on Lovdata's typed note attribute, never on the word "rettet".
+
+    An ordinary amending act whose own provision talks about corrections must
+    lower exactly its ordinary ops and emit no erratum op and no erratum
+    receipt.
+    """
+    amendment_xml = """<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <article class="document-change" data-document="lov/2010-06-04-21">
+      <article class="change" data-change-part="lov/2010-06-04-21/§10">
+        <article class="defaultP">§ 10 skal lyde:</article>
+        <article class="legalP">Det som er rettet er satt i kursiv, jf. Rettelser i Norsk Lovtidend.</article>
+      </article>
+    </article>
+  </body>
+</html>
+""".encode("utf-8")
+
+    adjudications: list[CompileAdjudication] = []
+    grouped = iter_no_document_change_ops(
+        amendment_xml,
+        "no/lovtid/2025-01-01-1",
+        adjudications_out=adjudications,
+    )
+
+    assert len(grouped) == 1
+    base_id, ops = grouped[0]
+    assert base_id == "no/lov/2010-06-04-21"
+    assert len(ops) == 1
+    assert ops[0].witness_rule_id != "no_rettelse_lowered"
+    assert not any("rettelse" in tag for tag in ops[0].provenance_tags)
+    assert not [a for a in adjudications if a.kind.startswith("no_rettelse")]
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_rettelse_corpus_enumeration_is_pinned() -> None:
+    """The whole ``Det som er rettet`` population, measured 2026-08-05.
+
+    25 artifacts carry the block; 11 of them (12 notes) use Lovdata's typed
+    ``gazettenote``/``rettelse`` marker, which is this rule's entire domain. Of
+    those 12 notes exactly 1 resolves a clean same-act item address — the
+    witness — and the other 11 are excluded with a typed receipt. The remaining
+    14 artifacts are the untyped 2003–2011 generation, deliberately out of
+    domain (see the rule's header comment).
+    """
+    from lawvm.norway.sources import iter_no_amendment_artifacts
+
+    artifacts_with_block = 0
+    lowered: list[str] = []
+    excluded: list[str] = []
+    for artifact in iter_no_amendment_artifacts(_NO_FARCHIVE_PATH):
+        if b"Det som er rettet" not in artifact.payload:
+            continue
+        artifacts_with_block += 1
+        adjudications: list[CompileAdjudication] = []
+        grouped = iter_no_document_change_ops(
+            artifact.payload,
+            artifact.logical_id,
+            adjudications_out=adjudications,
+        )
+        for _base_id, ops in grouped:
+            for op in ops:
+                if op.witness_rule_id == "no_rettelse_lowered":
+                    lowered.append(artifact.logical_id)
+        excluded.extend(
+            artifact.logical_id for a in adjudications if a.kind == "no_rettelse_not_lowered"
+        )
+
+    assert artifacts_with_block == 25
+    assert lowered == ["no/lovtid/2020-12-18-156"]
+    assert len(excluded) == 11
+    assert len(lowered) + len(excluded) == 12
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_rettelse_witness_replay_carries_the_corrected_citation() -> None:
+    """F-07's witness: replayed § 5(1) item 2 reads ``§ 2-3``, not the typo ``§ 23``.
+
+    The correction is derivable from the act's own published bytes, so this is
+    reading the source completely — not preferring the consolidation
+    (NORWAY_LAWVM_STATUS.md §2.2).
+    """
+    from lawvm.norway.replay import replay_no_to_pit
+
+    result = replay_no_to_pit(
+        "no/lov/2020-12-18-156",
+        as_of="2026-07-10",
+        data_dir=_NO_FARCHIVE_PATH,
+    )
+    assert not result.error
+    assert result.replayed is not None
+
+    def _find(node: IRNode, path: tuple[tuple[str, str], ...]) -> IRNode | None:
+        if not path:
+            return node
+        kind, label = path[0]
+        for child in node.children:
+            child_kind = child.kind.value if hasattr(child.kind, "value") else str(child.kind)
+            if child_kind == kind and child.label == label:
+                return _find(child, path[1:])
+        return None
+
+    item = _find(result.replayed.body, (("section", "5"), ("subsection", "1"), ("item", "2")))
+    assert item is not None
+    assert "skatteloven § 2-3 første ledd bokstav b" in (item.text or "")
+    assert "skatteloven § 23 " not in (item.text or "")
