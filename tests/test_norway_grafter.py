@@ -24,7 +24,10 @@ from lawvm.core.ir import (
 from lawvm.core.semantic_types import IRNodeKind, StructuralAction, TextPatchKindEnum
 from lawvm.replay_adjudication import CompileAdjudication
 from lawvm.norway.grafter import (
+    _extract_no_embedded_multi_act_lead,
     _extract_no_law_announcement_base_id,
+    _extract_no_law_citation_base_id,
+    _extract_no_section_base_id_from_lead,
     _no_rettelse_item_target_from_lead,
     _normalize_no_chapter_scoped_section_lead,
     _no_unstructured_lead_looks_operative,
@@ -4432,6 +4435,14 @@ def test_no_law_announcement_witness_stays_pinned() -> None:
     zero ops from its own amending act. Measured 2026-08-06: the act's 469 ops
     are unchanged in identity, 22 of them move, and utleveringsloven keeps
     exactly the 3 the nested item and its two followers actually produce.
+
+    Utleveringsloven's 3 -> 1 at W-26 (2026-08-06). Two of those 3 were never
+    utleveringsloven's: they belong to the letter-suffixed item that follows,
+    "1 a. I lov 6. juni 1891 nr. 2 om Guld-, Sølv- og Platinavarers Finhed …",
+    whose ordinal the lead strip could not see, so they inherited the previous
+    item's act. Only "§ 9 annet punktum skal lyde:" is genuinely item 3's. The
+    expectation is edited rather than pinned because it asserts a witness, and
+    the witness's own residue is what W-26 was opened to remove.
     """
     html_bytes = load_no_amendment_bytes("no/lovtid/2009-06-19-74", _NO_FARCHIVE_PATH)
     assert html_bytes is not None
@@ -4439,7 +4450,7 @@ def test_no_law_announcement_witness_stays_pinned() -> None:
     grouped = dict(iter_no_document_change_ops(html_bytes, "no/lovtid/2009-06-19-74"))
 
     assert len(grouped["no/lov/2005-05-20-28"]) == 22
-    assert len(grouped["no/lov/1975-06-13-39"]) == 3
+    assert len(grouped["no/lov/1975-06-13-39"]) == 1
     # The six ex-inert global text-replaces ride the corrected base act. Every
     # one of their ``match_text`` values occurs in straffeloven 2005's original
     # LTI text and none occurs anywhere in utleveringsloven's.
@@ -4460,6 +4471,207 @@ def test_no_law_announcement_witness_stays_pinned() -> None:
     }
     # Utleveringsloven keeps only what its own nested item introduced: § 9.
     assert {op.target.path[0] for op in grouped["no/lov/1975-06-13-39"]} == {("section", "9")}
+    assert [
+        op.source.raw_text for op in grouped["no/lov/1975-06-13-39"] if op.source is not None
+    ] == ["§ 9 annet punktum skal lyde:"]
+
+
+def test_no_period_less_nr_citation_resolves_the_cited_law() -> None:
+    """W-25: ``nr 16`` binds the same law as ``nr. 16``.
+
+    The lead is `no/lovtid/2009-01-30-7` part III verbatim. Before the widening
+    no citation regex saw it, so the part resolved nothing and its offentleglova
+    op inherited part II's straffeprosessloven.
+    """
+    lead = (
+        "I lov 19. mai 2006 nr 16 om rett til innsyn i dokument i offentleg "
+        "verksemd (offentleglova) skal § 26 nytt fjerde ledd lyde:"
+    )
+    assert _extract_no_law_citation_base_id(lead) == "no/lov/2006-05-19-16"
+    embedded = _extract_no_embedded_multi_act_lead(lead)
+    assert embedded is not None
+    assert embedded[0] == "no/lov/2006-05-19-16"
+    assert embedded[1] == "§ 26 nytt fjerde ledd skal lyde:"
+
+    # Same widening on the ``I lov … gjøres følgende endringer`` surface
+    # (`no/lovtid/2021-05-07-33` part II verbatim).
+    assert (
+        _extract_no_section_base_id_from_lead("I lov 20. mai 2005 nr 28 om straff gjøres følgende endring:")
+        == "no/lov/2005-05-20-28"
+    )
+    # And the dotted spelling is untouched.
+    assert (
+        _extract_no_law_citation_base_id("Lov 22. mai 1981 nr. 25 om rettergangsmåten i straffesaker")
+        == "no/lov/1981-05-22-25"
+    )
+
+
+def test_no_period_less_nr_widening_does_not_invent_citations() -> None:
+    """W-25 negative guard: a bare ``nr`` is only a citation after a full law date.
+
+    Corpus-measured over every text node of every amendment artifact: the
+    widening adds 29 spans, all genuine citations. These are the shapes that
+    keep it that way — an address ``nr``, a ``nr`` with no date in front, and a
+    date whose ``nr`` names something other than a law.
+    """
+    assert _extract_no_law_citation_base_id("§ 2 første ledd nr 1 skal lyde:") is None
+    assert _extract_no_law_citation_base_id("jf. forskrift nr 16 om innsyn") is None
+    assert _extract_no_law_citation_base_id("Sak nr 16 av 19. mai 2006 om innsyn") is None
+    # ``lov`` plus a bare year is still not a citation: the day-and-month prefix
+    # is what makes the trailing ``nr`` unambiguous.
+    assert _extract_no_law_citation_base_id("lov 2006 nr 16 om innsyn") is None
+    # A month token the grammar does not know must not resolve to a base id.
+    assert _extract_no_law_citation_base_id("lov 19. floreal 2006 nr 16 om innsyn") is None
+
+
+def test_no_letter_suffixed_item_ordinal_is_stripped_from_a_lead() -> None:
+    """W-26: ``1 a.`` is an item ordinal, exactly as ``1.`` already was.
+
+    The lead is `no/lovtid/2009-06-19-74` item ``1 a.`` verbatim. Before the
+    widening the strip left the ordinal in place, the ``i `` test failed, and the
+    item's two ops inherited the previous item's utleveringsloven.
+    """
+    lead = (
+        "1 a. I lov 6. juni 1891 nr. 2 om Guld-, Sølv- og Platinavarers Finhed "
+        "og Stempling m.v. gjøres følgende endringer:"
+    )
+    assert _extract_no_section_base_id_from_lead(lead) == "no/lov/1891-06-06-2"
+    # The plain ordinal it generalizes still works, and so does the spaced form
+    # `no/lovtid/2020-11-20-128` emits when its item number sits in a <strong>.
+    assert (
+        _extract_no_section_base_id_from_lead(
+            "5. I lov 13. juni 1997 nr. 44 om aksjeselskaper gjøres følgende endringer:"
+        )
+        == "no/lov/1997-06-13-44"
+    )
+    assert (
+        _extract_no_section_base_id_from_lead(
+            "1 . I lov 7. desember 1956 nr. 1 om tilsynet med finansforetak mv. gjøres følgende endringer:"
+        )
+        == "no/lov/1956-12-07-1"
+    )
+    # The enumerated embedded form takes the same ordinal
+    # (`no/lovtid/2009-06-19-74` item ``93 a.`` verbatim).
+    embedded = _extract_no_embedded_multi_act_lead(
+        "93 a. I lov 30. mai 1975 nr. 18 sjømannsloven skal ny § 54 C lyde:"
+    )
+    assert embedded is not None
+    assert embedded[0] == "no/lov/1975-05-30-18"
+
+
+def test_no_letter_suffixed_ordinal_strip_cannot_invent_a_binding() -> None:
+    """W-26 negative guard: the strip never makes a non-citation lead resolve.
+
+    No corpus lead opens with a bare ``<digit> <letter>.`` that is an amended
+    section LABEL rather than an item ordinal — measured over every unstructured
+    lead at any nesting depth, the only three letter-suffixed openers are
+    `no/lovtid/2009-06-19-74`'s ``1 a.``, ``5 a.`` and ``93 a.``, all genuine
+    enumeration ordinals, and section labels are always written with the sign
+    ("§ 1 a"), which the ``^\\d`` anchor cannot reach. 140 leads in all carry an
+    ordinal the widened strip admits and the bare form does not; it newly
+    resolves 7. These constructed leads pin why the other 133 are unmoved and
+    why a mis-strip would still be harmless: the post-strip guards, not the
+    strip, decide.
+    """
+    # A section label the strip DOES eat: no citation follows, so nothing binds.
+    assert _extract_no_section_base_id_from_lead("1 a. I § 1 a gjøres følgende endringer:") is None
+    # Stripped, but the ``i `` test rejects it.
+    assert _extract_no_section_base_id_from_lead("1 a. skal lyde:") is None
+    # Stripped and ``i ``-initial, but no section-intro marker.
+    assert (
+        _extract_no_section_base_id_from_lead("1 a. I lov 6. juni 1891 nr. 2 om Guld- og Sølvvarer § 3 lyde:")
+        is None
+    )
+    # `no/lovtid/2009-06-19-74` item ``5 a.`` verbatim: a bare-citation repeal
+    # names a law the item acts on as a whole and introduces no items to bind,
+    # so the announcement extractor must keep rejecting it after the strip.
+    assert (
+        _extract_no_law_announcement_base_id(
+            "5 a. Lov 18. august 1914 nr. 3 om forsvarshemmeligheter oppheves."
+        )
+        is None
+    )
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_period_less_nr_witness_binds_offentleglova() -> None:
+    """W-25 corpus witness: ``no/lovtid/2009-01-30-7`` part III is offentleglova.
+
+    Part I's forvaltningsloven lead carries no ``nr`` at all and part II's two
+    ``første stykket`` ops do not lower, so the act's single op is part III's.
+    Before W-25 that op was the act's whole output and it sat on
+    straffeprosessloven, inherited from part II's announcement.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2009-01-30-7", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    grouped = dict(iter_no_document_change_ops(html_bytes, "no/lovtid/2009-01-30-7"))
+
+    assert sorted(grouped) == ["no/lov/2006-05-19-16"]
+    ops = grouped["no/lov/2006-05-19-16"]
+    assert [op.target.path for op in ops] == [(("section", "26"), ("subsection", "4"))]
+    assert "no/lov/1981-05-22-25" not in grouped
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_letter_suffixed_ordinal_witness_binds_the_1891_finhed_act() -> None:
+    """W-26 corpus witness: ``no/lovtid/2009-06-19-74`` item ``1 a.``.
+
+    The two ops the W-21 landing left as utleveringsloven's residue. Their own
+    item cites `no/lov/1891-06-06-2`; item ``3.`` above them cites
+    utleveringsloven and keeps exactly its one op (pinned in the W-21 witness
+    test above).
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2009-06-19-74", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    grouped = dict(iter_no_document_change_ops(html_bytes, "no/lovtid/2009-06-19-74"))
+
+    ops = grouped["no/lov/1891-06-06-2"]
+    assert [(op.action, op.source.raw_text) for op in ops if op.source is not None] == [
+        (StructuralAction.INSERT, "Ny § 9 skal lyde:"),
+        (StructuralAction.RENUMBER, "Nåværende § 9 blir ny § 10."),
+    ]
+    assert len(grouped["no/lov/1975-06-13-39"]) == 1
+    # The same widening recovers item ``93 a.``, whose embedded ``skal ny § 54 C
+    # lyde`` form produced no op at all before.
+    assert [op.target.path for op in grouped["no/lov/1975-05-30-18"]] == [(("section", "54C"),)]
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_revisorloven_consequential_items_enter_the_index() -> None:
+    """W-26 corpus witness: `no/lovtid/2020-11-20-128` emitted nothing at all.
+
+    Revisorloven's § 16-3 lists 13 consequential items whose numbers Lovdata put
+    in a ``<strong>``, so ``itertext`` renders them "1 . ", "2 . " — a space the
+    bare ``\\d+\\.`` strip could not cross. Every item therefore failed to
+    resolve, the act bound no law, and its 29 lowerable ops were dropped. Each
+    op below was audited against its own item's lead.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2020-11-20-128", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    grouped = dict(iter_no_document_change_ops(html_bytes, "no/lovtid/2020-11-20-128"))
+
+    assert {base_id: len(ops) for base_id, ops in grouped.items()} == {
+        "no/lov/1956-12-07-1": 1,
+        "no/lov/1985-06-21-83": 1,
+        "no/lov/1991-08-30-71": 1,
+        "no/lov/1997-06-13-44": 5,
+        "no/lov/1997-06-13-45": 5,
+        "no/lov/2007-06-29-75": 6,
+        "no/lov/2015-04-10-17": 8,
+        "no/lov/2019-06-21-31": 2,
+    }
 
 
 @pytest.mark.skipif(

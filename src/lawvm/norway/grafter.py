@@ -167,6 +167,58 @@ _NORWEGIAN_MONTHS = {
 # 16-character strip set (adding ; : ! ? brackets quotes dashes) was swept and
 # changes exactly the same one split, so the set is held to what is measured.
 _MONTH_TOKEN_TRAILING_PUNCTUATION = ".,"
+# The number token of a Lovtidend law citation, ``nr. 16`` or (W-25) ``nr 16``.
+# Every citation regex in this module shares this spelling so the grammar cannot
+# drift between the lead-side and payload-side extractors. Corpus-measured at
+# W-25 over every text node of every amendment artifact: dropping the period
+# requirement adds 29 unique spans across 9 acts, and all 29 are genuine law
+# citations — 0 false positives. It cannot be otherwise: the full date prefix
+# ("lov <day>. <month> <year>") must already have matched, so ``nr`` here is
+# never the loose ``nr`` of an address ("§ 2 første ledd nr. 1") or of prose.
+_NO_LAW_CITATION_NUMBER = r"nr\.?\s+(\d+)"
+# The item ordinal an enumerated consequential-amendment lead carries ("1.",
+# "1 a.", "93 a."). Non-capturing so it can prefix a capturing citation pattern.
+# W-26 widened the section-lead strip and the enumerated embedded pattern from a
+# bare ``\d+\.`` to this, the spelling ``_extract_no_law_announcement_base_id``
+# already used. Corpus-measured over every unstructured lead at any nesting
+# depth: 140 leads carry an ordinal this admits and the bare ``\d+\.`` does not,
+# across 3 acts. Only 3 are genuinely letter-suffixed (``1 a.``, ``5 a.``,
+# ``93 a.``, all in `no/lovtid/2009-06-19-74`); the rest are the spaced ``1 . ``
+# form Lovdata produces when the item number sits in its own ``<strong>``
+# (`no/lovtid/2020-11-20-128` § 16-3, `no/lovtid/2021-05-07-34`'s law list). The
+# widened strip newly resolves 7 of the 140 and leaves the other 133 exactly
+# where they were: the post-strip guards, not the strip, decide. No lead in the
+# corpus opens with a bare ``<digit> <letter>.`` that is an amended section LABEL
+# rather than an item ordinal — section labels are written with the sign
+# ("§ 1 a"), which this anchor cannot reach.
+_NO_LEAD_ITEM_ORDINAL = r"\d+\s*[a-zA-Z]?\."
+_NO_LEAD_ITEM_ORDINAL_PREFIX = r"^" + _NO_LEAD_ITEM_ORDINAL + r"\s*"
+# The two spellings of a dated law citation the extractors below search for: the
+# ``lov <date> nr N`` head form and the ``… av <date> nr N`` tail form. Composed
+# rather than written out so ``_NO_LAW_CITATION_NUMBER`` is the single place the
+# ``nr`` grammar lives.
+_NO_LAW_CITATION_DATE = r"(\d{1,2})\.\s+([A-Za-zæøåÆØÅ]+)\s+(\d{4})\s+"
+_NO_LAW_CITATION_PATTERN = (
+    r"(?:^|\b)(?:Midlertidig\s+)?lov\s+" + _NO_LAW_CITATION_DATE + _NO_LAW_CITATION_NUMBER
+)
+_NO_LAW_CITATION_AV_PATTERN = r"av\s+" + _NO_LAW_CITATION_DATE + _NO_LAW_CITATION_NUMBER
+# ``skal\s+(?:\S+\s+)*?`` tolerates intervening qualifier words between the
+# ``skal`` verb and the ``§`` target ("skal ny § 12 a lyde", "skal nytt § 4 a
+# lyde"). The capture begins at ``§`` so the rebuilt embedded lead stays a ``§ …``
+# form the section/subsection lowering families consume.
+_NO_EMBEDDED_LEAD_TAIL = r"\s+.+?\s+skal\s+(?:\S+\s+)*?(§.+)$"
+_NO_EMBEDDED_MULTI_ACT_PATTERNS = (
+    r"^"
+    + _NO_LEAD_ITEM_ORDINAL
+    + r"\s+I lov\s+"
+    + _NO_LAW_CITATION_DATE
+    + _NO_LAW_CITATION_NUMBER
+    + _NO_EMBEDDED_LEAD_TAIL,
+    r"^I\s+(?:lov\s+|midlertidig\s+lov\s+)?(?:.+?\s+av\s+)?"
+    + _NO_LAW_CITATION_DATE
+    + _NO_LAW_CITATION_NUMBER
+    + _NO_EMBEDDED_LEAD_TAIL,
+)
 _NORWEGIAN_MONTH_NUMBERS = {
     "januar": "01",
     "februar": "02",
@@ -2175,14 +2227,7 @@ def _promote_no_replace_with_following_renumber_insert(
 
 def _extract_no_embedded_multi_act_lead(lead: str) -> tuple[str, str] | None:
     lead = _repair_no_mojibake(lead)
-    # ``skal\s+(?:\S+\s+)*?`` tolerates intervening qualifier words between the
-    # ``skal`` verb and the ``§`` target ("skal ny § 12 a lyde", "skal nytt
-    # § 4 a lyde"). The capture begins at ``§`` so the rebuilt embedded lead
-    # stays a ``§ …`` form the section/subsection lowering families consume.
-    patterns = (
-        r"^\d+\.\s+I lov\s+(\d{1,2})\.\s+([A-Za-zæøåÆØÅ]+)\s+(\d{4})\s+nr\.\s+(\d+)\s+.+?\s+skal\s+(?:\S+\s+)*?(§.+)$",
-        r"^I\s+(?:lov\s+|midlertidig\s+lov\s+)?(?:.+?\s+av\s+)?(\d{1,2})\.\s+([A-Za-zæøåÆØÅ]+)\s+(\d{4})\s+nr\.\s+(\d+)\s+.+?\s+skal\s+(?:\S+\s+)*?(§.+)$",
-    )
+    patterns = _NO_EMBEDDED_MULTI_ACT_PATTERNS
     match = None
     for pattern in patterns:
         match = re.match(pattern, lead, re.IGNORECASE)
@@ -2212,7 +2257,7 @@ def _extract_no_embedded_multi_act_lead(lead: str) -> tuple[str, str] | None:
 def _extract_no_section_base_id_from_lead(lead: str) -> str | None:
     lead = _repair_no_mojibake(lead)
     lowered = lead.lower()
-    lowered = re.sub(r"^\d+\.\s*", "", lowered)
+    lowered = re.sub(_NO_LEAD_ITEM_ORDINAL_PREFIX, "", lowered)
     if not lowered.startswith("i "):
         return None
     section_intro_markers = (
@@ -2256,7 +2301,7 @@ def _extract_no_law_announcement_base_id(lead: str) -> str | None:
     """
     lead = _repair_no_mojibake(lead)
     # Item ordinals ("1.", "1 a.") prefix announcements inside enumerated lists.
-    lowered = re.sub(r"^\d+\s*[a-zA-Z]?\.\s*", "", lead.lower()).strip()
+    lowered = re.sub(_NO_LEAD_ITEM_ORDINAL_PREFIX, "", lead.lower()).strip()
     # lawvm-regex: owning_parser this IS the part-announcement lead parser
     if not re.match(r"^lov[ai]?\b", lowered):
         return None
@@ -2268,17 +2313,9 @@ def _extract_no_law_announcement_base_id(lead: str) -> str | None:
 
 def _extract_no_law_citation_base_id(text: str) -> str | None:
     text = _repair_no_mojibake(text)
-    match = re.search(
-        r"(?:^|\b)(?:Midlertidig\s+)?lov\s+(\d{1,2})\.\s+([A-Za-zæøåÆØÅ]+)\s+(\d{4})\s+nr\.\s+(\d+)",
-        text,
-        re.IGNORECASE,
-    )
+    match = re.search(_NO_LAW_CITATION_PATTERN, text, re.IGNORECASE)
     if match is None:
-        fallback = re.search(
-            r"av\s+(\d{1,2})\.\s+([A-Za-zæøåÆØÅ]+)\s+(\d{4})\s+nr\.\s+(\d+)",
-            text,
-            re.IGNORECASE,
-        )
+        fallback = re.search(_NO_LAW_CITATION_AV_PATTERN, text, re.IGNORECASE)
         if fallback is None:
             return None
         prefix = text[max(0, fallback.start() - 80) : fallback.start()].lower()
@@ -2296,11 +2333,7 @@ def _extract_no_law_citation_base_id(text: str) -> str | None:
 
 def _extract_no_law_citation_base_ids(text: str) -> list[str]:
     base_ids: list[str] = []
-    for match in re.finditer(
-        r"(?:^|\b)(?:Midlertidig\s+)?lov\s+(\d{1,2})\.\s+([A-Za-zæøåÆØÅ]+)\s+(\d{4})\s+nr\.\s+(\d+)",
-        text,
-        re.IGNORECASE,
-    ):
+    for match in re.finditer(_NO_LAW_CITATION_PATTERN, text, re.IGNORECASE):
         day = int(match.group(1))
         month = _NORWEGIAN_MONTH_NUMBERS.get(match.group(2).lower())
         year = match.group(3)

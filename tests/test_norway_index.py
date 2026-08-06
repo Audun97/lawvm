@@ -1033,7 +1033,13 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # gaining their first index entry via the part-announcement lead form
         # split +6 contingent / +7 dated; no existing entry's status moved.
         # Signed off 2026-08-06 together with the staged pin above.
-        "contingent": 920,
+        # contingent 920 -> 921 at W-25/W-26: no/lovtid/2020-11-20-128
+        # (revisorloven's consequential-amendments act) gains its first index
+        # entry — 29 ops across 8 laws, commencement "trer i kraft fra den tid
+        # Kongen bestemmer" — once the spaced item ordinals its <strong>-wrapped
+        # numbers produce are stripped. No existing entry moved. Signed off
+        # 2026-08-06.
+        "contingent": 921,
         # 1021 -> 1020 at W-15 (multi-part misbinding fix): the sole moved entry
         # is no/lovtid/2018-12-20-119, whose only "op" was its own part II
         # commencement sentence ("Lova tek til å gjelde straks.") swallowed as a
