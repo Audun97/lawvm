@@ -1272,16 +1272,36 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    guard never validates the day number is a plausible day — both
    measured absent on index-build and replay sides.
 23. **W-23 (`sparse_indexed_history` mis-routes the partition, measured
-   contradiction):** the signal flags 4 laws, and 2 of them
-   (`2018-06-15-38`, `2006-06-30-50`) are ≥99.5% annex ceiling by W-17's
-   measurement — yet `build_no_verify_partition` routes on
-   `source_signal` before anything else, so those two land in
-   `source_sparse` while `2017-06-16-51` (identical cause, no signal)
-   lands elsewhere: the same family split across partition buckets.
-   Candidate fix is routing on W-17's `unexplained_divergence_count`
-   (e.g. annex-ceiling-dominated laws route by their unexplained residue,
-   not the over-firing signal), but that CHANGES partition membership, so
-   it needs its own measured pass — the W-17 fixer deliberately left it.
+   contradiction):** DONE (`92fee2be5`, 2026-08-06). New partition
+   bucket `annex_ceiling`, routed BEFORE `source_signal`: predicate
+   `no_partition_is_annex_ceiling_dominated` = strict ceiling majority
+   over W-17's conservation fields. Strict-majority rather than a tuned
+   ratio because the corpus separation is total — members at 97.1% /
+   99.5% / 99.7% ceiling, every one of the other 54 laws at exactly 0 —
+   so the weakest predicate whose story is true of every member is the
+   honest one. The three annex laws now share one bucket
+   (`2018-06-15-38` and `2006-06-30-50` leave `source_sparse`,
+   `2017-06-16-51` leaves `replay_defect`, which had claimed 210 replay
+   defects where there are 6); `source_sparse` is now exactly F-09
+   proper (`2001-01-05-1` 83, `2020-11-27-131` 15, both 0 ceiling) —
+   every bucket's story true of every member. The ledger's own
+   candidate fix (route by unexplained residue through the coverage
+   split) was MEASURED AND REJECTED: it relocates the family split
+   (untouched_drift vs replay_defect) instead of closing it. The signal
+   itself deliberately unchanged — it is a scan-row field with two
+   consumers outside the partition (no_bench SOURCE_UNAVAILABLE,
+   no_anchor_manifest oracle-suspect) — but the counterfactual is
+   measured: re-run on unexplained counts it fires on exactly F-09
+   proper and goes silent on both annex laws (→ W-29). Buckets 16/15/4
+   → 15/15/2 (+3 annex_ceiling), 57 laws complete and disjoint before
+   and after; scan-level receipts byte-identical (verdicts 22/35,
+   totals 1512/1129/383, all 57 rows, 0 field diffs); one intended
+   keyset change (annex rows short-circuit the coverage columns, which
+   nothing reads off a partition row). CLI: partition/workqueue/
+   frontier all render the lane, workqueue and frontier print the
+   RESIDUE as the actionable number, frontier's active-lane priority
+   places annex_ceiling as least-actionable divergent lane (measured
+   no-op today). Corpus-gated test pins the full 57-law membership.
 24. **W-24 (Del/part-scoped address → law resolution, general lowering
    gap):** 5 of the 12 typed errata (W-18) are blocked on one missing
    capability — resolving a host act's `Del <N>` / `§ X nr. Y` reference
@@ -1361,6 +1381,19 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    (Lappekodisillen 1751). Fix needs a date-plus-title resolution
    (forvaltningsloven's id is `no/lov/1967-02-10`) and a sweep for
    which numberless citations are resolvable at all.
+29. **W-29 (`_infer_no_source_signal` should read the W-17 residue,
+   one-liner, fully measured):** the signal's `divergence_count` input
+   counts ceiling rows, which is 100% of its over-firing — the W-23
+   counterfactual re-ran it with `unexplained_divergence_count` and it
+   fires on exactly F-09 proper (`2001-01-05-1`, `2020-11-27-131`) and
+   goes silent on both annex laws. W-23 left it because `source_signal`
+   is a scan-row field (conservation constraint) with two consumers
+   outside the partition whose semantics need their own check:
+   `no_bench.no_bench_unit_result` routes SOURCE_UNAVAILABLE off it,
+   and `no_anchor_manifest._no_oracle_suspect` uses it as a
+   commensurability witness. Landing it moves scan rows
+   (`source_signal_counts` 4 → 2) — needs its own priced pass over
+   those two consumers. Counterfactual data: `.tmp/w23/annex_coverage.json`.
 
 ## 5. Demo / Inspection Tooling
 
@@ -1378,6 +1411,25 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-06 (W-23 applied)** — **The partition now tells one true
+  story per bucket: the annex family shares a typed `annex_ceiling`
+  lane, and `source_sparse` is exactly F-09 proper** (`92fee2be5`).
+  The new bucket routes before `source_signal` on a strict
+  ceiling-majority predicate (corpus separation total: members ≥97%,
+  everyone else 0%). The ledger's candidate fix (residue through the
+  coverage split) was measured and rejected — it relocates the family
+  split instead of closing it. Scan-level receipts byte-identical (0
+  field diffs across all 57 rows); the signal deliberately untouched,
+  its residue counterfactual measured and filed as **W-29**. CLI lanes
+  render the residue as the actionable number so 716-divergence rows
+  stop reading as the corpus's biggest problem. Landed alongside: the
+  four W-18 rule/reason ids (`no_rettelse_lowered`,
+  `no_rettelse_not_lowered`, `no_same_act_item_address`,
+  `no_unique_item_payload`) were missing from `_NO_RULE_SPECS` —
+  `test_every_discovered_rule_id_is_cataloged` had been failing at base
+  since W-18 because no affected-ladder since then selected the tools
+  shard; found by W-23's full-shard run, cataloged in `77f8b5396`.
 
 - **2026-08-06 (W-25 + W-26 applied)** — **The citation grammar's two
   punctuation blind spots are closed from one constant each, and an
