@@ -2120,6 +2120,9 @@ def _infer_no_unstructured_section_base_id(children: list[etree._Element]) -> st
         section_base_id = _extract_no_section_base_id_from_lead(lead)
         if section_base_id is not None:
             return section_base_id
+        announced_base_id = _extract_no_law_announcement_base_id(lead)
+        if announced_base_id is not None:
+            return announced_base_id
     return None
 
 
@@ -2214,6 +2217,39 @@ def _extract_no_section_base_id_from_lead(lead: str) -> str | None:
         "blir gjort følgjande endringar",
     )
     if not any(marker in lowered for marker in section_intro_markers):
+        return None
+    return _extract_no_law_citation_base_id(lead)
+
+
+def _extract_no_law_announcement_base_id(lead: str) -> str | None:
+    """Resolve the ``Lov <date> nr. N om X endres slik:`` part announcement.
+
+    A sibling of ``_extract_no_section_base_id_from_lead`` for the older
+    Lovtidend generation that announces a part's base act in the nominative
+    ("Lov 20. mai 2005 nr. 28 om straff endres slik:") rather than as an
+    ``I lov …`` prepositional lead. Measured 2026-08-06 over all 9,100
+    unstructured parts: 69 parts match, across four tail surfaces only —
+    ``endres slik`` (29), ``blir endra slik`` (20), ``vert endra slik`` (18),
+    ``blir endret slik`` (2). No ``Lov <cite> … gjøres følgende endringer`` form exists
+    (extending the tail set with the ``section_intro_markers`` above changes
+    nothing corpus-wide), so the tail stays narrow. 67 of the 69 currently
+    resolve nothing; the other 2 fall through to a consequential ``I lov …``
+    item nested deep in the part's payload and resolve the wrong act
+    (`2008-03-07-4`, `2009-06-19-74`).
+
+    Only the amending tail makes this a part announcement. A bare citation
+    ("Lov 22. mai 1902 nr. 13 § 107 oppheves.", "Lov … om domstolene") names a
+    law the part acts *on as a whole* and introduces no items to bind, so it
+    must not seed the part's base act.
+    """
+    lead = _repair_no_mojibake(lead)
+    # Item ordinals ("1.", "1 a.") prefix announcements inside enumerated lists.
+    lowered = re.sub(r"^\d+\s*[a-zA-Z]?\.\s*", "", lead.lower()).strip()
+    # lawvm-regex: owning_parser this IS the part-announcement lead parser
+    if not re.match(r"^lov[ai]?\b", lowered):
+        return None
+    # lawvm-regex: owning_parser this IS the part-announcement lead parser
+    if not re.search(r"\b(?:endres|endras|endrast|endret|endra|endrar)\s+slik\s*:?\s*$", lowered):
         return None
     return _extract_no_law_citation_base_id(lead)
 

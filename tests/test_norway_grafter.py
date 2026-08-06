@@ -24,6 +24,7 @@ from lawvm.core.ir import (
 from lawvm.core.semantic_types import IRNodeKind, StructuralAction, TextPatchKindEnum
 from lawvm.replay_adjudication import CompileAdjudication
 from lawvm.norway.grafter import (
+    _extract_no_law_announcement_base_id,
     _no_rettelse_item_target_from_lead,
     _normalize_no_chapter_scoped_section_lead,
     _no_unstructured_lead_looks_operative,
@@ -1832,6 +1833,91 @@ def test_iter_no_document_change_ops_global_text_replace_prefers_cited_law_over_
     grouped = dict(iter_no_document_change_ops(amendment_xml, "no/lovtid/2025-01-01-1"))
 
     assert sorted(grouped) == ["no/lov/1991-11-08-76"]
+
+
+@pytest.mark.parametrize(
+    "lead",
+    [
+        # The W-21 witness, verbatim from ``no/lovtid/2009-06-19-74`` part I.
+        "Lov 20. mai 2005 nr. 28 om straff endres slik:",
+        # The three other tail surfaces the 2026-08-06 corpus sweep found, all
+        # nynorsk: ``no/lovtid/2002-12-20-104``, ``no/lovtid/2004-06-25-51``,
+        # ``no/lovtid/2009-06-19-61`` (law citations swapped for the witness's
+        # so the parametrization tests the tail, not the citation).
+        "Lov 20. mai 2005 nr. 28 om straff vert endra slik:",
+        "Lov 20. mai 2005 nr. 28 om straff blir endra slik:",
+        "Lov 20. mai 2005 nr. 28 om straff blir endret slik:",
+    ],
+)
+def test_no_law_announcement_lead_resolves_the_part_base_act(lead: str) -> None:
+    """W-21: a nominative ``Lov <date> nr. N om X endres slik:`` part announcement.
+
+    The older Lovtidend generation announces a part's base act without the
+    ``I lov …`` preposition the other extractors require, so inference used to
+    fall through to whatever consequential ``I lov …`` item appeared later in
+    the part's payload.
+    """
+    assert _extract_no_law_announcement_base_id(lead) == "no/lov/2005-05-20-28"
+
+
+@pytest.mark.parametrize(
+    "lead",
+    [
+        # No amending tail: the part acts on the law as a whole and introduces
+        # no items to bind (``no/lovtid/2005-12-21-131`` part I).
+        "Lov 31. mai 1900 nr. 5 om Løsgjængeri, Betleri og Drukkenskab blir oppheva.",
+        "Lov 17. juni 2005 nr. 103 om statens embets- og tjenestemenn oppheves.",
+        # A bare title line, and a nested consequential repeal item.
+        "Lov 13. august 1915 nr. 5 om domstolene",
+        "1. Militær straffelov 22. mai 1902 nr. 13 § 107 oppheves.",
+        # ``Lovens del …`` is a commencement clause, not an announcement
+        # (``no/lovtid/2007-04-13-14`` part V).
+        "Lovens del I-III trer i kraft straks. Del IV trer i kraft når lov 20. mai 2005 nr. 28 § 102 nr. 4 trer i kraft.",
+        # The ``I lov …`` forms stay the other extractors' business.
+        "I lov 13. juni 1975 nr. 39 om utlevering av lovbrytere mv. skal § 9 annet punktum lyde:",
+    ],
+)
+def test_no_law_announcement_lead_requires_an_amending_tail(lead: str) -> None:
+    """W-21 guard: naming a law is not announcing a part of amendments to it."""
+    assert _extract_no_law_announcement_base_id(lead) is None
+
+
+def test_iter_no_document_change_ops_law_announcement_outranks_nested_consequential_item() -> None:
+    """W-21: the part announcement wins over an ``I lov …`` item in its payload.
+
+    Reduced from ``no/lovtid/2009-06-19-74``, where the nested item sits inside
+    the new § 412 "Endringer i andre lover" text. Without the announcement the
+    § 5 op binds to the nested item's law.
+    """
+    amendment_xml = """<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="changesToDocuments">
+      <ul><li>lov/2005-05-20-28</li><li>lov/1975-06-13-39</li></ul>
+    </dd>
+    <main>
+      <section data-name="kapI">
+        <article class="defaultP">Lov 20. mai 2005 nr. 28 om straff endres slik:</article>
+        <article class="defaultP">§ 6 annet ledd skal lyde:</article>
+        <article class="legalP">Straffelovgivningen gjelder også for handlinger som Norge har rett til å straffe etter overenskomst med fremmed stat.</article>
+        <article class="defaultP">3. I lov 13. juni 1975 nr. 39 om utlevering av lovbrytere mv. skal § 9 annet punktum lyde:</article>
+        <article class="legalP">Utlevering kan likevel skje dersom siktelsen gjelder folkemord.</article>
+      </section>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+    grouped = dict(iter_no_document_change_ops(amendment_xml, "no/lovtid/2025-01-01-1"))
+
+    assert sorted(grouped) == ["no/lov/1975-06-13-39", "no/lov/2005-05-20-28"]
+    assert [op.target.path for op in grouped["no/lov/2005-05-20-28"]] == [
+        (("section", "6"), ("subsection", "2"))
+    ]
+    # The nested item still binds to its own cited law.
+    assert [op.target.path for op in grouped["no/lov/1975-06-13-39"]] == [
+        (("section", "9"), ("sentence", "2"))
+    ]
 
 
 def test_parse_no_amendment_ops_recovers_malformed_cross_act_target_from_lead_text() -> None:
@@ -4278,6 +4364,51 @@ def test_no_finanstilsynsloven_sentence_binding_recovered_by_abbreviation_set() 
     assert ops[1].payload is not None
     assert "om børsvirksomhet m.m. § 4" in (ops[1].payload.text or "")
     assert (ops[1].payload.text or "").endswith("lovbestemte oppgaver.")
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_law_announcement_witness_stays_pinned() -> None:
+    """W-21 corpus witness: ``no/lovtid/2009-06-19-74`` part I is straffeloven 2005.
+
+    Part I announces "Lov 20. mai 2005 nr. 28 om straff endres slik:". Before the
+    fix, inference fell through to a consequential item nested in the new § 412
+    text ("3. I lov 13. juni 1975 nr. 39 om utlevering av lovbrytere mv. …"), so
+    all 22 of part I's ops — 16 structural plus the 6 global text-replaces W-20
+    signed off as inert — bound to utleveringsloven, and straffeloven 2005 got
+    zero ops from its own amending act. Measured 2026-08-06: the act's 469 ops
+    are unchanged in identity, 22 of them move, and utleveringsloven keeps
+    exactly the 3 the nested item and its two followers actually produce.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2009-06-19-74", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    grouped = dict(iter_no_document_change_ops(html_bytes, "no/lovtid/2009-06-19-74"))
+
+    assert len(grouped["no/lov/2005-05-20-28"]) == 22
+    assert len(grouped["no/lov/1975-06-13-39"]) == 3
+    # The six ex-inert global text-replaces ride the corrected base act. Every
+    # one of their ``match_text`` values occurs in straffeloven 2005's original
+    # LTI text and none occurs anywhere in utleveringsloven's.
+    text_patches = {
+        op.text_patch.selector.match_text: op.text_patch.replacement
+        for op in grouped["no/lov/2005-05-20-28"]
+        if op.text_patch is not None
+    }
+    assert text_patches == {
+        "legeme": "kropp",
+        "legemsdel": "kroppsdel",
+        "og som foretar noe som er ment å lede direkte til utføringen": (
+            "og som foretar noe som leder direkte mot utføringen"
+        ),
+        "samtykket til": "samtykket i",
+        "er straffri": "ikke kan straffes",
+        "helbred": "helse",
+    }
+    # Utleveringsloven keeps only what its own nested item introduced: § 9.
+    assert {op.target.path[0] for op in grouped["no/lov/1975-06-13-39"]} == {("section", "9")}
 
 
 # ── W-18: published ``Rettelser`` (errata) lowering ───────────────────────────

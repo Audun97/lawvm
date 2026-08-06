@@ -964,8 +964,12 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
     ]
     # 166 under the marker vocabulary this batch inherited, plus exactly one act
     # the batch's own marker widening adds; see the widening test below.
-    assert len(staged) == 167
-    assert len([entry for entry in staged if entry.source_id != _WIDENED_MARKER_STAGED_ACT]) == 166
+    # 167 -> 170 at W-21 (part-announcement lead recognition): three of the 13
+    # acts that entered the index for the first time carry genuine mixed
+    # date-plus-delegated commencement fields (2005-06-17-59, 2007-04-13-14,
+    # 2009-06-19-108); no existing entry's shape changed. Signed off 2026-08-06.
+    assert len(staged) == 170
+    assert len([entry for entry in staged if entry.source_id != _WIDENED_MARKER_STAGED_ACT]) == 169
 
     # Total and queryable: one receipt per staged act, no more and no fewer.
     receipts = [
@@ -1025,7 +1029,11 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         if diagnostic["rule_id"] == NO_COMMENCEMENT_EXECUTION_DATE_CONFLICT
     ]
     assert index.status_counts() == {
-        "contingent": 914,
+        # contingent 914 -> 920 and dated 1021 -> 1028 at W-21: the 13 acts
+        # gaining their first index entry via the part-announcement lead form
+        # split +6 contingent / +7 dated; no existing entry's status moved.
+        # Signed off 2026-08-06 together with the staged pin above.
+        "contingent": 920,
         # 1021 -> 1020 at W-15 (multi-part misbinding fix): the sole moved entry
         # is no/lovtid/2018-12-20-119, whose only "op" was its own part II
         # commencement sentence ("Lova tek til å gjelde straks.") swallowed as a
@@ -1036,7 +1044,8 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # gains its FIRST index entry — its lowered erratum op — and its own
         # commencement field is a plain date (2020-12-18), so it lands in the
         # dated bucket. Every other bucket unchanged. Signed off 2026-08-06.
-        "dated": 1021,
+        # 1021 -> 1028 at W-21: see the contingent comment above.
+        "dated": 1028,
         "immediate": 1,
         "instrument_authorized": 528,
         "unknown": 2,
