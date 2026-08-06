@@ -355,6 +355,25 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "production result's adjudication ledger — §1.0 "
         "evidence-not-silently-destroyed contract."
     ),
+    # --- Heading-group fold ordering (W-12) -----------------------------------------
+    # ``apply_no_heading_groups`` folds ``Ny deloverskrift`` section-range groups
+    # after the op fold, in its own pass. Until W-12 that pass had no temporal
+    # sort — it ran in ``replay_no_to_pit``'s collection order (the index's
+    # ``source_id`` string order), the one Norway replay surface where collection
+    # order was not inert. The fold now sorts by the ordering kernel's own
+    # ``no_ordering_profile().temporal_key``. The multi-contributor case is
+    # unreached in today's corpus (0 of 3,089 original-LTI laws; the sole witness
+    # ``no/lov/2024-01-12-1`` gets all 3 groups from ``no/lovtid/2024-12-20-92``),
+    # so this receipt is the §2.9 guard-liveness surface that makes the
+    # latent→live transition visible instead of silent.
+    "no_heading_group_multi_source_fold": (
+        "One law's ``Ny deloverskrift`` heading groups arriving from more than "
+        "one amendment is receipted at the fold: non-blocking when every "
+        "contributor carries an effective date (the fold order is then proven "
+        "by the ordering kernel's temporal key), blocking when one does not "
+        "(the sort degenerates to collection order, so the order is unproven "
+        "and the law must not read as cleanly replayed)."
+    ),
     # --- Archive-size capped §1.8 receipts (iter2 W7 M9 5081fd10) --------------------
     # iter2 W7 M9 added ``NO_ARCHIVE_MEMBER_TOO_LARGE_REASON_CODE`` in both
     # ``norway/grafter.py:4591`` and ``norway/sources.py:61`` (twin definitions

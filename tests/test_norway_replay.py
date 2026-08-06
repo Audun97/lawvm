@@ -1003,3 +1003,199 @@ def test_replay_no_to_pit_surfaces_unsupported_ref_kind_as_typed_error() -> None
     assert result.error is not None
     assert "unsupported Norway ref kind" in result.error
     assert "forordning" in result.error
+
+
+# ── W-12: the heading-group fold is temporally ordered ────────────────────────
+#
+# ``replay_no_to_pit`` collects heading groups in the amendment loop, which
+# iterates the index entries sorted by ``source_id`` STRING. Before W-12 the
+# fold consumed that list as-is, so with two contributing amendments the
+# synthetic subchapters landed in archive order rather than effective-date
+# order. The fixture below is built so the two orders DISAGREE: the
+# alphabetically FIRST amendment is the temporally LAST one.
+
+_HEADING_GROUP_BASE_XML = """<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <head>
+    <title>Testlov om deloverskrifter</title>
+  </head>
+  <body>
+    <main class="documentBody" data-lovdata-URL="LTI/lov/2025-01-01-1">
+      <section class="section" data-name="kap9" data-lovdata-URL="LTI/lov/2025-01-01-1/KAPITTEL_9">
+        <h2>Kapittel 9. Regler</h2>
+        <article class="legalArticle" data-name="§2-1" data-lovdata-URL="LTI/lov/2025-01-01-1/§2-1">
+          <h3 class="legalArticleHeader">§ 2-1. Foerste</h3>
+          <article class="legalP" id="ledd1">Tekst 2-1.</article>
+        </article>
+        <article class="legalArticle" data-name="§2-2" data-lovdata-URL="LTI/lov/2025-01-01-1/§2-2">
+          <h3 class="legalArticleHeader">§ 2-2. Andre</h3>
+          <article class="legalP" id="ledd1">Tekst 2-2.</article>
+        </article>
+        <article class="legalArticle" data-name="§2-10" data-lovdata-URL="LTI/lov/2025-01-01-1/§2-10">
+          <h3 class="legalArticleHeader">§ 2-10. Tiende</h3>
+          <article class="legalP" id="ledd1">Tekst 2-10.</article>
+        </article>
+        <article class="legalArticle" data-name="§2-11" data-lovdata-URL="LTI/lov/2025-01-01-1/§2-11">
+          <h3 class="legalArticleHeader">§ 2-11. Ellevte</h3>
+          <article class="legalP" id="ledd1">Tekst 2-11.</article>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def _heading_group_amendment_xml(
+    *,
+    date_in_force: str,
+    start: str,
+    end: str,
+    title: str,
+    touched_section: str,
+) -> bytes:
+    """One amendment carrying a ``Ny deloverskrift`` range plus a real change op.
+
+    The change op exists only so the index binds this amendment to the base act
+    the ordinary way; the heading group is what the test is about.
+    """
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="dateInForce">{date_in_force}</dd>
+    <article class="document-change" data-document="lov/2025-01-01-1">
+      <article class="change" data-change-part="lov/2025-01-01-1/§{touched_section}/ledd/1">
+        <article class="defaultP">§ {touched_section} foerste ledd skal lyde:</article>
+        <article class="legalP">Endret tekst {touched_section}.</article>
+      </article>
+      <article class="defaultP">Ny deloverskrift til §§ {start} til {end} skal lyde:</article>
+      <span class="futuretitle">{title}</span>
+    </article>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def _write_heading_group_archive(tmp_path):
+    archive_path = tmp_path / "lovtidend-avd1-2001-2025.tar.bz2"
+    _write_archive(
+        archive_path,
+        [
+            ("lti/2025/nl-20250101-001.xml", _HEADING_GROUP_BASE_XML),
+            # Alphabetically first source_id, temporally LAST (2025-09-01).
+            (
+                "lti/2025/nl-20250201-001.xml",
+                _heading_group_amendment_xml(
+                    date_in_force="2025-09-01",
+                    start="2-1",
+                    end="2-2",
+                    title="Senere deloverskrift",
+                    touched_section="2-1",
+                ),
+            ),
+            # Alphabetically second source_id, temporally FIRST (2025-03-15).
+            (
+                "lti/2025/nl-20250301-002.xml",
+                _heading_group_amendment_xml(
+                    date_in_force="2025-03-15",
+                    start="2-10",
+                    end="2-11",
+                    title="Tidligere deloverskrift",
+                    touched_section="2-10",
+                ),
+            ),
+        ],
+    )
+    return archive_path
+
+
+def _heading_group_chapters(result):
+    assert result.replayed is not None
+    chapter = result.replayed.body.children[0]
+    return [child for child in chapter.children if child.kind is IRNodeKind.CHAPTER]
+
+
+def test_replay_no_folds_heading_groups_in_temporal_not_collection_order(tmp_path) -> None:
+    """W-12: collection order and temporal order disagree; temporal order wins.
+
+    ``no/lovtid/2025-02-01-1`` sorts first by ``source_id`` but takes effect
+    2025-09-01; ``no/lovtid/2025-03-01-2`` sorts second but takes effect
+    2025-03-15. The synthetic subchapter labels are minted in FOLD order
+    (``<chapter labels>-<position>``) while the containers themselves sit where
+    their sections already were, so the LABEL is what carries the fold order:
+    before W-12 ``9-1`` was the 02-01 act's group (§§ 2-1..2-2); it must now be
+    the 03-01 act's (§§ 2-10..2-11).
+    """
+    _write_heading_group_archive(tmp_path)
+
+    result = replay_no_to_pit("no/lov/2025-01-01-1", as_of="2025-12-31", data_dir=tmp_path)
+
+    assert result.error is None
+    # Collection order really is the alphabetical one — the premise of the test.
+    assert result.amendments_scanned == ["no/lovtid/2025-02-01-1", "no/lovtid/2025-03-01-2"]
+
+    # Document order is unchanged (each container replaces its own sections in
+    # place): §§ 2-1..2-2's group still precedes §§ 2-10..2-11's.
+    groups = _heading_group_chapters(result)
+    assert [group.children[0].text for group in groups] == [
+        "Senere deloverskrift",
+        "Tidligere deloverskrift",
+    ]
+    assert [
+        [child.label for child in group.children if child.kind is IRNodeKind.SECTION] for group in groups
+    ] == [["2-1", "2-2"], ["2-10", "2-11"]]
+    # Fold order is the temporal one: label ``9-1`` belongs to the act that
+    # took effect FIRST, which is the alphabetically SECOND source id.
+    assert [group.label for group in groups] == ["9-2", "9-1"]
+
+
+def test_replay_no_receipts_the_multi_amendment_heading_group_fold(tmp_path) -> None:
+    """The §2.9 guard-liveness receipt for the case that is latent in the corpus.
+
+    Zero of the 3,089 original-LTI laws reach a two-contributor fold today, so
+    without this receipt the transition from latent to live would be silent.
+    Both contributors here are dated, so the order is proven and the receipt is
+    a non-blocking notice.
+    """
+    _write_heading_group_archive(tmp_path)
+
+    result = replay_no_to_pit("no/lov/2025-01-01-1", as_of="2025-12-31", data_dir=tmp_path)
+
+    receipts = [a for a in result.adjudications if a.kind == "no_heading_group_multi_source_fold"]
+    assert len(receipts) == 1
+    receipt = receipts[0]
+    assert receipt.blocking is False
+    assert receipt.source_statute == "no/lov/2025-01-01-1"
+    assert receipt.detail["rule_id"] == "no_heading_group_multi_source_fold"
+    assert tuple(receipt.detail["source_ids"]) == ("no/lovtid/2025-02-01-1", "no/lovtid/2025-03-01-2")
+    assert receipt.detail["group_count"] == 2
+    assert tuple(receipt.detail["undated_source_ids"]) == ()
+
+
+def test_replay_no_single_amendment_heading_groups_emit_no_fold_receipt(tmp_path) -> None:
+    """The single-contributor shape — every heading group in the corpus today."""
+    archive_path = tmp_path / "lovtidend-avd1-2001-2025.tar.bz2"
+    _write_archive(
+        archive_path,
+        [
+            ("lti/2025/nl-20250101-001.xml", _HEADING_GROUP_BASE_XML),
+            (
+                "lti/2025/nl-20250201-001.xml",
+                _heading_group_amendment_xml(
+                    date_in_force="2025-09-01",
+                    start="2-1",
+                    end="2-2",
+                    title="Eneste deloverskrift",
+                    touched_section="2-1",
+                ),
+            ),
+        ],
+    )
+
+    result = replay_no_to_pit("no/lov/2025-01-01-1", as_of="2025-12-31", data_dir=tmp_path)
+
+    assert result.error is None
+    assert [a for a in result.adjudications if a.kind == "no_heading_group_multi_source_fold"] == []
+    groups = _heading_group_chapters(result)
+    assert [group.label for group in groups] == ["9-1"]
+    assert [child.label for child in groups[0].children if child.kind is IRNodeKind.SECTION] == ["2-1", "2-2"]

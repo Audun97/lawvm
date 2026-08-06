@@ -330,6 +330,17 @@ class NOHeadingGroup:
     end_label: str
     title: str
     sequence: int
+    # The affecting-act provenance carrier ORDINARY ops get (``op.source``).
+    # Heading groups are folded after the op fold, in their own pass, so
+    # without this they carried no temporal coordinates at all and the fold ran
+    # in archive-iteration order — the one Norway replay surface where
+    # collection order was not inert (W-12; found by the W-10 investigation).
+    # Carrying the SAME carrier means the fold's sort key can be computed by
+    # the ordering kernel's own ``no_ordering_profile().temporal_key`` rather
+    # than by a second, driftable copy of ``(effective, enacted, source_id,
+    # sequence)``. ``None`` = parser-only caller that never reaches a fold with
+    # a second contributor (see the guard in ``apply_no_heading_groups``).
+    source: Optional[OperationSource] = None
 
 
 def lovdata_filename_to_id(filename: str) -> Optional[str]:
@@ -1438,8 +1449,20 @@ def _fallback_payload(
     return IRNode(kind=cast(IRNodeKind, target.leaf_kind() or "content"), label=target.leaf_label() or None, text=text)
 
 
-def parse_no_heading_groups(html_bytes: bytes, base_id: str) -> list[NOHeadingGroup]:
-    """Parse Norway section-range heading groups such as 'Ny deloverskrift til §§ 2-1 til 2-5'."""
+def parse_no_heading_groups(
+    html_bytes: bytes,
+    base_id: str,
+    *,
+    source: Optional[OperationSource] = None,
+) -> list[NOHeadingGroup]:
+    """Parse Norway section-range heading groups such as 'Ny deloverskrift til §§ 2-1 til 2-5'.
+
+    ``source`` is the affecting-act provenance carrier for the amendment these
+    bytes came from; the production caller (``replay_no_to_pit``) passes the
+    same ``(statute_id, enacted, effective)`` triple it stamps onto every
+    ordinary op of that amendment, so the fold can order groups from different
+    amendments by the kernel's temporal key (W-12).
+    """
     root = _parse_document(html_bytes)
     raw_base = base_id.removeprefix("no/")
     groups: list[NOHeadingGroup] = []
@@ -1474,6 +1497,7 @@ def parse_no_heading_groups(html_bytes: bytes, base_id: str) -> list[NOHeadingGr
                     end_label=end_label,
                     title=title,
                     sequence=sequence,
+                    source=source,
                 )
             )
             sequence += 1
@@ -3660,10 +3684,151 @@ def _apply_heading_group(body: IRNode, group: NOHeadingGroup) -> IRNode:
     return _replace_node_at_path(body, parent_path, replacement)
 
 
-def apply_no_heading_groups(statute: IRStatute, heading_groups: Sequence[NOHeadingGroup]) -> IRStatute:
-    """Regroup flat Norway section ranges under synthetic subchapter containers."""
+NO_HEADING_GROUP_MULTI_SOURCE_FOLD = "no_heading_group_multi_source_fold"
+
+
+def _emit_no_heading_group_fold_witness(
+    statute: IRStatute,
+    heading_groups: Sequence[NOHeadingGroup],
+    *,
+    adjudications_out: Optional[List[CompileAdjudication]],
+) -> None:
+    """Receipt the first time one law's heading groups come from two amendments.
+
+    §2.9 guard liveness: the multi-contributor case is unreached in today's
+    corpus (measured: 0 of 3,089 laws with an original LTI), so the fix for it
+    is unobservable unless the case announces itself. This witness makes the
+    transition from latent to live visible in the receipt plane instead of
+    silent.
+
+    ``blocking`` is set only when a contributing group reached the fold with NO
+    temporal coordinates (``source`` absent or undated). With coordinates the
+    order is proven by the kernel's temporal key and the fold is trustworthy —
+    the receipt is then a non-blocking notice. Without them the sort degenerates
+    to the input order the item was filed against, so the order is unproven and
+    the law must not be reported as cleanly replayed (§1.10 fail loud).
+    """
+    if adjudications_out is None:
+        return
+    distinct = sorted(
+        {group.source.statute_id for group in heading_groups if group.source and group.source.statute_id}
+    )
+    unidentified = any(not (group.source and group.source.statute_id) for group in heading_groups)
+    # Groups with no affecting-act identity count as ONE unknown contributor:
+    # two of them are indistinguishable, so counting them individually would
+    # fire this receipt on the single-amendment parser-only path.
+    if len(distinct) + (1 if unidentified else 0) <= 1:
+        return
+    undated = sorted(
+        {
+            (group.source.statute_id if group.source else "")
+            for group in heading_groups
+            if group.source is None or not group.source.effective
+        }
+    )
+    blocking = bool(undated)
+    adjudications_out.append(
+        CompileAdjudication(
+            kind=NO_HEADING_GROUP_MULTI_SOURCE_FOLD,
+            message=(
+                "Norway heading-group fold received groups from more than one amendment"
+                + (
+                    "; at least one carries no effective date, so the fold order is unproven."
+                    if blocking
+                    else "; folded in ordering-kernel temporal order."
+                )
+            ),
+            source_statute=statute.statute_id,
+            op_id="",
+            blocking=blocking,
+            phase="replay",
+            detail=diagnostic_detail(
+                rule_id=NO_HEADING_GROUP_MULTI_SOURCE_FOLD,
+                phase="replay",
+                blocking=blocking,
+                family="ordering",
+                base_id=statute.statute_id,
+                source_ids=distinct,
+                group_count=len(heading_groups),
+                undated_source_ids=undated,
+            ),
+        )
+    )
+
+
+def _no_heading_group_order_carrier(group: NOHeadingGroup) -> LegalOperation:
+    """A key-only ``LegalOperation`` standing in for ``group`` in the temporal sort.
+
+    Heading groups are not state-mutating ops: they carry no target address and
+    are folded in their own pass AFTER ``apply_no_ops``, so they cannot be run
+    through ``order_ops`` itself — its stage 3 (same-moment cross-act conflict)
+    and stage 5 (renumber vacate) are op-semantics stages that would fabricate
+    findings about ops that do not exist. What heading groups DO need is stage
+    1, the temporal sort, and that stage's key is ``profile.temporal_key``.
+    This carrier exists so that key is computed by the kernel's own
+    ``no_ordering_profile()`` rather than by a second copy of ``(effective,
+    enacted, source_id, sequence)`` — the parallel-ordering-surface drift W-12
+    exists to close. It never leaves this module: no op id, no receipt, no
+    apply.
+    """
+    return LegalOperation(
+        op_id="",
+        sequence=group.sequence,
+        action=StructuralAction.INSERT,
+        target=LegalAddress(path=()),
+        source=group.source,
+    )
+
+
+def _no_heading_group_temporal_key(group: NOHeadingGroup) -> tuple[Any, int]:
+    """The kernel's stage-1 sort key for a heading group.
+
+    Mirrors ``order_ops``' stage 1 exactly: ``(temporal_key(op), op.sequence)``.
+    """
+    carrier = _no_heading_group_order_carrier(group)
+    return (no_ordering_profile().temporal_key(carrier), carrier.sequence)
+
+
+def apply_no_heading_groups(
+    statute: IRStatute,
+    heading_groups: Sequence[NOHeadingGroup],
+    *,
+    adjudications_out: Optional[List[CompileAdjudication]] = None,
+) -> IRStatute:
+    """Regroup flat Norway section ranges under synthetic subchapter containers.
+
+    The fold is temporally ordered (W-12). Before this, groups were folded in
+    the order ``replay_no_to_pit`` collected them — which is the index's
+    ``source_id`` string order, not effective-date order. Latent at the time of
+    the fix: a census over all 2,544 index entries × their declared base ids
+    found heading groups for exactly ONE law (``no/lov/2024-01-12-1``, three
+    groups, all from ``no/lovtid/2024-12-20-92``), so no corpus law had two
+    contributors and every replay is byte-identical across the change. It stops
+    being latent the first time two amendments carry ``Ny deloverskrift`` for
+    one act.
+
+    Two things had to change for the multi-contributor case to be correct, not
+    just ordered:
+
+    * the sort — by the ordering kernel's own temporal key (see
+      :func:`_no_heading_group_temporal_key`);
+    * the ``sequence`` re-stamp — ``sequence`` is not an identity, it is the
+      namespace of the synthetic container label ``_apply_heading_group``
+      mints (``<chapter labels>-<sequence>``), and the parser restarts it at 1
+      per amendment document. Two amendments touching one chapter would both
+      mint label ``…-1``, and the second would hit the idempotence guard in
+      ``_apply_heading_group`` and be SILENTLY DROPPED. Re-stamping to the
+      1-based position in the temporally sorted fold makes the namespace
+      global. For a single contributor whose parser sequences are already
+      ``1..n`` this is the identity (the corpus witness's are ``1,2,3``).
+    """
+    ordered_groups = [
+        dc_replace(group, sequence=position)
+        for position, group in enumerate(sorted(heading_groups, key=_no_heading_group_temporal_key), start=1)
+    ]
+    _emit_no_heading_group_fold_witness(statute, heading_groups, adjudications_out=adjudications_out)
     body = statute.body
-    for group in heading_groups:
+    for group in ordered_groups:
         body = _apply_heading_group(body, group)
     return IRStatute(
         statute_id=statute.statute_id,

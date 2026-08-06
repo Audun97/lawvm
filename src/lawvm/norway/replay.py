@@ -22,6 +22,7 @@ from lawvm.core.diagnostic_records import diagnostic_detail
 from lawvm.core.filter_result import FilterResult, RejectedItem
 from lawvm.core.ir import IRStatute, LegalOperation
 from lawvm.core.ir_helpers import irnode_to_text
+from lawvm.core.provenance import OperationSource
 from lawvm.core.temporal_resolution import (
     TEMPORAL_FUTURE_EFFECTIVE_DATE,
     TEMPORAL_UNKNOWN_EFFECTIVE_DATE,
@@ -386,7 +387,22 @@ def replay_no_to_pit(
                 )
             )
             continue
-        heading_groups.extend(parse_no_heading_groups(html_bytes, norm_base_id))
+        # Stamp heading groups with the SAME affecting-act coordinates the op
+        # loop below stamps onto ``op.source`` (W-12). Without them the fold at
+        # the end of this function ran in this loop's collection order — the
+        # index's ``source_id`` string order — which is the only Norway replay
+        # surface where collection order was not inert.
+        heading_groups.extend(
+            parse_no_heading_groups(
+                html_bytes,
+                norm_base_id,
+                source=OperationSource(
+                    statute_id=source_id,
+                    enacted=_source_date_from_id(source_id),
+                    effective=effective_date,
+                ),
+            )
+        )
         parser_adjudications: list[CompileAdjudication] = []
         parsed_groups = parse_no_amendment_groups(
             html_bytes,
@@ -488,7 +504,11 @@ def replay_no_to_pit(
         result.write_receipts = apply_result.write_receipts
         result.observed_write_audits = apply_result.observed_write_audits
         if heading_groups:
-            result.replayed = apply_no_heading_groups(result.replayed, heading_groups)
+            result.replayed = apply_no_heading_groups(
+                result.replayed,
+                heading_groups,
+                adjudications_out=result.adjudications,
+            )
     # lawvm-failloud (AGENTS.md §1.10): NOT a silent swallow. An apply-stage
     # failure is recorded as a distinct, self-evidencing
     # ``result.error = f"Failed to apply ops: {exc}"`` (exception embedded) —

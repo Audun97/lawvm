@@ -24,6 +24,7 @@ from lawvm.core.ir import (
 from lawvm.core.semantic_types import IRNodeKind, StructuralAction, TextPatchKindEnum
 from lawvm.replay_adjudication import CompileAdjudication
 from lawvm.norway.grafter import (
+    NOHeadingGroup,
     _extract_no_embedded_multi_act_lead,
     _extract_no_law_announcement_base_id,
     _extract_no_law_citation_base_id,
@@ -5219,3 +5220,175 @@ def test_no_rettelse_witness_replay_carries_the_corrected_citation() -> None:
     assert item is not None
     assert "skatteloven § 2-3 første ledd bokstav b" in (item.text or "")
     assert "skatteloven § 23 " not in (item.text or "")
+
+
+# ── W-12: the heading-group fold's sort key IS the ordering kernel's ──────────
+
+
+def test_no_heading_group_sort_agrees_with_the_ordering_kernel() -> None:
+    """The fold's order must be the order ``order_ops`` gives the same sources.
+
+    W-12 exists because the heading-group fold was a SECOND ordering surface
+    with no key at all. The fix routes its key through
+    ``no_ordering_profile().temporal_key`` rather than restating
+    ``(effective, enacted, source_id, sequence)``; this test is the contract
+    that pins the two to each other, so a future change to the NO profile
+    cannot silently leave the heading-group fold behind.
+    """
+    from lawvm.core.op_ordering import order_ops
+    from lawvm.norway.grafter import _no_heading_group_temporal_key, no_ordering_profile
+
+    sources = [
+        # (statute_id, enacted, effective) — deliberately shuffled so no two of
+        # the three orderings (input, lexical, temporal) coincide.
+        OperationSource(statute_id="no/lovtid/2024-01-10-1", enacted="2024-01-10", effective="2025-06-01"),
+        OperationSource(statute_id="no/lovtid/2024-12-20-92", enacted="2024-12-20", effective="2024-12-20"),
+        OperationSource(statute_id="no/lovtid/2023-05-05-7", enacted="2023-05-05", effective="2026-01-01"),
+        # Same effective date as the second, later enactment: exercises the
+        # key's second component.
+        OperationSource(statute_id="no/lovtid/2025-02-02-2", enacted="2025-02-02", effective="2024-12-20"),
+    ]
+    groups = [
+        NOHeadingGroup(start_label="2-1", end_label="2-2", title=f"T{i}", sequence=i + 1, source=source)
+        for i, source in enumerate(sources)
+    ]
+    ops = [
+        LegalOperation(
+            op_id=f"op-{i}",
+            sequence=i + 1,
+            action=StructuralAction.INSERT,
+            target=LegalAddress(path=(("section", "2-1"),)),
+            source=source,
+        )
+        for i, source in enumerate(sources)
+    ]
+
+    def _source_id(source: OperationSource | None) -> str:
+        assert source is not None
+        return source.statute_id
+
+    fold_order = [
+        _source_id(group.source) for group in sorted(groups, key=_no_heading_group_temporal_key)
+    ]
+    kernel_order = [_source_id(op.source) for op in order_ops(ops, no_ordering_profile()).ops]
+
+    assert fold_order == kernel_order
+    assert fold_order == [
+        "no/lovtid/2024-12-20-92",
+        "no/lovtid/2025-02-02-2",
+        "no/lovtid/2024-01-10-1",
+        "no/lovtid/2023-05-05-7",
+    ]
+
+
+def test_no_heading_group_fold_blocks_when_a_contributor_is_undated() -> None:
+    """The unordered-path guard: two contributors, one with no effective date.
+
+    Without an effective date the kernel's key degenerates and the fold order
+    is exactly the collection order W-12 was filed against, so the receipt is
+    BLOCKING — the law must not read as cleanly replayed on the strength of an
+    order nothing proves.
+    """
+    statute = IRStatute(statute_id="no/lov/2025-01-01-1", title="T", body=IRNode(kind=IRNodeKind.BODY))
+    groups = [
+        NOHeadingGroup(
+            start_label="2-1",
+            end_label="2-2",
+            title="A",
+            sequence=1,
+            source=OperationSource(statute_id="no/lovtid/2025-02-02-5", enacted="2025-02-02", effective="2025-03-01"),
+        ),
+        NOHeadingGroup(
+            start_label="2-10",
+            end_label="2-11",
+            title="B",
+            sequence=1,
+            source=OperationSource(statute_id="no/lovtid/2025-03-03-9", enacted="2025-03-03"),
+        ),
+    ]
+    adjudications: list[CompileAdjudication] = []
+
+    apply_no_heading_groups(statute, groups, adjudications_out=adjudications)
+
+    receipts = [a for a in adjudications if a.kind == "no_heading_group_multi_source_fold"]
+    assert len(receipts) == 1
+    assert receipts[0].blocking is True
+    assert tuple(receipts[0].detail["undated_source_ids"]) == ("no/lovtid/2025-03-03-9",)
+
+
+def test_no_heading_group_fold_is_quiet_for_parser_only_callers() -> None:
+    """Groups with no affecting-act identity are ONE unknown contributor.
+
+    ``parse_no_heading_groups`` may be called without a ``source`` (tests,
+    ad-hoc probes); several such groups come from ONE document, so counting
+    them individually would fire the multi-source receipt on the ordinary
+    single-amendment shape.
+    """
+    statute = IRStatute(statute_id="no/lov/2025-01-01-1", title="T", body=IRNode(kind=IRNodeKind.BODY))
+    groups = [
+        NOHeadingGroup(start_label="2-1", end_label="2-2", title="A", sequence=1),
+        NOHeadingGroup(start_label="2-10", end_label="2-11", title="B", sequence=2),
+    ]
+    adjudications: list[CompileAdjudication] = []
+
+    apply_no_heading_groups(statute, groups, adjudications_out=adjudications)
+
+    assert [a for a in adjudications if a.kind == "no_heading_group_multi_source_fold"] == []
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_heading_group_corpus_witness_stays_single_sourced() -> None:
+    """W-12's latency premise, re-measured against the corpus rather than assumed.
+
+    A census over all 2,544 index entries × their declared base ids found
+    heading groups for exactly ONE law, all from ONE amendment; that is why the
+    ordering fix is byte-neutral over all 3,089 laws with an original LTI. This
+    pins the witness so the premise cannot silently lapse: if a second act ever
+    contributes ``Ny deloverskrift`` to suppleringsskatteloven, this test fails
+    and the fold's multi-source receipt is the thing to read.
+    """
+    from lawvm.norway.replay import replay_no_to_pit
+
+    html_bytes = load_no_amendment_bytes("no/lovtid/2024-12-20-92", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+    groups = parse_no_heading_groups(html_bytes, "no/lov/2024-01-12-1")
+    assert [(g.start_label, g.end_label, g.title, g.sequence) for g in groups] == [
+        ("2-1", "2-5", "Skatteinkluderingsregelen", 1),
+        ("2-10", "2-14", "Skattefordelingsregelen", 2),
+        ("2-20", "2-20", "Nasjonal suppleringsskatt", 3),
+    ]
+
+    result = replay_no_to_pit(
+        "no/lov/2024-01-12-1",
+        as_of="2026-07-10",
+        data_dir=_NO_FARCHIVE_PATH,
+    )
+    assert not result.error
+    assert result.replayed is not None
+    # Single contributor => no multi-source fold receipt.
+    assert [a for a in result.adjudications if a.kind == "no_heading_group_multi_source_fold"] == []
+
+    containers = []
+
+    def _walk(node: IRNode) -> None:
+        if node.kind is IRNodeKind.CHAPTER and (node.label or "").startswith("1-2-"):
+            containers.append(node)
+        for child in node.children:
+            _walk(child)
+
+    _walk(result.replayed.body)
+    assert [
+        (
+            node.label,
+            node.children[0].text,
+            [c.label for c in node.children if c.kind is IRNodeKind.SECTION],
+        )
+        for node in containers
+    ] == [
+        ("1-2-1", "Skatteinkluderingsregelen", ["2-1", "2-2", "2-3", "2-4", "2-5"]),
+        ("1-2-2", "Skattefordelingsregelen", ["2-10", "2-11", "2-12", "2-13", "2-14"]),
+        ("1-2-3", "Nasjonal suppleringsskatt", ["2-20"]),
+    ]
