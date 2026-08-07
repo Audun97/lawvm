@@ -717,6 +717,19 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "and the verdict is unchanged; the receipt only lets the scoreboard "
         "report annex and non-annex divergences separately."
     ),
+    "no_verify.ceiling_annexed_instrument_nested_address": (
+        "A Norway divergence whose address sits inside a Lovdata annex that is "
+        "addressed as a compound SUB-CHAPTER of an ordinary host chapter "
+        "rather than by a token chapter of its own (chapter:1 holding "
+        "chapter:1-1, then an unprefixed instrument article such as "
+        "section:a1) is typed as the annexed-instrument representation "
+        "ceiling, the same ceiling as its token-encoded sibling: the "
+        "consolidation prints the incorporated instrument in full and the "
+        "original-act replay lane never had it. Disjoint from that sibling by "
+        "construction — it requires a non-ordinary top chapter label, this "
+        "one requires an ordinary one. Types rather than suppresses, so the "
+        "row stays counted and no verdict moves."
+    ),
     "no_verify.ceiling_annexed_instrument_counterpart": (
         "A Norway present-on-one-side-only divergence at the canonical-body "
         "address of an instrument article that the SAME law also carries at "

@@ -227,6 +227,13 @@ NO_VERIFY_COMPARE_OTHER_LAWS_CONTEXT_SUPPRESSED = "no_verify.compare_other_laws_
 # divergences separately instead of drowning in them.
 NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_ADDRESS = "no_verify.ceiling_annexed_instrument_address"
 NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_COUNTERPART = "no_verify.ceiling_annexed_instrument_counterpart"
+# W-40: the same ceiling, reached through Lovdata's OTHER annex encoding — the
+# instrument addressed as a compound sub-chapter of an ordinary host chapter
+# instead of by a token chapter of its own. A separate rule_id rather than a
+# loosened criterion 1, so the scoreboard keeps the two encodings apart.
+NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_NESTED_ADDRESS = (
+    "no_verify.ceiling_annexed_instrument_nested_address"
+)
 # The counterpart rule only ever explains a provision that is PRESENT ON ONE
 # SIDE ONLY — that is the shape a two-address representation produces. A
 # MISMATCH at a canonical article address is a genuine wording difference
@@ -1245,6 +1252,56 @@ def _no_annexed_instrument_address(path: TreePath) -> tuple[str, str] | None:
     return None
 
 
+def _no_nested_annexed_instrument_address(path: TreePath) -> tuple[str, str] | None:
+    """``(annex_chapter_label, article)`` for the NESTED annex encoding (W-40).
+
+    A second Lovdata annex encoding, measured on ``no/lov/2012-12-14-81``
+    (EØS-arbeidstakarlova): the incorporated instrument is not addressed by a
+    token chapter of its own but as a COMPOUND SUB-CHAPTER of an ordinary host
+    chapter — ``chapter:1`` ("Forordning") holds ``chapter:1-1``
+    ("EØS-avtalen vedlegg V punkt 2 (forordning (EU) nr. 492/2011) …"), and
+    the regulation's own chapters, parts and articles hang below that. Because
+    the host chapter is ordinary and the article labels are unprefixed,
+    :func:`_no_annexed_instrument_address` misses every row of it.
+
+    Three requirements, all measured, all required:
+
+    1. the top step is a ``chapter`` with an ORDINARY legislative label — the
+       host chapter of the enacting law (``1`` here);
+    2. the step below it is a ``chapter`` whose label extends the host's with a
+       ``-`` separator (``1`` → ``1-1``) — Lovdata's compound address for a
+       subdivision of that host chapter, and never an ordinary chapter label;
+    3. the first ``section`` step below is an instrument *article* (``a1``)
+       with NO token prefix — this encoding has no token to duplicate.
+
+    Requirement 2 is what keeps this rule disjoint from
+    :func:`_no_canonical_instrument_article`: ``no/lov/2006-06-30-50``'s
+    canonical-body articles sit at ``chapter:1/chapter:I/section:a1``, whose
+    second chapter is an ordinary roman label, so they stay the counterpart
+    rule's rows. Measured over all 1,212 divergence addresses of the 58 scan
+    candidates at as-of 2026-07-10: 93 rows match, all in ``2012-12-14-81``,
+    all ``OPS_MISSING``, none of them already typed by either W-17 criterion,
+    and zero rows in the other 57 laws.
+    """
+    if len(path) < 2 or path[0][0] != "chapter" or path[1][0] != "chapter":
+        return None
+    host_label, annex_label = path[0][1], path[1][1]
+    if host_label is None or annex_label is None:
+        return None
+    if not _NO_ANNEX_BODY_CHAPTER_RE.fullmatch(host_label):
+        return None
+    if not annex_label.startswith(f"{host_label}-"):
+        return None
+    for kind, label in path:
+        if kind != "section":
+            continue
+        parsed = _no_annex_article_section(label)
+        if parsed is None or parsed[0] is not None:
+            return None
+        return (annex_label, parsed[1])
+    return None
+
+
 def _no_canonical_instrument_article(path: TreePath) -> str | None:
     """Article number when an address is an instrument article at the law's CANONICAL address.
 
@@ -1275,11 +1332,17 @@ def classify_no_annex_ceiling(
 ) -> tuple[NOCeilingDivergence, ...]:
     """Type the annexed-instrument representation ceiling over PRIMARY divergences.
 
-    Two criteria, both per-row and mechanical, applied in order:
+    Three criteria, all per-row and mechanical, applied in order:
 
     * ``ceiling_annexed_instrument_address`` — the row's address is inside an
       annex chapter (:func:`_no_annexed_instrument_address`). The published
       consolidation carries the instrument; the original-act lane never did.
+    * ``ceiling_annexed_instrument_nested_address`` — the same ceiling under
+      Lovdata's other annex encoding, the instrument addressed as a compound
+      sub-chapter of an ordinary host chapter
+      (:func:`_no_nested_annexed_instrument_address`). Disjoint from the first
+      by construction: that one needs a NON-ordinary top chapter label, this
+      one needs an ordinary one.
     * ``ceiling_annexed_instrument_counterpart`` — the row is a
       present-on-one-side-only divergence at the *canonical* address of an
       article that THIS law also carries at an annex address. Self-limiting:
@@ -1297,6 +1360,10 @@ def classify_no_annex_ceiling(
     the 3 tail subsections of the Regulation's closing Article 80 signature
     block, which the published annex truncates). Total 1,129 of 1,513 —
     72% — and zero rows in the other 54 laws.
+
+    W-40 adds criterion 2 on top of that, measured over the 58 scan candidates
+    at the same as-of: 93 further rows, all in ``2012-12-14-81``, taking the
+    corpus ceiling to 1,011 of 1,212.
     """
     records: dict[int, NOCeilingDivergence] = {}
     # article number -> (annex token, the address that witnessed it)
@@ -1319,6 +1386,32 @@ def classify_no_annex_ceiling(
                 "instrument in full; the original-act replay lane never had it."
             ),
             annex_token=token,
+            article=article,
+        )
+
+    # The nested encoding deliberately does NOT feed ``witnessed``. The
+    # counterpart criterion explains a two-address representation, which is a
+    # measured property of the token encoding (``2006-06-30-50`` carries the
+    # SCE Regulation on both sides); no law in corpus doubles a NESTED annex
+    # into its own body, so witnessing from here would be reach the
+    # measurement does not support.
+    for idx, divergence in enumerate(divergences):
+        if idx in records:
+            continue
+        hit = _no_nested_annexed_instrument_address(tuple(divergence.address.path))
+        if hit is None:
+            continue
+        annex_label, article = hit
+        records[idx] = NOCeilingDivergence(
+            divergence=divergence,
+            rule_id=NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_NESTED_ADDRESS,
+            reason=(
+                "Address sits inside a Lovdata annex addressed as a compound sub-chapter "
+                "of an ordinary host chapter (host chapter label, that label plus a "
+                "'-' suffix, then an unprefixed instrument article). The consolidation "
+                "prints the instrument in full; the original-act replay lane never had it."
+            ),
+            annex_token=annex_label,
             article=article,
         )
 

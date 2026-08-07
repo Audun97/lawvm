@@ -19,6 +19,7 @@ from lawvm.norway.sources import ingest_no_public_archives, resolve_no_source_pa
 from lawvm.norway.verify import (
     NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_ADDRESS,
     NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_COUNTERPART,
+    NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_NESTED_ADDRESS,
     NO_VERIFY_COMPARE_CONTINGENT_OTHER_LAWS_PLACEHOLDER_SUPPRESSED,
     NO_VERIFY_COMPARE_DEFINITION_SUBSECTION_PAIRS_COLLAPSED,
     NO_VERIFY_COMPARE_NESTED_ITEM_TAIL_SUPPRESSED,
@@ -2088,6 +2089,216 @@ def test_annex_ceiling_address_rule_requires_the_duplicated_annex_token() -> Non
     ) == ()
 
 
+# --- W-40: the nested (compound sub-chapter) annex encoding -----------------
+#
+# All fixtures below are real addresses from no/lov/2012-12-14-81
+# (EØS-arbeidstakarlova), taken from the 93-row measurement in
+# .tmp/w40/measure_2012-12-14-81.json. Lovdata prints regulation (EU) nr.
+# 492/2011 under chapter:1 ("Forordning") / chapter:1-1 ("EØS-avtalen vedlegg
+# V punkt 2 …"), so the host chapter is ORDINARY and the article labels carry
+# no token prefix — both halves of the W-17 encoding are absent.
+
+
+def test_annex_ceiling_types_a_nested_compound_subchapter_annex() -> None:
+    # Positive, the two path shapes the law actually carries: the regulation's
+    # chapters I-III subdivide into ``part`` steps (55 + 27 rows), chapter IV
+    # holds its articles directly (11 rows).
+    under_part = _no_div(
+        (
+            ("chapter", "1"),
+            ("chapter", "1-1"),
+            ("chapter", "I"),
+            ("part", "1"),
+            ("section", "a1"),
+            ("subsection", "1"),
+        ),
+        "OPS_MISSING",
+        consolidated_text="Alle statsborgarar i ein medlemsstat har rett til å ta lønt arbeid.",
+    )
+    under_chapter = _no_div(
+        (
+            ("chapter", "1"),
+            ("chapter", "1-1"),
+            ("chapter", "IV"),
+            ("section", "a35"),
+            ("subsection", "1"),
+        ),
+        "OPS_MISSING",
+        consolidated_text="Denne forordninga skal ikkje røre ved føresegnene i traktaten.",
+    )
+
+    typed = classify_no_annex_ceiling([under_part, under_chapter])
+
+    assert [record.rule_id for record in typed] == [
+        NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_NESTED_ADDRESS
+    ] * 2
+    assert [(record.annex_token, record.article) for record in typed] == [
+        ("1-1", "1"),
+        ("1-1", "35"),
+    ]
+    # Typed, not removed.
+    assert [record.divergence for record in typed] == [under_part, under_chapter]
+
+
+def test_annex_ceiling_nested_rule_reaches_the_deepest_item_nesting() -> None:
+    # Positive: 6 of the 93 rows sit three ``item`` levels below the
+    # subsection. The rule reads the first ``section`` step, so depth below it
+    # is irrelevant — pinned because the shape exists in corpus.
+    deep = _no_div(
+        (
+            ("chapter", "1"),
+            ("chapter", "1-1"),
+            ("chapter", "I"),
+            ("part", "1"),
+            ("section", "a3"),
+            ("subsection", "1"),
+            ("item", "a"),
+            ("item", "i"),
+            ("item", "1"),
+        ),
+        "OPS_MISSING",
+        consolidated_text="… avgrensar tilbodet om arbeid.",
+    )
+
+    typed = classify_no_annex_ceiling([deep])
+
+    assert [record.rule_id for record in typed] == [
+        NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_NESTED_ADDRESS
+    ]
+
+
+def test_annex_ceiling_nested_rule_does_not_type_ordinary_section_addresses() -> None:
+    # §2.9 paired negative: ordinary Norwegian section addresses must not match,
+    # including the ones inside the very law the rule covers. The first three
+    # rows below are 2012-12-14-81's own remaining 4 divergences (§§ 1-4 of the
+    # enacting act, which the published consolidation does not print); the rest
+    # are ordinary shapes from elsewhere in the corpus.
+    rows = [
+        _no_div((("section", "1"), ("subsection", "1")), "CONSOLIDATED_MISSING", ops_text="Lova gjeld …"),
+        _no_div((("section", "4"), ("subsection", "1")), "CONSOLIDATED_MISSING", ops_text="Kongen kan gi forskrift …"),
+        # An ordinary section under an ordinary chapter, with and without a
+        # nested ordinary sub-chapter.
+        _no_div((("chapter", "1"), ("section", "11"), ("subsection", "1")), "MISMATCH", ops_text="a", consolidated_text="b"),
+        _no_div(
+            (("chapter", "1"), ("chapter", "1-1"), ("section", "11"), ("subsection", "1")),
+            "MISMATCH",
+            ops_text="a",
+            consolidated_text="b",
+        ),
+        # A section label that merely STARTS with "a" is not an article.
+        _no_div(
+            (("chapter", "1"), ("chapter", "1-1"), ("section", "a"), ("subsection", "1")),
+            "OPS_MISSING",
+            consolidated_text="Tekst.",
+        ),
+    ]
+
+    assert classify_no_annex_ceiling(rows) == ()
+
+
+def test_annex_ceiling_nested_rule_requires_the_host_prefixed_sub_chapter() -> None:
+    # §2.9 paired negative: each of the three requirements is load-bearing.
+    # The middle case is the one that keeps W-40 disjoint from W-17's
+    # counterpart criterion — no/lov/2006-06-30-50's canonical-body articles
+    # sit at chapter:1/chapter:I/section:a1, an ORDINARY second chapter, and
+    # must keep being explained (or not) by the counterpart rule alone.
+    no_sub_chapter = _no_div(
+        (("chapter", "1"), ("section", "a1"), ("subsection", "1")),
+        "OPS_MISSING",
+        consolidated_text="Tekst.",
+    )
+    ordinary_sub_chapter = _no_div(
+        (("chapter", "1"), ("chapter", "I"), ("section", "a1"), ("subsection", "1")),
+        "OPS_MISSING",
+        consolidated_text="Tekst.",
+    )
+    unrelated_sub_chapter = _no_div(
+        (("chapter", "1"), ("chapter", "2-1"), ("section", "a1"), ("subsection", "1")),
+        "OPS_MISSING",
+        consolidated_text="Tekst.",
+    )
+    sub_chapter_without_separator = _no_div(
+        (("chapter", "1"), ("chapter", "10"), ("section", "a1"), ("subsection", "1")),
+        "OPS_MISSING",
+        consolidated_text="Tekst.",
+    )
+    token_prefixed_section = _no_div(
+        (("chapter", "1"), ("chapter", "1-1"), ("section", "1-1/a1"), ("subsection", "1")),
+        "OPS_MISSING",
+        consolidated_text="Tekst.",
+    )
+    part_not_chapter = _no_div(
+        (("part", "1"), ("chapter", "1-1"), ("section", "a1"), ("subsection", "1")),
+        "OPS_MISSING",
+        consolidated_text="Tekst.",
+    )
+
+    assert classify_no_annex_ceiling(
+        [
+            no_sub_chapter,
+            ordinary_sub_chapter,
+            unrelated_sub_chapter,
+            sub_chapter_without_separator,
+            token_prefixed_section,
+            part_not_chapter,
+        ]
+    ) == ()
+
+
+def test_annex_ceiling_nested_rule_is_disjoint_from_the_token_encoding() -> None:
+    # The GDPR annex nests compound sub-chapters of its own
+    # (chapter:gdpr/chapter:10-3-1, 484 corpus rows). Those stay W-17 address
+    # rows: the nested rule needs an ORDINARY top chapter label and the token
+    # rule needs a non-ordinary one, so no row can satisfy both.
+    token_encoded = _no_div(
+        (
+            ("chapter", "gdpr"),
+            ("chapter", "10-3-1"),
+            ("section", "gdpr/a49"),
+            ("subsection", "1"),
+        ),
+        "OPS_MISSING",
+        consolidated_text="Tekst.",
+    )
+
+    typed = classify_no_annex_ceiling([token_encoded])
+
+    assert [record.rule_id for record in typed] == [NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_ADDRESS]
+
+
+def test_annex_ceiling_nested_rule_does_not_witness_the_counterpart_rule() -> None:
+    # The nested encoding deliberately does not feed the counterpart criterion:
+    # a two-address representation is a measured property of the TOKEN encoding
+    # (2006-06-30-50 carries the SCE Regulation on both sides), and no law in
+    # corpus doubles a nested annex into its own body. A canonical-body article
+    # row alongside a nested-annex row for the same article therefore stays
+    # unexplained.
+    nested = _no_div(
+        (
+            ("chapter", "1"),
+            ("chapter", "1-1"),
+            ("chapter", "I"),
+            ("part", "1"),
+            ("section", "a1"),
+            ("subsection", "1"),
+        ),
+        "OPS_MISSING",
+        consolidated_text="Tekst.",
+    )
+    canonical = _no_div(
+        (("chapter", "2"), ("chapter", "I"), ("section", "a1"), ("subsection", "1")),
+        "CONSOLIDATED_MISSING",
+        ops_text="Tekst.",
+    )
+
+    typed = classify_no_annex_ceiling([nested, canonical])
+
+    assert [record.rule_id for record in typed] == [
+        NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_NESTED_ADDRESS
+    ]
+    assert typed[0].divergence is nested
+
+
 def test_annex_ceiling_conserves_the_divergence_total_and_the_verdict(tmp_path) -> None:
     # The conservation contract, on a synthetic law whose replay lane is
     # complete and whose current text carries an annex chapter: the ceiling
@@ -2161,6 +2372,8 @@ def test_annex_ceiling_corpus_counts_are_pinned() -> None:
             "no/lov/2018-06-15-38",
             "no/lov/2017-06-16-51",
             "no/lov/2006-06-30-50",
+            # W-40: the fourth annexing law, under the nested encoding.
+            "no/lov/2012-12-14-81",
             # Negative controls: the two largest divergent laws that annex
             # nothing. Neither criterion may reach a single one of their rows.
             "no/lov/2001-01-05-1",
@@ -2187,11 +2400,13 @@ def test_annex_ceiling_corpus_counts_are_pinned() -> None:
     assert set(rows) == {
         "no/lov/2018-06-15-38",
         "no/lov/2017-06-16-51",
+        "no/lov/2012-12-14-81",  # W-40: added, the nested-encoding annex law
         "no/lov/2001-01-05-1",
     }
 
     address = NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_ADDRESS
     counterpart = NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_COUNTERPART
+    nested = NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_NESTED_ADDRESS
     # (divergence_count, ceiling, unexplained, per-rule ceiling counts)
     expected = {
         # personopplysningsloven: the GDPR under chapter:gdpr. The 2 unexplained
@@ -2200,6 +2415,12 @@ def test_annex_ceiling_corpus_counts_are_pinned() -> None:
         # One convention annexed twice, bokmål (102) + nynorsk (102). The 6
         # unexplained are the §26 subsection-boundary shift family.
         "no/lov/2017-06-16-51": (210, 204, 6, {address: 204}),
+        # W-40 (2026-08-08): EØS-arbeidstakarlova, admitted by W-39 and typed
+        # here. Regulation (EU) nr. 492/2011 under chapter:1/chapter:1-1, the
+        # nested (compound sub-chapter) annex encoding — 93 of 97. The 4
+        # unexplained are the enacting act's own §§ 1-4, which the published
+        # consolidation of this law does not print at all.
+        "no/lov/2012-12-14-81": (97, 93, 4, {nested: 93}),
         # SCE-loven's row (212, 211, 1, {address: 104, counterpart: 107}) is
         # off-scan since W-30 — see the set(rows) comment above.
         # 83 -> 81 at W-35 (2026-08-07, signed off): still 0 ceiling, which is
@@ -2233,8 +2454,11 @@ def test_annex_ceiling_corpus_counts_are_pinned() -> None:
     # rows (all 107 were SCE-loven's, off-scan since W-30). The corpus-wide
     # annexed-instrument family measured at W-17 (1,022 + 107 = 1,129) still
     # exists — only the candidate set shrank.
-    assert report["ceiling_rule_counts"] == {address: 918}
-    assert report["divergence_totals"]["ceiling"] == 918
+    # W-40 (2026-08-08): + 93 nested-encoding rows = 1,011. The two encodings
+    # are counted under separate rule ids, which is the point of the split:
+    # neither number can drift into the other.
+    assert report["ceiling_rule_counts"] == {address: 918, nested: 93}
+    assert report["divergence_totals"]["ceiling"] == 1011
 
 
 def test_no_verify_partition_corpus_membership_is_pinned() -> None:
@@ -2325,9 +2549,15 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # unexplained both move by the same +23 (-81 +97 +7), so W-39 explains
     # nothing away either — it removes 81 rows that WERE the law's, and admits
     # 104 rows on two laws that were previously unreachable.
+    # W-40 (2026-08-08) moves no row and no verdict — it TYPES rows that were
+    # already counted. 2012-12-14-81's 93 annex-shaped OPS_MISSING rows are
+    # the nested (compound sub-chapter) annex encoding, so ceiling 918 -> 1011
+    # and unexplained 294 -> 201 against an unmoved total of 1,212. The
+    # law's partition bucket moves with them, source_sparse -> annex_ceiling,
+    # which is the W-23 predicate doing exactly what it was built for.
     assert report["scanned_count"] == 58
     assert report["summary"] == {"consistent": 23, "divergent": 35, "error": 0}
-    assert report["divergence_totals"] == {"total": 1212, "ceiling": 918, "unexplained": 294}
+    assert report["divergence_totals"] == {"total": 1212, "ceiling": 1011, "unexplained": 201}
     # 3 -> 2 at W-34: no/lov/2001-01-05-1 gains 4 bound ops from
     # no/lovtid/2015-06-19-65 item 178, so its indexed history is no longer
     # sparse. Its 83 divergences do not move; only the bucket does.
@@ -2391,18 +2621,23 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
         # (0 annex-ceiling rows, signal would still fire off the W-17 residue)
         # remains true of the one member left.
         # W-39: 2012-12-14-81 enters with the candidate set carrying the signal.
-        # 93 of its 97 rows are annex-shaped OPS_MISSING, so the bucket's "0
-        # annex-ceiling rows" story is now true of one member and not the other
-        # — the annex normalization does not reach this law's prefix. Admitted
-        # by W-39, owned by W-17; recorded here rather than re-bucketed.
+        # W-40 (2026-08-08): and leaves again for annex_ceiling once its 93
+        # annex-shaped rows are typed — the contradiction W-39 recorded here
+        # ("0 annex-ceiling rows" true of one member and not the other) is
+        # closed by typing the rows rather than by re-bucketing the law. The
+        # bucket is F-09 proper again: one member, 0 ceiling rows, and the
+        # sparse signal would still fire off the W-17 residue.
         "source_sparse": [
-            "no/lov/2012-12-14-81",
             "no/lov/2020-11-27-131",
         ],
         # no/lov/2006-06-30-50 left this bucket with the candidate set at
         # W-30 (contingent amender no/lovtid/2007-06-29-81); it returns when
         # that commencement resolves.
+        # W-40: 2012-12-14-81 arrives from source_sparse at 93/97 ceiling —
+        # the first member routed on the nested annex encoding, and the first
+        # whose sparse signal was the thing the bucket had to overrule.
         "annex_ceiling": [
+            "no/lov/2012-12-14-81",
             "no/lov/2017-06-16-51",
             "no/lov/2018-06-15-38",
         ],
@@ -2450,11 +2685,15 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
 
     # Every member of the ceiling bucket is ceiling-DOMINATED, and the margin
     # to the routing boundary is enormous in both directions: the smallest
-    # member sits at 97.1% ceiling, and no law outside the bucket carries a
+    # member sits at 95.8% ceiling, and no law outside the bucket carries a
     # single ceiling row.
+    # 97.1% -> 95.8% at W-40 (2026-08-08): the new member 2012-12-14-81 is
+    # 93/97. The separation is still total — the next law down carries zero
+    # ceiling rows — so this floor stays a description of the corpus, not a
+    # routing constant; the predicate itself is still a strict majority.
     for item in partitions["annex_ceiling"]:
         assert item["ceiling_divergence_count"] > item["unexplained_divergence_count"]
-        assert item["ceiling_divergence_count"] / item["divergence_count"] > 0.97
+        assert item["ceiling_divergence_count"] / item["divergence_count"] > 0.95
     for bucket, items in partitions.items():
         if bucket == "annex_ceiling":
             continue
