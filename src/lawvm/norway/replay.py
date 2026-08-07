@@ -302,8 +302,13 @@ def replay_no_to_pit(
     for entry in candidates:
         source_id = entry.source_id
         result.amendments_scanned.append(source_id)
-        effective_date = entry.effective_date
-        if entry.effective_status == "contingent":
+        # W-39: resolve the date THIS binding carries. A staged multi-part act
+        # whose part amending this base law has its own commencement instrument
+        # is not contingent *for this law*, even though the act as a whole still
+        # is; every other base law it binds falls through to the act-level
+        # status below, unchanged.
+        effective_date, entry_status = entry.effective_date_for_base(norm_base_id)
+        if entry_status == "contingent":
             result.amendments_skipped_contingent.append(source_id)
             result.adjudications.append(
                 _no_replay_temporal_skip_adjudication(
@@ -318,7 +323,7 @@ def replay_no_to_pit(
                 )
             )
             continue
-        if entry.effective_status in {"missing", "unknown"} or effective_date is None:
+        if entry_status in {"missing", "unknown"} or effective_date is None:
             result.amendments_skipped_unknown_effective.append(source_id)
             result.adjudications.append(
                 _no_replay_temporal_skip_adjudication(

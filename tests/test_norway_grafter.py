@@ -26,8 +26,11 @@ from lawvm.core.ir import (
 from lawvm.core.semantic_types import IRNodeKind, StructuralAction, TextPatchKindEnum
 from lawvm.replay_adjudication import CompileAdjudication
 from lawvm.norway.grafter import (
+    NO_PARSE_COLLECTIVE_REENACTMENT_PART_UNRESOLVED,
     NOHeadingGroup,
     _extract_no_embedded_multi_act_lead,
+    _no_collective_reenactment_lead_base_id,
+    no_part_law_ids,
     _extract_no_law_announcement_base_id,
     _extract_no_law_citation_base_id,
     _extract_no_section_base_id_from_lead,
@@ -7015,3 +7018,161 @@ def test_no_w28_corpus_witness_bilansvarslova_item_42() -> None:
     assert [op.target.path for op in grouped["no/lov/1961-02-03-0"]] == [
         (("section", "20"), ("subsection", "2"))
     ]
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w39_collective_reenactment_witness_vaktvirksomhetsloven() -> None:
+    """W-39 half (i) corpus witness: ``no/lovtid/2009-06-19-85`` part I.
+
+    "I lov 5. januar 2001 nr. 1 om vaktvirksomhet skal følgende bestemmelser
+    lyde:" re-enacts the whole law. On the base the tail was not in the action
+    grammar, the part resolved no law, and the act bound NOTHING of it (7
+    ``lead_base_unresolved`` receipts). The ordering assertion is the
+    load-bearing half: "Nåværende § 12" names the PRE-amendment § 12, so every
+    RENUMBER must be sequenced before every payload — in document order the act
+    would move sections it has already overwritten.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2009-06-19-85", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    grouped = dict(iter_no_document_change_ops(html_bytes, "no/lovtid/2009-06-19-85"))
+    ops = grouped["no/lov/2001-01-05-1"]
+
+    renumbers = [op for op in ops if op.action is StructuralAction.RENUMBER]
+    payloads = [op for op in ops if op.action is not StructuralAction.RENUMBER]
+    assert all(op.destination is not None for op in renumbers)
+    assert [
+        (op.target.path[0][1], op.destination.path[0][1])
+        for op in renumbers
+        if op.destination is not None
+    ] == [("12", "14"), ("13", "15"), ("16", "20"), ("17", "21"), ("18", "22")]
+    assert max(op.sequence for op in renumbers) < min(op.sequence for op in payloads)
+
+    # § 12/13/16/17/18 are renumber SOURCES, so their addresses are vacated and
+    # the restatement is an INSERT; § 19 is an explicit "Ny § 19 skal lyde:".
+    by_label = {op.target.path[0][1]: op.action for op in payloads}
+    assert by_label == {
+        "1": StructuralAction.REPLACE,
+        "2": StructuralAction.REPLACE,
+        "3": StructuralAction.REPLACE,
+        "4": StructuralAction.REPLACE,
+        "5": StructuralAction.REPLACE,
+        "6": StructuralAction.REPLACE,
+        "7": StructuralAction.REPLACE,
+        "8": StructuralAction.REPLACE,
+        "9": StructuralAction.REPLACE,
+        "10": StructuralAction.REPLACE,
+        "11": StructuralAction.REPLACE,
+        "12": StructuralAction.INSERT,
+        "13": StructuralAction.INSERT,
+        "16": StructuralAction.INSERT,
+        "17": StructuralAction.INSERT,
+        "18": StructuralAction.INSERT,
+        "19": StructuralAction.INSERT,
+    }
+    # Part III still lowers through the ordinary grammar, unchanged.
+    assert [op.target.path for op in grouped["no/lov/1997-06-13-55"]] == [
+        (("section", "16"), ("subsection", "1"))
+    ]
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w39_collective_reenactment_refuses_whole_part_on_one_bad_member() -> None:
+    """W-39 half (i) negative control: ``no/lovtid/2006-06-30-41``.
+
+    The same collective lead, but its part interleaves bare-address members
+    ("§ 7 annet ledd", "§ 8 annet ledd første punktum") with the restated
+    sections. A bare address carries no verb, so its structure is exactly the
+    ambiguity W-19's all-or-nothing rule refuses to guess at — and a partially
+    applied re-enactment is a WRONG law, not a partial one. The whole part stays
+    unlowered behind one typed receipt, and the act keeps binding nothing.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2006-06-30-41", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    adjudications: list = []
+    grouped = dict(
+        iter_no_document_change_ops(
+            html_bytes, "no/lovtid/2006-06-30-41", adjudications_out=adjudications
+        )
+    )
+
+    assert grouped == {}
+    refusals = [
+        a
+        for a in adjudications
+        if a.kind == NO_PARSE_COLLECTIVE_REENACTMENT_PART_UNRESOLVED
+    ]
+    assert len(refusals) == 1
+    detail = refusals[0].detail
+    assert detail["refusal"] == "member_outside_closed_set"
+    assert detail["part_family"] == "collective_reenactment"
+    assert detail["base_id"] == "no/lov/1999-07-16-69"
+    assert detail["source_excerpt"] == "§ 7 annet ledd"
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w39_collective_reenactment_chapter_scope_is_not_a_part_lead() -> None:
+    """W-39 half (i) boundary: the fourth family member is NOT a part lead.
+
+    ``no/lovtid/2009-05-08-27`` carries "I kapitlene 34 og 35 skal følgende
+    paragrafer lyde:" — the same tail, but scoping CHAPTERS inside a part whose
+    own "I lov 27. juni 2008 nr. 71 … gjøres følgende endringer:" lead has
+    already resolved the law. Admitting it as a part announcement would hand a
+    whole 190-node part to the collective lowering on the strength of a tail
+    alone, so the resolver is anchored on ``I lov``.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2009-05-08-27", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    assert (
+        _no_collective_reenactment_lead_base_id(
+            "I kapitlene 34 og 35 skal følgende paragrafer lyde:"
+        )
+        is None
+    )
+    assert (
+        _no_collective_reenactment_lead_base_id(
+            "I lov 5. januar 2001 nr. 1 om vaktvirksomhet skal følgende bestemmelser lyde:"
+        )
+        == "no/lov/2001-01-05-1"
+    )
+
+    adjudications: list = []
+    iter_no_document_change_ops(
+        html_bytes, "no/lovtid/2009-05-08-27", adjudications_out=adjudications
+    )
+    assert not [
+        a
+        for a in adjudications
+        if a.kind == NO_PARSE_COLLECTIVE_REENACTMENT_PART_UNRESOLVED
+    ]
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w39_part_law_map_resolves_the_witness_act() -> None:
+    """W-39: the part→law map that half (ii)'s scope proof reads.
+
+    Part II is the act's own commencement/transitional part and amends no law,
+    so it is absent — which is what lets the ``Endrer`` header
+    ``lov/2001-01-05-1`` match part I and nothing else.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2009-06-19-85", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    assert no_part_law_ids(html_bytes) == {
+        "I": "no/lov/2001-01-05-1",
+        "III": "no/lov/1997-06-13-55",
+    }

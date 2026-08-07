@@ -2006,6 +2006,60 @@ def _iter_unstructured_no_change_groups(
     def _part_index(position: int) -> int | None:
         return child_part_indexes[position] if position < len(child_part_indexes) else None
 
+    # W-39, half (i). A collective re-enactment part is lowered as ONE unit
+    # before the ordinary lead walk starts, because its members are not leads:
+    # the announcement states the end state and the sections that follow are
+    # bare ``futureLegalArticle`` siblings, which the lead/payload cursor reads
+    # as the announcement's payload and drops. The pre-pass runs after the
+    # run-on/trapped fixpoint above so it sees the same node list the walk does.
+    #
+    # A part the pre-pass refuses is handed back to the walk EXACTLY as it stood
+    # before this production existed: its ``part_base_ids`` entry is cleared so
+    # the collective resolver added to ``_infer_no_unstructured_section_base_id``
+    # cannot seed ``active_base_id`` for a part whose members were never
+    # adjudicated, and the walk reproduces its prior receipts unchanged.
+    consumed_part_indexes: set[int] = set()
+    collective_part_indexes = [
+        part_index
+        for part_index, part_base_id in enumerate(part_base_ids)
+        if part_base_id is not None
+        and any(
+            _no_collective_reenactment_lead_base_id(
+                _repair_no_mojibake(_normalize_space(" ".join(str(_t) for _t in node.itertext())))
+            )
+            is not None
+            for position, node in enumerate(children)
+            if _part_index(position) == part_index
+            and _local_name(node) == "article"
+            and ({"defaultP", "legalP"} & _classes(node))
+        )
+    ]
+    for part_index in collective_part_indexes:
+        part_base_id = part_base_ids[part_index]
+        assert part_base_id is not None
+        part_children = [
+            node
+            for position, node in enumerate(children)
+            if _part_index(position) == part_index
+            and _no_collective_reenactment_lead_base_id(
+                _repair_no_mojibake(_normalize_space(" ".join(str(_t) for _t in node.itertext())))
+            )
+            is None
+        ]
+        lowered = _lower_no_collective_reenactment_part(
+            part_children,
+            source_id=source_id,
+            base_id=part_base_id,
+            start_sequence=sequence,
+            adjudications_out=adjudications_out,
+        )
+        if lowered is None:
+            part_base_ids[part_index] = None
+            continue
+        part_ops, sequence = lowered
+        doc_ops_by_base.setdefault(part_base_id, []).extend(part_ops)
+        consumed_part_indexes.add(part_index)
+
     idx = 0
     active_base_id: str | None = None
     active_part_index: int | None = None
@@ -2027,6 +2081,13 @@ def _iter_unstructured_no_change_groups(
             )
             if part_base_id is not None:
                 active_base_id = part_base_id
+        # W-39: a part the collective pre-pass already lowered is done. Its
+        # announcement still sets ``active_base_id`` above (a later part with no
+        # lead of its own inherits it exactly as before), but its members must
+        # not be re-read as leads.
+        if child_part_index in consumed_part_indexes:
+            idx += 1
+            continue
         child_classes = _classes(child)
         if _local_name(child) != "article" or not ({"defaultP", "legalP"} & child_classes):
             idx += 1
@@ -2616,6 +2677,282 @@ def _iter_unstructured_no_change_groups(
     ]
 
 
+# W-39, half (i). The collective re-enactment part lead.
+#
+# Three acts corpus-wide open a part with "I lov <cite> skal følgende
+# bestemmelser lyde:" (`2006-06-30-41`, `2009-06-19-85`, `2021-06-11-60`); a
+# fourth carries the ``paragrafer`` spelling but as a CHAPTER scope inside an
+# already-resolved part ("I kapitlene 34 og 35 skal følgende paragrafer lyde:",
+# `2009-05-08-27`), which is why the head anchor below is ``I lov`` and not the
+# bare tail. Measured against 1,810 acts spelling ``gjøres følgende endringer``:
+# this is a four-act family, and its tail is the only one in the corpus that
+# announces an END STATE ("the following provisions shall read") rather than an
+# amending action.
+#
+# The consequence is the whole design of the part lowering below. Because the
+# payloads state the resulting text, their order among themselves is inert; but
+# a pure-renumber statement inside the same part says "Nåværende § X", an
+# explicit reference to the PRE-amendment law. On the witness the two
+# interleave and overlap: renumber sources {12,13,16,17,18} intersect payload
+# addresses {1..13,16,17,18,19}, so applying the part in document order would
+# renumber sections this same act has already overwritten. Sequencing every
+# RENUMBER before every payload is not a preference — it is the only order in
+# which "Nåværende § 12" still denotes what the drafter meant, and it
+# reproduces the published consolidation exactly (old §12→§14, §13→§15,
+# §16→§20, §17→§21, §18→§22, with §1–13/§16–19 taking the act's own text).
+#
+# Word gaps are a single space, not ``\s+``, for the reason the intro-marker
+# above records: every caller feeds ``_normalize_space``d text, and the
+# classifier-safety gate refuses adjacent variable repeats.
+_NO_COLLECTIVE_REENACTMENT_TAIL_RE = compile_classifier_regex(
+    r"\bskal følgende (?:bestemmelser|paragrafer) lyde:?$",
+    re.IGNORECASE,
+    classifier_id="no.lovtidend.collective_reenactment_lead",
+)
+# ``blir §`` and ``blir ny §`` are both attested inside one part of the witness
+# ("Nåværende § 12 blir § 14." beside "Nåværende § 16 blir ny § 20."). The
+# ordinary unstructured renumber production (which requires ``blir ny``) is
+# deliberately left untouched: widening it would move ops in acts this item
+# never measured.
+# Plain integer labels, optionally letter-suffixed — the shape every measured
+# renumber in the family carries (12→14, 13→15, 16→20, 17→21, 18→22). A
+# chapter-numbered ``§ 12-3`` label would refuse the part rather than half-lower
+# it, which is the all-or-nothing contract, not an oversight.
+_NO_COLLECTIVE_SECTION_LABEL = r"([0-9]+ ?[A-Za-z]?)"
+_NO_COLLECTIVE_RENUMBER_RE = compile_classifier_regex(
+    r"^Nåværende § " + _NO_COLLECTIVE_SECTION_LABEL + r" blir (?:ny )?§ "
+    + _NO_COLLECTIVE_SECTION_LABEL + r"\.?$",
+    re.IGNORECASE,
+    classifier_id="no.lovtidend.collective_reenactment_renumber",
+)
+_NO_COLLECTIVE_TITLE_MARKER_RE = compile_classifier_regex(
+    r"^Lovens tittel:?$",
+    re.IGNORECASE,
+    classifier_id="no.lovtidend.collective_reenactment_title_marker",
+)
+NO_PARSE_COLLECTIVE_REENACTMENT_PART_UNRESOLVED = (
+    "no_parse_collective_reenactment_part_unresolved"
+)
+NO_PARSE_COLLECTIVE_REENACTMENT_TITLE_NOT_LOWERED = (
+    "no_parse_collective_reenactment_title_not_lowered"
+)
+
+
+def _no_collective_reenactment_lead_base_id(lead: str) -> str | None:
+    """Resolve ``I lov <cite> skal følgende bestemmelser lyde:`` to its law."""
+    lead = _repair_no_mojibake(_normalize_space(lead))
+    # lawvm-regex: owning_parser strips the enumeration ordinal ahead of the head anchor,
+    # exactly as the two sibling part-lead resolvers do
+    lowered = re.sub(_NO_LEAD_ITEM_ORDINAL_PREFIX, "", lead.lower()).strip()
+    if not lowered.startswith("i lov"):
+        return None
+    # lawvm-regex: owning_parser this IS the collective re-enactment lead parser
+    if _NO_COLLECTIVE_REENACTMENT_TAIL_RE.search(lead) is None:
+        return None
+    return _extract_no_law_citation_base_id(lead)
+
+
+def _no_future_section_label(node: etree._Element) -> str:
+    return _normalize_no_section_label(node.get("data-name", "") or "")
+
+
+def _lower_no_collective_reenactment_part(
+    part_children: Sequence[etree._Element],
+    *,
+    source_id: str,
+    base_id: str,
+    start_sequence: int,
+    adjudications_out: Optional[List[CompileAdjudication]],
+) -> tuple[list[LegalOperation], int] | None:
+    """Lower one collective re-enactment part, all-or-nothing (W-19).
+
+    Every member of the part must fall into the closed set below; one member
+    that does not refuses the WHOLE part, because a partially applied
+    re-enactment is not a partial law — it is a wrong one. Returns ``None``
+    after recording a typed receipt in that case, leaving the ordinary walk to
+    produce exactly the receipts it produced before this production existed.
+
+    The closed member set, every kind of it measured on the three carriers:
+
+    * a ``futureLegalArticle`` — the section's whole new text, at the address
+      its own ``data-name`` states;
+    * ``Nåværende § X blir [ny] § Y.`` — a pure renumber;
+    * ``[Ny] § X skal lyde:`` — a marker whose payload is the NEXT
+      ``futureLegalArticle``; the labels must agree, and ``Ny`` forces INSERT;
+    * ``Lovens tittel:`` plus the restated title — recognized, NOT lowered
+      (there is no law-title op in the Norway lowering), receipted so the drop
+      is on the record rather than silent;
+    * the part's own ``<h2>`` heading, inert.
+    """
+    ops: list[LegalOperation] = []
+    sequence = start_sequence
+    renumbers: list[tuple[str, str, str]] = []
+    payloads: list[tuple[str, StructuralAction, IRNode, str]] = []
+    pending_marker: tuple[str, StructuralAction, str] | None = None
+    title_marker_lead = ""
+
+    def refuse(reason: str, member: str) -> None:
+        _append_no_unstructured_parse_adjudication(
+            adjudications_out,
+            kind=NO_PARSE_COLLECTIVE_REENACTMENT_PART_UNRESOLVED,
+            message=(
+                "Norway collective re-enactment part refused: a member of the part did "
+                "not fall in the closed member set, so the whole part stays unlowered."
+            ),
+            source_id=source_id,
+            lead=member,
+            base_id=base_id,
+            detail={"refusal": reason, "part_family": "collective_reenactment"},
+        )
+
+    index = 0
+    while index < len(part_children):
+        node = part_children[index]
+        index += 1
+        name = _local_name(node)
+        if name in {"h1", "h2", "h3", "h4"}:
+            continue
+        if name != "article":
+            refuse("non_article_member", f"<{name}>")
+            return None
+        classes = _classes(node)
+        text = _repair_no_mojibake(_normalize_space(" ".join(str(_t) for _t in node.itertext())))
+        if "futureLegalArticle" in classes:
+            label = _no_future_section_label(node)
+            if not label:
+                refuse("future_section_without_label", text[:200])
+                return None
+            payload = _parse_future_section(node)
+            if payload is None:
+                refuse("future_section_payload_unresolved", text[:200])
+                return None
+            action = StructuralAction.REPLACE
+            if pending_marker is not None:
+                marker_label, marker_action, marker_lead = pending_marker
+                if marker_label != label:
+                    refuse("marker_label_disagrees_with_payload", marker_lead)
+                    return None
+                action = marker_action
+                pending_marker = None
+                text = marker_lead
+            payloads.append((label, action, payload, text))
+            continue
+        if pending_marker is not None:
+            refuse("marker_without_following_section", pending_marker[2])
+            return None
+        if not ({"defaultP", "legalP"} & classes):
+            refuse("unsupported_member_class", text[:200])
+            return None
+        if title_marker_lead:
+            # The node after ``Lovens tittel:`` is the restated title itself.
+            _append_no_unstructured_parse_adjudication(
+                adjudications_out,
+                kind=NO_PARSE_COLLECTIVE_REENACTMENT_TITLE_NOT_LOWERED,
+                message=(
+                    "Norway collective re-enactment part restates the law's title; the "
+                    "Norway lowering has no law-title operation, so the restatement is "
+                    "recorded and not applied."
+                ),
+                source_id=source_id,
+                lead=f"{title_marker_lead} {text}"[:400],
+                base_id=base_id,
+                detail={"new_title": text[:200], "part_family": "collective_reenactment"},
+            )
+            title_marker_lead = ""
+            continue
+        # lawvm-regex: owning_parser this IS the collective re-enactment member parser
+        renumber_match = _NO_COLLECTIVE_RENUMBER_RE.match(text)
+        if renumber_match is not None:
+            renumbers.append(
+                (
+                    _normalize_no_section_label(renumber_match.group(1)),
+                    _normalize_no_section_label(renumber_match.group(2)),
+                    text,
+                )
+            )
+            continue
+        # lawvm-regex: owning_parser this IS the collective re-enactment member parser
+        if _NO_COLLECTIVE_TITLE_MARKER_RE.match(text) is not None:
+            title_marker_lead = text
+            continue
+        # The SAME whole-section lead pattern the ordinary unstructured lowering
+        # consumes, reused so a marker inside a collective part and a lead
+        # outside one recognize the identical surface.
+        # lawvm-regex: owning_parser this IS the whole-section lead parser
+        section_match = _NO_WHOLE_SECTION_LEAD_RE.match(text)
+        if section_match is not None and not _normalize_space(section_match.group("inline")):
+            pending_marker = (
+                _normalize_no_section_label(section_match.group("label")),
+                StructuralAction.INSERT if section_match.group("insert") else StructuralAction.REPLACE,
+                text,
+            )
+            continue
+        refuse("member_outside_closed_set", text[:200])
+        return None
+
+    if pending_marker is not None:
+        refuse("marker_without_following_section", pending_marker[2])
+        return None
+    if title_marker_lead:
+        refuse("title_marker_without_restatement", title_marker_lead)
+        return None
+    if not payloads and not renumbers:
+        refuse("part_carried_no_member", "")
+        return None
+
+    payload_labels = [label for label, _action, _payload, _lead in payloads]
+    renumber_sources = [src for src, _dst, _lead in renumbers]
+    renumber_destinations = [dst for _src, dst, _lead in renumbers]
+    if len(set(payload_labels)) != len(payload_labels):
+        refuse("duplicate_payload_address", ", ".join(payload_labels))
+        return None
+    if len(set(renumber_sources)) != len(renumber_sources):
+        refuse("duplicate_renumber_source", ", ".join(renumber_sources))
+        return None
+    if len(set(renumber_destinations)) != len(renumber_destinations):
+        refuse("duplicate_renumber_destination", ", ".join(renumber_destinations))
+        return None
+    # A renumber DESTINATION that the same part also restates is the one shape
+    # this ordering cannot adjudicate: renumber-first would have the payload
+    # overwrite the moved section, payload-first would move the payload. Neither
+    # reading is the drafter's without more evidence, so refuse.
+    collision = sorted(set(renumber_destinations) & set(payload_labels))
+    if collision:
+        refuse("renumber_destination_is_also_restated", ", ".join(collision))
+        return None
+
+    for src_label, dst_label, lead in renumbers:
+        ops.append(
+            LegalOperation(
+                op_id=f"{source_id}:{sequence}",
+                sequence=sequence,
+                action=StructuralAction.RENUMBER,
+                target=LegalAddress(path=(("section", src_label),)),
+                destination=LegalAddress(path=(("section", dst_label),)),
+                source=OperationSource(statute_id=source_id, raw_text=lead, title=base_id),
+                provenance_tags=(f"base_act:{base_id}", "fallback:unstructured", "scope:collective_reenactment"),
+                group_id=f"{source_id}:{base_id}:{sequence}",
+                witness_rule_id="no_section_renumber_relabel",
+            )
+        )
+        sequence += 1
+    for label, action, payload, lead in payloads:
+        ops.append(
+            LegalOperation(
+                op_id=f"{source_id}:{sequence}",
+                sequence=sequence,
+                action=action,
+                target=LegalAddress(path=(("section", label),)),
+                payload=payload,
+                source=OperationSource(statute_id=source_id, raw_text=lead, title=base_id),
+                provenance_tags=(f"base_act:{base_id}", "fallback:unstructured", "scope:collective_reenactment"),
+                group_id=f"{source_id}:{base_id}:{sequence}",
+            )
+        )
+        sequence += 1
+    return ops, sequence
+
+
 def _infer_no_unstructured_section_base_id(children: list[etree._Element]) -> str | None:
     for child in children:
         if _local_name(child) != "article" or not ({"defaultP", "legalP"} & _classes(child)):
@@ -2630,6 +2967,16 @@ def _infer_no_unstructured_section_base_id(children: list[etree._Element]) -> st
         announced_base_id = _extract_no_law_announcement_base_id(lead)
         if announced_base_id is not None:
             return announced_base_id
+        # W-39. The collective re-enactment announcement is the third part-lead
+        # spelling, and the only one whose tail states an END STATE rather than
+        # an amending action. Resolving it here — beside its two siblings, not
+        # in a fourth resolver — is what makes the part's law visible to BOTH
+        # consumers of this function: the unstructured walk's ``part_base_ids``
+        # and W-24's ``_no_part_base_id`` (which the W-39 part-scoped
+        # commencement gate reads as its scope proof).
+        collective_base_id = _no_collective_reenactment_lead_base_id(lead)
+        if collective_base_id is not None:
+            return collective_base_id
     return None
 
 
@@ -3575,18 +3922,23 @@ _NO_RETTELSE_LEDDLESS_BOKSTAV_LEAD_RE = compile_classifier_regex(
 )
 
 
-def _no_part_base_id(root: etree._Element, part_label: str) -> str | None:
-    """Resolve ``Del <part_label>`` of this artifact to the law that part amends.
+def _no_part_law_ids_from_root(root: etree._Element) -> dict[str, str]:
+    """``romertall`` label -> the law that part amends, for every resolvable part.
 
-    Reuses the grafter's own two part→law resolvers (see the header comment);
-    adds no third one. Returns ``None`` when the part is absent, when its
-    ``document-change`` wrappers disagree, or when its lead resolves nothing.
+    The one place the grafter's two part→law resolvers are applied per part (see
+    the header comment); adds no third one. A part whose ``document-change``
+    wrappers disagree, or whose lead resolves nothing, is simply absent from the
+    result — the same "``None`` means undecidable" contract
+    :func:`_no_part_base_id` has always had, expressed as omission.
     """
-    wanted = part_label.upper()
+    out: dict[str, str] = {}
     for section in cast(list[etree._Element], root.xpath("//main/section")):
         # lawvm-regex: owning_parser this IS the part-attribute parser
         name_match = _NO_PART_SECTION_NAME_RE.match((section.get("data-name") or "").strip())
-        if name_match is None or name_match.group(1).upper() != wanted:
+        if name_match is None:
+            continue
+        label = name_match.group(1).upper()
+        if label in out:
             continue
         change_nodes = cast(
             list[etree._Element],
@@ -3598,10 +3950,31 @@ def _no_part_base_id(root: etree._Element, part_label: str) -> str | None:
                 for node in change_nodes
             }
             if len(base_ids) != 1:
-                return None
-            return base_ids.pop()
-        return _infer_no_unstructured_section_base_id(_direct_children(section))
-    return None
+                continue
+            resolved: str | None = base_ids.pop()
+        else:
+            resolved = _infer_no_unstructured_section_base_id(_direct_children(section))
+        if resolved:
+            out[label] = resolved
+    return out
+
+
+def no_part_law_ids(html_bytes: bytes) -> dict[str, str]:
+    """Public reader of one amendment artifact's per-part law map.
+
+    The W-39 part-scoped commencement gate's scope proof. Returns ``{}`` for an
+    artifact with no roman-numbered parts or unparseable bytes.
+    """
+    try:
+        root = parse_corpus_xml(html_bytes)
+    except etree.XMLSyntaxError:
+        return {}
+    return _no_part_law_ids_from_root(root)
+
+
+def _no_part_base_id(root: etree._Element, part_label: str) -> str | None:
+    """Resolve ``Del <part_label>`` of this artifact to the law that part amends."""
+    return _no_part_law_ids_from_root(root).get(part_label.upper())
 
 
 def _no_rettelse_part_scope_from_directive(directive: str) -> tuple[str, str] | None:

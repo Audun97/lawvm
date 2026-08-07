@@ -1078,7 +1078,17 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # (`no/lovtid/2004-12-10-82`) and +2 instrument_authorized
         # (`2009-06-19-101`, `2016-06-10-23`) — exactly conserving the 10; no
         # existing entry's status moved.
-        "contingent": 961,
+        # 961 -> 962 at W-39, and this is the WHOLE of W-39's effect on the
+        # act-level histogram. One act gains its first index entry
+        # (`2021-06-11-60`, a collective re-enactment of barnelova) and its
+        # commencement is "Kongen bestemmer", so it lands contingent. The 123
+        # part-scoped authorizations move NO act-level status by construction:
+        # a part authorization is per (act, base law) and lands in
+        # ``part_scoped_effective_dates``, because an act whose del I commenced
+        # in 2011 and del III in 2023 has no single act-level date and inventing
+        # one would be a claim the evidence does not make. In particular
+        # ``instrument_authorized`` stays at exactly 542.
+        "contingent": 962,
         # 1021 -> 1020 at W-15 (multi-part misbinding fix): the sole moved entry
         # is no/lovtid/2018-12-20-119, whose only "op" was its own part II
         # commencement sentence ("Lova tek til å gjelde straks.") swallowed as a
@@ -1242,7 +1252,13 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     by_base: dict[str, list[str]] = {}
     for entry in index.entries:
         for base_id in entry.base_ids:
-            by_base.setdefault(base_id, []).append(entry.effective_status)
+            # W-39: the status a binding contributes is that BINDING's status,
+            # which is what ``build_no_inventory`` reads. For every act but the
+            # 121 with a part-scoped authorization this is the act's own status,
+            # byte for byte; for those it is the status of the one part that
+            # amends this base law.
+            _date, binding_status = entry.effective_date_for_base(base_id)
+            by_base.setdefault(base_id, []).append(binding_status)
     executable = load_no_current_law_ids(data_dir) & load_available_lti_law_ids(data_dir)
     fully_replayable = [
         law_id
@@ -1266,7 +1282,18 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     # newly-bound, correctly-cited amending act (no/lovtid/2007-06-29-81)
     # whose commencement is contingent — the W-15 decertification mechanism.
     # It returns whenever that commencement resolves. Signed off 2026-08-06.
-    assert len(fully_replayable) == 56
+    # 56 -> 58 at W-39 (part-scoped commencement), and this is the first landing
+    # where the predicate had to move to per-BINDING status to stay honest.
+    # Two laws enter, each traced to one instrument dating one part of one act:
+    # 2012-12-14-81 (`no/lovtid/2020-12-18-143` del I, `no/forskrift/
+    # 2021-02-19-474`, 2021-03-01) and 2019-06-21-63 (`no/lovtid/2021-06-18-135`
+    # del I, `no/forskrift/2022-03-25-466`, 2022-03-25). ZERO leave — and one
+    # would have: W-39's half (i) binds `no/lovtid/2009-06-19-85` to
+    # vaktvirksomhetsloven, whose commencement is `Kongen bestemmer.`, which is
+    # the W-15 decertification mechanism exactly. It is not decertified because
+    # `no/forskrift/2011-04-01-342` commences that act's del I. The two halves
+    # of W-39 land together for this reason and no other.
+    assert len(fully_replayable) == 58
 
 
 def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> None:
@@ -1341,9 +1368,16 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # inference "so they can never bind" is now false — the same laws are filed
     # under ``<date>-0``, and 54 of the 93 pairs name a law the act ALREADY
     # binds. They stay on the receipt only because the comparison is id-exact.
-    assert len(unbound) == 960
-    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2536
-    assert len({diagnostic["source_id"] for diagnostic in unbound}) == 960
+    # 960 -> 958 receipts and 2,536 -> 2,534 pairs at W-39, and the W-34/W-35
+    # conservation holds exactly: the pair drop equals the binding gain (2 = 2).
+    # Both acts lose their gap ENTIRELY rather than shrinking it —
+    # `2009-06-19-85` declared two laws and bound one, and `2021-06-11-60`
+    # declared one and bound none (it had no index entry at all). Every target
+    # W-39 binds was already a declared target on the receipt, and W-39
+    # un-declares none.
+    assert len(unbound) == 958
+    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2534
+    assert len({diagnostic["source_id"] for diagnostic in unbound}) == 958
 
     # 64 acts gain their FIRST index entry: they announced every one of their
     # parts with an unlisted tail, so they had bound no law at all.
@@ -1373,11 +1407,21 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # 6,332 -> 6,464: 140 pairs gained, 8 removed. The 8 are stale bases that
     # lost their last op to a correct rebind; 7 of them re-appear as declared
     # gaps on the receipt above and are counted there.
-    assert len(index.entries) == 2558
+    # 2,558 -> 2,559 at W-39: exactly one act gains its first index entry —
+    # `2021-06-11-60`, whose whole part I is a collective re-enactment
+    # ("I lov 8. april 1981 nr. 7 om barn og foreldre skal følgende
+    # bestemmelser lyde:" + three new sections) and which therefore lowered
+    # nothing at all before. It enters `contingent`, so the status histogram
+    # moves by that one act and nothing else.
+    assert len(index.entries) == 2559
     bindings = {
         (entry.source_id, base_id) for entry in index.entries for base_id in entry.base_ids
     }
-    assert len(bindings) == 6464
+    # 6,464 -> 6,466 at W-39: two (act, law) pairs, both first-time bindings
+    # of a collective re-enactment part — `2009-06-19-85` -> vaktvirksomhets-
+    # loven and `2021-06-11-60` -> barnelova. Nothing is rebound and nothing
+    # is removed.
+    assert len(bindings) == 6466
     # 26,218 at W-30; +2 at W-24, both reconciled to a named erratum and neither
     # touching this test's own subject. W-24 lowered two Del-scoped Rettelser
     # corrections into the law each part amends — ``2019-12-20-110`` Del I into
@@ -1420,7 +1464,14 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # never consults the split — agreements go 2,634 -> 2,983 and disagreements
     # 286 -> 41 over the touched acts, with ZERO artifacts getting worse and no
     # disagreement newly created.
-    assert sum(entry.n_ops for entry in index.entries) == 26921
+    # 26,921 -> 26,946 at W-39 (+25, and the op-identity differential over the
+    # whole corpus is +25 gained / 0 lost / 0 rebound, across exactly two
+    # artifacts). 22 are `2009-06-19-85`'s re-enactment of vaktvirksomhets-
+    # loven (5 RENUMBERs sequenced ahead of 17 section payloads) and 3 are
+    # `2021-06-11-60`'s three new barnelova sections. Both are verified
+    # against the published consolidation; the first takes its law's scan row
+    # from 81 divergences to 0.
+    assert sum(entry.n_ops for entry in index.entries) == 26946
 
 
 def test_no_amendment_index_staleness_report_detects_archive_change(tmp_path) -> None:

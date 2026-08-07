@@ -129,6 +129,18 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "dates; contradictory official commencement evidence is blocking source "
         "pathology and neither date re-dates the act."
     ),
+    "no_lovtidend_commencement_part_execution_authorized": (
+        "A Norsk Lovtidend instrument whose own Endrer header names exactly the laws "
+        "of ONE romertall part of a staged multi-part amendment act, and whose "
+        "operative text does not narrow below that part, IS that part's in-force "
+        "evidence; the act's operations on that part's law take the instrument's date "
+        "while every other part of the act stays as unresolved as before."
+    ),
+    "no_lovtidend_commencement_part_execution_date_conflict": (
+        "Two Norsk Lovtidend instruments commence the same part of an amendment act at "
+        "different dates; contradictory official commencement evidence is blocking "
+        "source pathology and neither date dates that part."
+    ),
     "no_lovtidend_commencement_execution_refused": (
         "A Norsk Lovtidend instrument citing an unresolved amendment act failed at "
         "least one execution-authorization conjunct (candidate parse, whole-act scope, "
@@ -203,6 +215,17 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "A Norway structured amendment lead carried an action needing normalization; "
         "the recovered action-family is recorded as a finding so the original "
         "intent stays traceable."
+    ),
+    "no_parse_collective_reenactment_part_unresolved": (
+        "A Norway collective re-enactment part ('I lov X skal følgende bestemmelser "
+        "lyde:') carried a member outside the closed member set; a partially applied "
+        "re-enactment is a wrong law rather than a partial one, so the WHOLE part "
+        "stays unlowered and the offending member is named."
+    ),
+    "no_parse_collective_reenactment_title_not_lowered": (
+        "A Norway collective re-enactment part restates the law's own title; the "
+        "Norway lowering carries no law-title operation, so the restatement is "
+        "recorded as a known unlowered directive rather than silently dropped."
     ),
     "no_parse_cross_base_structured_renumber_skipped": (
         "A Norway structured renumber crossed base-act boundaries (source or "

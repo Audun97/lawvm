@@ -11,13 +11,18 @@ from typing import Any, Optional, cast
 from lawvm.core.diagnostic_records import diagnostic_detail
 from lawvm.core.source_lane import SourceLaneAttempt, SourceLaneSelectionEvidence
 from lawvm.norway.commencement_instruments import (
+    NOCommencementActPartEvidence,
     NOCommencementInstrumentCandidate,
     NOCommencementInstrumentCoverage,
     NOCommencementParseStatus,
     authorize_no_commencement_instruments,
     parse_no_commencement_instrument,
 )
-from lawvm.norway.grafter import iter_no_document_change_ops, lovdata_amendment_filename_to_id
+from lawvm.norway.grafter import (
+    iter_no_document_change_ops,
+    lovdata_amendment_filename_to_id,
+    no_part_law_ids,
+)
 from lawvm.norway.sources import (
     NO_UNRESOLVED_EFFECTIVE_STATUSES,
     NOCommencementShape,
@@ -70,6 +75,21 @@ class NOAmendmentIndexEntry:
     # 8 staged acts an instrument re-dates keep ``staged_delegated`` here while
     # their status moves to ``instrument_authorized``.
     commencement_shape: str = NOCommencementShape.PLAIN
+    # W-39. Per-BINDING commencement dates: ``(base law id, ISO date)`` pairs
+    # granted by the part-scoped route, sorted by law id. Orthogonal to
+    # ``effective_status``/``effective_date``, which stay the act's WHOLE-act
+    # verdict: a staged act whose part I commenced in 2011 and part III in 2023
+    # has no single act-level date, and inventing one would be a claim the
+    # evidence does not make. Consumers resolve a base law's date as "this map
+    # first, the act-level date otherwise".
+    part_scoped_effective_dates: tuple[tuple[str, str], ...] = ()
+
+    def effective_date_for_base(self, base_id: str) -> tuple[str | None, str]:
+        """``(date, status)`` for this entry AS IT APPLIES TO ``base_id``."""
+        for law_id, date in self.part_scoped_effective_dates:
+            if law_id == base_id:
+                return date, NOEffectiveStatus.PART_INSTRUMENT_AUTHORIZED
+        return self.effective_date, self.effective_status
 
 
 @dataclass
@@ -118,6 +138,11 @@ class NOAmendmentIndex:
                 declared_target_ids=tuple(entry.get("declared_target_ids", [])),
                 commencement_shape=coerce_no_commencement_shape(
                     entry.get("commencement_shape") or NOCommencementShape.PLAIN
+                ),
+                part_scoped_effective_dates=tuple(
+                    (str(pair[0]), str(pair[1]))
+                    for pair in entry.get("part_scoped_effective_dates", []) or []
+                    if isinstance(pair, (list, tuple)) and len(pair) == 2
                 ),
             )
             for entry in raw_entries
@@ -236,6 +261,8 @@ def build_no_amendment_index(data_dir: Optional[Path] = None) -> NOAmendmentInde
         archive_metadata=archive_metadata,
     )
 
+    act_part_evidence: dict[str, NOCommencementActPartEvidence] = {}
+
     if index.source_kind == "dir":
         for artifact in iter_no_unmapped_lovtidend_xml_members(data_dir):
             index.diagnostics.append(
@@ -302,6 +329,26 @@ def build_no_amendment_index(data_dir: Optional[Path] = None) -> NOAmendmentInde
                     source_id=source_id,
                     effective=effective,
                 )
+            )
+        # W-39. The part-scoped commencement gate's scope proof, read here
+        # because this is where the artifact's bytes and its lowered op stream
+        # are both in hand; the gate parses no XML of its own. Only acts with
+        # roman-numbered parts contribute — for everything else the map is empty
+        # and the part route can never fire.
+        part_law_ids = no_part_law_ids(artifact.payload)
+        if part_law_ids:
+            act_part_evidence[source_id] = NOCommencementActPartEvidence(
+                part_law_ids=part_law_ids,
+                bound_law_ids=base_ids,
+                law_section_labels={
+                    base_id: frozenset(
+                        label
+                        for op in ops
+                        for kind, label in op.target.path[:1]
+                        if kind == "section"
+                    )
+                    for base_id, ops in grouped
+                },
             )
         index.entries.append(
             NOAmendmentIndexEntry(
@@ -372,7 +419,9 @@ def build_no_amendment_index(data_dir: Optional[Path] = None) -> NOAmendmentInde
     parsed_instruments.sort(
         key=lambda item: (item[1].source_id, item[1].archive, item[1].member_name)
     )
-    _authorize_no_commencement_instruments_into_index(index, parsed_instruments)
+    _authorize_no_commencement_instruments_into_index(
+        index, parsed_instruments, act_part_evidence
+    )
     return index
 
 
@@ -381,6 +430,7 @@ def _authorize_no_commencement_instruments_into_index(
     parsed_instruments: list[
         tuple[NOCommencementParseStatus, NOCommencementInstrumentCandidate]
     ],
+    act_part_evidence: dict[str, NOCommencementActPartEvidence] | None = None,
 ) -> None:
     """Re-date acts whose own date is weak from their whole-act commencement instruments.
 
@@ -407,6 +457,13 @@ def _authorize_no_commencement_instruments_into_index(
 
     A ``plain`` dated / ``immediate`` / ``override`` entry is still never
     offered and so can never be re-dated here.
+
+    W-39 changes what a refused pair may still yield, not what is offered: the
+    same offered set now also feeds the part-scoped route, whose grant lands in
+    ``part_scoped_effective_dates`` rather than in ``effective_status`` /
+    ``effective_date``. That asymmetry is the point — the act's whole-act
+    verdict is untouched (the corpus's status histogram does not move), while
+    the ONE binding the instrument proves gets a date.
     """
     authorization = authorize_no_commencement_instruments(
         parsed_instruments,
@@ -416,9 +473,11 @@ def _authorize_no_commencement_instruments_into_index(
             if entry.effective_status in NO_UNRESOLVED_EFFECTIVE_STATUSES
             or entry.commencement_shape == NOCommencementShape.STAGED_DELEGATED
         },
+        act_part_evidence=act_part_evidence,
     )
     index.commencement_instruments = list(authorization.instruments)
     effective_dates = authorization.authorized_effective_dates()
+    part_dates = authorization.part_authorized_effective_dates()
     index.entries = [
         dc_replace(
             entry,
@@ -426,15 +485,26 @@ def _authorize_no_commencement_instruments_into_index(
             effective_date=effective_dates[entry.source_id],
         )
         if entry.source_id in effective_dates
+        else dc_replace(
+            entry,
+            part_scoped_effective_dates=tuple(
+                sorted(part_dates[entry.source_id].items())
+            ),
+        )
+        if entry.source_id in part_dates
         else entry
         for entry in index.entries
     ]
     for receipt in authorization.authorizations:
         index.diagnostics.append(receipt.to_diagnostic_detail())
+    for receipt in authorization.part_authorizations:
+        index.diagnostics.append(receipt.to_diagnostic_detail())
     for refusal in authorization.refusals:
         index.diagnostics.append(refusal.to_diagnostic_detail())
     for conflict in authorization.conflicts:
         index.diagnostics.append(conflict.to_diagnostic_detail())
+    for part_conflict in authorization.part_conflicts:
+        index.diagnostics.append(part_conflict.to_diagnostic_detail())
 
 
 def _payload_digest(payload: bytes) -> str:

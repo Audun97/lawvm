@@ -152,6 +152,16 @@ class NOEffectiveStatus(StrEnum):
     in evidence) and from ``OVERRIDE`` (manually curated evidence) so a reader
     of a serialized index can tell why the act carries a date."""
 
+    PART_INSTRUMENT_AUTHORIZED = "part_instrument_authorized"
+    """An official instrument commenced the ONE part of a staged multi-part act
+    that amends this base law (W-39).
+
+    Never an act-level status: it is issued per (act, base law) binding, because
+    that is exactly the scope the evidence covers. The act's own
+    ``effective_status`` stays whatever it was — usually ``contingent`` — since
+    the act's other parts are still uncommenced, and no single date could stand
+    for parts that commence years apart."""
+
     CONTINGENT = "contingent"
     """In force on a condition / future delegated commencement (unresolved)."""
 
@@ -170,6 +180,7 @@ NO_RESOLVED_EFFECTIVE_STATUSES: frozenset[NOEffectiveStatus] = frozenset(
         NOEffectiveStatus.IMMEDIATE,
         NOEffectiveStatus.OVERRIDE,
         NOEffectiveStatus.INSTRUMENT_AUTHORIZED,
+        NOEffectiveStatus.PART_INSTRUMENT_AUTHORIZED,
     }
 )
 NO_UNRESOLVED_EFFECTIVE_STATUSES: frozenset[NOEffectiveStatus] = frozenset(

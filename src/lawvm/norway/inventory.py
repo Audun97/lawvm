@@ -206,7 +206,14 @@ def build_no_inventory(
             if not base_id.startswith("no/lov/"):
                 inventory.malformed_base_refs[base_id] += 1
                 continue
-            inventory.base_to_statuses[base_id].append(entry.effective_status)
+            # W-39: the status a binding contributes is the status of THAT
+            # binding, not of the act. This loop was already per (entry, base)
+            # — a staged act whose part I is commenced and part III is not
+            # simply reports different statuses to its two laws, which is what
+            # the evidence says. ``amendment_status_counts`` above stays
+            # act-level and so stays byte-identical.
+            _date, binding_status = entry.effective_date_for_base(base_id)
+            inventory.base_to_statuses[base_id].append(binding_status)
             inventory.base_to_sources[base_id].append(entry.source_id)
 
     return inventory

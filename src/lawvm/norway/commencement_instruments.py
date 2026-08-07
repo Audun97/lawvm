@@ -4,12 +4,22 @@ Parses commencement instruments into typed candidates, and owns the
 execution-authorization gate that re-dates unresolved amendment acts from a
 whole-act, single-date instrument. Parsing itself still authorizes nothing: only
 a candidate that passes every conjunct of the gate re-dates the act it cites.
+
+W-39 adds the gate's second, narrower route: a PART-SCOPED authorization. A
+staged multi-part amending act is commenced one *romertall* at a time
+("Delvis/Delt ikraftsetting"), so no single instrument can ever satisfy
+``whole_act_scope`` and the act stays contingent even when every part it
+contains has in fact been commenced. The part route authorizes the act's ops
+for ONE law — the law of the one part the instrument's own ``Endrer`` header
+names — and leaves every other part of the act exactly as unresolved as it was.
+Its scope proof is structural, not textual: see
+:class:`NOCommencementAuthorizationConjunct`.
 """
 
 from __future__ import annotations
 
 import re
-from collections.abc import Collection, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, replace
 from enum import StrEnum
 from typing import Any, cast
@@ -28,6 +38,12 @@ NO_COMMENCEMENT_INSTRUMENT_COVERAGE_INVALID = "no_lovtidend_commencement_instrum
 NO_COMMENCEMENT_EXECUTION_AUTHORIZED = "no_lovtidend_commencement_execution_authorized"
 NO_COMMENCEMENT_EXECUTION_REFUSED = "no_lovtidend_commencement_execution_refused"
 NO_COMMENCEMENT_EXECUTION_DATE_CONFLICT = "no_lovtidend_commencement_execution_date_conflict"
+NO_COMMENCEMENT_PART_EXECUTION_AUTHORIZED = (
+    "no_lovtidend_commencement_part_execution_authorized"
+)
+NO_COMMENCEMENT_PART_EXECUTION_DATE_CONFLICT = (
+    "no_lovtidend_commencement_part_execution_date_conflict"
+)
 
 _WS_RE = re.compile(r"\s+")
 _LAW_REF_RE = re.compile(r"(?:^|[/\s])lov/(?P<date>\d{4}-\d{2}-\d{2})-(?P<num>\d+)(?:$|[/\s#?])")
@@ -41,6 +57,19 @@ _LAW_COMMENCEMENT_RE = compile_classifier_regex(
     r"\b(?:loven|lova)\s+trer\s+i\s+(?:kraft|verk)\b",
     re.IGNORECASE,
     classifier_id="no.lovtidend.law_commencement_clause",
+)
+# The section labels a commencement instrument's operative text names. Shapes
+# attested in the 246 exact part matches: ``§ 16``, ``§ 14a``, ``§ 20-14``,
+# ``§ 4 a``. The label body is the grafter's own section-label alphabet; the
+# comparison downstream is set equality, so a shape this misses shows up as a
+# refusal, never as an over-authorization.
+# The two label shapes are spelled as an alternation rather than as an optional
+# ``-<n>`` suffix group: a quantifier nested inside an optional group is exactly
+# what the classifier-safety lint refuses, and the chapter-numbered form is
+# listed FIRST so ``§ 20-14`` never matches as ``20``.
+_COMMENCED_SECTION_RE = compile_classifier_regex(
+    r"§+ ?([0-9]+-[0-9]+ ?[a-zA-Z]?|[0-9]+ ?[a-zA-Z]?)",
+    classifier_id="no.lovtidend.commenced_section_label",
 )
 _WHOLE_ACT_RE = compile_classifier_regex(
     r"^(?:denne )?(?:loven|lova) trer i (?:kraft|verk)\b[^§]{0,400}$",
@@ -68,6 +97,73 @@ class NOCommencementAuthorizationConjunct(StrEnum):
     SINGLE_EFFECTIVE_DATE = "single_effective_date"
 
 
+class NOCommencementPartAuthorizationConjunct(StrEnum):
+    """The conjuncts an (instrument, act) pair must satisfy to date ONE part.
+
+    Deliberately a separate closed set from the whole-act conjuncts: the two
+    routes prove different things, and a refusal that lists both sets' names in
+    one field would say nothing about which route was even attempted.
+    """
+
+    SINGLE_EFFECTIVE_DATE = "single_effective_date"
+    """The instrument's ``dateInForce`` carries exactly one ISO date."""
+
+    BLOCKED_ONLY_ON_SCOPE = "blocked_only_on_scope"
+    """The parse failed for no reason other than whole-act scope.
+
+    A ``blocked_unresolved`` parse has exactly three causes: no affected law, no
+    effective date, or no whole-act scope proof. The first is excluded because
+    the pair exists only when the instrument cites an offered act; the second by
+    ``SINGLE_EFFECTIVE_DATE``. What is left is an instrument that IS a
+    commencement and names its act, and whose only defect is that it commences
+    less than the whole act — which is precisely the population this route is
+    for. A genuine parse failure (malformed XML) never reaches here at all.
+    """
+
+    INSTRUMENT_DECLARES_CHANGED_LAWS = "instrument_declares_changed_laws"
+    """The instrument's own ``Endrer`` (``changesToDocuments``) block is present
+    and non-empty. This is the scope evidence; without it there is nothing to
+    match a part against, and the instrument stays evidence."""
+
+    ACT_PART_LAW_MAP_INJECTIVE = "act_part_law_map_injective"
+    """No law is amended by two of the act's parts.
+
+    A law appearing in two parts makes "the part this instrument commences"
+    undecidable from the ``Endrer`` header alone — the same ambiguity W-24's
+    part resolver refuses when a part's ``document-change`` wrappers disagree.
+    """
+
+    ACT_BINDINGS_INSIDE_PART_MAP = "act_bindings_inside_part_map"
+    """Every law the act actually binds is the law of some part.
+
+    Without this, an op bound by a carried-over base id from a part that
+    resolved no law of its own could be dated by a part authorization that never
+    covered it.
+    """
+
+    ENDRER_MATCHES_ONE_PART_EXACTLY = "endrer_matches_one_part_exactly"
+    """The ``Endrer`` law set equals the law set of exactly one part.
+
+    Equality in BOTH directions: every named law lives in that part, and the
+    part amends no law the header omits. A header spanning two parts, or naming
+    a law the act's structure cannot place, refuses.
+    """
+
+    WHOLE_PART_SCOPE = "whole_part_scope"
+    """The instrument commences the whole part, not a slice of it.
+
+    The ``Endrer`` match proves WHICH part; it does not prove HOW MUCH of it. A
+    "Delvis ikraftsetting" that names individual sections inside the part
+    commences less than the part, and dating the part's whole op stream from it
+    would apply ops that are not yet in force. Proof, mirroring ``_WHOLE_ACT_RE``'s
+    own ``[^§]{0,400}`` guard one level down: the operative text names no section
+    at all, or the sections it names are exactly the sections the part's ops
+    target. Measured over the 246 exact ``Endrer``-to-part matches in the corpus,
+    122 name no section and 15 name the part's own section set; the other 109 are
+    genuinely narrower and are refused here.
+    """
+
+
 class NOCommencementInstrumentCoverageError(ValueError):
     """Persisted commencement-instrument coverage has an invalid shape."""
 
@@ -85,6 +181,17 @@ class NOCommencementInstrumentCandidate:
     source_excerpt: str
     rule_id: str = NO_COMMENCEMENT_INSTRUMENT_RULE
     replay_authorized: bool = False
+    # W-39. The instrument's own ``Endrer`` (``changesToDocuments``) law ids —
+    # the laws Lovdata records this instrument as changing. For a commencement
+    # instrument those are not the instrument's own targets: they are the laws
+    # the commenced PART of the cited act amends, which is what makes them a
+    # scope proof. Read through ``declared_change_targets_from_root``, the
+    # corpus's single reader of that block.
+    changed_law_ids: tuple[str, ...] = ()
+    # The section labels the operative text names, normalized to the grafter's
+    # own section-label spelling so the two sets are comparable. Empty means the
+    # operative text names no section at all.
+    commenced_section_labels: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -99,6 +206,8 @@ class NOCommencementInstrumentCandidate:
             "source_excerpt": self.source_excerpt,
             "rule_id": self.rule_id,
             "replay_authorized": self.replay_authorized,
+            "changed_law_ids": list(self.changed_law_ids),
+            "commenced_section_labels": list(self.commenced_section_labels),
         }
 
     @classmethod
@@ -115,7 +224,16 @@ class NOCommencementInstrumentCandidate:
             if isinstance(raw_effective_dates, list)
             else ()
         )
+
+        def _str_tuple(key: str) -> tuple[str, ...]:
+            raw = data.get(key, [])
+            if not isinstance(raw, list):
+                return ()
+            return tuple(item for item in raw if isinstance(item, str))
+
         return cls(
+            changed_law_ids=_str_tuple("changed_law_ids"),
+            commenced_section_labels=_str_tuple("commenced_section_labels"),
             source_id=str(data["source_id"]),
             locator=str(data["locator"]),
             archive=str(data.get("archive", "")),
@@ -285,6 +403,94 @@ class NOCommencementDateConflictReceipt:
 
 
 @dataclass(frozen=True, slots=True)
+class NOCommencementPartAuthorizationReceipt:
+    """One PART of one multi-part amending act, dated by one instrument.
+
+    ``law_id`` is not decoration beside ``part_label``: it is how the
+    authorization is applied. A part resolves to exactly one law (the gate
+    refuses otherwise), and the act's ops are keyed by law, so "this part's ops"
+    and "this act's ops for this law" are the same set of ops.
+    """
+
+    act_source_id: str
+    instrument_source_ids: tuple[str, ...]
+    part_label: str
+    law_id: str
+    effective_date: str
+    passed_conjuncts: tuple[NOCommencementPartAuthorizationConjunct, ...]
+
+    def to_diagnostic_detail(self) -> dict[str, Any]:
+        return diagnostic_detail(
+            rule_id=NO_COMMENCEMENT_PART_EXECUTION_AUTHORIZED,
+            family="temporal_recovery",
+            phase="temporal",
+            reason=(
+                "Norway commencement instrument authorized ONE part of a staged "
+                "multi-part amendment act: the act's operations on that part's law take "
+                "the instrument's date; every other part stays as unresolved as before."
+            ),
+            blocking=False,
+            strict_disposition="record",
+            quirks_disposition=QuirksDisposition.RECORD,
+            source_id=self.act_source_id,
+            instrument_source_ids=list(self.instrument_source_ids),
+            part_label=self.part_label,
+            law_id=self.law_id,
+            effective_date=self.effective_date,
+            passed_conjuncts=[str(conjunct) for conjunct in self.passed_conjuncts],
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class NOCommencementPartDateConflictReceipt:
+    """Two instruments commencing one part at different dates; both refused."""
+
+    act_source_id: str
+    instrument_source_ids: tuple[str, ...]
+    part_label: str
+    law_id: str
+    effective_dates: tuple[str, ...]
+
+    def to_diagnostic_detail(self) -> dict[str, Any]:
+        return diagnostic_detail(
+            rule_id=NO_COMMENCEMENT_PART_EXECUTION_DATE_CONFLICT,
+            family="temporal_recovery",
+            phase="temporal",
+            reason=(
+                "Norway commencement instruments give one part of an amendment act "
+                "contradictory commencement dates; neither date is applied."
+            ),
+            blocking=True,
+            strict_disposition="block",
+            quirks_disposition=QuirksDisposition.BLOCK,
+            source_id=self.act_source_id,
+            instrument_source_ids=list(self.instrument_source_ids),
+            part_label=self.part_label,
+            law_id=self.law_id,
+            effective_dates=list(self.effective_dates),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class NOCommencementActPartEvidence:
+    """What the gate needs to know about ONE amendment act's part structure.
+
+    Supplied by the caller that owns the artifacts (``index.py``); the gate
+    computes none of it and parses no act XML.
+    """
+
+    part_law_ids: Mapping[str, str]
+    """``romertall`` label -> the law that part amends. Parts that resolve no
+    law of their own are simply absent."""
+
+    bound_law_ids: tuple[str, ...]
+    """The laws the act's lowered ops actually bind."""
+
+    law_section_labels: Mapping[str, frozenset[str]]
+    """law -> the section labels this act's ops on that law target."""
+
+
+@dataclass(frozen=True, slots=True)
 class NOCommencementExecutionAuthorization:
     """The gate's total outcome: the instruments, and a receipt per decision."""
 
@@ -292,11 +498,20 @@ class NOCommencementExecutionAuthorization:
     authorizations: tuple[NOCommencementAuthorizationReceipt, ...] = ()
     refusals: tuple[NOCommencementRefusalReceipt, ...] = ()
     conflicts: tuple[NOCommencementDateConflictReceipt, ...] = ()
+    part_authorizations: tuple[NOCommencementPartAuthorizationReceipt, ...] = ()
+    part_conflicts: tuple[NOCommencementPartDateConflictReceipt, ...] = ()
 
     def authorized_effective_dates(self) -> dict[str, str]:
         return {
             receipt.act_source_id: receipt.effective_date for receipt in self.authorizations
         }
+
+    def part_authorized_effective_dates(self) -> dict[str, dict[str, str]]:
+        """act -> {law -> date}, the per-binding dates the part route granted."""
+        out: dict[str, dict[str, str]] = {}
+        for receipt in self.part_authorizations:
+            out.setdefault(receipt.act_source_id, {})[receipt.law_id] = receipt.effective_date
+        return out
 
 
 def no_commencement_act_id_from_law_id(law_id: str) -> str:
@@ -318,6 +533,7 @@ def authorize_no_commencement_instruments(
     ],
     *,
     offered_act_ids: Collection[str],
+    act_part_evidence: Mapping[str, NOCommencementActPartEvidence] | None = None,
 ) -> NOCommencementExecutionAuthorization:
     """Gate already-parsed instruments into whole-act re-dating authorizations.
 
@@ -336,9 +552,24 @@ def authorize_no_commencement_instruments(
     that is the enabling-statute filter — an instrument commencing a *forskrift*
     cites the forskrift's hjemmel statutes, which are principal laws, not
     offered amendment acts.
+
+    W-39: when the whole-act conjuncts fail, the pair is offered to the
+    PART-SCOPED route (``NOCommencementPartAuthorizationConjunct``) before it is
+    refused. The two routes are ordered, not alternative — an act the whole-act
+    route dates is never re-examined per part, so the coarser, older
+    authorization always wins where it exists. ``act_part_evidence`` left at
+    ``None`` disables the part route entirely and this function behaves exactly
+    as it did before W-39.
     """
     offered = frozenset(offered_act_ids)
+    part_evidence = dict(act_part_evidence or {})
     proposals: dict[str, dict[str, list[str]]] = {}
+    part_proposals: dict[
+        tuple[str, str, str], dict[str, list[str]]
+    ] = {}
+    part_conjuncts: dict[
+        tuple[str, str, str], tuple[NOCommencementPartAuthorizationConjunct, ...]
+    ] = {}
     refusals: list[NOCommencementRefusalReceipt] = []
     for parse_status, candidate in parsed_instruments:
         cited_act_ids = tuple(
@@ -357,17 +588,31 @@ def authorize_no_commencement_instruments(
             continue
         failed_conjuncts = _failed_authorization_conjuncts(parse_status, candidate)
         if failed_conjuncts:
-            refusals.extend(
-                NOCommencementRefusalReceipt(
-                    act_source_id=act_id,
-                    instrument_source_id=candidate.source_id,
-                    failed_conjuncts=failed_conjuncts,
-                    parse_status=parse_status,
-                    scope_status=candidate.scope_status,
-                    effective_dates=candidate.effective_dates,
+            for act_id in cited_act_ids:
+                part_match = _part_scoped_authorization_scope(
+                    parse_status,
+                    candidate,
+                    failed_conjuncts,
+                    part_evidence.get(act_id),
                 )
-                for act_id in cited_act_ids
-            )
+                if part_match is not None:
+                    part_label, law_id, passed = part_match
+                    key = (act_id, part_label, law_id)
+                    part_proposals.setdefault(key, {}).setdefault(
+                        candidate.effective_dates[0], []
+                    ).append(candidate.source_id)
+                    part_conjuncts[key] = passed
+                    continue
+                refusals.append(
+                    NOCommencementRefusalReceipt(
+                        act_source_id=act_id,
+                        instrument_source_id=candidate.source_id,
+                        failed_conjuncts=failed_conjuncts,
+                        parse_status=parse_status,
+                        scope_status=candidate.scope_status,
+                        effective_dates=candidate.effective_dates,
+                    )
+                )
             continue
         for act_id in cited_act_ids:
             proposals.setdefault(act_id, {}).setdefault(
@@ -403,6 +648,45 @@ def authorize_no_commencement_instruments(
         )
         authorized_instrument_ids.update(instrument_source_ids)
 
+    # An act the whole-act route already dated is not re-examined per part: the
+    # older, coarser authorization stands, and a part proposal for it is dropped
+    # without a receipt because the act already carries the date it would grant.
+    whole_act_authorized = {receipt.act_source_id for receipt in authorizations}
+    part_authorizations: list[NOCommencementPartAuthorizationReceipt] = []
+    part_conflicts: list[NOCommencementPartDateConflictReceipt] = []
+    for (act_id, part_label, law_id), instrument_ids_by_date in sorted(part_proposals.items()):
+        if act_id in whole_act_authorized:
+            continue
+        if len(instrument_ids_by_date) > 1:
+            part_conflicts.append(
+                NOCommencementPartDateConflictReceipt(
+                    act_source_id=act_id,
+                    instrument_source_ids=tuple(
+                        sorted(
+                            source_id
+                            for source_ids in instrument_ids_by_date.values()
+                            for source_id in source_ids
+                        )
+                    ),
+                    part_label=part_label,
+                    law_id=law_id,
+                    effective_dates=tuple(sorted(instrument_ids_by_date)),
+                )
+            )
+            continue
+        effective_date, instrument_source_ids = next(iter(instrument_ids_by_date.items()))
+        part_authorizations.append(
+            NOCommencementPartAuthorizationReceipt(
+                act_source_id=act_id,
+                instrument_source_ids=tuple(sorted(set(instrument_source_ids))),
+                part_label=part_label,
+                law_id=law_id,
+                effective_date=effective_date,
+                passed_conjuncts=part_conjuncts[(act_id, part_label, law_id)],
+            )
+        )
+        authorized_instrument_ids.update(instrument_source_ids)
+
     return NOCommencementExecutionAuthorization(
         instruments=tuple(
             replace(
@@ -414,6 +698,66 @@ def authorize_no_commencement_instruments(
         authorizations=tuple(authorizations),
         refusals=tuple(refusals),
         conflicts=tuple(conflicts),
+        part_authorizations=tuple(part_authorizations),
+        part_conflicts=tuple(part_conflicts),
+    )
+
+
+def _part_scoped_authorization_scope(
+    parse_status: NOCommencementParseStatus,
+    candidate: NOCommencementInstrumentCandidate,
+    failed_whole_act_conjuncts: tuple[NOCommencementAuthorizationConjunct, ...],
+    evidence: "NOCommencementActPartEvidence | None",
+) -> tuple[str, str, tuple[NOCommencementPartAuthorizationConjunct, ...]] | None:
+    """Prove which single part this instrument commences, or return ``None``.
+
+    Every conjunct of :class:`NOCommencementPartAuthorizationConjunct` must
+    hold; there is no partial credit and no ranking among them. Returns
+    ``(part label, law id, the conjuncts it passed)``.
+    """
+    if evidence is None:
+        return None
+    if len(candidate.effective_dates) != 1:
+        return None
+    if parse_status is not NOCommencementParseStatus.BLOCKED_UNRESOLVED:
+        return None
+    if set(failed_whole_act_conjuncts) != {
+        NOCommencementAuthorizationConjunct.PARSE_STATUS_CANDIDATE,
+        NOCommencementAuthorizationConjunct.WHOLE_ACT_SCOPE,
+    }:
+        return None
+    changed = set(candidate.changed_law_ids)
+    if not changed:
+        return None
+
+    parts_by_law: dict[str, list[str]] = {}
+    for part_label, law_id in evidence.part_law_ids.items():
+        parts_by_law.setdefault(law_id, []).append(part_label)
+    if any(len(labels) > 1 for labels in parts_by_law.values()):
+        return None
+    if any(law_id not in parts_by_law for law_id in evidence.bound_law_ids):
+        return None
+    if any(law_id not in parts_by_law for law_id in changed):
+        return None
+    part_labels = {parts_by_law[law_id][0] for law_id in changed}
+    if len(part_labels) != 1:
+        return None
+    part_label = part_labels.pop()
+    part_laws = {
+        law_id for law_id, labels in parts_by_law.items() if labels[0] == part_label
+    }
+    if part_laws != changed:
+        return None
+    law_id = next(iter(changed))
+    named_sections = set(candidate.commenced_section_labels)
+    if named_sections and named_sections != set(
+        evidence.law_section_labels.get(law_id, frozenset())
+    ):
+        return None
+    return (
+        part_label,
+        law_id,
+        tuple(NOCommencementPartAuthorizationConjunct),
     )
 
 
@@ -466,6 +810,22 @@ def _operative_blocks(root: etree._Element) -> tuple[str, ...]:
         if text:
             blocks.append(text)
     return tuple(blocks)
+
+
+def _commenced_section_labels(operative_blocks: Sequence[str]) -> tuple[str, ...]:
+    """The section labels the operative text names, in the grafter's spelling.
+
+    Normalized to match ``_normalize_no_section_label`` output (``§`` dropped,
+    inner spaces removed, lower-cased) so the set can be compared directly with
+    the section labels of the part's own ops. An empty result means the text
+    names no section, which is the strongest whole-part evidence there is.
+    """
+    labels: set[str] = set()
+    for block in operative_blocks:
+        # lawvm-regex: owning_parser this IS the commenced-section-label reader
+        for match in _COMMENCED_SECTION_RE.finditer(block):
+            labels.add(_WS_RE.sub("", match.group(1)).lower())
+    return tuple(sorted(labels))
 
 
 def _document_title(root: etree._Element) -> str:
@@ -544,6 +904,11 @@ def parse_no_commencement_instrument(
         if whole_act
         else NOCommencementScopeStatus.UNRESOLVED
     )
+    # Function-local like the grafter's own use of it: ``sources`` imports from
+    # this module at load time, so the corpus's single ``changesToDocuments``
+    # reader is only reachable from inside the function.
+    from lawvm.norway.sources import declared_change_targets_from_root
+
     candidate = NOCommencementInstrumentCandidate(
         source_id=source_id,
         locator=locator,
@@ -554,6 +919,8 @@ def parse_no_commencement_instrument(
         effective_dates=effective_dates,
         scope_status=scope_status,
         source_excerpt=text[:400],
+        changed_law_ids=declared_change_targets_from_root(root).law_ids,
+        commenced_section_labels=_commenced_section_labels(operative_blocks),
     )
     residuals: tuple[NOCommencementInstrumentResidual, ...] = ()
     parse_status = NOCommencementParseStatus.CANDIDATE

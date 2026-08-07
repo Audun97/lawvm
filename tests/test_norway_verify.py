@@ -2209,7 +2209,14 @@ def test_annex_ceiling_corpus_counts_are_pinned() -> None:
         # no/lovtid/2015-06-19-65's "§ 20 skal lyde:" payload: item 179's lead
         # was trapped inside the futureLegalArticle and rendered as statutory
         # text. Same mechanism as the 2005-06-03-34 witness, one row smaller.
-        "no/lov/2001-01-05-1": (81, 0, 81, {}),
+        # 81 -> 0 at W-39 (2026-08-07): the law is now consistent — its whole
+        # divergence set was one act, `no/lovtid/2009-06-19-85`, which the
+        # collective re-enactment lead binds and the part-scoped commencement
+        # instrument dates. It stays listed here because it stays SCANNED and
+        # the ceiling criteria must still reach none of it; the row is now
+        # vacuously rather than informatively negative, and the informative
+        # negative control the bucket relies on is the 918 total below.
+        "no/lov/2001-01-05-1": (0, 0, 0, {}),
         # skipsarbeidsloven's row (55, 0, 55, {}) is off-scan since W-34 — see
         # the set(rows) comment above.
     }
@@ -2300,13 +2307,32 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # Ceiling is untouched at 918 again; total and unexplained both drop by the
     # same 7 (3 + 2 + 2), so W-35 explains nothing away — it removes text that
     # was never the law's.
-    assert report["scanned_count"] == 56
-    assert report["summary"] == {"consistent": 22, "divergent": 34, "error": 0}
-    assert report["divergence_totals"] == {"total": 1189, "ceiling": 918, "unexplained": 271}
+    # W-39 (2026-08-07). 56 -> 58 candidates and 22/34 -> 23/35. Three rows and
+    # only three move, each traced to a named instrument or op change:
+    #   * 2001-01-05-1 81 -> 0, divergent -> consistent. The two halves of W-39
+    #     landing together: the collective re-enactment lead binds
+    #     `no/lovtid/2009-06-19-85`'s 22 ops to it, and the part-scoped
+    #     commencement instrument `no/forskrift/2011-04-01-342` dates them
+    #     2011-04-01. Half (i) alone would have DECERTIFIED this law.
+    #   * 2012-12-14-81 ENTERS divergent at 97, unblocked by the part
+    #     authorization of `no/lovtid/2020-12-18-143` del I from
+    #     `no/forskrift/2021-02-19-474` (2021-03-01). 93 of its 97 rows are
+    #     OPS_MISSING under an annex-shaped address prefix (the W-17 family).
+    #   * 2019-06-21-63 ENTERS divergent at 7, unblocked by the part
+    #     authorization of `no/lovtid/2021-06-18-135` del I from
+    #     `no/forskrift/2022-03-25-466` (2022-03-25).
+    # Ceiling is untouched at 918 for the fourth landing running; total and
+    # unexplained both move by the same +23 (-81 +97 +7), so W-39 explains
+    # nothing away either — it removes 81 rows that WERE the law's, and admits
+    # 104 rows on two laws that were previously unreachable.
+    assert report["scanned_count"] == 58
+    assert report["summary"] == {"consistent": 23, "divergent": 35, "error": 0}
+    assert report["divergence_totals"] == {"total": 1212, "ceiling": 918, "unexplained": 294}
     # 3 -> 2 at W-34: no/lov/2001-01-05-1 gains 4 bound ops from
     # no/lovtid/2015-06-19-65 item 178, so its indexed history is no longer
     # sparse. Its 83 divergences do not move; only the bucket does.
-    assert report["source_signal_counts"] == {"sparse_indexed_history": 2}
+    # 2 -> 3 at W-39: the newly-admitted 2012-12-14-81 carries the signal.
+    assert report["source_signal_counts"] == {"sparse_indexed_history": 3}
 
     expected = {
         # W-34 (2026-08-07): -2013-06-21-102 (off-scan, see above),
@@ -2316,8 +2342,9 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
         # W-35: -2005-06-03-34, back to consistent with 0 divergences once those
         # three rows leave its § 27 payload. 16 -> 15, and the ONLY membership
         # change in the whole partition.
+        # W-39: 2001-01-05-1 leaves for `consistent` (81 -> 0) and
+        # 2019-06-21-63 enters with the candidate set. 15 -> 15.
         "replay_defect": [
-            "no/lov/2001-01-05-1",
             "no/lov/2001-06-15-65",
             "no/lov/2004-05-28-29",
             "no/lov/2010-06-25-28",
@@ -2329,6 +2356,7 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             "no/lov/2017-05-22-29",
             "no/lov/2017-05-22-30",
             "no/lov/2019-06-14-21",
+            "no/lov/2019-06-21-63",
             "no/lov/2019-12-20-109",
             "no/lov/2021-06-11-79",
             "no/lov/2022-03-11-9",
@@ -2362,7 +2390,13 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
         # once no/lovtid/2015-06-19-65 item 179 binds to it. The bucket's story
         # (0 annex-ceiling rows, signal would still fire off the W-17 residue)
         # remains true of the one member left.
+        # W-39: 2012-12-14-81 enters with the candidate set carrying the signal.
+        # 93 of its 97 rows are annex-shaped OPS_MISSING, so the bucket's "0
+        # annex-ceiling rows" story is now true of one member and not the other
+        # — the annex normalization does not reach this law's prefix. Admitted
+        # by W-39, owned by W-17; recorded here rather than re-bucketed.
         "source_sparse": [
+            "no/lov/2012-12-14-81",
             "no/lov/2020-11-27-131",
         ],
         # no/lov/2006-06-30-50 left this bucket with the candidate set at
@@ -2374,7 +2408,10 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
         ],
         # W-34: 2005-06-03-34 leaves for replay_defect (see above). 22 -> 21.
         # W-35: it returns. 21 -> 22.
+        # W-39: 2001-01-05-1 arrives from replay_defect at 0 divergences,
+        # the largest single-law repair in the series. 22 -> 23.
         "consistent": [
+            "no/lov/2001-01-05-1",
             "no/lov/2004-05-14-25",
             "no/lov/2005-06-03-34",
             "no/lov/2006-08-18-61",
@@ -2408,8 +2445,8 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # Complete and disjoint, asserted directly rather than inferred from the
     # per-bucket lists.
     routed = [item["base_id"] for bucket in partitions.values() for item in bucket]
-    assert len(routed) == 56
-    assert len(set(routed)) == 56
+    assert len(routed) == 58
+    assert len(set(routed)) == 58
 
     # Every member of the ceiling bucket is ceiling-DOMINATED, and the margin
     # to the routing boundary is enormous in both directions: the smallest
