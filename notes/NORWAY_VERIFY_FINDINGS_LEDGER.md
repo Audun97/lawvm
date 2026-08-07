@@ -1423,8 +1423,10 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    dated per W-18's rule, sequenced after every op they could correct);
    3 EXCLUDED with sharper typed reasons (`2022-05-12-28` nested
    cross-act — the directive never names the target law;
-   `2020-12-04-137` and `2025-06-20-101` `no_corrected_host_op` — their
-   hosts' own leads never lowered, → W-32). **The W-18 decertification
+   `2020-12-04-137` `no_corrected_host_op` and `2025-06-20-101`
+   `no_part_scoped_target_address` [corrected at W-32 — this entry
+   originally recorded both as `no_corrected_host_op`] — their hosts'
+   own leads never lowered, → W-32). **The W-18 decertification
    warning proved STALE**: post-W-30 `2020-12-04-137` already binds
    eierseksjonsloven and is `instrument_authorized` at 2021-01-01, not
    contingent — no decertification was possible. Corpus: n_ops +2
@@ -1561,22 +1563,44 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    inert (nothing downstream depends on collection order any more) but
    it is the last reason that sort exists; and `OrderedOps.justification`
    remains unreachable from production (the W-10 residual).
-32. **W-32 (two host-lead lowering gaps blocking the last Del errata,
-   small):** found at W-24, each with a corpus witness and each the
-   sole blocker of one typed erratum. (a) Multi-`bokstav` leads —
-   `2020-12-04-137` Del IV's "§ 49 andre ledd bokstav e og ny bokstav f
-   skal lyde" drops BOTH ops silently; bokstav f does not exist in
-   eierseksjonsloven's live text because nothing creates it. Lowering
-   this lead unblocks the eierseksjonsloven erratum with zero scan
-   consequence (measured at W-24: the host is instrument_authorized and
-   already bound). (b) Renumber-plus-replace leads — `2025-06-20-101`
-   Del II's "§ 14 a blir ny § 28 b og skal lyde:" survives only as a
-   bare RENUMBER; the replacement half is lost, and the live §28b(2)
-   carries a stale "§ 14 a. Studentombud" heading from the renumber
-   path (W-31-adjacent). Related, blast radius UNMEASURED, touch only
-   with a sweep: spaced letter-suffixed section labels (`§ 28 b`)
-   defeat the shared sentence grammar's `[0-9A-Za-z-]+` label class
-   corpus-wide.
+32. **W-32 (two host-lead lowering gaps + spaced labels):** DONE
+   (`a60881695`, 2026-08-07). (a) Multi-`bokstav` leads: 157 genuine
+   multi-letter enumerations censused; the 126 sharing the single-item
+   address shape wired (widening only ARITY), 26 ledd-less + 12
+   `nr.`-carrying recorded unreachable; 240 items newly lowered with
+   per-item actions (`bokstav e` REPLACE / `ny bokstav f` INSERT),
+   all-or-nothing arity enforced and receipted
+   (`no_parse_unstructured_multi_item_payload_arity_mismatch`, fires on
+   exactly 1 act). (b) Renumber-plus-replace: of 286 structured moves,
+   25 carry `skal lyde`, 18 already lowered via their own
+   `data-change-part`; the 7-lead gap wired for 6 (REPLACE targets the
+   DESTINATION, sequenced after the RENUMBER; the 7th has two move
+   tokens, receipted). The stale `§ 14 a. Studentombud` heading was the
+   dropped payload, not a renumber defect — replayed §28b now reads
+   `§ 28 b. Nasjonalt studentombud`. (c) Spaced labels: the narrow
+   class didn't just fail, it truncated (`§ 216 i` → section 216) then
+   silently dropped; spec-level differential over 153,100 texts: 294
+   gained / 0 lost / 0 changed, BUT the op-level differential forced a
+   bound — the ledd-less sentence production widened cost 2 right→wrong
+   (it overrides structured markup with a subsection-less address), so
+   the widening applies ONLY to the ledd-carrying production,
+   negative-test-pinned. Payoff: the eierseksjonsloven erratum lowers
+   through unchanged W-24 code (receipts 9 → 8) and its scan row
+   repairs 13 → 9 (signed off; all 4 closed divergences traced to
+   §49(2) e/f/g); the fagskoleloven erratum stays excluded — W-24's
+   guard requires the EXACT corrected address and the recovered host op
+   is the whole section; ancestor containment is a W-24 design
+   decision, byte relation verified anyway (note: W-24's DONE entry
+   misrecorded this receipt as `no_corrected_host_op`; its base-state
+   reason was `no_part_scoped_target_address`, now advanced to
+   `no_corrected_host_op` by (c)). Corpus: ops +471 (478 gained − 7
+   base-changed; all audited), bindings +48/−1, 4 first-time entries,
+   declared-unbound 975 → 963, unexplained divergences 334 → 330. One
+   stop condition signed off 2026-08-07: 1 op lost + 6 stale→stale
+   moves in `2015-06-19-65` via the pre-existing payload-cursor
+   boundary defect (c) exposed (→ W-34); zero scan impact. Found, not
+   changed: `blir oppheva` (Nynorsk) absent from the sentence grammar's
+   `skal lyde|oppheves` alternation — unswept gap.
 33. **W-33 (ordinary Del-scope references, wiring after W-24's census):**
    110 rows / 57 artifacts where an ordinary lead scopes an address to
    `Del <N>` (census `.tmp/w24/general_surface_census.json`): 42
@@ -1591,6 +1615,22 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    part resolver; the antecedent must resolve first. W-24's shipped
    code is immune (directive-anchored Del prefix, no anaphoric erratum
    exists).
+34. **W-34 (payload cursor does not stop at law-switch leads, shared
+   seam):** the W-15 part-boundary rule extended to NUMBERED
+   enumerations — a lead's payload cursor runs forward over consecutive
+   `legalP` siblings and swallows numbered law-switch leads as payload.
+   Witness (exposed, not created, by W-32(c), signed off 2026-08-07):
+   `no/lovtid/2015-06-19-65` lead "[709] § 13 e tredje ledd første
+   punktum skal lyde:" swallows items 59/60/61's law-switch leads —
+   1 op lost (item 59's `replace (section 2)` on `1967-06-16-3`), 6
+   ops moved between two bases that were BOTH already stale
+   carry-overs. Zero scan impact today (neither base a candidate). The
+   principled fix — stop the cursor at any child that resolves a
+   law-switch — is a shared-seam change with unmeasured corpus-wide
+   blast radius; needs its own measured pass with the full W-15-style
+   sweep. Same artifact also carries two more pre-existing stale
+   carry-over binds recorded at W-32 (item 58's numberless 1967
+   citation → W-28 territory; straffeprosessloven ops on straffeloven).
 
 ## 5. Demo / Inspection Tooling
 
@@ -1608,6 +1648,25 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-07 (W-32 applied)** — **The last unblockable erratum
+  lowers, eierseksjonsloven repairs 13 → 9 on the scan, and the
+  spaced-label truncation defect is closed with a measured bound**
+  (`a60881695`). Three sub-fixes, each swept: multi-`bokstav` arity
+  (240 items newly lowered, all-or-nothing enforced),
+  renumber-plus-replace (6 destination-targeted REPLACEs recovered —
+  the "stale heading" was the dropped payload all along), and the
+  spaced-label class widened for the ledd-carrying production only
+  (the op-level differential caught the ledd-less production
+  overriding structured markup, 2 right→wrong, bounded out and
+  negative-pinned). +471 ops all audited; unexplained divergences
+  334 → 330. Signed off: the eierseksjonsloven scan repair (4 closed
+  rows traced) and the 1-lost-op/6-stale-moves cost of the
+  payload-cursor boundary defect W-32(c) exposed — opened as
+  **W-34** (shared seam, needs its own measured pass). The
+  fagskoleloven erratum stays excluded on W-24's exact-address guard;
+  ancestor containment recorded as a design question. W-24's DONE
+  entry corrected in-place (misrecorded receipt reason).
 
 - **2026-08-07 (W-24 applied)** — **Del-scoped errata resolve their
   part's law through the grafter's own resolvers, two of the five
