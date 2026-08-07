@@ -42,6 +42,7 @@ consolidation; every class below is evidence to triage, not a repair license.
 | **2026-07-10, after W-30 (56 candidates; see note)** | **22** | **34** | 0 |
 | **2026-07-10, after W-34 (56 candidates; see note)** | **21** | **35** | 0 |
 | **2026-07-10, after W-35 (56 candidates)** | **22** | **34** | 0 |
+| **2026-07-10, after W-39 (58 candidates; see note)** | **23** | **35** | 0 |
 
 W-15 commensurability caveat: the candidate set moved 58 → 56, so the 21/35
 row is not row-for-row comparable with the 18/40 row above. On the 54 laws
@@ -91,6 +92,14 @@ the `futureLegalArticle`-internal trapped-lead seam (W-35), whose fix
 returns it to consistent. Totals `total=1196 (ceiling=918,
 unexplained=278)`. (W-32, landed the same day, had already moved
 `2017-06-16-65` 13 → 9 within the 22/34 row.)
+
+W-39 note: the candidate set GROWS for the first time, 56 → 58 —
+`2001-01-05-1` repairs 81 → 0 and goes CONSISTENT (F-09's former
+headline law), while part-scoped commencement authorization unblocks
+two entrants: `2012-12-14-81` at 97 (93 annex-shaped rows → W-40) and
+`2019-06-21-63` at 7. Nothing leaves. Totals `total=1212 (ceiling=918,
+unexplained=294)` — the unexplained rise is new coverage, not
+regression (−81 + 97 + 7); 55 of the 56 prior rows byte-identical.
 
 Batch 03 increased coverage rather than changing an existing verdict: all 20
 old rows stayed byte-identical, and 38 laws that had previously been excluded
@@ -1797,34 +1806,64 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    id and now binds `-0` (canonicalization improvement costing one
    newly-receipted pair); `future_articles[0]` single-payload
    assumption still latent.
-39. **W-39 (vaktvirksomhetsloven repair: re-enactment lead tail +
-   part-scoped commencement, TWO-PART BY NECESSITY):** from the F-09
-   probe (2026-08-07) — the single fix worth 81 scan divergences, the
-   largest single-law prize left on the board, but BOTH halves must
-   land together or the law gets worse. (i) Lead grammar: the
-   collective re-enactment tail `skal følgende bestemmelser lyde:`
-   (and `… paragrafer lyde:`) — 4 acts corpus-wide — is not in the
-   action grammar; the witness `no/lovtid/2009-06-19-85` re-enacted
-   the whole law (new §1/§17/§18, renumber §1–18 → §2–22) and binds
-   nothing, receipted `lead_base_unresolved` ×7. The payload is a
-   sequence of full sections plus pure-renumber leads — closer to the
-   W-32(b) renumber-plus-replace family at act scale than to ordinary
-   leads; sweep the 4 acts before designing. (ii) Commencement: the
-   act is contingent (`Kongen bestemmer.`); binding it without
-   authorization decertifies the law (standing pricing rule). The
-   instrument `no/forskrift/2011-04-01-342` ("Delvis ikraftsetting",
-   2011-04-01, header `Endrer lov/2001-01-05-1`) commences exactly
-   Part I but fails the whole-act-scope conjunct — the needed
-   capability is PART-SCOPED commencement authorization for multi-part
-   staged acts (the same gap W-24 recorded for the eierseksjonsloven
-   family from the other side; `no/forskrift/2023-05-11-690` is the
-   Part II twin). Expected payoff when both land: `2001-01-05-1`
-   81 → near-0 (60 rows 8-gram-proven + 11 relocated + 6 dropped + 4
-   renumber, all from the one act), scoreboard +1 consistent
-   candidate — price the residual honestly at landing. Also check the
-   probe's secondary observation while in the area: `2009-06-19-74`
-   binds this law without declaring it and Lovdata credits the
-   provision elsewhere.
+39. **W-39 (re-enactment lead tail + part-scoped commencement):** DONE
+   (`36cc59eac`, 2026-08-07). Both halves landed together, their
+   inseparability PROVEN both ways (base grafter → the instrument
+   verdicts `endrer_law_not_in_part_map`; lead fix alone → 22 ops on a
+   `Kongen bestemmer.` act = decertification). **(i)** The collective
+   `I lov … skal følgende bestemmelser|paragrafer lyde:` lead lowers as
+   a declared END STATE: all RENUMBERs sequence BEFORE all payloads
+   (the witness renumbers sections its payloads overwrite — document
+   order would corrupt; the chosen order reproduces the published
+   consolidation exactly), under all-or-nothing part guards (closed
+   member set, disjoint/distinct address sets, every
+   `futureLegalArticle` yields a payload, marker label = data-name) —
+   one failure refuses the whole part with a typed receipt and hands
+   it back to the ordinary walk. Of the 4 family acts: witness lowered
+   (22 ops), `2021-06-11-60` lowered (3 ops), `2006-06-30-41` REFUSED
+   (bare-address members, cost measured zero), `2009-05-08-27` out of
+   scope (chapter-scope, not a part lead). **(ii)** Part-scoped
+   authorization is per `(act, base law)` in a NEW
+   `part_scoped_effective_dates` field — deliberately NOT act-level
+   status (an act with parts commencing 2011 and 2023 has no single
+   date; `instrument_authorized` stays 542). Sweep: 551
+   Delvis/Delt-style instruments → 1,921 (instrument, act) pairs → 246
+   exact `Endrer`→part matches → **123 authorizations** after the
+   added-beyond-the-brief `whole_part_scope` conjunct (the Endrer match
+   proves WHICH part, not HOW MUCH of it; 109 genuinely narrower
+   slices refused → W-41). Soundness probe: 0 of 123 could apply an op
+   EARLY; 9 late-in-the-conservative-direction. Joint payoff:
+   `2001-01-05-1` **81 → 0, CONSISTENT** — F-09's former headline law
+   fully repaired, 4/4 amendments applied. Corpus: +25 ops/+2
+   bindings/+1 entry, 0 lost, 0 rebound; declared-target conservation
+   exact. Scan signed off 2026-08-07: candidates 56 → 58 (**growth**,
+   first time — `2012-12-14-81` enters at 97 [93 annex-shaped rows the
+   W-17 classifier doesn't reach at that prefix → W-40] and
+   `2019-06-21-63` at 7; NOTHING leaves; neither previously-decertified
+   law returns, their blockers have no part instruments); scoreboard
+   22/34 → 23/35; totals 1,189 → 1,212 with unexplained 271 → 294 —
+   an honest RISE from new coverage. The probe's secondary observation
+   (`2009-06-19-74` binds without declaring) remains open — the law
+   went consistent regardless, so its §16 op is evidently correct.
+40. **W-40 (annex ceiling classifier misses `2012-12-14-81`'s prefix,
+   W-17 extension):** the W-39-entered law carries 93 OPS_MISSING rows
+   under an annex-shaped address prefix that
+   `_no_annexed_instrument_address` does not match, so they count
+   UNEXPLAINED (the bulk of the 271 → 294 rise) despite being the
+   W-17 family; it also carries `sparse_indexed_history` (the W-23
+   route sends it to `source_sparse`). Extend the W-17 typing to the
+   measured prefix with the same negative-control discipline; expected
+   effect: ~93 rows unexplained → ceiling, no verdict change.
+41. **W-41 (partial-part commencement slices, sized surface):** the
+   109 (instrument, act) pairs W-39's `whole_part_scope` conjunct
+   refused — instruments commencing a genuinely narrower slice of a
+   part (named sections only). A partial-part commencement model
+   (per-op authorization inside a part) would reach them; needs its
+   own design pass with the W-39 soundness probe as its gate. Also
+   from W-39, small: `2006-06-30-41`'s bare-address collective
+   members; the `Lovens tittel:` restatement recognized-not-applied
+   (no law-title op exists); the pre-existing spaced `data-name`
+   heading-label artefact (939 base-state ops, untouched).
 
 ## 5. Demo / Inspection Tooling
 
@@ -1842,6 +1881,26 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-07 (W-39 applied)** — **The commencement lane opens: the
+  collective re-enactment lead lowers as a declared end state, part
+  instruments authorize per (act, law), vaktvirksomhetsloven goes
+  81 → 0 consistent, and the candidate set grows for the first time**
+  (`36cc59eac`). Half (i): renumbers-before-payloads ordering (the
+  witness renumbers sections its payloads overwrite — the chosen
+  order reproduces the published consolidation exactly) under
+  all-or-nothing part guards; 2 of the 4 family acts lower, 1 refused
+  with a typed receipt at measured-zero cost, 1 out of scope. Half
+  (ii): 123 part authorizations from 551 Delvis/Delt instruments via
+  exact Endrer→part matching PLUS the beyond-the-brief
+  `whole_part_scope` conjunct (109 narrower slices refused → W-41);
+  soundness probe 0 early-application risks; deliberately no
+  act-level status invention (`part_scoped_effective_dates` per
+  binding). Inseparability proven in both directions. Scan signed
+  off: 56 → 58 candidates, 23/35, unexplained 271 → 294 as honest
+  new coverage (93 of it annex-shaped rows the W-17 classifier
+  misses at the entrant's prefix → W-40). Zero ops lost, zero
+  rebinds, declared-target conservation exact.
 
 - **2026-08-07 (F-09 probe: vaktvirksomhetsloven re-attributed)** —
   **The sparse-source family's headline example is not sparse: all 81
