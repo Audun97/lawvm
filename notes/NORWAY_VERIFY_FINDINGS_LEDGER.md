@@ -40,6 +40,7 @@ consolidation; every class below is evidence to triage, not a repair license.
 | **2026-07-10, after W-19/W-20 (57 candidates; see note)** | **21** | **36** | 0 |
 | **2026-07-10, after W-18 (57 candidates)** | **22** | **35** | 0 |
 | **2026-07-10, after W-30 (56 candidates; see note)** | **22** | **34** | 0 |
+| **2026-07-10, after W-34 (56 candidates; see note)** | **21** | **35** | 0 |
 
 W-15 commensurability caveat: the candidate set moved 58 → 56, so the 21/35
 row is not row-for-row comparable with the 18/40 row above. On the 54 laws
@@ -80,6 +81,15 @@ unexplained=334)`; 53 of 56 shared rows byte-identical; the
 zero-amendment surface (97 laws, 57/40/0) fully byte-identical. The
 corpus-wide annex family measured at W-17 (1,129) is unchanged — only
 the candidate set shrank.
+
+W-34 note (candidates stay 56, membership swaps 1): `2013-06-21-102`
+(55 div) decertified via a newly-bound `Kongen bestemmer` act;
+`2013-06-21-75` enters at 1; `2012-01-27-9` repairs 6 → 5; and
+`2005-06-03-34` flips consistent → divergent at 3 — honest exposure of
+the `futureLegalArticle`-internal trapped-lead seam (W-35), whose fix
+returns it to consistent. Totals `total=1196 (ceiling=918,
+unexplained=278)`. (W-32, landed the same day, had already moved
+`2017-06-16-65` 13 → 9 within the 22/34 row.)
 
 Batch 03 increased coverage rather than changing an existing verdict: all 20
 old rows stayed byte-identical, and 38 laws that had previously been excluded
@@ -1616,21 +1626,51 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    code is immune (directive-anchored Del prefix, no anaphoric erratum
    exists).
 34. **W-34 (payload cursor does not stop at law-switch leads, shared
-   seam):** the W-15 part-boundary rule extended to NUMBERED
-   enumerations — a lead's payload cursor runs forward over consecutive
-   `legalP` siblings and swallows numbered law-switch leads as payload.
-   Witness (exposed, not created, by W-32(c), signed off 2026-08-07):
-   `no/lovtid/2015-06-19-65` lead "[709] § 13 e tredje ledd første
-   punktum skal lyde:" swallows items 59/60/61's law-switch leads —
-   1 op lost (item 59's `replace (section 2)` on `1967-06-16-3`), 6
-   ops moved between two bases that were BOTH already stale
-   carry-overs. Zero scan impact today (neither base a candidate). The
-   principled fix — stop the cursor at any child that resolves a
-   law-switch — is a shared-seam change with unmeasured corpus-wide
-   blast radius; needs its own measured pass with the full W-15-style
-   sweep. Same artifact also carries two more pre-existing stale
-   carry-over binds recorded at W-32 (item 58's numberless 1967
-   citation → W-28 territory; straffeprosessloven ops on straffeloven).
+   seam):** DONE (`310e28d71`, 2026-08-07). The boundary predicate is
+   MEASURED, not asserted: a census over all 2,761 unstructured
+   artifacts found 1,026 (lead, crossed-node) pairs → 299 distinct
+   nodes; the brief's candidate signals FAIL (DOM depth erased by the
+   part flatten 299/299; element class degenerate — all bare `legalP`;
+   ordinal not necessary). What separates is WHERE THE CITATION SITS:
+   after ordinal strip, 297/299 carry it in the node's first sentence
+   (four prefix spellings: `I `, nominative, `I endringen(e) i `); the
+   2 rejects are Lovdata run-on nodes with the citation at offsets
+   97/195 behind a completed quoted sentence. Predicate: the citation
+   must fall in the first sentence — no tunable threshold, clean 297/2,
+   no receipt needed. Results: 15 acts touched; ops +78 net (434
+   rebinds, 79 new, 13 payload truncations all verified as the next
+   lead's material, 1 removed — a DUPLICATE that had emitted twice off
+   two swallowed leads; zero correctly-bound ops lost). External
+   binding check (op vs nearest preceding lead, recomputed from the
+   document): 443 disagreements → 3, all verifier artifacts. Witness
+   fully recovered: items 59/60/61 bind their own laws; the 2-op
+   residue is item 58's numberless citation (W-28), pinned as such.
+   W-21's §412 nested-payload witness byte-identical (its items are
+   `defaultP`, always stopped at). Bindings +164 = exactly the
+   declared-unbound pair drop (2,806 → 2,642); receipts 963 → 960;
+   `2013-06-21-75` leaves the zero-amendment set. Scan movement signed
+   off 2026-08-07, scoreboard 22/34 → 21/35 at 56 candidates:
+   `2013-06-21-102` (55 div) decertified via a newly-bound
+   `Kongen bestemmer` act (recoverable); `2013-06-21-75` enters at 1;
+   `2012-01-27-9` repairs 6 → 5; and `2005-06-03-34` FLIPS
+   consistent → divergent (0 → 3) — honest exposure: its item 209 now
+   lowers correctly but Lovdata's markup traps items 210/211's leads
+   INSIDE the payload element (→ W-35). `2001-01-05-1` re-routes
+   source_sparse → replay_defect (its sparse signal stops firing after
+   item 178 binds; sparse count 3 → 2). Unexplained divergences
+   330 → 278. Pins updated in-place per the signed-off package.
+35. **W-35 (`futureLegalArticle`-internal trapped leads, payload-internal
+   seam):** found at W-34, the sole cause of the `2005-06-03-34`
+   consistent→divergent flip. Measured: after W-34, 42/42 remaining
+   op payloads containing a law-switch lead have it INSIDE a
+   `futureLegalArticle` element — the lead is markup-internal, not a
+   sibling, so an inter-node cursor cannot reach it; the fix is a
+   payload-internal split, a different seam from W-34. The class costs
+   0 ops in 15 of its 16 laws (their leads trapped there produce
+   nothing either way); the 16th is `2005-06-03-34`'s 3 divergences.
+   Also recorded: 2 corpus run-on nodes (one `legalP` that is both a
+   payload tail and the next lead's head — the W-34 predicate's 2
+   deliberate rejects) are the same family's sibling-level cousin.
 
 ## 5. Demo / Inspection Tooling
 
@@ -1648,6 +1688,27 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-07 (W-34 applied)** — **The payload cursor stops at
+  law-switch leads, and the boundary is a measured predicate, not a
+  guess: the citation must sit in the crossed node's first sentence**
+  (`310e28d71`). The census killed the plausible signals (DOM depth
+  erased by the part flatten; element class degenerate) and found the
+  real one — 297/299 crossed nodes carry their citation
+  first-sentence, the 2 rejects being Lovdata run-on nodes. 15 acts
+  touched, +78 ops net (434 rebinds, 79 recovered, 1 duplicate
+  removed, 13 truncations all verified as the next lead's material,
+  zero correctly-bound ops lost); the external binding check went 443
+  disagreements → 3, all verifier artifacts. Bindings +164, exactly
+  the declared-unbound pair drop. W-21's nested-payload witness
+  byte-identical. Signed-off scan movement, scoreboard 22/34 → 21/35:
+  one recoverable decertification (`2013-06-21-102`, 55 div), one
+  entry at 1, one repair (`2012-01-27-9` 6 → 5), and the honest
+  consistent→divergent flip of `2005-06-03-34` (0 → 3) caused by the
+  `futureLegalArticle`-internal trapped-lead seam — opened as
+  **W-35**, whose fix returns it. Unexplained divergences 330 → 278.
+  `2001-01-05-1` re-routes to replay_defect as its sparse signal
+  stops firing (sparse count 3 → 2 — W-29-relevant).
 
 - **2026-08-07 (W-32 applied)** — **The last unblockable erratum
   lowers, eierseksjonsloven repairs 13 → 9 on the scan, and the
