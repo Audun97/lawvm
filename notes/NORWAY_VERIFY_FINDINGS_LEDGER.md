@@ -1901,14 +1901,47 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    (no law-title op exists); the pre-existing spaced `data-name`
    heading-label artefact (939 base-state ops, untouched).
 42. **W-42 (`2012-12-14-81`'s consolidation prints only the annex —
-   parse defect or source shape?):** the law's 4 residual unexplained
-   rows are the enacting act's own §§ 1-4 (CONSOLIDATED_MISSING:
-   replay produces them; the parsed consolidation's `body` has exactly
-   one child, the annex chapter). Probe (~1 hour): is Lovdata's
-   `gjeldende-lover` document for this law genuinely annex-only, or is
-   the law body dropped at parse? A parse defect would be a recurring
-   shape worth fixing corpus-wide; otherwise this is a second small
-   representation ceiling (4 rows, 1 law) to type like W-17.
+   parse defect or source shape?):** DONE (probe, research-only,
+   2026-08-08; artifacts `.tmp/w42/`). Verdict: **(a) PARSE DEFECT,
+   recurring.** The raw source (`nl/nl-20121214-081.xml`, sha256
+   `248e60fa…0615`) DOES carry the act's §§ 1-4, as
+   `article.legalArticle` SIBLINGS of the annex `section.section` —
+   but `parse_no_statute`'s top-level walk (`grafter.py:944`) makes
+   the article walk an `if not body_children:` FALLBACK to the
+   chapter walk, so a document that is both chapter- and
+   article-structured loses every top-level article. The nested
+   `_parse_container` already interleaves both kinds in document
+   order; only the top level has the either/or. Census over 763
+   stored consolidations: 23 mixed (all `A…A S…S`, articles first), 7
+   harmless (their lone section parses to `None`, the fallback fires
+   anyway), **16 lose 103 top-level sections** (counterfactual
+   full-corpus diff: 103 gained, 0 lost, all strict supersets, other
+   747 byte-identical). The replay lane is affected too
+   (`replay.py:294` uses the same parser): 4 laws / 48 sections over
+   3,089 originals. `2012-12-14-81`'s original is articles-only —
+   which is exactly why its rows read CONSOLIDATED_MISSING (replay
+   right, consolidation wrong). Scan impact today: only this law is a
+   candidate (candidacy comes from `build_no_inventory`, which never
+   calls `parse_no_statute`, so the fix cannot move the candidate
+   set); measured counterfactual scan 97 → 93 unexplained, exactly
+   the 4 rows; the other 102 recovered sections are latent coverage
+   for the 13 no-status and 3 blocked laws when they enter. Fix →
+   W-43.
+43. **W-43 (merge `parse_no_statute`'s top-level body walk, W-42
+   fix):** replace the either/or at `grafter.py:937-950` with one
+   order-preserving pass over `_direct_children(main)` dispatching
+   `section.section → _parse_container` / `article.legalArticle →
+   _parse_section` — i.e. make the top level look like
+   `_parse_container`. Size S, risk low. Order preservation is the
+   part to insist on: recovered §§ must land BEFORE the annex chapter
+   as in the source ("run both walks" emits them after and breaks the
+   day an `S…A` document appears). Expected: unexplained −4
+   (`2012-12-14-81` 97 = 93 + 4 → 93 = 93 + 0), everything else
+   byte-identical; both-lane movement confined to 3 non-candidate
+   laws, symmetric. Pins: the W-17 subset row and partition row for
+   the law; add a mixed-shape unit test to `test_norway_grafter.py`.
+   Worth doing before the 13 latent laws enter the scan carrying a
+   fabricated CONSOLIDATED_MISSING block.
 
 ## 5. Demo / Inspection Tooling
 
@@ -1926,6 +1959,20 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-08 (W-42 probe: the annex-only consolidation is a parse
+  defect)** — **`2012-12-14-81`'s missing §§ 1-4 are in the source;
+  `parse_no_statute` drops top-level articles whenever a document is
+  both chapter- and article-structured — 16 consolidations lose 103
+  sections, the replay lane loses 48 more across 4 laws.** Research
+  only (artifacts `.tmp/w42/`). The top-level article walk is an
+  `if not body_children:` fallback to the chapter walk
+  (`grafter.py:944`) while the nested `_parse_container` interleaves
+  correctly. Counterfactual full-corpus diff: 103 gained / 0 lost /
+  all strict supersets; counterfactual scan 97 → 93 unexplained
+  (exactly the W-42 rows); candidate set provably unmovable by the
+  fix (candidacy never calls this parser). Sized fix opened as W-43
+  (order-preserving merged walk, ~10 lines).
 
 - **2026-08-08 (W-40 applied)** — **Lovdata's second annex encoding is
   typed: the compound sub-chapter joins the W-17 ceiling and the
