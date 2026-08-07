@@ -33,6 +33,7 @@ from lawvm.norway.grafter import (
     _infer_same_base_sentence_target_specs_from_lead,
     _no_rettelse_item_target_from_lead,
     _normalize_no_chapter_scoped_section_lead,
+    _no_unstructured_law_switch_lead_base_id,
     _no_unstructured_lead_looks_operative,
     _split_no_sentences,
     apply_no_heading_groups,
@@ -6149,3 +6150,211 @@ def test_no_w32_fagskoleloven_renumber_replacement_lands_but_the_erratum_still_r
     assert receipts[0].detail["reason"] == "no_corrected_host_op"
     assert receipts[0].detail["base_id"] == "no/lov/2018-06-08-28"
     assert receipts[0].detail["part"] == "II"
+
+
+# ── W-34: the payload cursor stops at law-switch leads ────────────────────────
+# W-15 closed the part boundary. W-34 closes the same boundary one level down,
+# at the numbered enumeration items inside a single part.
+
+
+@pytest.mark.parametrize(
+    "lead,expected",
+    [
+        # The witness: `no/lovtid/2015-06-19-65` items 59, 60, 61 — the three
+        # leads the W-32-widened `§ 13 e …` lead swallowed.
+        (
+            "59. I lov 16. juni 1967 nr. 3 om fullmakt for Kongen til å forby "
+            "redere å gi opplysninger m.m. til utenlandske myndigheter skal § 2 lyde:",
+            "no/lov/1967-06-16-3",
+        ),
+        (
+            "60. I lov 7. juli 1967 nr. 1 om tiltak mot diskriminering i "
+            "internasjonal skipsfart skal § 2 lyde:",
+            "no/lov/1967-07-07-1",
+        ),
+        (
+            "61. I lov 15. desember 1967 nr. 9 om patenter gjøres følgende endringer:",
+            "no/lov/1967-12-15-9",
+        ),
+        # 39 of the 299 crossed nodes carry NO ordinal and 37 of those are
+        # ordinary leads, so the ordinal is not the signal and is not required.
+        (
+            "I lov 24. mai 1961 nr. 2 om forretningsbanker gjøres følgende endringer:",
+            "no/lov/1961-05-24-2",
+        ),
+        # The nominative announcement, 3 of the 299.
+        ("Lov 20. mai 2005 nr. 28 om straff endres slik:", "no/lov/2005-05-20-28"),
+        # `I endringen(e) i lov …`: a lead that amends ANOTHER act's amendments
+        # (`no/lovtid/2001-06-15-64`, 4 of the 299). Its citation sits 14-15
+        # characters in — still inside the lead's own first sentence.
+        (
+            "I endringene i lov 11. juni 1971 nr. 52 om strafferegistrering "
+            "gjøres følgende endringer:",
+            "no/lov/1971-06-11-52",
+        ),
+    ],
+)
+def test_no_w34_law_switch_predicate_admits_every_genuine_lead_shape(
+    lead: str, expected: str
+) -> None:
+    """W-34: the four prefix spellings the corpus census found, one case each."""
+    assert _no_unstructured_law_switch_lead_base_id(lead) == expected
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # The two Lovdata run-on nodes: one lead's payload concatenated with the
+        # NEXT lead into a single `legalP`. The citation sits 97 / 195 characters
+        # in, BEHIND a completed sentence of quoted statutory text, so the node's
+        # head is payload and the cursor must keep collecting.
+        # `no/lovtid/2004-06-25-53` [180], verbatim.
+        "I saker som ikke gjelder § 32 eller kap. VIII, styres skjønnet av "
+        "lensmannen eller namsfogden. I lov 26. juni 1992 nr. 86 om "
+        "tvangsfullbyrdelse og midlertidig sikring gjøres følgende endringer:",
+        # `no/lovtid/2005-06-17-84` [81], verbatim.
+        "I saker som ikke gjelder § 32 eller kap. VIII, styres skjønnet av "
+        "lensmannen, namsfogden eller politistasjonssjef med sivile "
+        "rettspleieoppgaver. I nr. 34 gjøres følgende endringer i endringene i "
+        "lov 26. juni 1992 nr. 86 om tvangsfullbyrdelse og midlertidig sikring:",
+        # Quoted statutory prose that merely cites a law.
+        "Overtreding av taushetsplikt etter dette ledd kan straffes etter "
+        "lov 20. mai 2005 nr. 28 om straff § 209.",
+        # A bare citation with no amending tail names a law; it does not switch to it.
+        "Lov 13. august 1915 nr. 5 om domstolene",
+    ],
+)
+def test_no_w34_law_switch_predicate_rejects_quoted_and_run_on_text(text: str) -> None:
+    """W-34's head-anchor guard, on the residue the census isolated."""
+    assert _no_unstructured_law_switch_lead_base_id(text) is None
+
+
+def test_no_w34_cursor_stops_at_a_numbered_law_switch_item() -> None:
+    """W-34: the swallowed-lead defect, reduced to its smallest reproduction.
+
+    Shaped after `no/lovtid/2015-06-19-65` [708]-[713]. On the pre-W-34 base the
+    `§ 13 e …` sentence lead's payload run reaches the next `defaultP`, so it
+    collects items 59 and 60 as payload and both items lose their op.
+    """
+    amendment_xml = """<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <main>
+      <section data-name="kapI">
+        <article class="legalP">58. I lov 16. desember 1966 nr. 9 om anke til Trygderetten gjøres følgende endringer:</article>
+        <article class="defaultP">§ 13 e tredje ledd første punktum skal lyde:</article>
+        <article class="legalP">Brudd på taushetsplikten straffes etter straffelovens § 209.</article>
+        <article class="legalP">59. I lov 16. juni 1967 nr. 3 om fullmakt for Kongen skal § 2 lyde:</article>
+        <article class="legalP">Den som overtrer bestemmelser gitt i medhold av denne lov, straffes med bøter.</article>
+        <article class="legalP">60. I lov 7. juli 1967 nr. 1 om tiltak mot diskriminering skal § 2 lyde:</article>
+        <article class="legalP">Den som overtrer bestemmelser gitt i medhold av denne lov, straffes med bot.</article>
+      </section>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+    grouped = dict(iter_no_document_change_ops(amendment_xml, "no/lovtid/2025-01-01-1"))
+
+    assert sorted(grouped) == [
+        "no/lov/1966-12-16-9",
+        "no/lov/1967-06-16-3",
+        "no/lov/1967-07-07-1",
+    ]
+    # The enclosing lead keeps its own payload and nothing else.
+    trygderetten = grouped["no/lov/1966-12-16-9"]
+    assert [op.target.path for op in trygderetten] == [
+        (("section", "13e"), ("subsection", "3"), ("sentence", "1"))
+    ]
+    assert trygderetten[0].payload is not None
+    assert trygderetten[0].payload.text == (
+        "Brudd på taushetsplikten straffes etter straffelovens § 209."
+    )
+    # Both swallowed items lower against their OWN cited law.
+    for base_id, expected_text in (
+        (
+            "no/lov/1967-06-16-3",
+            "Den som overtrer bestemmelser gitt i medhold av denne lov, straffes med bøter.",
+        ),
+        (
+            "no/lov/1967-07-07-1",
+            "Den som overtrer bestemmelser gitt i medhold av denne lov, straffes med bot.",
+        ),
+    ):
+        ops = grouped[base_id]
+        assert [op.target.path for op in ops] == [(("section", "2"),)]
+        assert ops[0].payload is not None
+        assert ops[0].payload.children[0].text == expected_text
+
+
+def test_no_w34_cursor_does_not_stop_at_a_run_on_payload_node() -> None:
+    """W-34's must-not-stop side: the head-anchor guard keeps a payload whole.
+
+    The run-on node's citation sits behind a completed sentence of quoted
+    statutory text, so it stays payload rather than becoming a boundary. Shape
+    from `no/lovtid/2004-06-25-53` [178]-[180].
+    """
+    amendment_xml = """<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <main>
+      <section data-name="kapI">
+        <article class="defaultP">I lov 17. desember 1982 nr. 86 om rettsgebyr skal § 14 lyde:</article>
+        <article class="legalP">Ved begjæring om utlegg kan namsmannen kreve at gebyret betales forskuddsvis.</article>
+        <article class="legalP">I saker som ikke gjelder § 32 eller kap. VIII, styres skjønnet av lensmannen eller namsfogden. I lov 26. juni 1992 nr. 86 om tvangsfullbyrdelse og midlertidig sikring gjøres følgende endringer:</article>
+      </section>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+    grouped = dict(iter_no_document_change_ops(amendment_xml, "no/lovtid/2025-01-01-1"))
+
+    assert sorted(grouped) == ["no/lov/1982-12-17-86"]
+    ops = grouped["no/lov/1982-12-17-86"]
+    assert [op.target.path for op in ops] == [(("section", "14"),)]
+    assert ops[0].payload is not None
+    # Both payload nodes survive: the run-on node is not torn off.
+    assert len(ops[0].payload.children) == 2
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w34_straffeloven_consequential_act_stops_swallowing_its_own_items() -> None:
+    """W-34 corpus witness: `no/lovtid/2015-06-19-65`, signed off as a cost at W-32.
+
+    W-32(c)'s spaced-label widening made `§ 13 e tredje ledd første punktum skal
+    lyde:` match the sentence family for the first time, so the lead consumed its
+    payload run and swallowed items 59, 60 and 61. Measured 2026-08-07 on the
+    post-W-32 base: items 59 and 60 lost their op entirely, and item 61's four
+    ops sat on `no/lov/1966-12-16-9` — item 57's law, carried over because item
+    58's citation ("lov 10. februar 1967 om behandlingsmåten i
+    forvaltningssaker") has no `nr.` and resolves nothing.
+
+    § 13 b and § 13 e stay on that stale carry-over: they are forvaltningsloven's
+    sections, and no citation in the document can reach forvaltningsloven, whose
+    id carries no number. That residue is item 58's unresolvable citation, not a
+    cursor boundary, and is left exactly where W-34 found it.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2015-06-19-65", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    grouped = dict(iter_no_document_change_ops(html_bytes, "no/lovtid/2015-06-19-65"))
+
+    # Items 59 and 60 recover their op.
+    assert [op.target.path for op in grouped["no/lov/1967-06-16-3"]] == [(("section", "2"),)]
+    assert [op.target.path for op in grouped["no/lov/1967-07-07-1"]] == [(("section", "2"),)]
+    # Item 61 (patentloven) takes its four ops off the stale base.
+    assert [op.target.path for op in grouped["no/lov/1967-12-15-9"]] == [
+        (("section", "8b"), ("subsection", "4"), ("sentence", "1")),
+        (("section", "8c"), ("subsection", "2"), ("sentence", "1")),
+        (("section", "57"),),
+        (("section", "62"), ("subsection", "2")),
+    ]
+    # The stale carry-over keeps only the two forvaltningsloven sections.
+    assert [op.target.path for op in grouped["no/lov/1966-12-16-9"]] == [
+        (("section", "13b"), ("subsection", "2"), ("sentence", "last")),
+        (("section", "13e"), ("subsection", "3"), ("sentence", "1")),
+    ]

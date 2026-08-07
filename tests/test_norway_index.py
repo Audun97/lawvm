@@ -1290,19 +1290,32 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # act whose bindings move (``no/lovtid/2015-06-19-65``, six ops crossing a
     # swallowed law-switch lead) was already misbound to a different stale base
     # before and after. Signed off 2026-08-07.
-    assert len(unbound) == 963
-    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2806
-    assert len({diagnostic["source_id"] for diagnostic in unbound}) == 963
+    # 963 -> 960 receipts and 2,806 -> 2,642 pairs at W-34: closing the payload
+    # cursor at numbered law-switch leads binds 164 more declared targets across
+    # 15 acts, three of which lose their gap entirely. The pair drop equals the
+    # binding gain below EXACTLY (2,806 - 2,642 = 6,295 - 6,131 = 164): every
+    # target W-34 binds was a declared target the index had already receipted,
+    # and W-34 un-declares none. Signed off 2026-08-07.
+    assert len(unbound) == 960
+    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2642
+    assert len({diagnostic["source_id"] for diagnostic in unbound}) == 960
 
     # 64 acts gain their FIRST index entry: they announced every one of their
     # parts with an unlisted tail, so they had bound no law at all.
     # 2,544 -> 2,548 and 6,084 -> 6,131 at W-32: four more acts whose only
     # amendment lead was one of the two dropped shapes.
+    # 6,131 -> 6,295 at W-34, entries unmoved: the cursor stop introduces no new
+    # amending ACT, only new (act, law) pairs inside acts that were already
+    # indexed. 166 pairs gained, 2 removed — ``2014-05-09-16``/``1987-06-12-48``
+    # and ``2015-06-19-65``/``1984-06-08-55``, both bindings that had been
+    # harvested from a swallowed sibling lead's citation and that address a
+    # section neither law has (NIS-loven has no § 339, konkursloven no § 6-2;
+    # foretaksnavneloven ``1985-06-21-79``, which the second op now binds, does).
     assert len(index.entries) == 2548
     bindings = {
         (entry.source_id, base_id) for entry in index.entries for base_id in entry.base_ids
     }
-    assert len(bindings) == 6131
+    assert len(bindings) == 6295
     # 26,218 at W-30; +2 at W-24, both reconciled to a named erratum and neither
     # touching this test's own subject. W-24 lowered two Del-scoped Rettelser
     # corrections into the law each part amends — ``2019-12-20-110`` Del I into
@@ -1316,7 +1329,15 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # for another inside ``no/lovtid/2015-06-19-65``. Base-agnostic op identity
     # over the whole corpus: 472 gained, 1 lost — the single lost op is
     # documented in the W-32 report as a fired stop condition.
-    assert sum(entry.n_ops for entry in index.entries) == 26691
+    # 26,691 -> 26,769 at W-34 (+78 net across 15 acts): 526 ops gained, 448
+    # lost, and the classification at three identity levels is 434 pure rebinds,
+    # 79 genuinely new ops, 8 rebind-plus-payload-truncation, 5 payload
+    # truncations on an unchanged binding, and 1 op removed. That one is the
+    # duplicate half of ``2014-05-09-16``'s "I § 339 … erstattes «formann» med
+    # «leder»", which used to emit TWICE because the global text-replace path
+    # harvested a citation from each of the two sibling leads its payload run had
+    # swallowed; one op on one base act now replaces two on two wrong ones.
+    assert sum(entry.n_ops for entry in index.entries) == 26769
 
 
 def test_no_amendment_index_staleness_report_detects_archive_change(tmp_path) -> None:

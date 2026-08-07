@@ -1925,6 +1925,20 @@ def _iter_unstructured_no_change_groups(
                 break
             if _local_name(nxt) == "article" and "defaultP" in _classes(nxt):
                 break
+            # W-34: the same boundary one level down. Inside a part, a numbered
+            # enumeration item that opens with its own law-switch ("59. I lov 16.
+            # juni 1967 nr. 3 … skal § 2 lyde:") is a SIBLING lead, not this
+            # lead's payload; collecting it loses the item's own op and leaves
+            # every later item bound to a stale base act.
+            if (
+                _local_name(nxt) == "article"
+                and "legalP" in _classes(nxt)
+                and _no_unstructured_law_switch_lead_base_id(
+                    _repair_no_mojibake(_normalize_space(" ".join(str(_t) for _t in nxt.itertext())))
+                )
+                is not None
+            ):
+                break
             payload_nodes.append(nxt)
             cursor += 1
 
@@ -2477,6 +2491,81 @@ def _infer_no_unstructured_section_base_id(children: list[etree._Element]) -> st
         if announced_base_id is not None:
             return announced_base_id
     return None
+
+
+def _no_unstructured_law_switch_lead_base_id(lead: str) -> str | None:
+    """Resolve the base act iff ``lead`` OPENS with a law-switch of its own.
+
+    The payload cursor's second boundary (W-34), the W-15 part boundary carried
+    down to numbered enumeration items. The predicate has to separate two things
+    the corpus mixes freely inside one part:
+
+    * a SIBLING enumeration item that switches law ("59. I lov 16. juni 1967
+      nr. 3 … skal § 2 lyde:") — the cursor must stop, or the item's own op is
+      lost and every later item binds to a stale base act; and
+    * QUOTED amendment text inside a payload — statutory prose that happens to
+      carry a law citation, up to and including a whole nested amending
+      instruction. Tearing those apart would destroy the payload.
+
+    The W-21 witness `2009-06-19-74` is where that risk is sharpest: its new
+    § 412 "Endringer i andre lover" introduces a run of nested consequential
+    items. Measured, that witness is untouched — its nested items are all
+    ``defaultP``, which the cursor has always treated as a boundary, and the
+    § 412 payload itself is a single ``futureLegalArticle``. Its 483 ops are
+    byte-identical across this change. The class the cursor CAN reach is the
+    ``legalP`` sibling, and that is what the census below is over.
+
+    Measured 2026-08-07 over all 2,761 unstructured artifacts: 299 distinct
+    nodes are crossed by some payload run and resolve a law under any of the
+    three lead resolvers. Two candidate signals fail outright and are recorded
+    here so they are not re-proposed: DOM depth and parenthood discriminate
+    nothing (all 299 share their enclosing lead's parent — the part flatten has
+    already erased the nesting), and the item ordinal is not necessary (260 of
+    the 299 carry one; the other 39 are ordinary un-numbered part leads).
+
+    What does separate them is where the citation sits. After the item ordinal
+    is stripped, the text preceding the citation is exactly four spellings over
+    297 of the 299 rows — ``I `` (290), the empty prefix (3, the nominative
+    ``Lov … endres slik``), ``I endringen i `` (2) and ``I endringene i `` (2) —
+    none of which closes a sentence. The remaining 2 are Lovdata run-on nodes
+    that concatenate one lead's payload with the NEXT lead
+    (`2004-06-25-53` [180], `2005-06-17-84` [81]): their citation sits 97 and
+    195 characters in, behind a completed sentence of quoted statutory text.
+    Requiring the citation to fall in the node's first sentence therefore admits
+    all 297 genuine leads and rejects both run-ons, with no threshold to tune.
+    The run-ons stay collected as payload, which is what they half are; the
+    lead buried in their tail is a separate, older defect and is not this
+    predicate's to fix.
+
+    ``_extract_no_embedded_multi_act_lead`` and
+    ``_extract_no_law_announcement_base_id`` are already head-anchored (both
+    ``re.match``), so only the ``I lov … gjøres følgende endringer`` resolver
+    needs the guard; it alone searches for its marker anywhere in the lead.
+    """
+    lead = _repair_no_mojibake(lead)
+    embedded = _extract_no_embedded_multi_act_lead(lead)
+    if embedded is not None:
+        return embedded[0]
+    announced = _extract_no_law_announcement_base_id(lead)
+    if announced is not None:
+        return announced
+    section_base_id = _extract_no_section_base_id_from_lead(lead)
+    if section_base_id is None:
+        return None
+    stripped = re.sub(_NO_LEAD_ITEM_ORDINAL_PREFIX, "", lead)
+    # Recognizes nothing new: the same pattern object
+    # ``_extract_no_section_base_id_from_lead`` has ALREADY matched above, run
+    # again only to read off WHERE in the lead the citation sits.
+    # lawvm-regex: witness_only position of an already-resolved citation
+    citation = re.search(_NO_LAW_CITATION_PATTERN, stripped, re.IGNORECASE)
+    if citation is None:
+        # Resolved only through the ``… av <date> nr N`` tail fallback, which no
+        # crossed node in the corpus uses. Nothing anchors the head, so the
+        # cursor keeps collecting rather than guessing at a boundary.
+        return None
+    if "." in stripped[: citation.start()]:
+        return None
+    return section_base_id
 
 
 def _promote_no_replace_with_following_renumber_insert(

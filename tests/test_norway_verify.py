@@ -2176,11 +2176,18 @@ def test_annex_ceiling_corpus_counts_are_pinned() -> None:
     # commencement is contingent. Its 211 ceiling rows (104 address + all 107
     # counterpart) left the scan with it; they are a property of the law, not
     # of the candidate set, and return when that commencement resolves.
+    # W-34 (2026-08-07, signed off): the SAME mechanism removes the second
+    # negative control, no/lov/2013-06-21-102 (skipsarbeidsloven). Closing the
+    # payload cursor at numbered law-switch leads binds it to
+    # no/lovtid/2014-05-09-16 item 30, an act whose commencement reads "Kongen
+    # bestemmer." — so the law becomes blocked_contingent and leaves the
+    # candidate set with all 55 of its (wholly unexplained, 0-ceiling)
+    # divergences. no/lov/2001-01-05-1 remains as the negative control and
+    # still carries not one ceiling row.
     assert set(rows) == {
         "no/lov/2018-06-15-38",
         "no/lov/2017-06-16-51",
         "no/lov/2001-01-05-1",
-        "no/lov/2013-06-21-102",
     }
 
     address = NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_ADDRESS
@@ -2196,7 +2203,8 @@ def test_annex_ceiling_corpus_counts_are_pinned() -> None:
         # SCE-loven's row (212, 211, 1, {address: 104, counterpart: 107}) is
         # off-scan since W-30 — see the set(rows) comment above.
         "no/lov/2001-01-05-1": (83, 0, 83, {}),
-        "no/lov/2013-06-21-102": (55, 0, 55, {}),
+        # skipsarbeidsloven's row (55, 0, 55, {}) is off-scan since W-34 — see
+        # the set(rows) comment above.
     }
     for base_id, (total, ceiling, unexplained, rule_counts) in expected.items():
         row = rows[base_id]
@@ -2252,19 +2260,45 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # divergences are exactly those three item addresses plus the matching
     # CONSOLIDATED_MISSING for item e; verdicts, membership, ceiling and the
     # other 55 rows are byte-identical.
+    # W-34 moved the scan again (2026-08-07), four rows, each traced to a
+    # newly-recovered op that binds to the enumeration item's OWN cited law:
+    #   * 2013-06-21-102 leaves the candidate set entirely (-55 divergences):
+    #     it newly binds no/lovtid/2014-05-09-16 item 30, whose commencement is
+    #     "Kongen bestemmer.", so the law is blocked_contingent — the same
+    #     decertification mechanism W-15/W-30 recorded.
+    #   * 2013-06-21-75 ENTERS it (+1): no/lovtid/2015-06-19-65 item 250 gives
+    #     it its first indexed amendment, from a dated act.
+    #   * 2005-06-03-34 goes 0 -> 3 and is the one consistent -> divergent flip.
+    #     Item 209's "skal § 27 lyde:" now lowers against its own law, and its
+    #     payload is the `futureLegalArticle` element — inside which Lovdata's
+    #     markup has PUT items 210 and 211's leads. The three CONSOLIDATED_MISSING
+    #     rows are exactly those two trapped leads plus item 210's payload text.
+    #     That is a payload-INTERNAL swallow the inter-node cursor cannot reach;
+    #     across the 15 acts W-34 touches the class goes 46 -> 42, and every one
+    #     of the 42 sits inside a `futureLegalArticle`. Recorded, not fixed here.
+    #   * 2012-01-27-9 goes 6 -> 5 as item 248's § 61 first sentence lands.
+    # Ceiling is untouched at 918; total and unexplained both drop by the same
+    # 52 (-55 +1 +3 -1), so W-34 explains nothing away — it moves rows.
     assert report["scanned_count"] == 56
-    assert report["summary"] == {"consistent": 22, "divergent": 34, "error": 0}
-    assert report["divergence_totals"] == {"total": 1248, "ceiling": 918, "unexplained": 330}
-    # The signal still fires; it simply no longer decides routing.
-    assert report["source_signal_counts"] == {"sparse_indexed_history": 3}
+    assert report["summary"] == {"consistent": 21, "divergent": 35, "error": 0}
+    assert report["divergence_totals"] == {"total": 1196, "ceiling": 918, "unexplained": 278}
+    # 3 -> 2 at W-34: no/lov/2001-01-05-1 gains 4 bound ops from
+    # no/lovtid/2015-06-19-65 item 178, so its indexed history is no longer
+    # sparse. Its 83 divergences do not move; only the bucket does.
+    assert report["source_signal_counts"] == {"sparse_indexed_history": 2}
 
     expected = {
+        # W-34 (2026-08-07): -2013-06-21-102 (off-scan, see above),
+        # +2001-01-05-1 (source_sparse -> here, its sparse signal stopped firing
+        # after item 178 bound), +2005-06-03-34 (consistent -> here, the 3
+        # futureLegalArticle rows). 15 -> 16.
         "replay_defect": [
+            "no/lov/2001-01-05-1",
             "no/lov/2001-06-15-65",
             "no/lov/2004-05-28-29",
+            "no/lov/2005-06-03-34",
             "no/lov/2010-06-25-28",
             "no/lov/2012-11-30-70",
-            "no/lov/2013-06-21-102",
             "no/lov/2014-08-15-59",
             "no/lov/2015-05-22-33",
             "no/lov/2016-06-17-29",
@@ -2281,6 +2315,8 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             "no/lov/2007-06-29-89",
             "no/lov/2009-03-06-12",
             "no/lov/2012-01-27-9",
+            # W-34: enters the candidate set with its first indexed amendment.
+            "no/lov/2013-06-21-75",
             "no/lov/2017-05-22-28",
             "no/lov/2017-06-16-65",
             "no/lov/2017-06-16-67",
@@ -2299,8 +2335,11 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
         # re-derived from the W-17 residue instead of the raw total
         # (.tmp/w23/annex_coverage.json) — the bucket's story is now true of
         # every member.
+        # W-34: 2001-01-05-1 leaves — the sparse-history signal stops firing
+        # once no/lovtid/2015-06-19-65 item 179 binds to it. The bucket's story
+        # (0 annex-ceiling rows, signal would still fire off the W-17 residue)
+        # remains true of the one member left.
         "source_sparse": [
-            "no/lov/2001-01-05-1",
             "no/lov/2020-11-27-131",
         ],
         # no/lov/2006-06-30-50 left this bucket with the candidate set at
@@ -2310,9 +2349,9 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             "no/lov/2017-06-16-51",
             "no/lov/2018-06-15-38",
         ],
+        # W-34: 2005-06-03-34 leaves for replay_defect (see above). 22 -> 21.
         "consistent": [
             "no/lov/2004-05-14-25",
-            "no/lov/2005-06-03-34",
             "no/lov/2006-08-18-61",
             "no/lov/2012-01-27-10",
             "no/lov/2013-06-07-31",
