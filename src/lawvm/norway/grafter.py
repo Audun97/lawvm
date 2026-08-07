@@ -197,11 +197,103 @@ _NO_LEAD_ITEM_ORDINAL_PREFIX = r"^" + _NO_LEAD_ITEM_ORDINAL + r"\s*"
 # ``lov <date> nr N`` head form and the ``… av <date> nr N`` tail form. Composed
 # rather than written out so ``_NO_LAW_CITATION_NUMBER`` is the single place the
 # ``nr`` grammar lives.
-_NO_LAW_CITATION_DATE = r"(\d{1,2})\.\s+([A-Za-zæøåÆØÅ]+)\s+(\d{4})\s+"
+# Split from ``_NO_LAW_CITATION_DATE`` so the numberless spellings below can
+# compose the date without the separator the ``nr`` token needs in front of it.
+_NO_LAW_CITATION_BARE_DATE = r"(\d{1,2})\.\s+([A-Za-zæøåÆØÅ]+)\s+(\d{4})"
+_NO_LAW_CITATION_DATE = _NO_LAW_CITATION_BARE_DATE + r"\s+"
 _NO_LAW_CITATION_PATTERN = (
     r"(?:^|\b)(?:Midlertidig\s+)?lov\s+" + _NO_LAW_CITATION_DATE + _NO_LAW_CITATION_NUMBER
 )
 _NO_LAW_CITATION_AV_PATTERN = r"av\s+" + _NO_LAW_CITATION_DATE + _NO_LAW_CITATION_NUMBER
+# W-28. Acts predating Lovtidend numbering carry no ``nr`` token at all, so both
+# patterns above miss them outright: `2009-01-30-7` part I ("I lov 10. februar
+# 1967 om behandlingsmåten i forvaltningssaker (forvaltningsloven) skal § 19
+# fyrste ledd lyde:"), `2009-06-19-74` item 1 (Lappekodisillen 1751),
+# `2015-06-19-65` items 42 and 58.
+#
+# The ledger proposed resolving these by DATE and disambiguating on title. The
+# measurement says no such rule is needed, because the corpus already encodes the
+# missing number: Lovdata's own DokumentID for these acts is date-only
+# (``NL/lov/1967-02-10``), and the LTI filename convention writes that as number
+# ``000``, which `_no_law_id_from_lti_filename` normalizes to ``-0``. Measured
+# over both id populations: the current-law set holds 645 ids of which exactly 22
+# end in ``-0``, every one of them 1687–1968 and every one a genuine
+# pre-numbering act (forvaltningsloven `1967-02-10-0`, bilansvarslova
+# `1961-02-03-0`, servituttlova `1968-11-29-0`, Lappekodisillen `1751-10-02-0`,
+# Grunnloven `1814-05-17-0`, Christian V's Norske Lov `1687-04-15-0`); the 3,089
+# LTI base ids contain none, because that archive only covers the numbered era.
+# So the resolution is DETERMINISTIC and not a date-uniqueness guess: a
+# numberless citation names the ``-0`` act of its date, one id, no candidate set
+# to be ambiguous about. Only one date in the whole corpus carries both a ``-0``
+# act and a numbered one (1962-03-23), and even there the two ids differ.
+#
+# The negative lookahead is what keeps this a FALLBACK rather than a re-reading
+# of the numbered grammar: a citation that carries a number can never reach it.
+# Corpus-wide there are 334 numberless ``lov <date>`` spans over 131 artifacts,
+# and the tail is not a usable guard — 302 are followed by ``om``, but the other
+# 32 include servituttlova's nynorsk ``um``, Lappekodisillen's bare Danish title
+# and "Kong Christian Den Femtis Norske Lov 15. april 1687." — so the pattern
+# takes the date and lets the ranking below decide.
+# The number slot of a numberless citation: matches and captures nothing, so a
+# numberless pattern keeps the same group story as its numbered siblings (date is
+# 1–3, the embedded lead is always the LAST group) while carrying one group
+# fewer — which is how ``_extract_no_embedded_multi_act_lead`` tells them apart.
+_NO_LAW_CITATION_ABSENT_NUMBER = r"\b(?!\s*nr\.?\s+\d)"
+_NO_LAW_CITATION_NUMBERLESS_PATTERN = (
+    r"(?:^|\b)(?:Midlertidig\s+)?lov\s+(?:av\s+)?" + _NO_LAW_CITATION_BARE_DATE + _NO_LAW_CITATION_ABSENT_NUMBER
+)
+# The number a pre-numbering act carries in every corpus id it appears under.
+_NO_NUMBERLESS_LAW_NUMBER = 0
+# The dates the corpus ATTESTS as belonging to a numberless act. This closed set
+# is what keeps W-28 from guessing, and it is not optional: Lovdata sometimes
+# omits the number of an act that HAS one — `2008-12-19-115` writes "I lov 20.
+# april 2001 om erstatning frå staten for personskade valda ved straffbar
+# handling m.m. (valdsoffererstatningslova)" for `no/lov/2001-04-20-13` — and an
+# ungated rule answers `no/lov/2001-04-20-0`, an id no corpus holds and a law
+# that does not exist. Membership is decided by Lovdata twice over, never by
+# this module: a date is here iff the corpus files a law under ``<date>-0``
+# (22 dates, the LTI ``000`` number) or an amending act declares
+# ``no/lov/<date>`` as a changed document (20 dates); 11 dates carry both
+# attestations and the union is 31. The latest is 1968-11-29 — the set is
+# closed by history, since no act enacted after Lovtidend numbering can enter
+# it. ``test_no_w28_numberless_law_dates_match_the_corpus`` re-derives it from
+# the archive, so a corpus that gains an old act fails loudly instead of
+# silently under-resolving.
+_NO_NUMBERLESS_LAW_DATES = frozenset(
+    {
+        "1687-04-15",  # Kong Christian Den Femtis Norske Lov
+        "1751-10-02",  # Lappekodisillen
+        "1775-06-08",  # Jorddelingen i Finmarken
+        "1812-02-25",  # declared-only
+        "1814-05-17",  # Grunnloven
+        "1898-06-04",  # declared-only
+        "1898-11-28",  # declared-only
+        "1909-03-23",  # Instruks for Regjeringen
+        "1916-03-17",  # straff for utenlandske militærpersoner
+        "1917-03-09",  # declared-only
+        "1918-02-08",  # declared-only
+        "1920-02-09",  # Svalbardtraktaten
+        "1925-08-07",  # Bergverksordning for Svalbard
+        "1930-02-21",  # skifteloven (declared-only)
+        "1930-03-14",  # landslottloven
+        "1931-01-30",  # overenskomst med Storbritannia, sivil rettergang
+        "1931-02-06",  # nordisk konvensjon, ekteskap
+        "1933-11-07",  # nordisk konkurskonvensjon
+        "1934-11-19",  # nordisk konvensjon, arv og dødsboskifte
+        "1937-04-16",  # declared-only
+        "1957-05-03",  # pensjonering av militært tilsatte
+        "1961-02-03",  # bilansvarslova
+        "1961-05-05",  # grannegjerdelova
+        "1961-06-12",  # overenskomst med Storbritannia, dommer
+        "1962-03-23",  # nordisk konvensjon, underholdsbidrag
+        "1963-11-15",  # fullbyrding av nordiske straffedommer
+        "1965-03-12",  # declared-only
+        "1965-05-21",  # skogbruk og skogvern (declared-only)
+        "1966-05-06",  # pensjonsordning for Sivilombudsmannen
+        "1967-02-10",  # forvaltningsloven
+        "1968-11-29",  # servituttlova
+    }
+)
 # The amending tail that turns an ``I lov <citation> …`` lead into a PART
 # ANNOUNCEMENT rather than a passing citation ("I lov 29. juni 1990 nr. 50 om
 # … blir det gjort følgjande endringar:"). The tail IS the guard: an ``I lov …``
@@ -278,6 +370,29 @@ _NO_EMBEDDED_MULTI_ACT_PATTERNS = (
     r"^I\s+(?:lov\s+|midlertidig\s+lov\s+)?(?:.+?\s+av\s+)?"
     + _NO_LAW_CITATION_DATE
     + _NO_LAW_CITATION_NUMBER
+    + _NO_EMBEDDED_LEAD_TAIL,
+    # W-28, ranked LAST and behind an explicit ``lov`` token: the same two shapes
+    # for a pre-numbering act, which carries no ``nr`` to match on. Both numbered
+    # patterns above are tried first, so a citation that has a number can never
+    # fall through to these. The ``lov`` optionality the second numbered pattern
+    # allows is deliberately NOT carried over — without a number the word is the
+    # only thing left that says this is a law citation at all.
+    #
+    # Needed because the intro-marker resolver
+    # (`_extract_no_section_base_id_from_lead`) only covers the "gjøres følgende
+    # endringer" announcement, so `2015-06-19-65` item 42 resolved through it
+    # while the ledger's primary witness — `2009-01-30-7` part I, "I lov 10.
+    # februar 1967 om behandlingsmåten i forvaltningssaker (forvaltningsloven)
+    # skal § 19 fyrste ledd lyde:" — did not, and its § 19 op stayed dropped.
+    r"^"
+    + _NO_LEAD_ITEM_ORDINAL
+    + r"\s+I lov\s+(?:av\s+)?"
+    + _NO_LAW_CITATION_BARE_DATE
+    + _NO_LAW_CITATION_ABSENT_NUMBER
+    + _NO_EMBEDDED_LEAD_TAIL,
+    r"^I\s+(?:midlertidig\s+)?lov\s+(?:av\s+)?"
+    + _NO_LAW_CITATION_BARE_DATE
+    + _NO_LAW_CITATION_ABSENT_NUMBER
     + _NO_EMBEDDED_LEAD_TAIL,
 )
 _NORWEGIAN_MONTH_NUMBERS = {
@@ -1876,7 +1991,17 @@ def _iter_unstructured_no_change_groups(
                 section_base_ids.append(None)
                 child_part_indexes.append(0)
 
-    _split_no_trapped_payload_leads(children, section_base_ids, child_part_indexes)
+    # W-36 before W-35: a run-on hiding inside a ``futureLegalArticle``'s payload
+    # has to become an ordinary trapped lead before the trapped pass can lift it
+    # the rest of the way out. Both passes are monotone — each split removes the
+    # boundary it fired on — so this reaches a fixpoint. The second turn is not
+    # decoration: corpus-wide it fires exactly once, on `2016-06-17-29`, where a
+    # lead the trapped pass frees is itself a run-on carrying item 11.
+    while (
+        _split_no_run_on_lead_nodes(children, section_base_ids, child_part_indexes)
+        + _split_no_trapped_payload_leads(children, section_base_ids, child_part_indexes)
+    ):
+        pass
 
     def _part_index(position: int) -> int | None:
         return child_part_indexes[position] if position < len(child_part_indexes) else None
@@ -1908,6 +2033,19 @@ def _iter_unstructured_no_change_groups(
             continue
         lead = _repair_no_mojibake(_normalize_space(" ".join(str(_t) for _t in child.itertext())))
         explicit_section_base_id = _extract_no_section_base_id_from_lead(lead)
+        if explicit_section_base_id is None:
+            # W-28. The nominative announcement ("3. Lov 30. august 1991 nr. 71 om
+            # statsforetak endres slik:") switches law exactly as the ``I lov …``
+            # form does, and W-34's cursor-stop predicate has always treated it
+            # that way — but this walk did not, so an announcement could never
+            # displace a carried-over ``active_base_id``. That asymmetry was
+            # invisible while nothing upstream of it resolved: in
+            # `2005-06-17-103` part V no lead set ``active_base_id`` at all and
+            # the act lowered nothing. Once item 2's numberless forvaltningsloven
+            # citation resolves, items 3–6 inherit it, and 9 ops land on the
+            # wrong law. Reading the announcement here is what keeps the walk's
+            # base tracking and the cursor boundary telling the same story.
+            explicit_section_base_id = _extract_no_law_announcement_base_id(lead)
         if explicit_section_base_id is not None:
             active_base_id = explicit_section_base_id
         lead_base_id = default_base_id or explicit_section_base_id or active_base_id or section_base_id
@@ -2561,6 +2699,13 @@ def _no_unstructured_law_switch_lead_base_id(lead: str) -> str | None:
     # lawvm-regex: witness_only position of an already-resolved citation
     citation = re.search(_NO_LAW_CITATION_PATTERN, stripped, re.IGNORECASE)
     if citation is None:
+        # W-28: the same probe for the numberless spelling. Without it a lead that
+        # resolves only through the pre-numbering branch is admitted by
+        # ``_extract_no_section_base_id_from_lead`` and then dropped here, so the
+        # freed leads W-36 hands over would still never become a cursor boundary.
+        # lawvm-regex: witness_only position of an already-resolved citation
+        citation = re.search(_NO_LAW_CITATION_NUMBERLESS_PATTERN, stripped, re.IGNORECASE)
+    if citation is None:
         # Resolved only through the ``… av <date> nr N`` tail fallback, which no
         # crossed node in the corpus uses. Nothing anchors the head, so the
         # cursor keeps collecting rather than guessing at a boundary.
@@ -2568,6 +2713,233 @@ def _no_unstructured_law_switch_lead_base_id(lead: str) -> str | None:
     if "." in stripped[: citation.start()]:
         return None
     return section_base_id
+
+
+def _no_element_lead_text(element: etree._Element) -> str:
+    """The lead/payload text of one element, as every boundary predicate reads it."""
+    return _repair_no_mojibake(_normalize_space(" ".join(str(_t) for _t in element.itertext())))
+
+
+# Non-``article`` wrappers Lovdata puts between a run-on node and the lead it
+# swallowed, plus the two ``article`` classes that are pure wrappers. Measured
+# over the whole run-on population (W-36): the freed subtree is reached through
+# ``ul.defaultList`` → ``li`` → ``article.listArticle`` and nothing else, and
+# ``legalArticle`` is here only because the flatten above already treats it as a
+# splice-through container, so the two rules cannot disagree.
+_NO_RUN_ON_WRAPPER_TAGS = frozenset({"ul", "ol", "li"})
+_NO_RUN_ON_WRAPPER_CLASSES = frozenset({"listArticle", "legalArticle"})
+# The node classes a run-on can hide a lead inside. ``numberedLegalP`` is not
+# decoration: the ledger's three named witnesses (`2014-05-09-16` item 17,
+# `2015-06-19-65` item 107, `2016-06-17-29` item 11) are all numbered paragraphs
+# whose lead hangs off a ``(N)`` subsection, which is never a lead itself.
+_NO_RUN_ON_LEAD_NODE_CLASSES = frozenset({"defaultP", "legalP", "numberedLegalP"})
+
+
+def _no_unwrap_run_on_freed_node(element: etree._Element) -> list[etree._Element]:
+    """Reduce a freed subtree to the ``article`` nodes the sibling stream reads.
+
+    The sibling walk only recognizes ``article`` elements, so a freed
+    ``ul.defaultList`` would be skipped outright and the lead lost a second time.
+    Unwrapping is total and order-preserving; a wrapper carrying its own text is
+    kept whole rather than unwrapped, so no text can be dropped on the way out.
+    """
+    is_wrapper = _local_name(element) in _NO_RUN_ON_WRAPPER_TAGS or (
+        _local_name(element) == "article" and bool(_NO_RUN_ON_WRAPPER_CLASSES & _classes(element))
+    )
+    if not is_wrapper:
+        return [element]
+    if (element.text or "").strip():
+        return [element]
+    unwrapped: list[etree._Element] = []
+    for kid in _direct_children(element):
+        unwrapped.extend(_no_unwrap_run_on_freed_node(kid))
+        if (kid.tail or "").strip():
+            return [element]
+    return unwrapped or [element]
+
+
+def _no_run_on_lead_boundary_path(element: etree._Element) -> tuple[int, ...] | None:
+    """Index path to the OUTERMOST descendant of ``element`` that opens a lead.
+
+    Pre-order, so the shallowest enclosing element whose own text already reads
+    as a law-switch lead wins: a ``ul`` holding nothing but the lead is the
+    boundary, while a ``ul`` whose first ``li`` is genuine payload is descended
+    into and the boundary lands on the later ``li``.
+    """
+
+    def walk(node: etree._Element, prefix: tuple[int, ...]) -> tuple[int, ...] | None:
+        for index, kid in enumerate(_direct_children(node)):
+            path = (*prefix, index)
+            if _no_unstructured_law_switch_lead_base_id(_no_element_lead_text(kid)) is not None:
+                return path
+            found = walk(kid, path)
+            if found is not None:
+                return found
+        return None
+
+    return walk(element, ())
+
+
+def _split_no_run_on_lead_node(
+    element: etree._Element,
+) -> tuple[etree._Element, list[etree._Element]] | None:
+    """Split one Lovdata run-on node into (payload head, freed lead nodes)."""
+    if _no_unstructured_law_switch_lead_base_id(_no_element_lead_text(element)) is not None:
+        # The node OPENS with a lead of its own; W-34's sibling boundary owns it.
+        return None
+    path = _no_run_on_lead_boundary_path(element)
+    if path is None:
+        return None
+    # Copy rather than mutate: ``root`` belongs to the caller, and the structured
+    # reader and the rettelse reader walk the same tree.
+    truncated = copy.deepcopy(element)
+    chain: list[tuple[etree._Element, int]] = []
+    node = truncated
+    for index in path:
+        chain.append((node, index))
+        node = _direct_children(node)[index]
+    freed: list[etree._Element] = []
+    for depth, (parent, index) in enumerate(reversed(chain)):
+        kids = _direct_children(parent)
+        # At the boundary's own level the boundary leaves too; at every shallower
+        # level the element on the path is the truncated head and stays.
+        tail = kids[index:] if depth == 0 else kids[index + 1 :]
+        for kid in tail:
+            parent.remove(kid)
+        freed.extend(tail)
+    head = _no_element_lead_text(truncated)
+    if not head:
+        return None
+    # lawvm-regex: owning_parser the same lead grammar `_extract_no_section_base_id_from_lead` owns
+    if head.endswith(":") and _NO_SECTION_INTRO_MARKER_RE.search(head.lower()) is None:
+        # The head is an amendment DIRECTIVE whose colon opens its own payload, so
+        # the nested lead is quoted content — a consequential-amendments section
+        # being enacted verbatim — not a swallowed lead. Measured over the whole
+        # DOM-boundary population (57): 52 heads end a sentence and 5 end in a
+        # colon, and those 5 divide exactly on this marker. The 3 that carry it
+        # are part intros ("Fra den tid loven trer i kraft, gjøres følgende
+        # endringer i andre lover:") whose colon introduces the consequential
+        # LIST, and freeing it is the whole point. The 2 that do not are
+        # `2006-06-16-32` "§ 17-3 nr. 4 skal lyde:" and `2009-06-19-100`
+        # "§ 35-1 nr. 8 skal lyde:" — plan- og bygningsloven's own § 35-1
+        # consequential list, quoted as the new text of that provision. Splitting
+        # those emitted an op against kulturminneloven that the act never made.
+        return None
+    unwrapped: list[etree._Element] = []
+    for kid in freed:
+        unwrapped.extend(_no_unwrap_run_on_freed_node(kid))
+    return truncated, unwrapped
+
+
+def _split_no_run_on_lead_nodes(
+    children: list[etree._Element],
+    section_base_ids: list[str | None],
+    child_part_indexes: list[int],
+) -> int:
+    """Lift law-switch leads Lovdata RAN ON into the preceding item's payload node.
+
+    W-34 stopped the payload cursor at a sibling law-switch lead and W-35 lifted
+    the leads trapped inside a ``futureLegalArticle``. This is the last reachable
+    member of the family: the lead is not a sibling and not trapped in an
+    inserted section — it hangs INSIDE the previous item's own payload node, so
+    the node reads as one paragraph that concatenates one lead's payload tail
+    with the next lead's head.
+
+    The ledger proposed the W-34 predicate at SENTENCE granularity. Measured
+    that way over all 2,761 unstructured artifacts, 69 nodes are not a lead
+    themselves yet carry a later sentence that fully parses as one — and the
+    measurement immediately says the sentence is the wrong unit. The run-on is
+    not a text defect at all: in 58 of the 69 the swallowed lead has its OWN
+    ELEMENT (a nested ``article.legalP``; a ``ul.defaultList`` holding nothing
+    else; a later ``li`` of such a list). Lovdata gave the lead a paragraph and
+    then closed the enclosing paragraph too late, so the run-on exists only in
+    the ``itertext()`` concatenation. Of the other 11, 10 are a node whose text
+    merely OPENS with a bare item ordinal (``258.``, ``a.``) that the splitter
+    cuts off — nothing is swallowed there, the node is a single lead the
+    ordinal-aware head anchors miss — and 1 is the citing-prose false positive
+    the ledger predicted: `2015-06-19-48` § 3, quoted statutory text whose later
+    sentence begins "I den utstrekning en klage gjelder et spørsmål …".
+    Anchoring the boundary on an ELEMENT rejects both by construction, with
+    nothing to tune.
+
+    Walking the DOM rather than the sentence stream also finds 4 run-ons the
+    sentence census cannot see, because a colon does not end a sentence — and
+    those are what make the second, load-bearing guard necessary. Over the
+    resulting population of 62, 57 heads end a sentence and 5 end in a colon,
+    and a colon means the head INTRODUCES what follows. Those 5 divide exactly
+    on ``_NO_SECTION_INTRO_MARKER_RE``, W-30's measured grammar for "the
+    following changes are made": the 3 that carry it are part intros ("Fra den
+    tid loven trer i kraft, gjøres følgende endringer i andre lover:") whose
+    colon opens the consequential LIST, and freeing it is the point. The 2 that
+    do not are `2006-06-16-32` "§ 17-3 nr. 4 skal lyde:" and `2009-06-19-100`
+    "§ 35-1 nr. 8 skal lyde:" — plan- og bygningsloven's own § 35-1
+    consequential list, quoted verbatim as that provision's new text. They carry
+    the identical markup to the 57 and are genuine content; splitting them
+    emitted a kulturminneloven op the act never made.
+
+    So: 60 split over 12 acts, 2 held back. The freed nodes re-enter
+    ``children`` immediately after the truncated head, where the W-34 cursor
+    stop, the W-21/W-30 base inference and the W-15 part boundaries all apply to
+    them unchanged, and the pass does not skip them so a freed node that is
+    itself a run-on chains.
+
+    External check, recomputed from the raw document at sentence granularity so
+    that it sees mid-node leads and never consults this split: over the acts
+    W-36 and W-28 touch together, ops agreeing with their governing lead go
+    2,634 → 2,983 and disagreements 286 → 41, with no artifact getting worse.
+
+    ``2005-06-17-84`` [81] — W-34's other predicate-reject — is deliberately NOT
+    reached: its nested lead reads "I nr. 34 gjøres følgende endringer i
+    endringene i lov 26. juni 1992 nr. 86 …", an amendment OF AN AMENDMENT whose
+    base act is this act's own item 34, not tvangsfullbyrdelsesloven. The W-34
+    predicate declines it (a period precedes the citation) and binding it would
+    be a wrong answer, not a recovered one.
+    """
+    split_count = 0
+    position = 0
+    while position < len(children):
+        element = children[position]
+        position += 1
+        if _local_name(element) != "article":
+            continue
+        classes = _classes(element)
+        if "futureLegalArticle" in classes:
+            # A run-on that sits inside an inserted section's payload: split it
+            # in place, so the W-35 pass below sees an ordinary trapped lead and
+            # lifts it the rest of the way out.
+            rebuilt = copy.deepcopy(element)
+            kids = _direct_children(rebuilt)
+            replacement: list[etree._Element] | None = None
+            for kid_index, kid in enumerate(kids):
+                if not (_NO_RUN_ON_LEAD_NODE_CLASSES & _classes(kid)):
+                    continue
+                result = _split_no_run_on_lead_node(kid)
+                if result is None:
+                    continue
+                truncated_kid, freed_kid = result
+                replacement = [*kids[:kid_index], truncated_kid, *freed_kid, *kids[kid_index + 1 :]]
+                break
+            if replacement is not None:
+                for old in kids:
+                    rebuilt.remove(old)
+                for new in replacement:
+                    rebuilt.append(new)
+                children[position - 1] = rebuilt
+                split_count += 1
+            continue
+        if not (_NO_RUN_ON_LEAD_NODE_CLASSES & classes):
+            continue
+        result = _split_no_run_on_lead_node(element)
+        if result is None:
+            continue
+        truncated, freed = result
+        children[position - 1] = truncated
+        children[position:position] = freed
+        section_base_ids[position:position] = [section_base_ids[position - 1]] * len(freed)
+        child_part_indexes[position:position] = [child_part_indexes[position - 1]] * len(freed)
+        split_count += 1
+        # Do not skip the freed nodes: one of them may itself be a run-on.
+    return split_count
 
 
 def _split_no_trapped_payload_leads(
@@ -2705,15 +3077,25 @@ def _extract_no_embedded_multi_act_lead(lead: str) -> tuple[str, str] | None:
     day = int(match.group(1))
     month = _NORWEGIAN_MONTH_NUMBERS.get(match.group(2).lower())
     year = match.group(3)
-    number = int(match.group(4))
     if month is None:
         return None
+    # W-28: the numberless patterns carry no number group, so the embedded lead
+    # is group 4 rather than 5, and the act resolves only if the corpus attests
+    # this date as a numberless one.
+    lead_group = match.re.groups
+    if lead_group == 4:
+        base_id = _no_numberless_law_base_id(day, month, year)
+        if base_id is None:
+            return None
+        number = _NO_NUMBERLESS_LAW_NUMBER
+    else:
+        number = int(match.group(4))
     # An intervening ``ny``/``nytt``/``nye`` qualifier immediately before the
     # ``§`` means the section is being inserted, not replaced; surface it as the
     # ``Ny § …`` prefix that the ``_NO_WHOLE_SECTION_LEAD_RE`` insert branch
     # recognizes.
-    insert_qualifier = bool(re.search(r"\bskal\s+ny(?:tt|e)?\s+$", lead[: match.start(5)], re.IGNORECASE))
-    embedded_lead = match.group(5).strip()
+    insert_qualifier = bool(re.search(r"\bskal\s+ny(?:tt|e)?\s+$", lead[: match.start(lead_group)], re.IGNORECASE))
+    embedded_lead = match.group(lead_group).strip()
     if " skal " not in embedded_lead.lower():
         embedded_lead = re.sub(r"\s+lyd([ea]):?$", r" skal lyd\1:", embedded_lead, flags=re.IGNORECASE)
     if insert_qualifier and not re.match(r"^ny(?:tt|e)?\b", embedded_lead, re.IGNORECASE):
@@ -2767,13 +3149,35 @@ def _extract_no_law_announcement_base_id(lead: str) -> str | None:
     return _extract_no_law_citation_base_id(lead)
 
 
+def _no_numberless_law_base_id(day: int, month: str, year: str) -> str | None:
+    """The corpus id of the numberless act dated ``<year>-<month>-<day>``, if attested."""
+    date = f"{year}-{month}-{day:02d}"
+    if date not in _NO_NUMBERLESS_LAW_DATES:
+        return None
+    return f"no/lov/{date}-{_NO_NUMBERLESS_LAW_NUMBER}"
+
+
 def _extract_no_law_citation_base_id(text: str) -> str | None:
+    """Resolve the law a citation names, numbered spellings first.
+
+    Rank, and it is load-bearing: the ``lov <date> nr N`` head form, then the
+    ``… av <date> nr N`` tail form, then (W-28) the numberless pre-numbering form.
+    The numberless branch is reached only when no numbered citation is present
+    anywhere in ``text``, so it can never outrank a number the drafter wrote.
+    """
     text = _repair_no_mojibake(text)
     match = re.search(_NO_LAW_CITATION_PATTERN, text, re.IGNORECASE)
     if match is None:
         fallback = re.search(_NO_LAW_CITATION_AV_PATTERN, text, re.IGNORECASE)
         if fallback is None:
-            return None
+            # lawvm-regex: owning_parser this IS the law-citation parser, numberless spelling
+            numberless = re.search(_NO_LAW_CITATION_NUMBERLESS_PATTERN, text, re.IGNORECASE)
+            if numberless is None:
+                return None
+            month = _NORWEGIAN_MONTH_NUMBERS.get(numberless.group(2).lower())
+            if month is None:
+                return None
+            return _no_numberless_law_base_id(int(numberless.group(1)), month, numberless.group(3))
         prefix = text[max(0, fallback.start() - 80) : fallback.start()].lower()
         if "lov" not in prefix:
             return None

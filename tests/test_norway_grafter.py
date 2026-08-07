@@ -35,7 +35,9 @@ from lawvm.norway.grafter import (
     _infer_same_base_sentence_target_specs_from_lead,
     _no_rettelse_item_target_from_lead,
     _normalize_no_chapter_scoped_section_lead,
+    _no_element_lead_text,
     _no_unstructured_law_switch_lead_base_id,
+    _split_no_run_on_lead_node,
     _split_no_trapped_payload_leads,
     _no_unstructured_lead_looks_operative,
     _split_no_sentences,
@@ -4762,13 +4764,21 @@ def test_no_period_less_nr_witness_binds_offentleglova() -> None:
     ``første stykket`` ops do not lower, so the act's single op is part III's.
     Before W-25 that op was the act's whole output and it sat on
     straffeprosessloven, inherited from part II's announcement.
+
+    W-28 closes the part I hole this docstring named: the numberless lead now
+    resolves and part I's § 19 op is emitted against forvaltningsloven
+    ``no/lov/1967-02-10-0``. Part III's op is untouched, which is what this test
+    is actually about, and straffeprosessloven is still absent.
     """
     html_bytes = load_no_amendment_bytes("no/lovtid/2009-01-30-7", _NO_FARCHIVE_PATH)
     assert html_bytes is not None
 
     grouped = dict(iter_no_document_change_ops(html_bytes, "no/lovtid/2009-01-30-7"))
 
-    assert sorted(grouped) == ["no/lov/2006-05-19-16"]
+    assert sorted(grouped) == ["no/lov/1967-02-10-0", "no/lov/2006-05-19-16"]
+    assert [op.target.path for op in grouped["no/lov/1967-02-10-0"]] == [
+        (("section", "19"), ("subsection", "1"))
+    ]
     ops = grouped["no/lov/2006-05-19-16"]
     assert [op.target.path for op in ops] == [(("section", "26"), ("subsection", "4"))]
     assert "no/lov/1981-05-22-25" not in grouped
@@ -6340,6 +6350,13 @@ def test_no_w34_straffeloven_consequential_act_stops_swallowing_its_own_items() 
     sections, and no citation in the document can reach forvaltningsloven, whose
     id carries no number. That residue is item 58's unresolvable citation, not a
     cursor boundary, and is left exactly where W-34 found it.
+
+    W-28 collects that residue, exactly as this docstring predicted: item 58's
+    citation resolves to ``no/lov/1967-02-10-0`` and the two forvaltningsloven
+    sections move off trygderettsloven onto the law they actually amend. The
+    stale base is now empty and drops out of the grouping, so the assertion is
+    inverted rather than edited — the residue the test was written to record no
+    longer exists. Items 59, 60 and 61, the W-34 subject, are unmoved.
     """
     html_bytes = load_no_amendment_bytes("no/lovtid/2015-06-19-65", _NO_FARCHIVE_PATH)
     assert html_bytes is not None
@@ -6356,8 +6373,10 @@ def test_no_w34_straffeloven_consequential_act_stops_swallowing_its_own_items() 
         (("section", "57"),),
         (("section", "62"), ("subsection", "2")),
     ]
-    # The stale carry-over keeps only the two forvaltningsloven sections.
-    assert [op.target.path for op in grouped["no/lov/1966-12-16-9"]] == [
+    # W-28: the two forvaltningsloven sections leave the stale carry-over for
+    # the law item 58 names, and trygderettsloven keeps nothing at all.
+    assert "no/lov/1966-12-16-9" not in grouped
+    assert [op.target.path for op in grouped["no/lov/1967-02-10-0"]] == [
         (("section", "13b"), ("subsection", "2"), ("sentence", "last")),
         (("section", "13e"), ("subsection", "3"), ("sentence", "1")),
     ]
@@ -6607,14 +6626,39 @@ def test_no_w35_w21_section_412_witness_is_byte_identical() -> None:
     elements and NOT ONE of them holds a child the W-34 predicate fires on,
     because its nested items are ``defaultP`` siblings. The split is a no-op
     here and the whole op stream is unmoved.
+
+    W-36 leaves that claim standing — the run-on pass fires ZERO times on this
+    act — but W-28 moves the pin, because this act is also where the ledger's
+    own second W-28 witness lives. Item 1 is Lappekodisillen 1751, a numberless
+    citation, and the numbers below move for that reason alone:
+
+    * 483 -> 484 ops: item 1's "§ 19 siste punktum skal lyde:" is the one op the
+      act was dropping, and it is now emitted against `no/lov/1751-10-02-0`.
+    * 214 -> 218 groups: four pre-numbering acts gain a group of their own —
+      Lappekodisillen, forvaltningsloven `1967-02-10-0`, bilansvarslova
+      `1961-02-03-0`, straffebestemmelser for utenlandske militærpersoner
+      `1916-03-17-0` — every one of them a law whose ops previously sat on a
+      neighbouring numbered act.
+    * The digest follows from those two.
+
+    What the pin still holds fixed is what it was written for: straffeloven 2005
+    keeps exactly its 22 ops and utleveringsloven exactly its 1, so the W-21 and
+    W-26 witnesses in this same act are untouched.
     """
     html_bytes = load_no_amendment_bytes("no/lovtid/2009-06-19-74", _NO_FARCHIVE_PATH)
     assert html_bytes is not None
 
     grouped = iter_no_document_change_ops(html_bytes, "no/lovtid/2009-06-19-74")
 
-    assert len(grouped) == 214
-    assert sum(len(ops) for _base_id, ops in grouped) == 483
+    assert len(grouped) == 218
+    assert sum(len(ops) for _base_id, ops in grouped) == 484
+
+    by_base = dict(grouped)
+    assert len(by_base["no/lov/2005-05-20-28"]) == 22
+    assert len(by_base["no/lov/1975-06-13-39"]) == 1
+    assert [op.target.path for op in by_base["no/lov/1751-10-02-0"]] == [
+        (("section", "19"), ("sentence", "last"))
+    ]
 
     def _flatten(node, prefix: str = "") -> list[str]:
         if node is None:
@@ -6630,4 +6674,344 @@ def test_no_w35_w21_section_412_witness_is_byte_identical() -> None:
             destination = op.destination.path if op.destination is not None else ""
             digest.update(f"{base_id}|{op.action.value}|{op.target.path}|{destination}|".encode())
             digest.update("\n".join(_flatten(op.payload)).encode())
-    assert digest.hexdigest()[:32] == "d915064433a7bbfd3d4a9b18f3c43b4b"
+    assert digest.hexdigest()[:32] == "4ae75aec8c4e068a383edbf1fe360cff"
+
+
+# ---------------------------------------------------------------------------
+# W-36: Lovdata run-on nodes (a lead nested inside the previous item's payload)
+# ---------------------------------------------------------------------------
+
+
+def _run_on_node(html: str) -> etree._Element:
+    return etree.fromstring(html.encode("utf-8"))
+
+
+def test_no_w36_run_on_node_frees_the_lead_nested_in_its_payload() -> None:
+    """W-36 witness, verbatim markup from ``no/lovtid/2004-06-25-53`` node [180].
+
+    Lovdata closes the paragraph LATE: the next item's lead is a real element,
+    but it hangs inside the previous item's payload node, four levels down
+    through ``ul.defaultList`` -> ``li`` -> ``article.listArticle``. On the base
+    the whole thing reads as one ``itertext()`` run, the node is not a lead, and
+    the swallowed lead is collected as payload.
+    """
+    node = _run_on_node(
+        '<article class="legalP">I saker som ikke gjelder § 32 eller kap. VIII, styres skjønnet av '
+        'lensmannen eller namsfogden.<ul class="defaultList"><li data-li-identifier="34."><article '
+        'class="listArticle"><article class="legalP">I lov 26. juni 1992 nr. 86 om tvangsfullbyrdelse '
+        "og midlertidig sikring gjøres følgende endringer:</article></article></li></ul></article>"
+    )
+
+    # The node itself is not a law-switch lead -- that is why W-34's cursor
+    # cannot stop at it and W-36 is needed at all.
+    assert _no_unstructured_law_switch_lead_base_id(_no_element_lead_text(node)) is None
+
+    split = _split_no_run_on_lead_node(node)
+    assert split is not None
+    truncated, freed = split
+
+    assert _no_element_lead_text(truncated) == (
+        "I saker som ikke gjelder § 32 eller kap. VIII, styres skjønnet av lensmannen eller namsfogden."
+    )
+    # The freed node is unwrapped down to the ``article`` the sibling walk reads;
+    # a ``ul`` handed back as-is would be skipped and the lead lost a second time.
+    assert [element.get("class") for element in freed] == ["legalP"]
+    assert _no_unstructured_law_switch_lead_base_id(_no_element_lead_text(freed[0])) == (
+        "no/lov/1992-06-26-86"
+    )
+
+
+def test_no_w36_run_on_split_holds_back_a_quoted_consequential_list() -> None:
+    """W-36 negative control: identical markup, genuine content.
+
+    ``no/lovtid/2009-06-19-100`` node [399] is plan- og bygningsloven's own
+    § 35-1 consequential list being enacted verbatim, so the nested lead is the
+    directive's PAYLOAD. The markup is byte-for-byte the shape the test above
+    splits; only the head tells them apart, and it ends in the colon that opens
+    a payload rather than in a completed sentence. Splitting it emitted a
+    kulturminneloven op the act never made.
+    """
+    node = _run_on_node(
+        '<article class="defaultP">§ 35-1 nr. 8 skal lyde:<ul class="defaultList">'
+        '<li data-li-identifier="8."><article class="listArticle"><article class="legalP">'
+        "I lov 9. juni 1978 nr. 50 om kulturminner (kulturminneloven) gjøres følgende endringer:"
+        "</article></article></li></ul></article>"
+    )
+
+    assert _split_no_run_on_lead_node(node) is None
+
+
+def test_no_w36_run_on_split_frees_a_consequential_part_intro() -> None:
+    """The other side of the same guard (``no/lovtid/2004-05-28-29`` node [39]).
+
+    A head that ends in a colon is not automatically a payload directive: the
+    consequential-part intro "Fra den tid loven trer i kraft, gjøres følgende
+    endringer i andre lover:" opens a LIST of amendments, and the intro marker
+    W-30 measured is what says so.
+    """
+    node = _run_on_node(
+        '<article class="legalP">Fra den tid loven trer i kraft, gjøres følgende endringer i andre '
+        'lover:<ul class="defaultList"><li data-li-identifier="1."><article class="listArticle">'
+        '<article class="legalP">I lov 10. juni 1966 nr. 5 om toll (tolloven) skal § 8 nr. 2 '
+        "bokstav b lyde:</article></article></li></ul></article>"
+    )
+
+    split = _split_no_run_on_lead_node(node)
+    assert split is not None
+    assert _no_unstructured_law_switch_lead_base_id(_no_element_lead_text(split[1][0])) == (
+        "no/lov/1966-06-10-5"
+    )
+
+
+def test_no_w36_run_on_split_does_not_tear_citing_prose() -> None:
+    """W-36 negative control: the false positive the ledger predicted.
+
+    ``no/lovtid/2015-06-19-48`` § 3 is quoted statutory prose whose later
+    sentence opens "I den utstrekning en klage gjelder et spørsmål ..." and
+    reads like a lead to a sentence-level predicate. It carries no element
+    boundary, which is exactly why the split is anchored on markup rather than
+    on sentences.
+    """
+    node = _run_on_node(
+        '<article class="numberedLegalP">Klage avgjøres av Klagenemnda. Klagefristen er 3 uker '
+        "regnet fra det tidspunkt ligningen utlegges. I den utstrekning en klage gjelder et "
+        "spørsmål som Klagenemnda finner er av liten betydning for den utlignede skatt, kan "
+        "Klagenemnda uten realitetsbehandling avvise klagen etter lov 13. juni 1980 nr. 24 om "
+        "ligningsforvaltning gjøres følgende endringer i saksbehandlingen.</article>"
+    )
+
+    assert _split_no_run_on_lead_node(node) is None
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w36_corpus_witness_finansforetaksloven_item_11() -> None:
+    """W-36 corpus witness: ``no/lovtid/2016-06-17-29`` item 11.
+
+    The ledger priced this act at 3 stale ops behind a mid-node item 11. The
+    lead sits inside item 10's ``numberedLegalP`` payload, one level below the
+    ``futureLegalArticle`` W-35 already splits, so it is reached only by running
+    both passes to a fixpoint -- this is the chain the second turn of the loop
+    exists for. On the base the three ops bind eiendomsmeglingsloven.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2016-06-17-29", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    grouped = dict(iter_no_document_change_ops(html_bytes, "no/lovtid/2016-06-17-29"))
+
+    assert [op.target.path for op in grouped["no/lov/2015-04-10-17"]] == [
+        (("section", "2-10"), ("subsection", "4"), ("sentence", "1")),
+        (("section", "2-11"), ("subsection", "3")),
+        (("section", "16-3"),),
+    ]
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w36_corpus_witness_allmennaksjeloven_item_17() -> None:
+    """W-36 corpus witness: ``no/lovtid/2014-05-09-16`` items 8 and 17-20.
+
+    The ledger priced this act at 9 stale ops behind mid-node items 17 and 20.
+    Both leads hang off a ``(1)`` numbered paragraph, which is never a lead of
+    its own, so nothing before W-36 could see them; item 8's lead is a run-on
+    INSIDE a ``futureLegalArticle``, which is what makes the run-on pass have to
+    precede W-35's rather than follow it.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2014-05-09-16", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    grouped = dict(iter_no_document_change_ops(html_bytes, "no/lovtid/2014-05-09-16"))
+
+    # Item 17: allmennaksjeloven, which bound nothing at all on the base.
+    assert [op.target.path for op in grouped["no/lov/1997-06-13-45"]] == [
+        (("section", "8-1"), ("subsection", "2")),
+        (("section", "8-1"), ("subsection", "3")),
+        (("section", "12-2"), ("subsection", "1"), ("sentence", "1")),
+        (("section", "16-9"), ("subsection", "1")),
+    ]
+    # Item 20: straffegjennomføringsloven.
+    assert "no/lov/2001-05-18-21" in grouped
+
+
+# ---------------------------------------------------------------------------
+# W-28: law citations that carry no Lovtidend number at all
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("citation", "base_id"),
+    [
+        # The ledger's primary witness, ``no/lovtid/2009-01-30-7`` part I.
+        (
+            "I lov 10. februar 1967 om behandlingsmåten i forvaltningssaker (forvaltningsloven) "
+            "skal § 19 fyrste ledd lyde:",
+            "no/lov/1967-02-10-0",
+        ),
+        # ``no/lovtid/2009-06-19-74`` item 1 / ``no/lovtid/2015-06-19-65`` item 1.
+        (
+            "1. I lov 2. oktober 1751 Første Codicill og Tillæg til Grendse-Tractaten imellem "
+            "Kongerigerne Norge og Sverrig Lapperne betreffende (Lappekodisillen) skal § 19 "
+            "siste punktum lyde:",
+            "no/lov/1751-10-02-0",
+        ),
+        # ``no/lovtid/2015-06-19-65`` item 42, via the intro-marker resolver.
+        (
+            "42. I lov 3. februar 1961 om ansvar for skade som motorvogner gjer "
+            "gjøres følgende endring:",
+            "no/lov/1961-02-03-0",
+        ),
+        # Nynorsk ``um`` instead of ``om``: servituttlova, the reason no tail
+        # word can be required of the numberless spelling.
+        (
+            "I lov 29. november 1968 um særlege råderettar over framand eigedom (servituttlova) "
+            "gjøres følgende endringer:",
+            "no/lov/1968-11-29-0",
+        ),
+    ],
+)
+def test_no_w28_numberless_citation_resolves_the_zero_numbered_act(citation: str, base_id: str) -> None:
+    """W-28: a pre-numbering act resolves to the ``-0`` id the corpus files it under.
+
+    This is not a date-uniqueness guess. Lovdata's own DokumentID for these acts
+    is date-only (``NL/lov/1967-02-10``) and the LTI filename writes the missing
+    number as ``000``, which the id normalizer turns into ``-0``. Measured over
+    the corpus: 22 of the 645 current-law ids end in ``-0``, every one of them
+    1687-1968 and every one a genuine pre-numbering act.
+    """
+    assert _extract_no_law_citation_base_id(citation) == base_id
+    assert _no_unstructured_law_switch_lead_base_id(citation) == base_id
+
+
+@pytest.mark.parametrize(
+    "citation",
+    [
+        # The number is present: the numbered head pattern must win, and the
+        # numberless fallback must never see the citation.
+        "59. I lov 16. juni 1967 nr. 3 om helsetjenesten skal § 2 lyde:",
+        "I lov 22. mai 1981 nr. 25 om rettergangsmåten i straffesaker skal § 67 lyde:",
+        "I midlertidig lov 17. juni 2005 nr. 95 om arbeids- og oppholdstillatelse skal § 4 lyde:",
+        "Lov 20. mai 2005 nr. 28 om straff endres slik:",
+        # The spaced ``nr 24`` spelling W-25 admitted.
+        "I lov 13. juni 1980 nr 24 om ligningsforvaltning gjøres følgende endringer:",
+    ],
+)
+def test_no_w28_a_numbered_citation_never_reaches_the_numberless_fallback(citation: str) -> None:
+    """Rank control: the ``-0`` id can only ever come from a citation with no number."""
+    resolved = _extract_no_law_citation_base_id(citation)
+    assert resolved is not None
+    assert not resolved.endswith("-0")
+
+
+@pytest.mark.parametrize(
+    "citation",
+    [
+        # `no/lovtid/2008-12-19-115`: Lovdata omits the number of an act that HAS
+        # one. Ungated, W-28 answers ``no/lov/2001-04-20-0`` — an id no corpus
+        # holds and a law that does not exist — and displaces the correct
+        # ``no/lov/2001-04-20-13`` the declared field already supplies.
+        "I lov 20. april 2001 om erstatning frå staten for personskade valda ved straffbar "
+        "handling m.m. (valdsoffererstatningslova) skal § 11 første ledd lyde:",
+        # The same shape at a date no attestation covers.
+        "I lov 4. mars 1994 om noe skal § 2 lyde:",
+    ],
+)
+def test_no_w28_unattested_date_does_not_resolve(citation: str) -> None:
+    """W-28's closed set is the whole guard against guessing.
+
+    A numberless citation resolves ONLY at a date the corpus itself attests as
+    numberless. Everywhere else the omission is the drafter's, and answering
+    would invent a law.
+    """
+    assert _extract_no_law_citation_base_id(citation) is None
+    assert _extract_no_embedded_multi_act_lead(citation) is None
+    assert _no_unstructured_law_switch_lead_base_id(citation) is None
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w28_numberless_law_dates_match_the_corpus() -> None:
+    """The closed set is Lovdata's, re-derived here so drift fails loudly.
+
+    Two independent attestations, either of which admits a date: the corpus
+    files a current or LTI law under ``<date>-0``, or an amending act declares
+    ``no/lov/<date>`` as a changed document. Measured 2026-08-07: 22 dates from
+    the first, 20 from the second, 11 in both, union 31.
+    """
+    from lawvm.norway.grafter import _NO_NUMBERLESS_LAW_DATES
+    from lawvm.norway.sources import (
+        declared_change_targets_from_amendment,
+        iter_no_amendment_artifacts,
+        load_available_lti_law_ids,
+        load_no_current_law_ids,
+    )
+
+    law_ids = load_no_current_law_ids(_NO_FARCHIVE_PATH) | load_available_lti_law_ids(_NO_FARCHIVE_PATH)
+    zero_numbered = {law_id[len("no/lov/") : -2] for law_id in law_ids if law_id.endswith("-0")}
+    declared: set[str] = set()
+    for artifact in iter_no_amendment_artifacts(_NO_FARCHIVE_PATH):
+        try:
+            targets = declared_change_targets_from_amendment(artifact.payload)
+        except Exception:  # pragma: no cover - a malformed header is not this test's subject
+            continue
+        for law_id in targets.law_ids:
+            body = law_id.removeprefix("no/lov/")
+            if len(body) == len("0000-00-00") and body.count("-") == 2:
+                declared.add(body)
+
+    assert len(zero_numbered) == 22
+    assert len(declared) == 20
+    assert len(zero_numbered & declared) == 11
+    assert zero_numbered | declared == set(_NO_NUMBERLESS_LAW_DATES)
+    # Closed by history: nothing enacted after Lovtidend numbering can enter.
+    assert max(_NO_NUMBERLESS_LAW_DATES) == "1968-11-29"
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w28_corpus_witness_forvaltningsloven_section_19() -> None:
+    """W-28 corpus witness: ``no/lovtid/2009-01-30-7`` part I.
+
+    "I lov 10. februar 1967 om behandlingsmåten i forvaltningssaker
+    (forvaltningsloven) skal § 19 fyrste ledd lyde:" resolved nothing on the
+    base, and because it is the FIRST part there was no ``active_base_id`` to
+    inherit, so the § 19 op was dropped outright rather than misbound.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2009-01-30-7", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    grouped = dict(iter_no_document_change_ops(html_bytes, "no/lovtid/2009-01-30-7"))
+
+    assert [op.target.path for op in grouped["no/lov/1967-02-10-0"]] == [
+        (("section", "19"), ("subsection", "1"))
+    ]
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w28_corpus_witness_bilansvarslova_item_42() -> None:
+    """W-28 corpus witness: ``no/lovtid/2015-06-19-65`` item 42.
+
+    "42. I lov 3. februar 1961 om ansvar for skade som motorvogner gjer gjøres
+    følgende endring:" -- one of the five enumeration gaps W-35's ordinal
+    accounting left open, and the ledger filed it as a numberless citation
+    rather than a run-on. It is: the item is an ordinary sibling lead whose only
+    defect is the missing number.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2015-06-19-65", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    grouped = dict(iter_no_document_change_ops(html_bytes, "no/lovtid/2015-06-19-65"))
+
+    assert [op.target.path for op in grouped["no/lov/1961-02-03-0"]] == [
+        (("section", "20"), ("subsection", "2"))
+    ]
