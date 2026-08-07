@@ -41,6 +41,7 @@ consolidation; every class below is evidence to triage, not a repair license.
 | **2026-07-10, after W-18 (57 candidates)** | **22** | **35** | 0 |
 | **2026-07-10, after W-30 (56 candidates; see note)** | **22** | **34** | 0 |
 | **2026-07-10, after W-34 (56 candidates; see note)** | **21** | **35** | 0 |
+| **2026-07-10, after W-35 (56 candidates)** | **22** | **34** | 0 |
 
 W-15 commensurability caveat: the candidate set moved 58 → 56, so the 21/35
 row is not row-for-row comparable with the 18/40 row above. On the 54 laws
@@ -1660,17 +1661,54 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    item 178 binds; sparse count 3 → 2). Unexplained divergences
    330 → 278. Pins updated in-place per the signed-off package.
 35. **W-35 (`futureLegalArticle`-internal trapped leads, payload-internal
-   seam):** found at W-34, the sole cause of the `2005-06-03-34`
-   consistent→divergent flip. Measured: after W-34, 42/42 remaining
-   op payloads containing a law-switch lead have it INSIDE a
-   `futureLegalArticle` element — the lead is markup-internal, not a
-   sibling, so an inter-node cursor cannot reach it; the fix is a
-   payload-internal split, a different seam from W-34. The class costs
-   0 ops in 15 of its 16 laws (their leads trapped there produce
-   nothing either way); the 16th is `2005-06-03-34`'s 3 divergences.
-   Also recorded: 2 corpus run-on nodes (one `legalP` that is both a
-   payload tail and the next lead's head — the W-34 predicate's 2
-   deliberate rejects) are the same family's sibling-level cousin.
+   seam):** DONE (`6fe57ebec`, 2026-08-07). Corpus census: of 7,538
+   `futureLegalArticle` elements crossed by a payload run, 41 contain
+   trapped leads (52 leads, 6 artifacts; W-34's "42" was its own
+   per-op-payload count). **Classified 52/52 trapped markup, 0 genuine
+   content, 0 residue** — the decisive proof is ORDINAL GAP-FILL:
+   50/52 carry item ordinals that are disjoint from the sibling
+   enumeration's AND fill its gaps exactly (genuine quoted content
+   would have to duplicate a used number or invent one outside the
+   run); the other 2 trapped tails open with the NEXT PART's flattened
+   `centeredP` roman marker. Split design: one positional pass after
+   the flatten — the first direct child W-34's law-switch predicate
+   fires on opens the trapped tail; everything from there re-enters
+   the sibling stream after the truncated element, where the full
+   existing machinery handles it (freed leads chain through further
+   trapped elements with no special casing). Deep-copies rather than
+   mutating (the rettelse reader walks the same tree — receipts 8 → 8
+   byte-identical). DOM audit: 65 children removed = 52 leads + 13
+   their payloads, 0 orphans, 41/41 retained heads byte-identical.
+   Conservation: +16 ops net (30 truncations, 74 pure rebinds, 20 new,
+   4 rebind-plus-truncation pairs); rebind adjudication vs the TRUE
+   governing item: 62 wrong→right, 13 stale→stale (all under leads no
+   resolver can reach — run-ons and numberless citations), 0
+   right→wrong. Bindings +37 = exactly the declared-unbound pair drop
+   (2,642 → 2,605). W-21 §412 witness pinned byte-identical (214
+   groups / 483 ops / payload digest). Scan, signed off 2026-08-07:
+   `2005-06-03-34` 3 → 0 divergent → CONSISTENT (the W-34 flip
+   returned), `2001-01-05-1` 83 → 81, `2001-06-15-65` 4 → 2 — all
+   three the identical mechanism; scoreboard back to 22/34; ceiling
+   untouched at 918; unexplained 278 → 271. Residue invariant 57 → 13
+   op payloads containing a lead: 7 Lovdata run-ons (→ W-36) + 6
+   benign self-referential.
+36. **W-36 (Lovdata run-on nodes, mid-node lead extraction):** the last
+   reachable class of swallowed leads — a single `legalP` that
+   concatenates one lead's payload tail with the NEXT lead's head
+   (W-34's 2 predicate-rejects plus the mid-node instances W-35's
+   audits surfaced). Measured cost today: 9 stale→stale ops in
+   `2014-05-09-16` (items 17/20 buried mid-node), 3 in `2016-06-17-29`
+   (item 11, finansforetaksloven), 7 op payloads still carrying a
+   foreign lead in `2004-06-25-53`. Fix shape: split the node at the
+   mid-node lead boundary (the W-34 first-sentence predicate applied
+   at sentence granularity instead of node granularity) — needs its
+   own measured pass; the enumeration-gap lists from W-35
+   (`2015-06-19-65`: items 6, 16, 42, 50, 58, 107–108, 195–197, 220,
+   237; `2014-05-09-16`: items 2, 4, 8, 17–20, 26) are the ready-made
+   work queue, though several gaps are the W-28 numberless-citation
+   family, not run-ons. Also noted at W-35: `future_articles[0]`
+   indexing is a latent single-payload assumption when a run carries
+   two `futureLegalArticle` nodes.
 
 ## 5. Demo / Inspection Tooling
 
@@ -1688,6 +1726,23 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-07 (W-35 applied)** — **The trapped-lead seam is closed
+  with a zero-guess classification, and the W-34 flip comes home:
+  `2005-06-03-34` is consistent again, with two bonus repairs by the
+  identical mechanism** (`6fe57ebec`). 52/52 trapped leads classified
+  markup-error by the ordinal gap-fill proof (trapped ordinals
+  disjoint from AND filling the sibling enumeration's gaps — a
+  signature genuine quoted content cannot produce). One positional
+  split pass; freed leads re-enter the sibling stream and the full
+  machinery handles them, chaining included. DOM audit 0 orphans;
+  conservation +16 ops with 62 wrong→right rebinds and 0 right→wrong;
+  bindings +37 = the declared-unbound pair drop exactly; W-21's §412
+  witness byte-identical by digest. Scan signed off: three rows, all
+  the same mechanism, scoreboard 21/35 → 22/34, unexplained
+  278 → 271, ceiling untouched. Opened **W-36** for the run-on class
+  — the last reachable swallowed-lead family, with W-35's
+  enumeration-gap lists as its ready-made work queue.
 
 - **2026-08-07 (W-34 applied)** — **The payload cursor stops at
   law-switch leads, and the boundary is a measured predicate, not a
