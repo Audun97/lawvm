@@ -1400,21 +1400,37 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    RESIDUE as the actionable number, frontier's active-lane priority
    places annex_ceiling as least-actionable divergent lane (measured
    no-op today). Corpus-gated test pins the full 57-law membership.
-24. **W-24 (Del/part-scoped address → law resolution, general lowering
-   gap):** 5 of the 12 typed errata (W-18) are blocked on one missing
-   capability — resolving a host act's `Del <N>` / `§ X nr. Y` reference
-   to the law that part amends (`2019-12-20-110` Del I → kringkasting,
-   `2022-05-12-28` § 73 nr. 7 → nested, `2023-12-20-98` Del V →
-   skatteloven, `2025-06-20-101` del II, and the near-miss
-   `2020-12-04-137` Del IV → eierseksjonsloven `2017-06-16-65` § 49(2)
-   bokstav f, whose target is even explicitly cited and in-grammar). The
-   same address shape appears in ordinary amending grammar, so this is a
-   general lowering gap, not erratum-specific. CAUTION, measured at
-   W-18: lowering the eierseksjonsloven erratum today would attach a
-   CONTINGENT indexed amendment (`Kongen fastset` host act) to a scan
-   candidate at 57 divergences and decertify it out of the candidate set
-   — a verdict change. Del-scoped errata need part→law resolution AND a
-   commencement story before any of them can land.
+24. **W-24 (Del/part-scoped address → law resolution for errata):** DONE
+   (`3acbd3d57`, 2026-08-07). Del-scoped erratum directives now resolve
+   their part to its law by REUSING the grafter's two existing resolvers
+   (structured: the part's `document-change` `data-document`s, required
+   to agree; unstructured: `_infer_no_unstructured_section_base_id` over
+   the part's children), dispatched on the same predicate
+   `iter_no_document_change_ops` uses — no second resolver. Parts key on
+   Lovdata's `data-name="kap<ROMAN>"`, roman-only (chapter-numbered acts
+   spell `kap15` and must stay unreachable). New anchored productions
+   only as far as the measured five require: two Del-scope prefixes,
+   `§ X overskriften` heading address, ledd-less `§ X bokstav <l>`; the
+   explicit-citation clause is a CROSS-CHECK (cited law must agree with
+   the part's law), and the load-bearing new guard is
+   `no_corrected_host_op` — a Del-scoped erratum corrects the host's OWN
+   amendment, so the corrected address must already be in the artifact's
+   lowered op stream for that law. Adjudication: 2 LOWERED
+   (`2019-12-20-110` Del I → kringkastingsloven §8-2 heading;
+   `2023-12-20-98` Del V → skatteloven §5-42 bokstav a — both verified
+   `host_text.replace(typo, fix) == erratum_text` on corpus bytes, the
+   sign-off-accepted method since neither target is replayable; both
+   dated per W-18's rule, sequenced after every op they could correct);
+   3 EXCLUDED with sharper typed reasons (`2022-05-12-28` nested
+   cross-act — the directive never names the target law;
+   `2020-12-04-137` and `2025-06-20-101` `no_corrected_host_op` — their
+   hosts' own leads never lowered, → W-32). **The W-18 decertification
+   warning proved STALE**: post-W-30 `2020-12-04-137` already binds
+   eierseksjonsloven and is `instrument_authorized` at 2021-01-01, not
+   contingent — no decertification was possible. Corpus: n_ops +2
+   (exactly the two errata), everything else identical, scan 0/56 rows
+   moved, receipts 11 → 9. General surface censused, NOT wired (110
+   rows / 57 artifacts, → W-33 with the anaphoric-antecedent hazard).
 25. **W-25 (period-less `nr` citations defeat every citation regex):**
    DONE (`38d9bc686`, 2026-08-06, landed jointly with W-26). The
    `nr` grammar now lives in ONE shared constant (`nr\.?\s+(\d+)`) used
@@ -1545,6 +1561,36 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    inert (nothing downstream depends on collection order any more) but
    it is the last reason that sort exists; and `OrderedOps.justification`
    remains unreachable from production (the W-10 residual).
+32. **W-32 (two host-lead lowering gaps blocking the last Del errata,
+   small):** found at W-24, each with a corpus witness and each the
+   sole blocker of one typed erratum. (a) Multi-`bokstav` leads —
+   `2020-12-04-137` Del IV's "§ 49 andre ledd bokstav e og ny bokstav f
+   skal lyde" drops BOTH ops silently; bokstav f does not exist in
+   eierseksjonsloven's live text because nothing creates it. Lowering
+   this lead unblocks the eierseksjonsloven erratum with zero scan
+   consequence (measured at W-24: the host is instrument_authorized and
+   already bound). (b) Renumber-plus-replace leads — `2025-06-20-101`
+   Del II's "§ 14 a blir ny § 28 b og skal lyde:" survives only as a
+   bare RENUMBER; the replacement half is lost, and the live §28b(2)
+   carries a stale "§ 14 a. Studentombud" heading from the renumber
+   path (W-31-adjacent). Related, blast radius UNMEASURED, touch only
+   with a sweep: spaced letter-suffixed section labels (`§ 28 b`)
+   defeat the shared sentence grammar's `[0-9A-Za-z-]+` label class
+   corpus-wide.
+33. **W-33 (ordinary Del-scope references, wiring after W-24's census):**
+   110 rows / 57 artifacts where an ordinary lead scopes an address to
+   `Del <N>` (census `.tmp/w24/general_surface_census.json`): 42
+   own-part rows (28 already resolve), 34 foreign-part-explicit (16
+   misbind hazards), 14 foreign-part-anaphoric (7 hazards), 20 inert
+   commencement clauses. HARD-WON WARNING for any wiring: `lovens del
+   <N>` is ANAPHORIC to the act announced by the enclosing part, not to
+   the host artifact — witness `no/lovtid/2014-12-19-73` Del X, where
+   "I lovens del II …" means `2014-03-07-5`'s Del II, and reading the
+   host's own Del II binds `1949-07-28-26` instead of `1953-06-26-11`.
+   23 of the 48 foreign rows get a confident wrong answer from a naive
+   part resolver; the antecedent must resolve first. W-24's shipped
+   code is immune (directive-anchored Del prefix, no anaphoric erratum
+   exists).
 
 ## 5. Demo / Inspection Tooling
 
@@ -1562,6 +1608,30 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-07 (W-24 applied)** — **Del-scoped errata resolve their
+  part's law through the grafter's own resolvers, two of the five
+  excluded errata lower with byte-exact verification, and the W-18
+  decertification warning is measured stale** (`3acbd3d57`). No
+  second resolver: parts dispatch on the same predicate ordinary
+  lowering uses, roman-keyed so chapter-numbered acts stay
+  unreachable. The `no_corrected_host_op` guard is the design's core —
+  an erratum corrects the host's own amendment, so the corrected
+  address must exist in the artifact's op stream, which splits the
+  four Del cases 2/2 and prevents a correction landing on an unrelated
+  live provision. The two lowered ops (kringkastingsloven §8-2
+  heading, skatteloven §5-42 bokstav a) are verified by
+  `host.replace(typo, fix) == erratum` on corpus bytes — the
+  sign-off-accepted method where no PIT replay exists — and dated per
+  W-18's binding rule. Three sharper exclusions; receipts 11 → 9;
+  n_ops +2 and NOTHING else moves (scan 0/56 rows). Stale-warning
+  finding: `2020-12-04-137` is instrument_authorized and already bound
+  post-W-30, so the feared decertification of eierseksjonsloven was
+  never live. Opened **W-32** (the two host-lead lowering gaps that
+  now solely block the last two Del errata) and **W-33** (ordinary
+  Del-scope wiring, 110-row census, with the anaphoric `lovens del`
+  hazard that would misbind 23 of 48 foreign rows under a naive
+  resolver).
 
 - **2026-08-06 (W-12 applied)** — **The last parallel ordering surface
   is closed: heading groups fold in kernel-keyed temporal order, and
