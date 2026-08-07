@@ -930,6 +930,38 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
 > smaller genuine-sparsity rows measured in the triage (97 divergences / 3
 > laws total for the family).
 
+> **Second re-file (F-09 probe, 2026-08-07): the family's headline example
+> was ALSO mislabeled.** A ground-truth probe on `2001-01-05-1` (parse the
+> published consolidation's own `changesToParent` change notes — 22
+> provisions, 22 notes, 0 without one — for the TRUE amender list, then
+> attribute all 81 divergences) found the law has exactly THREE amending
+> acts, ALL in the archive, ALL declaring it: `2015-06-19-65` (binds, 591
+> ops), `2023-06-02-19` (binds, 2 ops), and `no/lovtid/2009-06-19-85` —
+> which RE-ENACTED THE WHOLE LAW (new §1/§17/§18, old §1–18 renumbered
+> §2–22) and binds NOTHING. **Attribution: (a) extraction 81, (b) missing
+> data 0, (c) 0.** The single cause is a one-token lead-grammar gap: the
+> 2009 act's part lead `"I lov 5. januar 2001 nr. 1 om vaktvirksomhet skal
+> følgende bestemmelser lyde:"` — the citation resolves; the tail is not in
+> the action grammar (family census: `skal følgende bestemmelser|paragrafer
+> lyde` = 4 acts corpus-wide vs 1,810 for `gjøres følgende endringer`).
+> Proof: 60/64 quotable rows 8-gram-present in the 2009 act's payload; the
+> 4 non-quotable land exactly on its pure-renumber leads; old→new address
+> map beats identity on 13 sections. Mechanisms: 60
+> wholesale_reenactment_lead / 11 relocated / 6 dropped / 4 pure_renumber.
+> The archive itself is CLEAN: 0 pre-2001 artifacts, 0 post-2001-but-absent
+> amenders. Repair is TWO-PART BY NECESSITY (→ W-39): the act is contingent
+> (`Kongen bestemmer.`), so the lead fix alone decertifies the law; the
+> commencement instrument `no/forskrift/2011-04-01-342` commences Part I at
+> 2011-04-01 but fails the whole-act-scope gate — part-scoped authorization
+> is the other half. F-09 proper is now ONLY the smaller genuine-sparsity
+> rows (~16 divergences / 2 laws from the triage); the claim "acquisition
+> ceilings, excluded from engine-defect counts" no longer covers this law.
+> Secondary observation, not chased: `2009-06-19-74` binds this law 1 op
+> WITHOUT declaring it (42 declared vs 218 bound — an inverse-F-10
+> signature) and Lovdata credits that provision to `2015-06-19-65`; its
+> `dated 2009-06-19` status also deserves a check. Probe artifacts:
+> `.tmp/f09-probe/` (p12_final.json holds the full 81-row attribution).
+
 ## 4. Work Queue (ordered)
 
 1. ~~**W-1 (F-06):** strip the footnote-anchor space in the compare-only
@@ -1765,6 +1797,34 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    id and now binds `-0` (canonicalization improvement costing one
    newly-receipted pair); `future_articles[0]` single-payload
    assumption still latent.
+39. **W-39 (vaktvirksomhetsloven repair: re-enactment lead tail +
+   part-scoped commencement, TWO-PART BY NECESSITY):** from the F-09
+   probe (2026-08-07) — the single fix worth 81 scan divergences, the
+   largest single-law prize left on the board, but BOTH halves must
+   land together or the law gets worse. (i) Lead grammar: the
+   collective re-enactment tail `skal følgende bestemmelser lyde:`
+   (and `… paragrafer lyde:`) — 4 acts corpus-wide — is not in the
+   action grammar; the witness `no/lovtid/2009-06-19-85` re-enacted
+   the whole law (new §1/§17/§18, renumber §1–18 → §2–22) and binds
+   nothing, receipted `lead_base_unresolved` ×7. The payload is a
+   sequence of full sections plus pure-renumber leads — closer to the
+   W-32(b) renumber-plus-replace family at act scale than to ordinary
+   leads; sweep the 4 acts before designing. (ii) Commencement: the
+   act is contingent (`Kongen bestemmer.`); binding it without
+   authorization decertifies the law (standing pricing rule). The
+   instrument `no/forskrift/2011-04-01-342` ("Delvis ikraftsetting",
+   2011-04-01, header `Endrer lov/2001-01-05-1`) commences exactly
+   Part I but fails the whole-act-scope conjunct — the needed
+   capability is PART-SCOPED commencement authorization for multi-part
+   staged acts (the same gap W-24 recorded for the eierseksjonsloven
+   family from the other side; `no/forskrift/2023-05-11-690` is the
+   Part II twin). Expected payoff when both land: `2001-01-05-1`
+   81 → near-0 (60 rows 8-gram-proven + 11 relocated + 6 dropped + 4
+   renumber, all from the one act), scoreboard +1 consistent
+   candidate — price the residual honestly at landing. Also check the
+   probe's secondary observation while in the area: `2009-06-19-74`
+   binds this law without declaring it and Lovdata credits the
+   provision elsewhere.
 
 ## 5. Demo / Inspection Tooling
 
@@ -1782,6 +1842,25 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-07 (F-09 probe: vaktvirksomhetsloven re-attributed)** —
+  **The sparse-source family's headline example is not sparse: all 81
+  of `2001-01-05-1`'s divergences are extraction, zero are missing
+  data.** Research-only (artifacts `.tmp/f09-probe/`). Method: the
+  published consolidation's own per-provision change notes give the
+  TRUE amender list (3 acts, all in-archive, all declaring); the
+  whole-law re-enactment act `2009-06-19-85` binds nothing on a
+  one-token lead-grammar gap (`skal følgende bestemmelser lyde:` — 4
+  acts corpus-wide carry the tail), proven by 8-gram containment on
+  60/64 quotable rows plus the renumber receipts and the old→new
+  address map. The archive is clean both ways (0 pre-2001, 0
+  post-2001-absent amenders). F-09 re-filed a second time — the
+  family now holds only ~16 genuinely-sparse divergences — and
+  **W-39** opened for the two-part repair (lead tail + part-scoped
+  commencement authorization, which must land TOGETHER or the law
+  decertifies; the instrument for Part I exists and is per-part
+  clean). The largest single-law prize on the board: 81 rows behind
+  one act.
 
 - **2026-08-07 (W-36 + W-28 applied)** — **The last reachable
   swallowed-lead class is gone and the pre-numbering acts join the
