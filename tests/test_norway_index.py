@@ -1277,7 +1277,14 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
         (entry.source_id, base_id) for entry in index.entries for base_id in entry.base_ids
     }
     assert len(bindings) == 6084
-    assert sum(entry.n_ops for entry in index.entries) == 26218
+    # 26,218 at W-30; +2 at W-24, both reconciled to a named erratum and neither
+    # touching this test's own subject. W-24 lowered two Del-scoped Rettelser
+    # corrections into the law each part amends — ``2019-12-20-110`` Del I into
+    # kringkastingsloven and ``2023-12-20-98`` Del V into skatteloven — and both
+    # append to a group this artifact ALREADY bound, so bindings (6,084) and
+    # entries (2,544) above are unmoved, as are every status count,
+    # ``fully_replayable`` (56) and all 56 scan rows.
+    assert sum(entry.n_ops for entry in index.entries) == 26220
 
 
 def test_no_amendment_index_staleness_report_detects_archive_change(tmp_path) -> None:

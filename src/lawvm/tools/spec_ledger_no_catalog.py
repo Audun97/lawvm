@@ -246,29 +246,63 @@ _NO_RULE_SPECS: Dict[str, str] = {
     ),
     "no_rettelse_lowered": (
         "A published Rettelser correction carried by Lovdata's typed "
-        "gazettenote/rettelse marker resolved a clean same-act item address and "
-        "was lowered as an ordinary REPLACE op, dated by the host act's own "
-        "commencement (the rettelse announcement date rides in provenance, "
-        "apply-inert). W-18."
+        "gazettenote/rettelse marker resolved a clean address and was lowered "
+        "as an ordinary REPLACE op, dated by the host act's own commencement "
+        "(the rettelse announcement date rides in provenance, apply-inert). "
+        "The address is same-act, or — since W-24 — scoped to a Del of the host "
+        "act and bound to the law that part amends. W-18, W-24."
     ),
     "no_rettelse_not_lowered": (
         "A published Rettelser correction was NOT lowered — excluded with a "
-        "typed, non-blocking receipt naming the reason (no same-act item "
-        "address, or no unique item payload) rather than silently skipped. "
-        "Covers publication-metadata errata the IR does not model and "
-        "part-scoped/nested addresses pending Del-to-law resolution (ledger "
-        "W-24). W-18."
+        "typed, non-blocking receipt naming the reason rather than silently "
+        "skipped. Covers publication-metadata errata the IR does not model, "
+        "nested cross-act addresses that name no law, and Del-scoped addresses "
+        "whose corrected host op is itself unlowered. W-18, W-24."
     ),
     "no_same_act_item_address": (
         "Reason detail on a no_rettelse_not_lowered receipt: the correction "
         "directive did not resolve to a single same-act item address (metadata "
-        "field, part-scoped or nested-cross-act shape, or non-item leaf), so "
-        "no op was emitted."
+        "field or non-item leaf), so no op was emitted."
     ),
     "no_unique_item_payload": (
         "Reason detail on a no_rettelse_not_lowered receipt: the correction "
         "directive resolved an address but its note did not yield exactly one "
         "item payload, so binding would be a guess and no op was emitted."
+    ),
+    "no_nested_cross_act_address": (
+        "Reason detail on a no_rettelse_not_lowered receipt: the correction "
+        "directive starts at a section and names a SECOND one, reaching another "
+        "act through the host act's own body without citing that act. Binding "
+        "either section corrupts text, so the whole shape is excluded. W-24."
+    ),
+    "no_part_base_act": (
+        "Reason detail on a no_rettelse_not_lowered receipt: the correction "
+        "directive scoped itself to a Del of the host act, but that part "
+        "resolved no base act — absent, or its own change wrappers named more "
+        "than one law. W-24."
+    ),
+    "no_part_citation_agreement": (
+        "Reason detail on a no_rettelse_not_lowered receipt: the correction "
+        "directive cited a law explicitly AND scoped itself to a Del, and the "
+        "two resolutions disagreed. Neither is preferred over the other. W-24."
+    ),
+    "no_part_scoped_target_address": (
+        "Reason detail on a no_rettelse_not_lowered receipt: the Del scope and "
+        "its law resolved, but the residual address is not in the erratum "
+        "target grammar, so no op was emitted. W-24."
+    ),
+    "no_part_scoped_payload": (
+        "Reason detail on a no_rettelse_not_lowered receipt: the Del-scoped "
+        "target resolved but the note yielded no unique payload for its leaf "
+        "kind, so binding would be a guess. W-24."
+    ),
+    "no_corrected_host_op": (
+        "Reason detail on a no_rettelse_not_lowered receipt: the Del-scoped "
+        "target resolved, but this artifact's own lowered ops touch no such "
+        "address in that law. A Del-scoped erratum corrects the host act's own "
+        "amendment text, so with that amendment unlowered there is nothing to "
+        "correct and the address denotes a DIFFERENT provision in the law's "
+        "live text. W-24."
     ),
     "no_parse_unstructured_lead_unmatched": (
         "An unstructured Norway amendment lead looked operative but matched no "

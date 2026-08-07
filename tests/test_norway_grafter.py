@@ -5101,8 +5101,10 @@ def test_no_rettelse_does_not_bind_a_nested_cross_act_address() -> None:
     )
 
     assert grouped == []
+    # W-24 sharpened the reason: this is not "no address at all", it is an
+    # address that reaches a second act the directive never names.
     assert [a.detail["reason"] for a in adjudications if a.kind == "no_rettelse_not_lowered"] == [
-        "no_same_act_item_address"
+        "no_nested_cross_act_address"
     ]
 
 
@@ -5147,14 +5149,26 @@ def test_no_rettelse_rule_ignores_ordinary_act_text_containing_rettet() -> None:
     reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
 )
 def test_no_rettelse_corpus_enumeration_is_pinned() -> None:
-    """The whole ``Det som er rettet`` population, measured 2026-08-05.
+    """The whole ``Det som er rettet`` population, re-measured 2026-08-07 (W-24).
 
     25 artifacts carry the block; 11 of them (12 notes) use Lovdata's typed
-    ``gazettenote``/``rettelse`` marker, which is this rule's entire domain. Of
-    those 12 notes exactly 1 resolves a clean same-act item address — the
-    witness — and the other 11 are excluded with a typed receipt. The remaining
-    14 artifacts are the untyped 2003–2011 generation, deliberately out of
-    domain (see the rule's header comment).
+    ``gazettenote``/``rettelse`` marker, which is this rule's entire domain. The
+    remaining 14 artifacts are the untyped 2003–2011 generation, deliberately
+    out of domain (see the rule's header comment).
+
+    W-18 pinned 1 lowered / 11 excluded. W-24 moves it to 3 / 9 — the two Del-
+    scoped errata whose part resolves to a law AND whose corrected address the
+    host act's own op stream already touches:
+
+      * ``2019-12-20-110`` Del I → kringkastingsloven ``1992-12-04-127`` § 8-2's
+        heading, correcting the host act's own "kringkastingsmottake".
+      * ``2023-12-20-98`` Del V → skatteloven ``1999-03-26-14`` § 5-42 bokstav a,
+        correcting the host act's own "uføre-ytelser".
+
+    The other three Del/nested errata stay excluded on measurement, not on
+    grammar convenience: ``2022-05-12-28`` names no target law at all, and
+    ``2020-12-04-137`` / ``2025-06-20-101`` correct host amendments that are
+    themselves unlowered (see the rule's header comment).
     """
     from lawvm.norway.sources import iter_no_amendment_artifacts
 
@@ -5180,8 +5194,12 @@ def test_no_rettelse_corpus_enumeration_is_pinned() -> None:
         )
 
     assert artifacts_with_block == 25
-    assert lowered == ["no/lovtid/2020-12-18-156"]
-    assert len(excluded) == 11
+    assert lowered == [
+        "no/lovtid/2019-12-20-110",
+        "no/lovtid/2020-12-18-156",
+        "no/lovtid/2023-12-20-98",
+    ]
+    assert len(excluded) == 9
     assert len(lowered) + len(excluded) == 12
 
 
@@ -5220,6 +5238,364 @@ def test_no_rettelse_witness_replay_carries_the_corrected_citation() -> None:
     assert item is not None
     assert "skatteloven § 2-3 første ledd bokstav b" in (item.text or "")
     assert "skatteloven § 23 " not in (item.text or "")
+
+
+# ── W-24: Del-scoped erratum addresses resolve to the law the part amends ─────
+
+
+@pytest.mark.parametrize(
+    ("directive", "expected"),
+    [
+        # The two measured scope prefixes.
+        ("Del I § 8-2 overskriften skal lyde:", ("I", "§ 8-2 overskriften skal lyde:")),
+        ("Del V, § 5-42 bokstav a skal lyde:", ("V", "§ 5-42 bokstav a skal lyde:")),
+        (
+            "I del II skal § 28 b andre ledd tredje punktum skal lyde:",
+            ("II", "§ 28 b andre ledd tredje punktum skal lyde:"),
+        ),
+        # The locative form's "skal" belongs to the PREFIX; the residue keeps
+        # its own, so it stays a well-formed directive on its own.
+        (
+            "Del IV endringen i lov 16. juni 2017 nr. 65 om eierseksjoner § 49 andre ledd bokstav f skal lyde:",
+            ("IV", "endringen i lov 16. juni 2017 nr. 65 om eierseksjoner § 49 andre ledd bokstav f skal lyde:"),
+        ),
+        # Not part-scoped: the same-act and nested shapes must not be captured.
+        ("§ 5 første ledd annet strekpunkt skal lyde:", None),
+        ("§ 73 nr. 7 § 6-7 første ledd bokstav e skal lyde:", None),
+        ("Referansefeltet siste punktum skal lyde:", None),
+        # Roman-only. "Del 4" is not a Lovtidend part spelling, and admitting
+        # digits would let the resolver reach ``kap4``-style chapters.
+        ("Del 4 § 8-2 overskriften skal lyde:", None),
+    ],
+)
+def test_no_rettelse_part_scope_split_is_anchored_and_roman_only(
+    directive: str, expected: tuple[str, str] | None
+) -> None:
+    from lawvm.norway.grafter import _no_rettelse_part_scope_from_directive
+
+    assert _no_rettelse_part_scope_from_directive(directive) == expected
+
+
+@pytest.mark.parametrize(
+    ("residual", "expected"),
+    [
+        # New at W-24: a section-heading address, and a lettered item with no
+        # ledd between it and the section (skatteloven § 5-42's actual shape,
+        # confirmed by the host act's own op for the same address).
+        ("§ 8-2 overskriften skal lyde:", (("section", "8-2"),)),
+        ("§ 5-42 bokstav a skal lyde:", (("section", "5-42"), ("item", "a"))),
+        # Reused from W-18's item grammar, unchanged.
+        (
+            "§ 49 andre ledd bokstav f skal lyde:",
+            (("section", "49"), ("subsection", "2"), ("item", "f")),
+        ),
+        # Reused from the shared sentence grammar, single-spec only.
+        (
+            "§ 28 andre ledd tredje punktum skal lyde:",
+            (("section", "28"), ("subsection", "2"), ("sentence", "3")),
+        ),
+        # A multi-sentence directive has no single address to bind.
+        ("§ 28 andre ledd andre og tredje punktum skal lyde:", None),
+        # Still single-``§``: the Del scope does not license a nested address.
+        ("§ 73 nr. 7 § 6-7 første ledd bokstav e skal lyde:", None),
+        # The shared sentence grammar cannot express a spaced letter-suffixed
+        # section label; measured, and deliberately not widened here — widening
+        # it would move ordinary lowering corpus-wide (see W-24's report).
+        ("§ 28 b andre ledd tredje punktum skal lyde:", None),
+        # Not an address at all.
+        ("Referansefeltet siste punktum skal lyde:", None),
+    ],
+)
+def test_no_rettelse_part_target_grammar_is_anchored(
+    residual: str, expected: tuple[tuple[str, str], ...] | None
+) -> None:
+    from lawvm.norway.grafter import _no_rettelse_part_target_from_residual
+
+    target = _no_rettelse_part_target_from_residual(residual)
+    assert (target.path if target is not None else None) == expected
+
+
+def test_no_rettelse_del_scoped_erratum_binds_the_law_that_part_amends() -> None:
+    """``Del V, § 5-42 bokstav a`` binds skatteloven, not the host act.
+
+    The part's law comes from the SAME resolver the structured lowering uses —
+    the ``document-change`` wrapper inside that part — so an erratum can never
+    name a law the part's own ops do not.
+    """
+    amendment_xml = """<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <main>
+      <section class="section" data-name="kapI" id="kapittel-1">
+        <h2>I</h2>
+        <article class="document-change" data-document="lov/1999-03-26-14">
+          <article class="change" data-change-part="lov/1999-03-26-14/§4-19">
+            <article class="defaultP">§ 4-19 fjerde ledd skal lyde:</article>
+            <article class="numberedLegalP" data-numerator="4">(4) Ved beregning av verdien.</article>
+          </article>
+        </article>
+      </section>
+      <section class="section" data-name="kapV" id="kapittel-5">
+        <h2>V</h2>
+        <article class="document-change" data-document="lov/1999-03-26-14">
+          <article class="change" data-change-part="lov/1999-03-26-14/§5-42/bokstav/a">
+            <article class="defaultP">§ 5-42 bokstav a skal lyde:</article>
+            <li data-li-identifier="a." data-name="a."><article class="listArticle"><article class="legalP">stønad og uføre-ytelser fra andre ordninger.</article></article></li>
+          </article>
+        </article>
+      </section>
+      <section class="section" id="kapittel-8">
+        <h2>Rettelser</h2>
+        <article class="defaultP" data-text-size="small">Det som er rettet er satt i kursiv.</article>
+        <article class="gazettenote" data-gazette-note-date="2023-12-29" data-gazette-note-type="rettelse">
+          <article class="defaultP">Del V, § 5-42 bokstav a skal lyde:<ul class="defaultList"><li data-li-identifier="a." data-name="a."><article class="listArticle"><article class="legalP">stønad og <i>uføreytelser</i> fra andre ordninger.</article></article></li></ul></article>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+    adjudications: list[CompileAdjudication] = []
+    grouped = iter_no_document_change_ops(
+        amendment_xml,
+        "no/lovtid/2023-12-20-98",
+        adjudications_out=adjudications,
+    )
+
+    assert not [a for a in adjudications if a.kind == "no_rettelse_not_lowered"]
+    errata = [
+        (base_id, op)
+        for base_id, ops in grouped
+        for op in ops
+        if op.witness_rule_id == "no_rettelse_lowered"
+    ]
+    assert len(errata) == 1
+    base_id, op = errata[0]
+    # The law the PART amends, never the host act.
+    assert base_id == "no/lov/1999-03-26-14"
+    assert "base_act:no/lov/1999-03-26-14" in op.provenance_tags
+    assert "rettelse_part:V" in op.provenance_tags
+    # The announcement date still rides in provenance only (W-18's dating rule
+    # is untouched: the op is dated by the host act's own commencement).
+    assert "rettelse_date:2023-12-29" in op.provenance_tags
+    assert op.target.path == (("section", "5-42"), ("item", "a"))
+    assert op.payload is not None
+    assert "uføreytelser" in (op.payload.text or "")
+    assert "uføre-ytelser" not in (op.payload.text or "")
+    # Appended to the part's law group, so it applies after every op it could
+    # correct — including the host's own § 5-42 op.
+    same_base = [ops for group_base, ops in grouped if group_base == base_id]
+    assert op.sequence == max(other.sequence for ops in same_base for other in ops)
+
+
+def test_no_rettelse_del_scoped_erratum_needs_the_corrected_host_op() -> None:
+    """A Del-scoped erratum with no host op at its address is excluded.
+
+    ``2020-12-04-137``'s shape: Del IV resolves eierseksjonsloven and even cites
+    it explicitly, but the host's own "§ 49 andre ledd bokstav e og ny bokstav f
+    skal lyde" is a multi-``bokstav`` lead the grafter does not lower. With
+    nothing lowered at that address the erratum has no corrected text to bind,
+    and ``§ 49 andre ledd bokstav f`` denotes a provision that does not exist in
+    the live law — so it is receipted, never guessed at.
+    """
+    amendment_xml = """<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <main>
+      <section class="section" data-name="kapIV" id="kapittel-4">
+        <h2>IV</h2>
+        <article class="defaultP">I lov 16. juni 2017 nr. 65 om eierseksjoner blir det gjort slike endringar:</article>
+        <article class="defaultP">§ 49 andre ledd bokstav e og ny bokstav f skal lyde:</article>
+        <article class="legalP">samtykke til sammenslåing som nevnt i § 22.</article>
+      </section>
+      <section class="section" id="kapittel-6">
+        <h2>Rettelser</h2>
+        <article class="defaultP" data-text-size="small">Det som er rettet er satt i kursiv.</article>
+        <article class="gazettenote" data-gazette-note-date="2020-12-07" data-gazette-note-type="rettelse">
+          <article class="defaultP"><strong>7. desember 2020:</strong></article>
+          <article class="defaultP">Del IV endringen i lov 16. juni 2017 nr. 65 om eierseksjoner § 49 andre ledd bokstav f skal lyde:<ul class="defaultList"><li data-li-identifier="f)" data-name="f)"><article class="listArticle"><article class="legalP">samtykke til sammenslåing som nevnt i § <i>22 a</i>.</article></article></li></ul></article>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+    adjudications: list[CompileAdjudication] = []
+    grouped = iter_no_document_change_ops(
+        amendment_xml,
+        "no/lovtid/2020-12-04-137",
+        adjudications_out=adjudications,
+    )
+
+    assert not [op for _base, ops in grouped for op in ops if op.witness_rule_id == "no_rettelse_lowered"]
+    receipts = [a for a in adjudications if a.kind == "no_rettelse_not_lowered"]
+    assert len(receipts) == 1
+    assert receipts[0].detail["reason"] == "no_corrected_host_op"
+    # The receipt still names what it DID resolve: the part, and its law.
+    assert receipts[0].detail["part"] == "IV"
+    assert receipts[0].detail["base_id"] == "no/lov/2017-06-16-65"
+    # The date paragraph was skipped, so the receipt carries the real directive.
+    assert receipts[0].detail["directive"].startswith("Del IV endringen i lov")
+    assert receipts[0].blocking is False
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_rettelse_del_scoped_errata_correct_their_host_act_verbatim() -> None:
+    """The verification the Del-scoped lowering rests on, pinned on real bytes.
+
+    Neither target law is replayable (kringkastingsloven 1992 and skatteloven
+    1999 have no original-act source), so the erratum cannot be checked against
+    a replayed PIT. It does not need to be: an erratum corrects the HOST act's
+    amendment text, and both the erroneous string and its correction are in the
+    corpus. This pins that the erratum op lands on the exact address the host
+    act's own op targets, and that its payload differs from the host's payload
+    in exactly the published typo.
+    """
+    from lawvm.norway.sources import iter_no_amendment_artifacts
+
+    expected = {
+        # host artifact -> (target law, address, host's typo, erratum's fix)
+        "no/lovtid/2019-12-20-110": (
+            "no/lov/1992-12-04-127",
+            (("section", "8-2"),),
+            "kringkastingsmottake",
+            "kringkastingsmottaker",
+        ),
+        "no/lovtid/2023-12-20-98": (
+            "no/lov/1999-03-26-14",
+            (("section", "5-42"), ("item", "a")),
+            "uføre-ytelser",
+            "uføreytelser",
+        ),
+    }
+    seen: set[str] = set()
+    for artifact in iter_no_amendment_artifacts(_NO_FARCHIVE_PATH):
+        if artifact.logical_id not in expected:
+            continue
+        base_id, path, typo, fix = expected[artifact.logical_id]
+        grouped = iter_no_document_change_ops(artifact.payload, artifact.logical_id)
+        ops = [op for group_base, group_ops in grouped if group_base == base_id for op in group_ops]
+        host_ops = [
+            op for op in ops if op.target.path == path and op.witness_rule_id != "no_rettelse_lowered"
+        ]
+        errata = [
+            op for op in ops if op.target.path == path and op.witness_rule_id == "no_rettelse_lowered"
+        ]
+        assert len(host_ops) == 1, artifact.logical_id
+        assert len(errata) == 1, artifact.logical_id
+        # A heading erratum replaces the section's HEADING only, so the host's
+        # whole-section payload is compared on the same surface — its body
+        # legitimately spells the word the heading got wrong.
+        host_text = _no_corrected_surface_text(host_ops[0])
+        erratum_text = _no_corrected_surface_text(errata[0])
+        # The exact correction: the erratum surface IS the host surface with the
+        # published typo repaired, and nothing else.
+        assert fix not in host_text
+        assert host_text.replace(typo, fix) == erratum_text
+        # The erratum applies after the op it corrects.
+        assert errata[0].sequence > host_ops[0].sequence
+        seen.add(artifact.logical_id)
+    assert seen == set(expected)
+
+
+def _no_corrected_surface_text(op: LegalOperation) -> str:
+    """The payload surface an erratum at this op's address actually replaces.
+
+    For a SECTION payload that is its heading; for every other leaf kind it is
+    the payload's own flattened text.
+    """
+    assert op.payload is not None
+
+    def _walk(node: IRNode) -> list[str]:
+        return [node.text or "", *[part for child in node.children for part in _walk(child)]]
+
+    if op.payload.kind is IRNodeKind.SECTION:
+        headings = [child for child in op.payload.children if child.kind is IRNodeKind.HEADING]
+        return " ".join(part for heading in headings for part in _walk(heading))
+    return " ".join(_walk(op.payload))
+
+
+def test_no_rettelse_part_citation_must_agree_with_the_part() -> None:
+    """An explicit citation is a cross-check, not an override.
+
+    ``2020-12-04-137``'s directive names its target law AND scopes to Del IV, and
+    the two agree. When they do not, neither wins — the erratum is excluded.
+    """
+    amendment_xml = """<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <main>
+      <section class="section" data-name="kapIV" id="kapittel-4">
+        <h2>IV</h2>
+        <article class="document-change" data-document="lov/2003-06-06-39">
+          <article class="change" data-change-part="lov/2003-06-06-39/§49">
+            <article class="defaultP">§ 49 andre ledd bokstav f skal lyde:<ul class="defaultList"><li data-li-identifier="f)" data-name="f)"><article class="listArticle"><article class="legalP">gammel tekst.</article></article></li></ul></article>
+          </article>
+        </article>
+      </section>
+      <section class="section" id="kapittel-6">
+        <h2>Rettelser</h2>
+        <article class="defaultP" data-text-size="small">Det som er rettet er satt i kursiv.</article>
+        <article class="gazettenote" data-gazette-note-date="2020-12-07" data-gazette-note-type="rettelse">
+          <article class="defaultP">Del IV endringen i lov 16. juni 2017 nr. 65 om eierseksjoner § 49 andre ledd bokstav f skal lyde:<ul class="defaultList"><li data-li-identifier="f)" data-name="f)"><article class="listArticle"><article class="legalP">ny <i>tekst</i>.</article></article></li></ul></article>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+    adjudications: list[CompileAdjudication] = []
+    grouped = iter_no_document_change_ops(
+        amendment_xml,
+        "no/lovtid/2020-12-04-137",
+        adjudications_out=adjudications,
+    )
+
+    assert not [op for _base, ops in grouped for op in ops if op.witness_rule_id == "no_rettelse_lowered"]
+    assert [a.detail["reason"] for a in adjudications if a.kind == "no_rettelse_not_lowered"] == [
+        "no_part_citation_agreement"
+    ]
+
+
+def test_no_rettelse_part_with_two_amended_laws_names_neither() -> None:
+    """A part whose change wrappers disagree resolves no base act."""
+    from lawvm.norway.grafter import _no_part_base_id, _parse_document
+
+    amendment_xml = """<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <main>
+      <section class="section" data-name="kapI" id="kapittel-1">
+        <h2>I</h2>
+        <article class="document-change" data-document="lov/1999-03-26-14"></article>
+        <article class="document-change" data-document="lov/2003-06-06-39"></article>
+      </section>
+      <section class="section" data-name="kapII" id="kapittel-2">
+        <h2>II</h2>
+        <article class="defaultP">I lov 16. juni 2017 nr. 65 om eierseksjoner blir det gjort slike endringar:</article>
+      </section>
+      <section class="section" data-name="kap15" id="kapittel-15">
+        <h2>Kapittel 15</h2>
+        <article class="document-change" data-document="lov/2005-06-17-90"></article>
+      </section>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+    root = _parse_document(amendment_xml)
+    assert _no_part_base_id(root, "I") is None
+    # The unstructured resolver is the same one the ordinary lowering runs.
+    assert _no_part_base_id(root, "II") == "no/lov/2017-06-16-65"
+    # An arabic-numbered chapter is not a part, and "Del XV" must not reach it.
+    assert _no_part_base_id(root, "XV") is None
+    assert _no_part_base_id(root, "III") is None
 
 
 # ── W-12: the heading-group fold's sort key IS the ordering kernel's ──────────

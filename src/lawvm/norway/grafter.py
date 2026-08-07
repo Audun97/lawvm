@@ -2631,15 +2631,26 @@ def _append_no_structured_parse_recovery_adjudications(
 #     candidate, so lowering them would move nothing while risking text
 #     corruption.
 #
-# Of the 12 typed notes exactly 1 resolves a clean same-act address: the witness
-# ``no/lovtid/2020-12-18-156`` (§ 5 første ledd annet strekpunkt). The other 11
-# are excluded with a typed ``no_rettelse_not_lowered`` receipt and fall in two
-# measured shapes — publication-metadata fields the IR does not model
-# ("Referansefeltet …", "Hjemmelsfeltet …", 7 notes), and part-scoped or nested
-# addresses whose target law is reachable only through the host act's Del/nr.
-# structure ("Del V, § 5-42 bokstav a", "§ 73 nr. 7 § 6-7 første ledd bokstav e",
-# 4 notes). The single-``§`` guard below is what makes the nested form an
-# excluded shape by construction rather than by regex luck.
+# Of the 12 typed notes 3 resolve a clean address: the W-18 witness
+# ``no/lovtid/2020-12-18-156`` (§ 5 første ledd annet strekpunkt, same-act) and,
+# via the W-24 Del-scope resolution below, ``no/lovtid/2019-12-20-110`` Del I
+# (kringkastingsloven § 8-2's heading) and ``no/lovtid/2023-12-20-98`` Del V
+# (skatteloven § 5-42 bokstav a). The other 9 are excluded with a typed
+# ``no_rettelse_not_lowered`` receipt naming which of the measured shapes
+# stopped them:
+#   * 7 correct publication metadata the IR does not model ("Referansefeltet …",
+#     "Hjemmelsfeltet …") — a permanent recorded ceiling.
+#   * ``2022-05-12-28``'s ``§ 73 nr. 7 § 6-7 …`` reaches another act through the
+#     host act's own body WITHOUT naming it; only the host's ordinal position
+#     could name it, so lowering would bind a law the directive never cites.
+#     Excluded by the single-``§`` guard, receipted ``no_nested_cross_act_address``.
+#   * ``2020-12-04-137`` Del IV and ``2025-06-20-101`` Del II resolve their part
+#     and their law, but the host act's OWN amendment at the corrected address
+#     is not lowered (a multi-``bokstav`` lead and a renumber-plus-replace lead
+#     respectively), so there is no corrected text to bind and the address means
+#     something different in the law's live text — see ``no_corrected_host_op``.
+# The single-``§`` guard below is what makes the nested form an excluded shape
+# by construction rather than by regex luck.
 _NO_RETTELSE_NOTE_TYPE = "rettelse"
 
 # Same-act ITEM addresses, anchored end to end. Both productions land on an
@@ -2695,13 +2706,250 @@ def _no_rettelse_item_target_from_lead(lead: str) -> Optional[LegalAddress]:
     )
 
 
+# ── W-24: Del-scoped erratum addresses ───────────────────────────────────────
+#
+# Four of W-18's eleven exclusions scope their address to a PART of the host act
+# ("Del V, § 5-42 bokstav a skal lyde"), so the target law is the law that part
+# amends, not the host act. The part→law step reuses the resolver the grafter
+# already runs over that same part — there is deliberately no second resolver:
+#
+#   * structured artifacts (``document-change`` wrappers) — the part's law is the
+#     ``data-document`` of the ``document-change`` nodes inside the part, read
+#     through the same ``normalize_lovdata_refid`` the structured lowering uses.
+#     Requiring the part's wrappers to AGREE is the guard; a part that amends two
+#     laws names neither unambiguously.
+#   * unstructured artifacts — the part's law is
+#     ``_infer_no_unstructured_section_base_id`` over the part's own children,
+#     byte-for-byte the call ``_iter_unstructured_no_change_groups`` makes.
+#
+# The dispatch between the two is the SAME predicate ``iter_no_document_change_ops``
+# already dispatches on (presence of ``document-change`` nodes), so a part
+# resolves here exactly as it resolves for ordinary ops or not at all.
+#
+# Parts are addressed by Lovdata's own ``data-name="kap<ROMAN>"`` attribute. The
+# roman-only production is load-bearing: chapter-numbered acts spell the same
+# attribute ``kap15`` (advokatloven), and a digit-admitting pattern would let
+# "Del 15" style prose reach a chapter that is not a part at all.
+_NO_PART_SECTION_NAME_RE = compile_classifier_regex(
+    r"^kap([IVXL]+)$",
+    re.IGNORECASE,
+    classifier_id="norway.grafter.part_section_data_name",
+)
+
+# The two measured Del-scope prefixes, anchored and disjoint by their first
+# token. ``Del <N>[,]`` is the nominative form; ``I del <N> skal`` is the
+# locative form, whose trailing ``skal`` belongs to the PREFIX — the residue
+# ("§ 28 b andre ledd tredje punktum skal lyde") carries its own. Each pattern
+# matches the PREFIX only and the residue is taken from ``match.end()``; a
+# trailing ``(.+)$`` capture would put two overlapping variable repeats next to
+# each other and the classifier-safety gate rejects it.
+_NO_RETTELSE_PART_SCOPE_RES = (
+    compile_classifier_regex(
+        r"^Del\s+([IVXL]+),?\s",
+        re.IGNORECASE,
+        classifier_id="norway.grafter.rettelse_part_scope_nominative",
+    ),
+    compile_classifier_regex(
+        r"^I\s+del\s+([IVXL]+)\s+skal\s",
+        re.IGNORECASE,
+        classifier_id="norway.grafter.rettelse_part_scope_locative",
+    ),
+)
+
+# One measured directive interposes an explicit citation of the very law the
+# part amends between the Del scope and the address ("Del IV endringen i lov
+# 16. juni 2017 nr. 65 om eierseksjoner § 49 …"). It is not a shortcut around
+# the part resolution — it is a CROSS-CHECK: the cited law and the part's law
+# must agree, or the erratum is excluded rather than adjudicated between. The
+# clause runs from this head to the residue's first ``§``, which is the address
+# boundary the single-``§`` guard downstream already depends on.
+_NO_RETTELSE_PART_CITED_ACT_RE = compile_classifier_regex(
+    r"^endringen\s+i\s+lov\s",
+    re.IGNORECASE,
+    classifier_id="norway.grafter.rettelse_part_cited_act",
+)
+
+# The two address shapes the measured Del-scoped directives need beyond W-18's
+# item grammar. Both are anchored end to end like their W-18 ancestors.
+#   * ``§ 8-2 overskriften`` — a SECTION-heading address, payload built by the
+#     heading-only builder the unstructured lowering already uses.
+#   * ``§ 5-42 bokstav a`` — a lettered item with NO ledd between it and the
+#     section. Verified against the host act's own op for the same address
+#     (``2023-12-20-98`` seq 40 targets exactly ``section 5-42 / item a``), so
+#     the missing ledd is the law's shape, not a dropped token.
+_NO_RETTELSE_HEADING_LEAD_RE = compile_classifier_regex(
+    r"^§\s*([0-9A-Za-z-]+)\s+overskriften\s+skal\s+lyde$",
+    re.IGNORECASE,
+    classifier_id="norway.grafter.rettelse_section_heading_lead",
+)
+_NO_RETTELSE_LEDDLESS_BOKSTAV_LEAD_RE = compile_classifier_regex(
+    r"^§\s*([0-9A-Za-z-]+)\s+bokstav\s+([A-Za-zÆØÅæøå])\s+skal\s+lyde$",
+    re.IGNORECASE,
+    classifier_id="norway.grafter.rettelse_leddless_item_bokstav_lead",
+)
+
+
+def _no_part_base_id(root: etree._Element, part_label: str) -> str | None:
+    """Resolve ``Del <part_label>`` of this artifact to the law that part amends.
+
+    Reuses the grafter's own two part→law resolvers (see the header comment);
+    adds no third one. Returns ``None`` when the part is absent, when its
+    ``document-change`` wrappers disagree, or when its lead resolves nothing.
+    """
+    wanted = part_label.upper()
+    for section in cast(list[etree._Element], root.xpath("//main/section")):
+        # lawvm-regex: owning_parser this IS the part-attribute parser
+        name_match = _NO_PART_SECTION_NAME_RE.match((section.get("data-name") or "").strip())
+        if name_match is None or name_match.group(1).upper() != wanted:
+            continue
+        change_nodes = cast(
+            list[etree._Element],
+            section.xpath(".//*[contains(concat(' ', normalize-space(@class), ' '), ' document-change ')]"),
+        )
+        if change_nodes:
+            base_ids = {
+                normalize_lovdata_refid((node.get("data-document") or "").strip())
+                for node in change_nodes
+            }
+            if len(base_ids) != 1:
+                return None
+            return base_ids.pop()
+        return _infer_no_unstructured_section_base_id(_direct_children(section))
+    return None
+
+
+def _no_rettelse_part_scope_from_directive(directive: str) -> tuple[str, str] | None:
+    """Split a ``Del <N>``-scoped directive into ``(part label, residual address)``."""
+    directive = _normalize_space(directive)
+    for pattern in _NO_RETTELSE_PART_SCOPE_RES:
+        # lawvm-regex: owning_parser this IS the Rettelser directive parser
+        match = pattern.match(directive)
+        if match is not None:
+            return match.group(1).upper(), _normalize_space(directive[match.end() :])
+    return None
+
+
+def _no_rettelse_part_target_from_residual(residual: str) -> Optional[LegalAddress]:
+    """Resolve the address a Del-scoped directive names inside the part's law.
+
+    Single-``§`` like its W-18 ancestor: a residual naming two sections is the
+    nested shape, excluded by construction rather than by regex luck. The item
+    and sentence productions are reused from the grammars that already own them
+    (``_no_rettelse_item_target_from_lead``, ``_infer_same_base_sentence_target_specs_from_lead``);
+    only the heading and ledd-less-item shapes are new here.
+    """
+    residual = _normalize_space(residual).rstrip(":")
+    if residual.count("§") != 1 or not residual.startswith("§"):
+        return None
+    # lawvm-regex: owning_parser this IS the Rettelser directive parser
+    heading_match = _NO_RETTELSE_HEADING_LEAD_RE.match(residual)
+    if heading_match is not None:
+        section_label = _normalize_no_section_label(heading_match.group(1))
+        return LegalAddress(path=(("section", section_label),)) if section_label else None
+    item_target = _no_rettelse_item_target_from_lead(residual)
+    if item_target is not None:
+        return item_target
+    # lawvm-regex: owning_parser this IS the Rettelser directive parser
+    bokstav_match = _NO_RETTELSE_LEDDLESS_BOKSTAV_LEAD_RE.match(residual)
+    if bokstav_match is not None:
+        section_label = _normalize_no_section_label(bokstav_match.group(1))
+        item_label = _normalize_label(bokstav_match.group(2)).lower()
+        if section_label and item_label:
+            return LegalAddress(path=(("section", section_label), ("item", item_label)))
+        return None
+    sentence_specs = _infer_same_base_sentence_target_specs_from_lead(residual)
+    if len(sentence_specs) == 1 and sentence_specs[0][0] is StructuralAction.REPLACE:
+        return sentence_specs[0][1]
+    return None
+
+
+def _no_rettelse_part_payload(
+    target: LegalAddress,
+    payload_nodes: Sequence[etree._Element],
+) -> Optional[IRNode]:
+    """Build the payload for a Del-scoped erratum target, or ``None``.
+
+    ``payload_nodes`` is the note's WHOLE child list, exactly as W-18 hands it to
+    the payload extractor — the measured item notes carry their ``<ul>`` payload
+    nested INSIDE the directive paragraph, so dropping that paragraph would drop
+    the payload with it.
+
+    The heading branch is the one exception and drops it deliberately: the
+    heading-only builder reads the first ``defaultP``/``legalP`` it finds as the
+    title, and the directive paragraph is one. Its corrected title arrives
+    wrapped in a ``futureLegalArticle``, which is flattened one level to expose
+    the paragraph the builder reads. Every other leaf kind goes through the same
+    one-candidate path W-18 uses, so admitting a leaf kind here never means a
+    new payload builder.
+    """
+    if target.leaf_kind() == "section":
+        flattened: list[etree._Element] = []
+        for node in payload_nodes[1:]:
+            if _local_name(node) == "article" and "futureLegalArticle" in _classes(node):
+                flattened.extend(_direct_children(node))
+                continue
+            flattened.append(node)
+        return _heading_only_unstructured_section_payload(target.leaf_label() or "", flattened)
+    candidates = _extract_payload_candidates_from_nodes(payload_nodes, [target])
+    leaf_kind = target.leaf_kind()
+    matching = [node for (kind, _label), node in candidates.items() if kind == leaf_kind]
+    if len(matching) != 1:
+        return None
+    return _with_no_node_label(matching[0], target.leaf_label())
+
+
+def _no_rettelse_directive_children(
+    children: list[etree._Element],
+    note_date: str,
+) -> list[etree._Element]:
+    """Drop a leading paragraph that only restates the note's own typed date.
+
+    Artifacts carrying more than one erratum head each note with its
+    announcement date as a standalone paragraph ("**7. desember 2020:**"), which
+    the directive reader would otherwise consume as the directive. The guard is
+    that the paragraph must resolve to EXACTLY the note's ``data-gazette-note-date``
+    — a date paragraph that disagrees with the typed attribute is not this shape
+    and is left in place rather than discarded.
+    """
+    if len(children) < 2 or not note_date:
+        return children
+    head = _normalize_space(" ".join(str(_t) for _t in children[0].itertext())).rstrip(":")
+    # lawvm-regex: owning_parser this IS the Rettelser directive parser
+    match = re.fullmatch(r"(\d{1,2})\.\s*([A-Za-zÆØÅæøå]+)\s+(\d{4})", head)
+    if match is None:
+        return children
+    month = _NORWEGIAN_MONTH_NUMBERS.get(match.group(2).lower())
+    if month is None or f"{match.group(3)}-{month}-{int(match.group(1)):02d}" != note_date:
+        return children
+    return children[1:]
+
+
+def _no_op_targets_for_base(
+    grouped: Sequence[tuple[str, list[LegalOperation]]],
+    base_id: str,
+) -> set[tuple[tuple[str, str], ...]]:
+    """Every address this artifact's ORDINARY ops already touch in ``base_id``."""
+    return {
+        op.target.path
+        for group_base, ops in grouped
+        if group_base == base_id
+        for op in ops
+    }
+
+
 def _no_rettelse_groups(
     root: etree._Element,
     source_id: str,
     *,
+    grouped: Sequence[tuple[str, list[LegalOperation]]] = (),
     adjudications_out: Optional[List[CompileAdjudication]] = None,
 ) -> list[tuple[str, list[LegalOperation]]]:
-    """Lower this artifact's typed ``Rettelser`` notes into same-act REPLACE ops.
+    """Lower this artifact's typed ``Rettelser`` notes into REPLACE ops.
+
+    ``grouped`` is the artifact's ORDINARY change groups, read (never rewritten)
+    for one purpose: a Del-scoped erratum corrects an amendment this artifact
+    makes, so the corrected op must already be in that stream at the erratum's
+    own address. See ``no_corrected_host_op`` below.
 
     An erratum corrects what was KUNNGJORT, so its op is dated by the host act's
     own commencement (the index entry's effective date), not by the rettelse
@@ -2711,9 +2959,9 @@ def _no_rettelse_groups(
     provenance (``rettelse_date:<date>``) instead, where it is greppable but
     apply-inert.
     """
-    base_id = f"no/lov/{source_id.removeprefix('no/lovtid/')}"
-    groups: list[tuple[str, list[LegalOperation]]] = []
-    ops: list[LegalOperation] = []
+    host_base_id = f"no/lov/{source_id.removeprefix('no/lovtid/')}"
+    ops_by_base: dict[str, list[LegalOperation]] = {}
+    sequence = 0
     for note in cast(
         list[etree._Element],
         root.xpath("//*[contains(concat(' ', normalize-space(@class), ' '), ' gazettenote ')]"),
@@ -2721,22 +2969,78 @@ def _no_rettelse_groups(
         if (note.get("data-gazette-note-type") or "").strip() != _NO_RETTELSE_NOTE_TYPE:
             continue
         note_date = (note.get("data-gazette-note-date") or "").strip()
-        children = _direct_children(note)
+        children = _no_rettelse_directive_children(_direct_children(note), note_date)
         raw_text = _normalize_space(" ".join(str(_t) for _t in note.itertext()))
         lead = _normalize_space(" ".join(str(_t) for _t in children[0].itertext())) if children else raw_text
         directive = lead.split(":", 1)[0] if ":" in lead else lead
-        target = _no_rettelse_item_target_from_lead(directive)
+        part_scope = _no_rettelse_part_scope_from_directive(directive)
+        base_id = host_base_id
+        part_label = ""
+        target: Optional[LegalAddress] = None
         payload: Optional[IRNode] = None
-        if target is not None:
-            candidates = _extract_payload_candidates_from_nodes(children, [target])
-            item_payloads = [node for (kind, _label), node in candidates.items() if kind == "item"]
-            # One directive, one corrected provision: a note that yields more
-            # than one item payload has no unambiguous binding, so it is
-            # excluded rather than guessed at. The surviving payload is
-            # relabelled onto the target because its own label is its position
-            # INSIDE the erratum block (always "1"), not in the host act.
-            if len(item_payloads) == 1:
-                payload = _with_no_node_label(item_payloads[0], target.leaf_label())
+        reason = ""
+        if part_scope is None:
+            target = _no_rettelse_item_target_from_lead(directive)
+            if target is not None:
+                candidates = _extract_payload_candidates_from_nodes(children, [target])
+                item_payloads = [node for (kind, _label), node in candidates.items() if kind == "item"]
+                # One directive, one corrected provision: a note that yields more
+                # than one item payload has no unambiguous binding, so it is
+                # excluded rather than guessed at. The surviving payload is
+                # relabelled onto the target because its own label is its position
+                # INSIDE the erratum block (always "1"), not in the host act.
+                if len(item_payloads) == 1:
+                    payload = _with_no_node_label(item_payloads[0], target.leaf_label())
+                if payload is None:
+                    reason = "no_unique_item_payload"
+            else:
+                # A directive that starts at a ``§`` and names a SECOND one reaches
+                # another act through the host act's own body ("§ 73 nr. 7 § 6-7
+                # …"). It is excluded for the same reason as before — binding
+                # either section corrupts text — but it is a materially different
+                # failure from "this is not an address at all", so it says so.
+                stripped = _normalize_space(directive).rstrip(":")
+                reason = (
+                    "no_nested_cross_act_address"
+                    if stripped.startswith("§") and stripped.count("§") > 1
+                    else "no_same_act_item_address"
+                )
+        else:
+            part_label, residual = part_scope
+            base_id = _no_part_base_id(root, part_label) or ""
+            # lawvm-regex: owning_parser this IS the Rettelser directive parser
+            cited_match = _NO_RETTELSE_PART_CITED_ACT_RE.match(residual)
+            cited_base_id: str | None = None
+            if cited_match is not None and "§" in residual:
+                address_start = residual.index("§")
+                cited_base_id = _extract_no_law_citation_base_id(residual[:address_start])
+                residual = _normalize_space(residual[address_start:])
+            if not base_id:
+                reason = "no_part_base_act"
+            elif cited_base_id is not None and cited_base_id != base_id:
+                # Two independent resolutions of the same law disagreeing is
+                # never adjudicated in favour of one of them.
+                reason = "no_part_citation_agreement"
+            else:
+                target = _no_rettelse_part_target_from_residual(residual)
+                if target is None:
+                    reason = "no_part_scoped_target_address"
+                elif target.path not in _no_op_targets_for_base(grouped, base_id):
+                    # A Del-scoped erratum corrects the host act's OWN amendment
+                    # text, so the corrected words must be in this artifact's
+                    # lowered op stream at exactly that address. When they are
+                    # not — because the host act's own directive for that address
+                    # is itself an unlowered shape — the erratum has nothing to
+                    # correct, and its address means something DIFFERENT in the
+                    # law's live text than it means inside the part. Measured on
+                    # both sides: the two errata that pass name an address the
+                    # host act's own op already targets; the two that fail would
+                    # otherwise land on unrelated live provisions.
+                    reason = "no_corrected_host_op"
+                else:
+                    payload = _no_rettelse_part_payload(target, children)
+                    if payload is None:
+                        reason = "no_part_scoped_payload"
         if target is None or payload is None:
             _append_no_parse_adjudication(
                 adjudications_out,
@@ -2749,16 +3053,17 @@ def _no_rettelse_groups(
                     family="unsupported_or_unresolved_action",
                     blocking=False,
                     quirks_disposition=QuirksDisposition.RECORD,
-                    base_id=base_id,
+                    base_id=base_id or host_base_id,
                     rettelse_date=note_date,
-                    reason="no_same_act_item_address" if target is None else "no_unique_item_payload",
+                    reason=reason or "no_same_act_item_address",
+                    part=part_label,
                     directive=directive[:240],
                     raw_text=raw_text[:240],
                 ),
             )
             continue
-        sequence = len(ops) + 1
-        ops.append(
+        sequence += 1
+        ops_by_base.setdefault(base_id, []).append(
             LegalOperation(
                 op_id=f"{source_id}:rettelse:{sequence}",
                 sequence=sequence,
@@ -2770,14 +3075,13 @@ def _no_rettelse_groups(
                     f"base_act:{base_id}",
                     "rettelse:published_correction",
                     f"rettelse_date:{note_date}",
+                    *((f"rettelse_part:{part_label}",) if part_label else ()),
                 ),
                 group_id=f"{source_id}:rettelse:{base_id}:{sequence}",
                 witness_rule_id=NO_RETTELSE_LOWERED,
             )
         )
-    if ops:
-        groups.append((base_id, ops))
-    return groups
+    return [(base_id, ops) for base_id, ops in ops_by_base.items() if ops]
 
 
 def _with_no_rettelse_groups(
@@ -2791,9 +3095,20 @@ def _with_no_rettelse_groups(
 
     Errata are appended to an existing group for the same base act rather than
     forming a second group, so ``entries_for_base``/replay keep seeing one group
-    per (artifact, base act). Ordinary ops are never read or rewritten here.
+    per (artifact, base act). Since W-24 that base act can be the law a PART of
+    the host act amends rather than the host act itself; the merge is unchanged
+    because it was already keyed on the base act the erratum resolved.
+
+    Appending is what puts the erratum LAST: the offset is the highest sequence
+    already in that group, which for a multi-part artifact is the artifact's
+    highest, so the correction applies after every op it could correct.
     """
-    rettelse_groups = _no_rettelse_groups(root, source_id, adjudications_out=adjudications_out)
+    rettelse_groups = _no_rettelse_groups(
+        root,
+        source_id,
+        grouped=grouped,
+        adjudications_out=adjudications_out,
+    )
     if not rettelse_groups:
         return grouped
     merged = [(base_id, list(ops)) for base_id, ops in grouped]
