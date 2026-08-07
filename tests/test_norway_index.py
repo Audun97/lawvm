@@ -1296,9 +1296,16 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # binding gain below EXACTLY (2,806 - 2,642 = 6,295 - 6,131 = 164): every
     # target W-34 binds was a declared target the index had already receipted,
     # and W-34 un-declares none. Signed off 2026-08-07.
-    assert len(unbound) == 960
-    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2642
-    assert len({diagnostic["source_id"] for diagnostic in unbound}) == 960
+    # 960 -> 959 receipts and 2,642 -> 2,605 pairs at W-35: splitting the leads
+    # Lovdata trapped INSIDE ``futureLegalArticle`` payloads binds 37 more
+    # declared targets across 6 acts, one of which (``2015-09-04-85``) loses its
+    # gap entirely. The pair drop again equals the binding gain below EXACTLY
+    # (2,642 - 2,605 = 6,332 - 6,295 = 37), the same conservation W-34 recorded:
+    # every target the split binds was already a declared target on the receipt,
+    # and the split un-declares none. Signed off 2026-08-07.
+    assert len(unbound) == 959
+    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2605
+    assert len({diagnostic["source_id"] for diagnostic in unbound}) == 959
 
     # 64 acts gain their FIRST index entry: they announced every one of their
     # parts with an unlisted tail, so they had bound no law at all.
@@ -1311,11 +1318,18 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # harvested from a swallowed sibling lead's citation and that address a
     # section neither law has (NIS-loven has no § 339, konkursloven no § 6-2;
     # foretaksnavneloven ``1985-06-21-79``, which the second op now binds, does).
+    # 6,295 -> 6,332 at W-35, entries again unmoved and for the same reason: the
+    # payload split reaches only INTO acts the index already has. 38 pairs
+    # gained, 1 removed — ``2015-06-19-65``/``2013-06-21-102``, whose two
+    # § 11-1 repeals move to AIF-loven ``2014-06-20-28``. Item 251 announces
+    # "gjøres følgende ENDRING" (singular) and its one change is the § 9-3
+    # heading; the § 11-1 repeals belong to item 252, which was the lead trapped
+    # inside that § 9-3 element.
     assert len(index.entries) == 2548
     bindings = {
         (entry.source_id, base_id) for entry in index.entries for base_id in entry.base_ids
     }
-    assert len(bindings) == 6295
+    assert len(bindings) == 6332
     # 26,218 at W-30; +2 at W-24, both reconciled to a named erratum and neither
     # touching this test's own subject. W-24 lowered two Del-scoped Rettelser
     # corrections into the law each part amends — ``2019-12-20-110`` Del I into
@@ -1337,7 +1351,14 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # «leder»", which used to emit TWICE because the global text-replace path
     # harvested a citation from each of the two sibling leads its payload run had
     # swallowed; one op on one base act now replaces two on two wrong ones.
-    assert sum(entry.n_ops for entry in index.entries) == 26769
+    # 26,769 -> 26,785 at W-35 (+16 net across the 6 acts holding all 41 trapped
+    # elements): 20 genuinely new ops, 4 removed, and the removed four are the
+    # pre-truncation half of ops that also changed base act, so nothing is lost.
+    # The other movement is 30 payload truncations and 74 pure rebinds; measured
+    # against the true governing enumeration item — run-on and numberless leads
+    # included, so leads no resolver can reach still count against the change —
+    # that is 62 wrong -> right, 13 stale -> stale, and ZERO right -> wrong.
+    assert sum(entry.n_ops for entry in index.entries) == 26785
 
 
 def test_no_amendment_index_staleness_report_detects_archive_change(tmp_path) -> None:

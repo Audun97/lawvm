@@ -1876,6 +1876,8 @@ def _iter_unstructured_no_change_groups(
                 section_base_ids.append(None)
                 child_part_indexes.append(0)
 
+    _split_no_trapped_payload_leads(children, section_base_ids, child_part_indexes)
+
     def _part_index(position: int) -> int | None:
         return child_part_indexes[position] if position < len(child_part_indexes) else None
 
@@ -2566,6 +2568,93 @@ def _no_unstructured_law_switch_lead_base_id(lead: str) -> str | None:
     if "." in stripped[: citation.start()]:
         return None
     return section_base_id
+
+
+def _split_no_trapped_payload_leads(
+    children: list[etree._Element],
+    section_base_ids: list[str | None],
+    child_part_indexes: list[int],
+) -> int:
+    """Lift law-switch leads TRAPPED inside ``futureLegalArticle`` payloads out to sibling level.
+
+    W-34 stopped the payload cursor at a sibling law-switch lead. This is the
+    same boundary one level further in: Lovdata's markup sometimes closes an
+    inserted section's ``futureLegalArticle`` LATE, so the enumeration items
+    that follow it — their leads and their own quoted payloads — end up as
+    CHILDREN of the inserted section instead of siblings of it. The cursor
+    cannot reach them there; they are neither collected nor lowered, and the
+    inserted section's payload silently carries a foreign act's amendment text.
+
+    The split is positional and total: the FIRST direct child on which the W-34
+    predicate fires opens the trapped tail, and everything from there to the end
+    of the element leaves it, in document order, re-entering ``children``
+    immediately after the (truncated) element. Nothing downstream is special
+    cased — the freed leads are ordinary siblings, so the W-34 cursor stop, the
+    W-21/W-30 base inference and the W-15 part boundaries all apply to them
+    unchanged, including to a freed lead whose own payload is the NEXT
+    ``futureLegalArticle`` sibling (`2016-06-17-29` § 8-8 → § 10a).
+
+    Measured 2026-08-07 over all 2,761 unstructured artifacts: 7,538
+    ``futureLegalArticle`` elements are crossed by some payload run, and exactly
+    41 of them contain a trapped lead — 52 leads over 6 artifacts. Every one of
+    the 52 is ``legalP``, the same class W-34's sibling boundary uses, and none
+    sits at child position 0, so every element keeps its header and 40 of 41
+    keep at least one body node (the exception is `2015-06-19-65` § 9-3, whose
+    lead is "§ 9-3 overskriften skal lyde:" — a heading-only payload by
+    request).
+
+    That the tail is markup error and not the inserted section's own content is
+    settled by the enumeration, not by a threshold. 50 of the 52 open with an
+    item ordinal; taken per artifact, those ordinals are DISJOINT from every
+    ordinal that already opens a sibling lead and each one fills a GAP in that
+    artifact's enumeration — 42/42 in `2015-06-19-65`, and in `2015-09-04-85`,
+    `2016-06-17-29` and `2016-08-12-77` the split closes the run completely
+    (0 gaps left). A quoted citation inside genuine inserted content could not
+    do that: it would have to duplicate a number the artifact uses elsewhere or
+    invent one outside the run. The other 2 (`2013-12-13-106` § 15-6 and
+    § 14-3) are un-numbered part leads, and there the tail opens with the
+    ``centeredP`` roman marker of the NEXT part ("III", "IV") flattened into the
+    section — the part boundary itself is in the payload. Those markers stay in
+    the truncated element deliberately: ``_parse_future_section`` reads only
+    ``legalP``/``defaultP``/``numberedLegalP`` children, so a ``centeredP`` is
+    already invisible to the payload, and moving it would be a second rule
+    buying a byte-identical result.
+
+    The W-21 § 412 witness `2009-06-19-74` is the case this must not touch: 184
+    ``futureLegalArticle`` elements, 0 trapped leads. Its nested consequential
+    items are ``defaultP`` siblings, which have always been a cursor boundary.
+    """
+    split_count = 0
+    position = 0
+    while position < len(children):
+        element = children[position]
+        position += 1
+        if _local_name(element) != "article" or "futureLegalArticle" not in _classes(element):
+            continue
+        kids = _direct_children(element)
+        boundary = None
+        for kid_index, kid in enumerate(kids):
+            kid_text = _repair_no_mojibake(_normalize_space(" ".join(str(_t) for _t in kid.itertext())))
+            if _no_unstructured_law_switch_lead_base_id(kid_text) is not None:
+                boundary = kid_index
+                break
+        if boundary is None:
+            continue
+        # Copy rather than mutate: ``root`` belongs to the caller, and the
+        # structured reader walks the same tree.
+        truncated = copy.deepcopy(element)
+        freed = _direct_children(truncated)[boundary:]
+        for node in freed:
+            truncated.remove(node)
+        children[position - 1] = truncated
+        children[position:position] = freed
+        section_base_ids[position:position] = [section_base_ids[position - 1]] * len(freed)
+        child_part_indexes[position:position] = [child_part_indexes[position - 1]] * len(freed)
+        split_count += 1
+        # Do not skip the freed nodes: one of them may itself be a
+        # ``futureLegalArticle`` carrying a further trapped lead, which is the
+        # `2016-06-17-29` § 8-8 → § 10a → item 9 chain.
+    return split_count
 
 
 def _promote_no_replace_with_following_renumber_insert(

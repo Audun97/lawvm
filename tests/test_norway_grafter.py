@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import replace
+import hashlib
 import io
 import json
 import os
@@ -9,6 +10,7 @@ from pathlib import Path
 import tarfile
 from typing import cast
 
+from lxml import etree
 import pytest
 
 
@@ -34,6 +36,7 @@ from lawvm.norway.grafter import (
     _no_rettelse_item_target_from_lead,
     _normalize_no_chapter_scoped_section_lead,
     _no_unstructured_law_switch_lead_base_id,
+    _split_no_trapped_payload_leads,
     _no_unstructured_lead_looks_operative,
     _split_no_sentences,
     apply_no_heading_groups,
@@ -6358,3 +6361,273 @@ def test_no_w34_straffeloven_consequential_act_stops_swallowing_its_own_items() 
         (("section", "13b"), ("subsection", "2"), ("sentence", "last")),
         (("section", "13e"), ("subsection", "3"), ("sentence", "1")),
     ]
+
+
+# ── W-35: law-switch leads trapped INSIDE a futureLegalArticle payload ────────
+# W-34 stopped the payload cursor at a SIBLING law-switch lead. W-35 is the
+# payload-internal sibling of that boundary: when Lovdata's markup closes an
+# inserted section's ``futureLegalArticle`` late, the enumeration items that
+# follow land INSIDE it, where no inter-node cursor can reach them.
+
+
+def test_no_w35_trapped_leads_leave_the_payload_and_lower_on_their_own_law() -> None:
+    """W-35: the split, reduced to its smallest reproduction.
+
+    Shaped after `no/lovtid/2015-06-19-65` [630]-[631] — item 39's "§ 39 skal
+    lyde:" payload, inside which items 40 and 41's leads and item 40's own
+    quoted payload sit as ``legalP`` children. On the pre-W-35 base the § 39
+    payload carries all four extra nodes and items 40 and 41 lower nothing.
+    """
+    amendment_xml = """<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <main>
+      <section data-name="kapI">
+        <article class="legalP">39. I lov 28. juni 1957 nr. 16 om friluftslivet skal § 39 lyde:</article>
+        <article class="futureLegalArticle" data-name="§39">
+          <span class="futureLegalArticleHeader">§ 39. (Straff.)</span>
+          <article class="legalP">Den som forsettlig overtrer regler gitt i medhold av denne lov, straffes med bøter.</article>
+          <article class="legalP">40. I lov 6. juli 1957 nr. 26 om samordning av pensjons- og trygdeytelser skal § 26 lyde:</article>
+          <article class="legalP">Den som unnlater å gi opplysninger etter første ledd, straffes med bøter.</article>
+          <article class="legalP">41. I lov 19. juni 1959 nr. 2 om avgifter vedrørende motorkjøretøyer skal § 2 lyde:</article>
+          <article class="legalP">Med bot straffes den som unnlater å medvirke til kontrollundersøkelse.</article>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+    grouped = dict(iter_no_document_change_ops(amendment_xml, "no/lovtid/2025-01-01-1"))
+
+    assert sorted(grouped) == [
+        "no/lov/1957-06-28-16",
+        "no/lov/1957-07-06-26",
+        "no/lov/1959-06-19-2",
+    ]
+    # The host section keeps its heading and its own body and NOTHING else: the
+    # payload truncates to the children that precede the first trapped lead.
+    friluftsloven = grouped["no/lov/1957-06-28-16"]
+    assert [op.target.path for op in friluftsloven] == [(("section", "39"),)]
+    payload = friluftsloven[0].payload
+    assert payload is not None
+    assert [child.text for child in payload.children] == [
+        "(Straff.)",
+        "Den som forsettlig overtrer regler gitt i medhold av denne lov, straffes med bøter.",
+    ]
+    # Both trapped items lower against their OWN cited law, each taking the
+    # quoted text that followed it inside the element as its payload.
+    samordning = grouped["no/lov/1957-07-06-26"]
+    assert [op.target.path for op in samordning] == [(("section", "26"),)]
+    assert samordning[0].payload is not None
+    assert samordning[0].payload.children[0].text == (
+        "Den som unnlater å gi opplysninger etter første ledd, straffes med bøter."
+    )
+    motorkjoretoy = grouped["no/lov/1959-06-19-2"]
+    assert [op.target.path for op in motorkjoretoy] == [(("section", "2"),)]
+    assert motorkjoretoy[0].payload is not None
+    assert motorkjoretoy[0].payload.children[0].text == (
+        "Med bot straffes den som unnlater å medvirke til kontrollundersøkelse."
+    )
+
+
+def test_no_w35_split_chains_through_a_freed_leads_own_future_article() -> None:
+    """W-35: a freed lead whose payload is the NEXT ``futureLegalArticle`` sibling.
+
+    `no/lovtid/2016-06-17-29` [163]-[165] in shape: § 8-8's element traps item
+    8, whose own "ny § 10a" payload is the element that FOLLOWS it — and that
+    element in turn traps item 9. Nothing special cases the chain; the split
+    re-visits the freed nodes and the ordinary W-34 cursor does the rest.
+    """
+    amendment_xml = """<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <main>
+      <section data-name="kapI">
+        <article class="legalP">7. I lov 29. juni 2007 nr. 73 om eiendomsmegling gjøres følgende endringer:</article>
+        <article class="defaultP">§ 8-8 skal lyde:</article>
+        <article class="futureLegalArticle" data-name="§8-8">
+          <span class="futureLegalArticleHeader">§ 8-8. Behandling av tvister i klageorgan</span>
+          <article class="legalP">Kongen kan godkjenne klageorgan for behandling av tvister mellom foretak og selger.</article>
+          <article class="legalP">8. I lov 9. januar 2009 nr. 2 om kontroll med markedsføring skal ny § 10a lyde:</article>
+        </article>
+        <article class="futureLegalArticle" data-name="§10a">
+          <span class="futureLegalArticleHeader">§ 10a. Informasjon om klageorgan</span>
+          <article class="legalP">Næringsdrivende skal gi informasjon til forbrukere om klageorgan.</article>
+          <article class="legalP">9. I lov 25. november 2011 nr. 44 om verdipapirfond skal § 2-13 lyde:</article>
+          <article class="legalP">Departementet kan i forskrift fastsette nærmere regler om klagebehandling.</article>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+    grouped = dict(iter_no_document_change_ops(amendment_xml, "no/lovtid/2025-01-01-1"))
+
+    assert sorted(grouped) == [
+        "no/lov/2007-06-29-73",
+        "no/lov/2009-01-09-2",
+        "no/lov/2011-11-25-44",
+    ]
+    host = grouped["no/lov/2007-06-29-73"][0]
+    assert host.target.path == (("section", "8-8"),)
+    assert host.payload is not None
+    assert [child.text for child in host.payload.children] == [
+        "Behandling av tvister i klageorgan",
+        "Kongen kan godkjenne klageorgan for behandling av tvister mellom foretak og selger.",
+    ]
+    # The freed item 8 takes the FOLLOWING element as its payload, truncated the
+    # same way, and item 9 — trapped one level further in — lowers too.
+    inserted = grouped["no/lov/2009-01-09-2"][0]
+    assert inserted.action is StructuralAction.INSERT
+    assert inserted.target.path == (("section", "10a"),)
+    assert inserted.payload is not None
+    assert [child.text for child in inserted.payload.children] == [
+        "Informasjon om klageorgan",
+        "Næringsdrivende skal gi informasjon til forbrukere om klageorgan.",
+    ]
+    assert [op.target.path for op in grouped["no/lov/2011-11-25-44"]] == [(("section", "2-13"),)]
+
+
+def test_no_w35_split_leaves_a_quoting_inserted_section_whole() -> None:
+    """W-35's must-not-split side, the W-21 § 412 hazard in miniature.
+
+    An inserted section may quote a law reference, and may even read like an
+    amending instruction, without being one. The predicate is W-34's, unchanged:
+    the citation has to open the child's own first sentence. Neither child here
+    does, so the element is untouched and no second base act appears.
+    """
+    amendment_xml = """<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <main>
+      <section data-name="kapI">
+        <article class="legalP">I lov 19. juni 2009 nr. 74 om skatteforvaltning gjøres følgende endringer:</article>
+        <article class="defaultP">Ny § 412 skal lyde:</article>
+        <article class="futureLegalArticle" data-name="§412">
+          <span class="futureLegalArticleHeader">§ 412. Endringer i andre lover</span>
+          <article class="legalP">Overtreding av taushetsplikt etter dette ledd kan straffes etter lov 20. mai 2005 nr. 28 om straff § 209.</article>
+          <article class="legalP">Fra den tid loven trer i kraft gjøres endringer i andre lover. I lov 13. august 1915 nr. 5 om domstolene gjøres følgende endringer:</article>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+    grouped = dict(iter_no_document_change_ops(amendment_xml, "no/lovtid/2025-01-01-1"))
+
+    assert sorted(grouped) == ["no/lov/2009-06-19-74"]
+    ops = grouped["no/lov/2009-06-19-74"]
+    assert [op.target.path for op in ops] == [(("section", "412"),)]
+    assert ops[0].payload is not None
+    # All three children survive: the heading plus BOTH quoting paragraphs.
+    assert len(ops[0].payload.children) == 3
+
+
+def test_no_w35_split_is_a_no_op_when_no_child_switches_law() -> None:
+    """W-35: the pass touches nothing it has no evidence for.
+
+    Over the corpus only 41 of the 7,538 ``futureLegalArticle`` elements a
+    payload run crosses contain a trapped lead. The other 7,497 have to come
+    out of the pass as the very same element objects that went in.
+    """
+    element = etree.fromstring(
+        """<article class="futureLegalArticle" data-name="§5">
+             <span class="futureLegalArticleHeader">§ 5. Straff</span>
+             <article class="legalP">Den som overtrer denne lov straffes med bøter.</article>
+           </article>"""
+    )
+    children = [element]
+    base_ids: list[str | None] = ["no/lov/2000-01-01-1"]
+    part_indexes = [0]
+
+    assert _split_no_trapped_payload_leads(children, base_ids, part_indexes) == 0
+    assert children[0] is element
+    assert base_ids == ["no/lov/2000-01-01-1"]
+    assert part_indexes == [0]
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w35_jernbaneundersokelsesloven_payload_sheds_its_trapped_items() -> None:
+    """W-35 corpus witness: `no/lovtid/2015-06-19-65` item 209, the scan flip.
+
+    W-34 made item 209's "skal § 27 lyde:" lower against its own law for the
+    first time, and `no/lov/2005-06-03-34` went consistent -> divergent (0 -> 3)
+    because Lovdata had put items 210 and 211's leads, and item 210's quoted
+    payload, INSIDE item 209's ``futureLegalArticle``. The three
+    CONSOLIDATED_MISSING rows were exactly those three nodes. On the W-34 base
+    the § 27 payload has five children and items 210/211 lower nothing.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2015-06-19-65", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    grouped = dict(iter_no_document_change_ops(html_bytes, "no/lovtid/2015-06-19-65"))
+
+    section_27 = [
+        op for op in grouped["no/lov/2005-06-03-34"] if op.target.path == (("section", "27"),)
+    ]
+    assert len(section_27) == 1
+    payload = section_27[0].payload
+    assert payload is not None
+    # Heading + the section's own single body paragraph, and no trapped tail.
+    assert [child.text for child in payload.children] == [
+        "Straff",
+        (
+            "Den som uaktsomt eller forsettlig overtrer bestemmelser gitt i eller i "
+            "medhold av §§ 6, 7, 8, 12 første ledd, 14, 17, 23, 25 og 26 i loven, "
+            "straffes med bøter dersom forholdet ikke går inn under strengere "
+            "straffebestemmelse."
+        ),
+    ]
+
+    # Items 210 and 211 lower against their own cited laws.
+    assert [op.target.path for op in grouped["no/lov/2005-06-10-40"]] == [
+        (("section", "13"), ("subsection", "1"), ("sentence", "1"))
+    ]
+    assert [op.target.path for op in grouped["no/lov/2005-06-10-41"]] == [
+        (("section", "9-5"), ("subsection", "3"))
+    ]
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w35_w21_section_412_witness_is_byte_identical() -> None:
+    """W-35 negative corpus pin: the nested-payload act W-21 built its rule on.
+
+    `no/lovtid/2009-06-19-74` is where the design risk is sharpest — its new
+    § 412 "Endringer i andre lover" introduces a run of nested consequential
+    items. Measured 2026-08-07: the act carries 184 ``futureLegalArticle``
+    elements and NOT ONE of them holds a child the W-34 predicate fires on,
+    because its nested items are ``defaultP`` siblings. The split is a no-op
+    here and the whole op stream is unmoved.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2009-06-19-74", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    grouped = iter_no_document_change_ops(html_bytes, "no/lovtid/2009-06-19-74")
+
+    assert len(grouped) == 214
+    assert sum(len(ops) for _base_id, ops in grouped) == 483
+
+    def _flatten(node, prefix: str = "") -> list[str]:
+        if node is None:
+            return []
+        lines = [f"{prefix}{node.kind}:{node.label or ''}:{node.text or ''}"]
+        for child in node.children:
+            lines.extend(_flatten(child, prefix + "  "))
+        return lines
+
+    digest = hashlib.sha256()
+    for base_id, ops in grouped:
+        for op in ops:
+            destination = op.destination.path if op.destination is not None else ""
+            digest.update(f"{base_id}|{op.action.value}|{op.target.path}|{destination}|".encode())
+            digest.update("\n".join(_flatten(op.payload)).encode())
+    assert digest.hexdigest()[:32] == "d915064433a7bbfd3d4a9b18f3c43b4b"

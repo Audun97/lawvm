@@ -2202,7 +2202,14 @@ def test_annex_ceiling_corpus_counts_are_pinned() -> None:
         "no/lov/2017-06-16-51": (210, 204, 6, {address: 204}),
         # SCE-loven's row (212, 211, 1, {address: 104, counterpart: 107}) is
         # off-scan since W-30 — see the set(rows) comment above.
-        "no/lov/2001-01-05-1": (83, 0, 83, {}),
+        # 83 -> 81 at W-35 (2026-08-07, signed off): still 0 ceiling, which is
+        # what this test is about — the negative control's story is unchanged.
+        # The two closed rows are one CONSOLIDATED_MISSING and its paired
+        # OPS_MISSING, both produced by a spurious extra subsection in
+        # no/lovtid/2015-06-19-65's "§ 20 skal lyde:" payload: item 179's lead
+        # was trapped inside the futureLegalArticle and rendered as statutory
+        # text. Same mechanism as the 2005-06-03-34 witness, one row smaller.
+        "no/lov/2001-01-05-1": (81, 0, 81, {}),
         # skipsarbeidsloven's row (55, 0, 55, {}) is off-scan since W-34 — see
         # the set(rows) comment above.
     }
@@ -2279,9 +2286,23 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     #   * 2012-01-27-9 goes 6 -> 5 as item 248's § 61 first sentence lands.
     # Ceiling is untouched at 918; total and unexplained both drop by the same
     # 52 (-55 +1 +3 -1), so W-34 explains nothing away — it moves rows.
+    # W-35 moves it back and closes the flip (2026-08-07). The leads Lovdata
+    # trapped INSIDE `futureLegalArticle` payloads now leave the payload and
+    # re-enter the lead stream as siblings, so THREE rows move and no other:
+    #   * 2005-06-03-34 returns 3 -> 0, divergent -> consistent. The three
+    #     CONSOLIDATED_MISSING rows were items 210 and 211's leads plus item
+    #     210's quoted payload, rendered as § 27's third, fourth and fifth
+    #     subsections; § 27 now holds its heading and its own one paragraph.
+    #   * 2001-01-05-1 83 -> 81 and 2001-06-15-65 4 -> 2, both still divergent.
+    #     Identical mechanism, one trapped lead each (items 179 and 185),
+    #     each costing one CONSOLIDATED_MISSING plus one paired OPS_MISSING.
+    #     Traced and signed off as movement beyond the priced witness.
+    # Ceiling is untouched at 918 again; total and unexplained both drop by the
+    # same 7 (3 + 2 + 2), so W-35 explains nothing away — it removes text that
+    # was never the law's.
     assert report["scanned_count"] == 56
-    assert report["summary"] == {"consistent": 21, "divergent": 35, "error": 0}
-    assert report["divergence_totals"] == {"total": 1196, "ceiling": 918, "unexplained": 278}
+    assert report["summary"] == {"consistent": 22, "divergent": 34, "error": 0}
+    assert report["divergence_totals"] == {"total": 1189, "ceiling": 918, "unexplained": 271}
     # 3 -> 2 at W-34: no/lov/2001-01-05-1 gains 4 bound ops from
     # no/lovtid/2015-06-19-65 item 178, so its indexed history is no longer
     # sparse. Its 83 divergences do not move; only the bucket does.
@@ -2292,11 +2313,13 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
         # +2001-01-05-1 (source_sparse -> here, its sparse signal stopped firing
         # after item 178 bound), +2005-06-03-34 (consistent -> here, the 3
         # futureLegalArticle rows). 15 -> 16.
+        # W-35: -2005-06-03-34, back to consistent with 0 divergences once those
+        # three rows leave its § 27 payload. 16 -> 15, and the ONLY membership
+        # change in the whole partition.
         "replay_defect": [
             "no/lov/2001-01-05-1",
             "no/lov/2001-06-15-65",
             "no/lov/2004-05-28-29",
-            "no/lov/2005-06-03-34",
             "no/lov/2010-06-25-28",
             "no/lov/2012-11-30-70",
             "no/lov/2014-08-15-59",
@@ -2350,8 +2373,10 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             "no/lov/2018-06-15-38",
         ],
         # W-34: 2005-06-03-34 leaves for replay_defect (see above). 22 -> 21.
+        # W-35: it returns. 21 -> 22.
         "consistent": [
             "no/lov/2004-05-14-25",
+            "no/lov/2005-06-03-34",
             "no/lov/2006-08-18-61",
             "no/lov/2012-01-27-10",
             "no/lov/2013-06-07-31",
