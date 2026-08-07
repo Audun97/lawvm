@@ -101,6 +101,15 @@ two entrants: `2012-12-14-81` at 97 (93 annex-shaped rows → W-40) and
 unexplained=294)` — the unexplained rise is new coverage, not
 regression (−81 + 97 + 7); 55 of the 56 prior rows byte-identical.
 
+W-40 note (verdicts unmoved, so no new scoreboard row): the 1,212
+divergences now read `total=1212 (ceiling=1011, unexplained=201)` —
+the nested (compound sub-chapter) annex encoding typed under its own
+rule id (`ceiling_rule_counts` `{address: 918, nested: 93}`).
+`2012-12-14-81` reads 97 = 93 ceiling + 4 unexplained and its
+partition bucket moves `source_sparse` → `annex_ceiling`; every row's
+address and type stayed byte-identical — W-40 types rows, it moves
+nothing.
+
 Batch 03 increased coverage rather than changing an existing verdict: all 20
 old rows stayed byte-identical, and 38 laws that had previously been excluded
 for unresolved commencement entered the scan. Their first durable baseline is:
@@ -1846,14 +1855,41 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    (`2009-06-19-74` binds without declaring) remains open — the law
    went consistent regardless, so its §16 op is evidently correct.
 40. **W-40 (annex ceiling classifier misses `2012-12-14-81`'s prefix,
-   W-17 extension):** the W-39-entered law carries 93 OPS_MISSING rows
-   under an annex-shaped address prefix that
-   `_no_annexed_instrument_address` does not match, so they count
-   UNEXPLAINED (the bulk of the 271 → 294 rise) despite being the
-   W-17 family; it also carries `sparse_indexed_history` (the W-23
-   route sends it to `source_sparse`). Extend the W-17 typing to the
-   measured prefix with the same negative-control discipline; expected
-   effect: ~93 rows unexplained → ceiling, no verdict change.
+   W-17 extension):** DONE (`71d916f1e`, 2026-08-08). The law carries
+   regulation (EU) nr. 492/2011 under a SECOND Lovdata annex encoding
+   W-17 never saw: not a token chapter of its own but a compound
+   sub-chapter of an ordinary host chapter — `chapter:1` ("Forordning")
+   holding `chapter:1-1` ("EØS-avtalen vedlegg V punkt 2 …"), the
+   regulation's chapters/parts/articles below, and UNPREFIXED article
+   labels (`section:a1`), so both halves of
+   `_no_annexed_instrument_address` miss every row. New sibling
+   matcher `_no_nested_annexed_instrument_address` + third criterion
+   `no_verify.ceiling_annexed_instrument_nested_address`, bound to the
+   measured shape: ordinary top chapter, second chapter extending the
+   host label with `-`, first section an unprefixed article — the
+   middle requirement keeps `2006-06-30-50`'s canonical
+   `chapter:1/chapter:I/section:a1` rows with the counterpart rule.
+   Census over all 1,212 divergence addresses of the 58 candidates:
+   93 hits, all in this law, 0 in the other 57, 0 overlap with the
+   W-17 typings; `2018-06-15-38`'s GDPR compound sub-chapters
+   (`10-3-1`…, 484 rows) are disjoint STRUCTURALLY — the two rules
+   demand opposite top-chapter shapes. Deliberate narrowing: the
+   nested rule does NOT feed the counterpart `witnessed` map
+   (two-address doubling is a measured property of the token encoding
+   only). Effect, signed off 2026-08-08: 93 rows unexplained →
+   ceiling (`918 → 1,011` / `294 → 201` against an unmoved 1,212,
+   `ceiling_rule_counts` `{address: 918, nested: 93}`);
+   `2012-12-14-81` reads 97 = 93 + 4; zero verdict, candidate, row or
+   index-pin movement. Partition: the law moves `source_sparse` →
+   `annex_ceiling`, closing the contradiction W-39 recorded in the pin
+   comment by typing the rows rather than re-bucketing (the
+   `sparse_indexed_history` signal itself untouched, still 3 laws).
+   Ceiling-share floor relaxed `> 0.97` → `> 0.95` (the new member is
+   93/97 = 95.9%; descriptive, not the routing predicate — separation
+   stays total; consider dropping the constant for the properties
+   already asserted separately). The 4 residual rows are the enacting
+   act's own §§ 1-4, which the published consolidation does not print
+   at all → W-42.
 41. **W-41 (partial-part commencement slices, sized surface):** the
    109 (instrument, act) pairs W-39's `whole_part_scope` conjunct
    refused — instruments commencing a genuinely narrower slice of a
@@ -1864,6 +1900,15 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    members; the `Lovens tittel:` restatement recognized-not-applied
    (no law-title op exists); the pre-existing spaced `data-name`
    heading-label artefact (939 base-state ops, untouched).
+42. **W-42 (`2012-12-14-81`'s consolidation prints only the annex —
+   parse defect or source shape?):** the law's 4 residual unexplained
+   rows are the enacting act's own §§ 1-4 (CONSOLIDATED_MISSING:
+   replay produces them; the parsed consolidation's `body` has exactly
+   one child, the annex chapter). Probe (~1 hour): is Lovdata's
+   `gjeldende-lover` document for this law genuinely annex-only, or is
+   the law body dropped at parse? A parse defect would be a recurring
+   shape worth fixing corpus-wide; otherwise this is a second small
+   representation ceiling (4 rows, 1 law) to type like W-17.
 
 ## 5. Demo / Inspection Tooling
 
@@ -1881,6 +1926,25 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-08 (W-40 applied)** — **Lovdata's second annex encoding is
+  typed: the compound sub-chapter joins the W-17 ceiling and the
+  unexplained count drops 294 → 201** (`71d916f1e`). The W-39 entrant
+  `2012-12-14-81` carries regulation (EU) nr. 492/2011 as
+  `chapter:1`/`chapter:1-1` with unprefixed article labels — no token
+  chapter, so both halves of the W-17 matcher miss all 93 rows. New
+  sibling matcher + rule id
+  `ceiling_annexed_instrument_nested_address`, bound to the measured
+  shape with the W-17 negative-control discipline; censused over all
+  1,212 divergence addresses: 93 hits in 1 law, 0 elsewhere, 0
+  overlap, GDPR compound sub-chapters disjoint structurally
+  (opposite top-chapter requirements). The nested rule deliberately
+  does not feed the counterpart `witnessed` map. Ceiling 918 → 1,011
+  under separate rule counts; the law's partition bucket moves
+  `source_sparse` → `annex_ceiling`, closing W-39's recorded
+  contradiction; ceiling-share floor 0.97 → 0.95 (descriptive only).
+  Zero verdict, row, or index movement. The 4 residual rows (the
+  act's own §§ 1-4, absent from the consolidation) → W-42.
 
 - **2026-08-07 (W-39 applied)** — **The commencement lane opens: the
   collective re-enactment lead lowers as a declared end state, part
