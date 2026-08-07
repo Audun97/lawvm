@@ -1498,16 +1498,33 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    (require `I lov`) cover it, dotted or not. A separate grammar gap
    from W-21/W-25; needs its own measured pass (enumerate the form
    corpus-wide, decide rank).
-28. **W-28 (law citations with no `nr` at all, small):** pre-1900s-style
-   acts carry no Lovtidend number, so no citation regex can resolve
-   them. Witnesses: `no/lovtid/2009-01-30-7` part I "I lov 10. februar
-   1967 om behandlingsmåten i forvaltningssaker (forvaltningsloven)
-   skal § 19 fyrste ledd lyde:" (the part resolves nothing; its §19 op
-   is dropped — harm-free, it is the FIRST part so there is no
-   `active_base_id` to inherit) and `2009-06-19-74` item 1
-   (Lappekodisillen 1751). Fix needs a date-plus-title resolution
-   (forvaltningsloven's id is `no/lov/1967-02-10`) and a sweep for
-   which numberless citations are resolvable at all.
+28. **W-28 (law citations with no `nr` at all):** DONE (`c5224c6c1`,
+   2026-08-07, landed jointly with W-36). The id-landscape measurement
+   overturned this item's own premise: NO date-only ids exist in the
+   corpus — pre-numbering acts are filed under `<date>-0` (22 of the
+   645 current ids, 1687–1968: forvaltningsloven `1967-02-10-0`,
+   bilansvarslova `1961-02-03-0`, Lappekodisillen `1751-10-02-0`,
+   Grunnloven `1814-05-17-0` — the LTI filename's `000` number
+   normalized). Resolution is therefore DETERMINISTIC (append `-0`),
+   not date-unique-with-title-tiebreak; the guard is
+   `_NO_NUMBERLESS_LAW_DATES`, a closed 31-date set Lovdata attests
+   twice over (22 `-0` corpus ids + 20 date-only declared targets, 11
+   in both, latest 1968, closed by history), re-derived from the
+   archive by a test so drift fails loudly. UNGATED the rule invents
+   laws — measured: it answered `2001-04-20-0` for
+   valdsoffererstatningslova and displaced the correct numbered id.
+   Rank: LAST, behind both numbered patterns, in the head extractor
+   and the embedded patterns (not the plural free-text harvester).
+   Sweep: 334 numberless spans / 131 artifacts; 76 of 151 unresolved
+   leads resolve; residue 56 lead-grammar/passing-prose + 11
+   drafter-omitted-number (correctly declined) + 8 outside the corpus.
+   F-10 family-3 reconciled: the claim "no corpus id has that shape"
+   holds LITERALLY, its inference ("109 declared date-only ids can
+   never bind") is FALSIFIED — 54 of the 93 pairs name laws the acts
+   NOW bind, kept on receipts only by id-exact comparison (→ W-38).
+   13 pre-numbering laws gain their first amending op; none is
+   executable, so the scan is untouched — F-10's "family 3 blocks
+   nothing scan-visible" confirmed from the other side.
 29. **W-29 (`_infer_no_source_signal` should read the W-17 residue,
    one-liner, fully measured):** the signal's `divergence_count` input
    counts ceiling rows, which is 100% of its over-firing — the W-23
@@ -1694,21 +1711,60 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    benign self-referential.
 36. **W-36 (Lovdata run-on nodes, mid-node lead extraction):** the last
    reachable class of swallowed leads — a single `legalP` that
-   concatenates one lead's payload tail with the NEXT lead's head
-   (W-34's 2 predicate-rejects plus the mid-node instances W-35's
-   audits surfaced). Measured cost today: 9 stale→stale ops in
-   `2014-05-09-16` (items 17/20 buried mid-node), 3 in `2016-06-17-29`
-   (item 11, finansforetaksloven), 7 op payloads still carrying a
-   foreign lead in `2004-06-25-53`. Fix shape: split the node at the
-   mid-node lead boundary (the W-34 first-sentence predicate applied
-   at sentence granularity instead of node granularity) — needs its
-   own measured pass; the enumeration-gap lists from W-35
-   (`2015-06-19-65`: items 6, 16, 42, 50, 58, 107–108, 195–197, 220,
-   237; `2014-05-09-16`: items 2, 4, 8, 17–20, 26) are the ready-made
-   work queue, though several gaps are the W-28 numberless-citation
-   family, not run-ons. Also noted at W-35: `future_articles[0]`
-   indexing is a latent single-payload assumption when a run carries
-   two `futureLegalArticle` nodes.
+   concatenates one lead's payload tail with the NEXT lead's head.
+   DONE (`c5224c6c1`, 2026-08-07, landed jointly with W-28). The
+   measurement overturned the ledger's proposed fix shape: the run-on
+   is a DOM defect, not a text defect — Lovdata closes the paragraph
+   late, so the next lead sits in its OWN child element
+   (`ul.defaultList > li > article.legalP`) and the run-on exists only
+   in `itertext()`. The split anchors on the ELEMENT, which rejects
+   both non-run-on classes with nothing to tune (10 ordinal-head nodes
+   → W-37; 1 text-only citing-prose node). A second load-bearing head
+   guard emerged from the DOM census (62 nodes / 14 acts): a head
+   ending `:` WITHOUT an intro marker is an amendment directive whose
+   colon opens its own payload — 2 such nodes are plan- og
+   bygningsloven's consequential list QUOTED VERBATIM as a provision's
+   new text, byte-identical markup to the 57 genuine run-ons, caught
+   only because splitting them emitted an op the act never made
+   (external-truth audit went 0→1 on that act; guard added,
+   negative-controlled). 60 splits / 12 acts; run-on→trapped(W-35)
+   fixpoint iteration (max 2 productive turns); joint gap-fill proof
+   61/61. `2005-06-17-84`'s nested amendment-of-an-amendment lead
+   deliberately NOT reached (binding it would be wrong, not
+   recovered). Joint W-36+W-28 results: ops +136, bindings +140/−8
+   (the 8 all stale bases losing their last op to a correct rebind),
+   10 first-time entries, external truth 286 → 41 disagreements (28
+   artifacts better, 0 worse), op-payload invariant 13 → 6 (all
+   self-referential), the 14 known stale ops all re-adjudicated to
+   their true laws, exactly 1 op dropped corpus-wide (it was wrongly
+   bound via a compound-word citation `plan- og bygningslov …` that
+   `\b`-anchored `lov` cannot reach — recorded). Scan byte-identical
+   on all 56 rows. Signed off 2026-08-07: the §412 witness pin
+   movement (W-28's Lappekodisillen witness lives inside that act;
+   sub-witnesses now pinned tighter) and the corpus pin package.
+37. **W-37 (ordinal-prefix embedded leads, bounded, W-26-shaped):** 10
+   nodes / 5 acts where an embedded `I lov …` lead carries an item
+   ordinal the head-anchored `_extract_no_embedded_multi_act_lead`
+   cannot strip — including bare-letter ordinals (`a.`, `c.`) that
+   `_NO_LEAD_ITEM_ORDINAL` cannot match: `2009-06-19-97` (3),
+   `2021-06-18-89` (3), `2009-06-19-103` (2), `2002-06-14-20` (1),
+   `2009-06-19-74` (1). Fix: extend the ordinal strip to the embedded
+   pattern's head (and bare letters), with the usual differential
+   sweep.
+38. **W-38 (declared-side date-only → `-0` normalization, F-10
+   headline mover):** W-28 proved the 109 family-3 declared date-only
+   ids CAN bind — normalizing `<date>` → `<date>-0` in
+   `_no_index_declared_target_unbound_diagnostic` would clear 54 of
+   the 93 current family-3 pairs (laws their acts now bind), leaving
+   24 unbound-with-law-present and 15 law-absent. Deliberately left
+   at W-28 because it moves F-10's headline totals and the receipt
+   docstring pins reconciliation with
+   `scripts/probes/no_declared_target_coverage.py` — needs a small
+   priced pass that updates both sides together. Also recorded there:
+   `2009-06-19-90`'s structured path previously bound the date-only
+   id and now binds `-0` (canonicalization improvement costing one
+   newly-receipted pair); `future_articles[0]` single-payload
+   assumption still latent.
 
 ## 5. Demo / Inspection Tooling
 
@@ -1726,6 +1782,27 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-07 (W-36 + W-28 applied)** — **The last reachable
+  swallowed-lead class is gone and the pre-numbering acts join the
+  index: run-ons split at the DOM element Lovdata failed to close, and
+  numberless citations resolve deterministically to the corpus's
+  `<date>-0` ids** (`c5224c6c1`). Both fixes overturned their
+  items' proposed designs by measurement: the run-on is a DOM defect
+  (element-anchored split, no sentence heuristics; a head guard holds
+  back two verbatim-quoted consequential lists that are byte-identical
+  in markup to genuine run-ons), and W-28 needed no title tiebreak —
+  pre-numbering acts are filed under `-0`, so resolution is
+  deterministic behind a 31-date attested set (ungated, the rule
+  invents laws; measured). Joint: +136 ops, +140/−8 bindings, 10
+  first-time entries, external truth 286 → 41 (0 artifacts worse),
+  op-payload invariant 13 → 6, all 14 known stale ops re-adjudicated.
+  Scan byte-identical on all 56 rows — and F-10's family-3 inference
+  is falsified (54 of 93 declared date-only pairs name laws now
+  bound), opening **W-38** for the declared-side normalization;
+  **W-37** opened for the bounded ordinal-prefix family. Signed off:
+  the §412 witness pin movement (W-28's own Lappekodisillen witness
+  lives in that act) and the pin package.
 
 - **2026-08-07 (W-35 applied)** — **The trapped-lead seam is closed
   with a zero-guess classification, and the W-34 flip comes home:
