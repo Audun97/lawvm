@@ -1124,6 +1124,42 @@ def _infer_same_base_subsection_target_specs_from_lead(
     return specs
 
 
+# W-32(c): Lovtidend spells a letter-suffixed section label with a SPACE
+# ("§ 28 b", "§ 216 i"), which the bare ``[0-9A-Za-z-]+`` label class cannot
+# span. In the sentence grammar the failure was not a non-match but something
+# worse: the narrow class matched with the SECTION cut short ("216") and the
+# stray letter absorbed into the ordinal phrase ("d første"), which then failed
+# ``_NORWEGIAN_ORDINALS`` and returned no specs -- a silent drop, not a receipt.
+#
+# Differential sweep over every ``defaultP``/``legalP`` text in all 3,089
+# amendment artifacts, comparing the SPECS the two classes produce (not the
+# regex groups): 294 texts gain specs, 0 lose specs, 0 resolve to different
+# specs. Every absorbed suffix letter was checked against its act: a=166, b=55,
+# c=22, d=16, e=13, f=6, g=5, m=3, h=2, j=2, and one each of l/i/o/n -- the
+# single-letter Norwegian words that could have been prose rather than a label
+# ("i") occur only as straffeprosessloven § 216 i, a real section in the
+# § 216 a-o run, so there is no prose reading to lose.
+#
+# Scoped to this grammar on purpose: the class is used by other §-anchored
+# productions too, and each of those needs its own differential before it is
+# widened. This one is measured; the others are not.
+#
+# BOUNDED by the same sweep, at op level rather than spec level: widening the
+# LEDD-LESS production below as well cost 2 ops right->wrong
+# (``no/lovtid/2025-06-20-38``), because that production resolves a
+# section/sentence address with NO subsection step and the structured lowering
+# lets an inferred sentence spec override the markup's own — fuller — target.
+# The widening therefore applies only to the ledd-carrying production, which
+# always resolves all three steps and so can never shorten an address.
+#
+# Spelled inline as ``[0-9A-Za-z-]+(?:\s+[A-Za-z])?`` rather than interpolated
+# from a shared constant: an f-string-built regex inside a per-lead function is
+# a frozen-residue smell (FW-08), and hoisting it to a module constant would
+# need the classifier wrap, which the two adjacent ``(.+?)`` spans in this
+# production cannot pass. The space is collapsed downstream by
+# ``_normalize_no_section_label``, which already strips spaces.
+
+
 def _infer_same_base_sentence_targets_from_lead(lead: str) -> list[LegalAddress]:
     return [target for _action, target in _infer_same_base_sentence_target_specs_from_lead(lead)]
 
@@ -1133,7 +1169,7 @@ def _infer_same_base_sentence_target_specs_from_lead(
 ) -> list[tuple[StructuralAction, LegalAddress]]:
     lead = _normalize_space(lead).rstrip(":")
     match = re.match(
-        r"^§\s*([0-9A-Za-z-]+)\s+(.+?)\s+ledd\s+(.+?)\s+punktum\s+(?:skal\s+lyde|oppheves)$",
+        r"^§\s*([0-9A-Za-z-]+(?:\s+[A-Za-z])?)\s+(.+?)\s+ledd\s+(.+?)\s+punktum\s+(?:skal\s+lyde|oppheves)$",
         lead,
         re.IGNORECASE,
     )
@@ -1168,6 +1204,14 @@ def _infer_same_base_sentence_target_specs_from_lead(
                 )
             )
         return specs
+    # NOT widened: see the bound recorded at ``_NO_SPACED_SECTION_LABEL``. This
+    # ledd-less production yields a section/sentence address with no subsection
+    # step, and the structured lowering lets an inferred sentence spec OVERRIDE
+    # the markup's own target -- so widening here turned
+    # ``§ 13 a nytt fjerde og femte punktum skal lyde`` (no/lovtid/2025-06-20-38,
+    # whose markup already said ``§13a/ledd/1/setning/4``) into a subsection-less
+    # address: 2 ops right->wrong. The ledd-carrying production above cannot do
+    # that, because it always resolves all three steps.
     match = re.match(
         r"^§\s*([0-9A-Za-z-]+)\s+(.+?)\s+punktum\s+(?:skal\s+lyde|oppheves)$",
         lead,
@@ -1197,8 +1241,132 @@ def _infer_same_base_sentence_target_specs_from_lead(
     return specs
 
 
+# W-32(a): a lettered-item lead may name MORE THAN ONE ``bokstav`` in one
+# sentence ("§ 49 andre ledd bokstav e og ny bokstav f skal lyde:"). The
+# single-item grammar below cannot see the second item, so BOTH ops used to
+# drop silently.  Measured surface (census over every ``defaultP``/``legalP``
+# lead in all 3,089 amendment artifacts): 157 leads name two or more letters.
+# This production is bounded to the 126 that carry the SAME address shape the
+# single-item grammar already addresses -- ``§ X <ordinal> ledd bokstav ...``
+# with no intervening ``nr.`` -- so the only dimension widened here is item
+# ARITY.  The two measured residue shapes stay unreachable on purpose and are
+# recorded rather than guessed at: 26 ledd-less leads ("§ 12-2 bokstav h og ny
+# bokstav i skal lyde", a section->item address the ordinary path has no
+# grammar for at all) and 12 with a ``nr.`` between the ledd and the bokstav
+# ("§ 23-3 annet ledd nr. 2 bokstav c ..."), whose extra item step the
+# single-item grammar only spells on the OTHER side of ``bokstav``.
+#
+# The grammar is split into a HEAD anchor and a TAIL anchor rather than written
+# as one pattern with a ``.+?`` item span: a variable item span sitting directly
+# against the ``\s+skal\s+lyde`` terminator is two adjacent variable repeats with
+# overlapping starts, which the classifier-safety gate rejects. The item list is
+# taken from between the two matches, the same prefix/residue shape W-24's
+# Del-scope productions use.
+_NO_MULTI_ITEM_LEAD_HEAD_RE = compile_classifier_regex(
+    r"^§\s*([0-9A-Za-z-]+)\s+([A-Za-zÆØÅæøå]+)\s+ledd\s+bokstav(?:ene)?\s",
+    re.IGNORECASE,
+    classifier_id="norway.grafter.multi_item_bokstav_lead_head",
+)
+_NO_MULTI_ITEM_LEAD_TAIL_RE = compile_classifier_regex(
+    r"\s*skal\s+lyde\b",
+    re.IGNORECASE,
+    classifier_id="norway.grafter.multi_item_bokstav_lead_tail",
+)
+
+# One item token: an optional newness marker, an optional re-spelling of
+# ``bokstav`` (Lovtidend writes both "bokstav e og f" and "bokstav e og ny
+# bokstav f"), then exactly ONE letter. Anything else in the token -- a nested
+# ``punktum``/``nr.``/``ledd`` address, a ``til`` range, a trailing ``)`` --
+# fails the anchor and the whole lead falls through to the single-item grammar
+# unchanged, which is the all-or-nothing rule applied at the grammar. Stripped
+# marker by marker, again for the safety gate: an OPTIONAL group wrapping an
+# alternation of variable-length literals reads as a nested quantifier.
+_NO_MULTI_ITEM_NEWNESS_RE = compile_classifier_regex(
+    r"^(ny|nye|nytt|nåværende|noverande)\s+",
+    re.IGNORECASE,
+    classifier_id="norway.grafter.multi_item_bokstav_newness",
+)
+_NO_MULTI_ITEM_BOKSTAV_RE = compile_classifier_regex(
+    r"^(?:bokstavene|bokstav)\s+",
+    re.IGNORECASE,
+    classifier_id="norway.grafter.multi_item_bokstav_marker",
+)
+_NO_MULTI_ITEM_LETTER_RE = compile_classifier_regex(
+    r"^[a-zæøå]$",
+    re.IGNORECASE,
+    classifier_id="norway.grafter.multi_item_bokstav_letter",
+)
+
+
+def _infer_no_multi_item_specs_from_lead(lead: str) -> list[tuple[StructuralAction, LegalAddress]]:
+    """Recover two or more lettered-item targets declared by one lead sentence.
+
+    Returns ``[]`` for anything that is not an unambiguous multi-item lead --
+    including a lead that names exactly one item, which stays the single-item
+    grammar's business.
+    """
+    # lawvm-regex: owning_parser this IS the multi-item lead parser
+    head = _NO_MULTI_ITEM_LEAD_HEAD_RE.match(lead)
+    if head is None:
+        return []
+    section_label = _normalize_no_section_label(head.group(1))
+    subsection_label = _NORWEGIAN_ORDINALS.get(head.group(2).lower())
+    if not section_label or not subsection_label:
+        return []
+    residue = lead[head.end() :]
+    # lawvm-regex: owning_parser this IS the multi-item lead parser
+    tail = _NO_MULTI_ITEM_LEAD_TAIL_RE.search(residue)
+    if tail is None:
+        return []
+    items = _normalize_space(residue[: tail.start()])
+    tokens = [token.strip() for token in re.split(r"\s*,\s*|\s+og\s+", items) if token.strip()]
+    specs: list[tuple[StructuralAction, LegalAddress]] = []
+    letters: list[str] = []
+    for token in tokens:
+        action = StructuralAction.REPLACE
+        # lawvm-regex: owning_parser this IS the multi-item lead parser
+        newness = _NO_MULTI_ITEM_NEWNESS_RE.match(token)
+        if newness is not None:
+            if newness.group(1).lower() in {"ny", "nye", "nytt"}:
+                action = StructuralAction.INSERT
+            token = token[newness.end() :]
+        # lawvm-regex: owning_parser this IS the multi-item lead parser
+        marker = _NO_MULTI_ITEM_BOKSTAV_RE.match(token)
+        if marker is not None:
+            token = token[marker.end() :]
+        # lawvm-regex: owning_parser this IS the multi-item lead parser
+        if _NO_MULTI_ITEM_LETTER_RE.match(token) is None:
+            return []
+        letter = _normalize_label(token).lower()
+        if not letter:
+            return []
+        letters.append(letter)
+        specs.append(
+            (
+                action,
+                LegalAddress(
+                    path=(
+                        ("section", section_label),
+                        ("subsection", subsection_label),
+                        ("item", letter),
+                    )
+                ),
+            )
+        )
+    if len(specs) < 2 or len(set(letters)) != len(letters):
+        return []
+    return specs
+
+
 def _infer_same_base_item_targets_from_lead(lead: str) -> list[LegalAddress]:
+    return [target for _action, target in _infer_same_base_item_target_specs_from_lead(lead)]
+
+
+def _infer_same_base_item_target_specs_from_lead(lead: str) -> list[tuple[StructuralAction, LegalAddress]]:
     lead = _normalize_space(lead).rstrip(":")
+    multi_specs = _infer_no_multi_item_specs_from_lead(lead)
+    if multi_specs:
+        return multi_specs
     match = re.search(
         r"§\s*([0-9A-Za-z-]+)\s+(.+?)\s+ledd\s+bokstav\s+([A-Za-z])(?:\s+(?:nr\.|nummer)\s+([0-9A-Za-z-]+))?\s+(?:skal\s+)?lyde\b",
         lead,
@@ -1220,7 +1388,7 @@ def _infer_same_base_item_targets_from_lead(lead: str) -> list[LegalAddress]:
         ]
         if nested_label:
             path.append(("item", nested_label))
-        return [LegalAddress(path=tuple(path))]
+        return [(StructuralAction.REPLACE, LegalAddress(path=tuple(path)))]
     match = re.search(
         r"§\s*([0-9A-Za-z-]+)\s+(.+?)\s+ledd\s+nytt\s+siste\s+strekpunkt\s+(?:skal\s+)?lyde\b",
         lead,
@@ -1233,12 +1401,15 @@ def _infer_same_base_item_targets_from_lead(lead: str) -> list[LegalAddress]:
     if not subsection_label:
         return []
     return [
-        LegalAddress(
-            path=(
-                ("section", section_label),
-                ("subsection", subsection_label),
-                ("item", "last"),
-            )
+        (
+            StructuralAction.REPLACE,
+            LegalAddress(
+                path=(
+                    ("section", section_label),
+                    ("subsection", subsection_label),
+                    ("item", "last"),
+                )
+            ),
         )
     ]
 
@@ -2057,11 +2228,13 @@ def _iter_unstructured_no_change_groups(
             idx = cursor
             continue
 
-        item_targets = _infer_same_base_item_targets_from_lead(lead)
-        if item_targets:
+        item_specs = _infer_same_base_item_target_specs_from_lead(lead)
+        if item_specs:
+            item_targets = [target for _action, target in item_specs]
             payload_candidates = _extract_payload_candidates_from_nodes([child, *payload_nodes], item_targets)
+            resolved: list[tuple[StructuralAction, LegalAddress, IRNode]] = []
             unresolved_targets: list[LegalAddress] = []
-            for target in item_targets:
+            for action, target in item_specs:
                 payload = payload_candidates.get((target.leaf_kind(), target.leaf_label()))
                 if payload is None and target.leaf_kind() == "item" and target.leaf_label() == "last":
                     item_payloads = [
@@ -2072,11 +2245,42 @@ def _iter_unstructured_no_change_groups(
                 if payload is None:
                     unresolved_targets.append(target)
                     continue
+                resolved.append((action, target, payload))
+            # W-32(a), the W-19 all-or-nothing rule: a lead that DECLARES several
+            # lettered items is one indivisible instruction. If the payload does
+            # not split to match the declared arity we have no evidence for which
+            # item the recovered halves belong to, so nothing lowers and the whole
+            # lead receipts. A single-item lead keeps its per-target behaviour:
+            # there is no arity to guess at, and the existing receipt already
+            # names the one target that failed.
+            if len(item_specs) > 1 and unresolved_targets:
+                _append_no_unstructured_parse_adjudication(
+                    adjudications_out,
+                    kind="no_parse_unstructured_multi_item_payload_arity_mismatch",
+                    message=(
+                        "Norway unstructured multi-item lead declared several lettered "
+                        "items but the payload did not cover all of them; the whole "
+                        "lead was dropped rather than lowered against a guessed split."
+                    ),
+                    source_id=source_id,
+                    lead=lead,
+                    base_id=lead_base_id,
+                    detail={
+                        "declared_count": len(item_specs),
+                        "resolved_count": len(resolved),
+                        "targets": tuple(_no_address_detail(target) for target in item_targets),
+                        "unresolved_targets": tuple(_no_address_detail(target) for target in unresolved_targets),
+                        "payload_family": "item",
+                    },
+                )
+                idx = cursor
+                continue
+            for action, target, payload in resolved:
                 doc_ops.append(
                     LegalOperation(
                         op_id=f"{source_id}:{sequence}",
                         sequence=sequence,
-                        action=StructuralAction.REPLACE,
+                        action=action,
                         target=target,
                         payload=payload,
                         source=OperationSource(statute_id=source_id, raw_text=lead, title=lead_base_id),
@@ -3125,6 +3329,37 @@ def _with_no_rettelse_groups(
     return merged
 
 
+# W-32(b): the lead half of a renumber-plus-replace instruction. The ADDRESSES
+# come from ``data-move-part`` (authoritative markup, not prose); this anchor
+# only has to answer "does the lead also declare that the moved provision shall
+# now read as follows". It therefore requires the move verb ``blir`` and a
+# terminal ``skal lyde`` -- "og skal lyde:", "som skal lyde:", "og overskriften
+# skal lyde:" all end that way, and a lead whose "skal lyde" is followed by
+# further clauses is not one this recovery can attribute.
+# Two anchors, not one: a variable gap between them would be an unbounded repeat
+# adjacent to the terminator's own, which the classifier-safety gate rejects.
+_NO_STRUCTURED_RENUMBER_MOVE_VERB_RE = compile_classifier_regex(
+    r"\bblir\b",
+    re.IGNORECASE,
+    classifier_id="norway.grafter.structured_renumber_move_verb",
+)
+_NO_STRUCTURED_RENUMBER_REPLACEMENT_TAIL_RE = compile_classifier_regex(
+    r"\bskal\s+lyde\s*:?$",
+    re.IGNORECASE,
+    classifier_id="norway.grafter.structured_renumber_replacement_tail",
+)
+
+
+def _no_structured_renumber_lead_declares_replacement(lead: str) -> bool:
+    """Does this move block's lead ALSO say the moved provision shall now read …?"""
+    lead = _normalize_space(lead)
+    # lawvm-regex: owning_parser this IS the structured renumber-lead parser
+    if _NO_STRUCTURED_RENUMBER_MOVE_VERB_RE.search(lead) is None:
+        return False
+    # lawvm-regex: owning_parser this IS the structured renumber-lead parser
+    return _NO_STRUCTURED_RENUMBER_REPLACEMENT_TAIL_RE.search(lead) is not None
+
+
 def iter_no_document_change_ops(
     html_bytes: bytes,
     source_id: str,
@@ -3362,6 +3597,7 @@ def iter_no_document_change_ops(
                 [target for _action, target in parsed_specs],
             )
 
+            emitted_renumber_destinations: list[LegalAddress] = []
             for raw_target, raw_destination in renumber_specs:
                 target_base = normalize_lovdata_refid(raw_target)
                 dest_base = normalize_lovdata_refid(raw_destination)
@@ -3436,7 +3672,102 @@ def iter_no_document_change_ops(
                         witness_rule_id="no_section_renumber_relabel",
                     )
                 )
+                emitted_renumber_destinations.append(destination)
                 sequence += 1
+
+            # W-32(b): "§ 14 a blir ny § 28 b og skal lyde:" is TWO instructions --
+            # a move and a replacement of the moved provision -- but Lovdata spells
+            # only the move in markup (``data-move-part``) and leaves the
+            # replacement to the lead sentence, so the payload used to be dropped
+            # and the provision survived at its new address with its OLD text.
+            # Measured surface: 286 change blocks carry ``data-move-part``; 25 have
+            # a "skal lyde" lead; 18 of those ALSO carry a ``data-change-part``
+            # naming the destination, so their payload already lowers and this
+            # recovery must not fire for them (hence the ``not parsed_specs``
+            # guard). The remaining 7 are the gap. The replacement targets the
+            # DESTINATION and is sequenced after the renumber, because it is the
+            # moved provision that is being rewritten.
+            if (
+                not parsed_specs
+                and _no_structured_renumber_lead_declares_replacement(lead_text)
+                and emitted_renumber_destinations
+            ):
+                if len(emitted_renumber_destinations) != 1:
+                    # Several moves and one replacement clause: which moved
+                    # provision the payload rewrites is not recoverable from the
+                    # markup, and guessing would land live text on the wrong
+                    # address. Receipt and drop (the W-19 all-or-nothing rule).
+                    _append_no_parse_adjudication(
+                        adjudications_out,
+                        kind="no_parse_structured_renumber_replacement_not_lowered",
+                        message=(
+                            "Norway structured renumber lead declared a replacement but the "
+                            "change block moved more than one provision; the replacement was "
+                            "not lowered."
+                        ),
+                        source_id=source_id,
+                        detail=diagnostic_detail(
+                            rule_id="no_parse_structured_renumber_replacement_not_lowered",
+                            phase="parse",
+                            family="target_resolution_recovery",
+                            blocking=True,
+                            reason="move_arity_not_one",
+                            base_id=base_id,
+                            source_doc=source_doc,
+                            move_count=len(emitted_renumber_destinations),
+                            destinations=tuple(
+                                _no_address_detail(dest) for dest in emitted_renumber_destinations
+                            ),
+                            raw_text=raw_text,
+                        ),
+                    )
+                else:
+                    destination = emitted_renumber_destinations[0]
+                    replacement_candidates = _extract_payload_candidates(change_el, [destination])
+                    payload = replacement_candidates.get((destination.leaf_kind(), destination.leaf_label()))
+                    if payload is None:
+                        payload = _heading_only_section_payload(change_el, StructuralAction.REPLACE, destination)
+                    if payload is None:
+                        payload = _fallback_payload(change_el, StructuralAction.REPLACE, destination)
+                    if payload is None:
+                        _append_no_parse_adjudication(
+                            adjudications_out,
+                            kind="no_parse_structured_renumber_replacement_not_lowered",
+                            message=(
+                                "Norway structured renumber lead declared a replacement but no "
+                                "payload could be extracted for the destination address."
+                            ),
+                            source_id=source_id,
+                            detail=diagnostic_detail(
+                                rule_id="no_parse_structured_renumber_replacement_not_lowered",
+                                phase="parse",
+                                family="payload_normalization",
+                                blocking=True,
+                                reason="payload_unresolved",
+                                base_id=base_id,
+                                source_doc=source_doc,
+                                destination=_no_address_detail(destination),
+                                raw_text=raw_text,
+                            ),
+                        )
+                    else:
+                        doc_ops.append(
+                            LegalOperation(
+                                op_id=f"{source_id}:{sequence}",
+                                sequence=sequence,
+                                action=StructuralAction.REPLACE,
+                                target=destination,
+                                payload=payload,
+                                source=OperationSource(
+                                    statute_id=source_id,
+                                    raw_text=raw_text,
+                                    title=source_doc,
+                                ),
+                                provenance_tags=(f"base_act:{base_id}", "recovery:renumber_replacement"),
+                                group_id=f"{source_id}:{source_doc}:{sequence}",
+                            )
+                        )
+                        sequence += 1
 
             for action, target in parsed_specs:
                 payload = payload_candidates.get((target.leaf_kind(), target.leaf_label()))

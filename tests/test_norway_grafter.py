@@ -29,6 +29,8 @@ from lawvm.norway.grafter import (
     _extract_no_law_announcement_base_id,
     _extract_no_law_citation_base_id,
     _extract_no_section_base_id_from_lead,
+    _infer_no_multi_item_specs_from_lead,
+    _infer_same_base_sentence_target_specs_from_lead,
     _no_rettelse_item_target_from_lead,
     _normalize_no_chapter_scoped_section_lead,
     _no_unstructured_lead_looks_operative,
@@ -4809,6 +4811,12 @@ def test_no_industrial_property_act_splits_across_its_six_announcements() -> Non
     inherited it — the act read as 22 amendments to the 1953 defence-invention
     act, which genuinely receives exactly one. Each count below is that item's
     own op count, audited against its own lead.
+
+    Patentloven moved 8 → 9 at W-32(c): ``§ 62 a andre ledd første punktum skal
+    lyde`` is a real patentloven amendment whose SPACED section label the
+    sentence grammar's old label class could not span, so it lowered nothing.
+    The binding is unaffected — the op joins item 2's own law, the one its lead
+    announces.
     """
     html_bytes = load_no_amendment_bytes("no/lovtid/2012-06-22-58", _NO_FARCHIVE_PATH)
     assert html_bytes is not None
@@ -4817,7 +4825,7 @@ def test_no_industrial_property_act_splits_across_its_six_announcements() -> Non
 
     assert {base_id: len(ops) for base_id, ops in grouped.items()} == {
         "no/lov/1953-06-26-8": 1,  # item 1, the embedded form, unchanged
-        "no/lov/1967-12-15-9": 8,  # item 2, patentloven
+        "no/lov/1967-12-15-9": 9,  # item 2, patentloven (8 + W-32(c)'s § 62 a)
         "no/lov/1985-06-21-79": 2,  # item 3, foretaksnavneloven
         "no/lov/1993-03-12-32": 1,  # item 4, planteforedlerretten
         "no/lov/2003-03-14-15": 4,  # item 5, designloven
@@ -5149,14 +5157,14 @@ def test_no_rettelse_rule_ignores_ordinary_act_text_containing_rettet() -> None:
     reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
 )
 def test_no_rettelse_corpus_enumeration_is_pinned() -> None:
-    """The whole ``Det som er rettet`` population, re-measured 2026-08-07 (W-24).
+    """The whole ``Det som er rettet`` population, re-measured 2026-08-07 (W-32).
 
     25 artifacts carry the block; 11 of them (12 notes) use Lovdata's typed
     ``gazettenote``/``rettelse`` marker, which is this rule's entire domain. The
     remaining 14 artifacts are the untyped 2003–2011 generation, deliberately
     out of domain (see the rule's header comment).
 
-    W-18 pinned 1 lowered / 11 excluded. W-24 moves it to 3 / 9 — the two Del-
+    W-18 pinned 1 lowered / 11 excluded. W-24 moved it to 3 / 9 — the two Del-
     scoped errata whose part resolves to a law AND whose corrected address the
     host act's own op stream already touches:
 
@@ -5165,10 +5173,17 @@ def test_no_rettelse_corpus_enumeration_is_pinned() -> None:
       * ``2023-12-20-98`` Del V → skatteloven ``1999-03-26-14`` § 5-42 bokstav a,
         correcting the host act's own "uføre-ytelser".
 
-    The other three Del/nested errata stay excluded on measurement, not on
+    W-32 moves it to 4 / 8, and the edit is justified by a fix to the HOST, not
+    by any change to this rule: ``2020-12-04-137`` Del IV → eierseksjonsloven
+    ``2017-06-16-65`` § 49 andre ledd bokstav f now lowers because the host act's
+    own multi-``bokstav`` lead does, so W-24's ``no_corrected_host_op`` guard
+    passes on its own unchanged terms.
+
+    The remaining two Del/nested errata stay excluded on measurement, not on
     grammar convenience: ``2022-05-12-28`` names no target law at all, and
-    ``2020-12-04-137`` / ``2025-06-20-101`` correct host amendments that are
-    themselves unlowered (see the rule's header comment).
+    ``2025-06-20-101`` corrects § 28 b ANDRE LEDD TREDJE PUNKTUM while the host
+    op W-32(b) recovered is a whole-section REPLACE at § 28 b — the guard
+    requires the corrected address exactly, and an ancestor is not a match.
     """
     from lawvm.norway.sources import iter_no_amendment_artifacts
 
@@ -5196,10 +5211,11 @@ def test_no_rettelse_corpus_enumeration_is_pinned() -> None:
     assert artifacts_with_block == 25
     assert lowered == [
         "no/lovtid/2019-12-20-110",
+        "no/lovtid/2020-12-04-137",
         "no/lovtid/2020-12-18-156",
         "no/lovtid/2023-12-20-98",
     ]
-    assert len(excluded) == 9
+    assert len(excluded) == 8
     assert len(lowered) + len(excluded) == 12
 
 
@@ -5298,10 +5314,18 @@ def test_no_rettelse_part_scope_split_is_anchored_and_roman_only(
         ("§ 28 andre ledd andre og tredje punktum skal lyde:", None),
         # Still single-``§``: the Del scope does not license a nested address.
         ("§ 73 nr. 7 § 6-7 første ledd bokstav e skal lyde:", None),
-        # The shared sentence grammar cannot express a spaced letter-suffixed
-        # section label; measured, and deliberately not widened here — widening
-        # it would move ordinary lowering corpus-wide (see W-24's report).
-        ("§ 28 b andre ledd tredje punktum skal lyde:", None),
+        # W-24 pinned this as None: the shared sentence grammar could not express
+        # a spaced letter-suffixed section label, and widening the class was
+        # refused there because its blast radius was unmeasured. W-32(c) measured
+        # it (294 corpus texts gain specs, 0 lose specs, 0 resolve differently)
+        # and widened the LEDD-CARRYING production, so the address now resolves.
+        # It still does not LOWER: W-24's ``no_corrected_host_op`` guard rejects
+        # it, because the host op W-32(b) recovered is a whole-section REPLACE at
+        # § 28 b and the guard requires the corrected address exactly.
+        (
+            "§ 28 b andre ledd tredje punktum skal lyde:",
+            (("section", "28b"), ("subsection", "2"), ("sentence", "3")),
+        ),
         # Not an address at all.
         ("Referansefeltet siste punktum skal lyde:", None),
     ],
@@ -5768,3 +5792,360 @@ def test_no_heading_group_corpus_witness_stays_single_sourced() -> None:
         ("1-2-2", "Skattefordelingsregelen", ["2-10", "2-11", "2-12", "2-13", "2-14"]),
         ("1-2-3", "Nasjonal suppleringsskatt", ["2-20"]),
     ]
+
+
+# ── W-32: host-lead lowering gaps that blocked the last Del errata ────────────
+
+_MULTI_BOKSTAV_WITNESS_XML = """<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <main>
+      <section class="section" data-name="kapI" id="kapittel-1">
+        <h2 data-text-align="center">I</h2>
+        <article class="defaultP">I lov 16. juni 2017 nr. 65 om eierseksjoner blir det gjort slike endringar:</article>
+        <article class="defaultP" margin-top="true">§ 49 andre ledd bokstav e og ny bokstav f skal lyde:<ul class="defaultList"><li data-li-identifier="e)" data-name="e)"><article class="listArticle"><article class="legalP">samtykke til reseksjonering som nevnt i § 20 annet ledd annet punktum</article></article></li><li data-li-identifier="f)" data-name="f)"><article class="listArticle"><article class="legalP">samtykke til sammenslåing av eierseksjonssameier som nevnt i § 22.</article></article></li></ul></article>
+      </section>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def test_no_multi_bokstav_lead_lowers_every_declared_item_with_its_own_action() -> None:
+    """W-32(a): a lead naming two lettered items lowers TWO ops, not zero.
+
+    Fails on base: the single-item grammar required ``bokstav <l>`` to be
+    followed directly by ``skal lyde``, so a lead that names a second item
+    matched nothing and BOTH ops dropped silently. The newness marker is read
+    per item — ``bokstav e`` replaces, ``ny bokstav f`` inserts — because a lead
+    that creates an item and a lead that rewrites one are different instructions
+    even inside one sentence.
+    """
+    adjudications: list[CompileAdjudication] = []
+    grouped = iter_no_document_change_ops(
+        _MULTI_BOKSTAV_WITNESS_XML,
+        "no/lovtid/2020-12-04-137",
+        adjudications_out=adjudications,
+    )
+
+    assert len(grouped) == 1
+    base_id, ops = grouped[0]
+    assert base_id == "no/lov/2017-06-16-65"
+    assert [(op.action, op.target.path) for op in ops] == [
+        (StructuralAction.REPLACE, (("section", "49"), ("subsection", "2"), ("item", "e"))),
+        (StructuralAction.INSERT, (("section", "49"), ("subsection", "2"), ("item", "f"))),
+    ]
+    assert [op.payload.text for op in ops if op.payload is not None] == [
+        "samtykke til reseksjonering som nevnt i § 20 annet ledd annet punktum",
+        "samtykke til sammenslåing av eierseksjonssameier som nevnt i § 22.",
+    ]
+    assert not [
+        a
+        for a in adjudications
+        if a.kind == "no_parse_unstructured_multi_item_payload_arity_mismatch"
+    ]
+
+
+def test_no_multi_bokstav_lead_drops_whole_lead_when_the_payload_arity_disagrees() -> None:
+    """W-32(a): the W-19 all-or-nothing rule, applied to declared item arity.
+
+    The shape of corpus witness ``no/lovtid/2011-06-24-31``, the one lead the
+    sweep found where the payload does not split to the declared arity: which
+    item the single payload belongs to is not recoverable, so NOTHING lowers and
+    the whole lead receipts. A half-applied lead would put live text on a
+    guessed address.
+    """
+    html_bytes = """<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <main>
+      <section class="section" data-name="kapI" id="kapittel-1">
+        <article class="defaultP">I lov 16. juni 2017 nr. 65 om eierseksjoner blir det gjort slike endringar:</article>
+        <article class="defaultP" margin-top="true">§ 49 andre ledd bokstav b og c skal lyde:<ul class="defaultList"><li data-li-identifier="b)" data-name="b)"><article class="listArticle"><article class="legalP">bare den ene halvdelen</article></article></li></ul></article>
+      </section>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+    adjudications: list[CompileAdjudication] = []
+    grouped = iter_no_document_change_ops(
+        html_bytes, "no/lovtid/2011-06-24-31", adjudications_out=adjudications
+    )
+
+    assert grouped == []
+    receipts = [
+        a
+        for a in adjudications
+        if a.kind == "no_parse_unstructured_multi_item_payload_arity_mismatch"
+    ]
+    assert len(receipts) == 1
+    assert receipts[0].detail["declared_count"] == 2
+    assert receipts[0].detail["resolved_count"] == 1
+    assert receipts[0].detail["unresolved_targets"] == ("section:49/subsection:2/item:c",)
+    assert receipts[0].detail["blocking"] is True
+
+
+@pytest.mark.parametrize(
+    "lead",
+    [
+        # A range, not an enumeration: "a til c" leaves the middle items unnamed,
+        # so the declared arity is not recoverable from the lead alone.
+        "§ 9 første ledd bokstav a til c skal lyde",
+        # A nested address below the item — the payload is a sentence, not an item.
+        "§ 5 første ledd bokstav a første punktum og bokstav b skal lyde",
+        # ``nr.`` BEFORE the bokstav is an extra item step this production does
+        # not spell (measured: 12 corpus leads, deliberately unreachable).
+        "§ 23-3 annet ledd nr. 2 bokstav g og ny bokstav h skal lyde",
+        # Ledd-less: a section->item address the ordinary path has no grammar for
+        # at all (measured: 26 corpus leads).
+        "§ 12-2 bokstav h og ny bokstav i skal lyde",
+        # Not an ordinal the table knows.
+        "§ 7 sjuogtjuende ledd bokstav a og b skal lyde",
+        # Exactly one item is the single-item grammar's business, never this one.
+        "§ 49 andre ledd bokstav e skal lyde",
+        # A repeated letter is a malformed lead, not two targets.
+        "§ 49 andre ledd bokstav e og bokstav e skal lyde",
+    ],
+)
+def test_no_multi_bokstav_grammar_is_anchored_and_rejects_unmeasured_shapes(lead: str) -> None:
+    """W-32(a): every shape the corpus sweep found but did NOT wire stays out."""
+    assert _infer_no_multi_item_specs_from_lead(lead) == []
+
+
+_RENUMBER_REPLACEMENT_WITNESS_XML = """<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <main>
+      <section class="section" data-name="kapII" id="kapittel-2">
+        <article class="document-change" data-document="lov/2018-06-08-28">
+          <article class="change" data-move-part="lov/2018-06-08-28/§14a;;lov/2018-06-08-28/§28b">
+            <article class="defaultP">§ 14 a blir ny § 28 b og skal lyde:</article>
+            <article class="futureLegalArticle" data-name="§28b">
+              <span class="futureLegalArticleHeader"><span class="legalArticleValue">§ 28 b</span>. <span class="legalArticleTitle">Nasjonalt studentombud</span></span>
+              <article class="legalP">Fagskolestudenter skal ha tilgang til et nasjonalt studentombud.</article>
+            </article>
+          </article>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def test_no_renumber_lead_that_declares_a_replacement_lowers_both_halves() -> None:
+    """W-32(b): "§ 14 a blir ny § 28 b og skal lyde" is a move AND a rewrite.
+
+    Fails on base: only ``data-move-part`` was read, so the provision arrived at
+    its new address still carrying its OLD text — and, in the corpus witness, the
+    stale heading "§ 14 a. Studentombud". The replacement targets the
+    DESTINATION and is sequenced after the renumber, because it is the moved
+    provision that is being rewritten.
+    """
+    adjudications: list[CompileAdjudication] = []
+    grouped = iter_no_document_change_ops(
+        _RENUMBER_REPLACEMENT_WITNESS_XML,
+        "no/lovtid/2025-06-20-101",
+        adjudications_out=adjudications,
+    )
+
+    assert len(grouped) == 1
+    base_id, ops = grouped[0]
+    assert base_id == "no/lov/2018-06-08-28"
+    assert [
+        (op.action, op.target.path, op.destination.path if op.destination else None) for op in ops
+    ] == [
+        (StructuralAction.RENUMBER, (("section", "14a"),), (("section", "28b"),)),
+        (StructuralAction.REPLACE, (("section", "28b"),), None),
+    ]
+    assert ops[0].sequence < ops[1].sequence
+    assert "recovery:renumber_replacement" in ops[1].provenance_tags
+    assert ops[1].payload is not None
+    assert ops[1].payload.label == "28b"
+    # The heading travels with the replacement: this is what corrects the stale
+    # "§ 14 a. Studentombud" the bare renumber used to leave behind.
+    assert ops[1].payload.children[0].text == "§ 28 b. Nasjonalt studentombud"
+    assert not [
+        a
+        for a in adjudications
+        if a.kind == "no_parse_structured_renumber_replacement_not_lowered"
+    ]
+
+
+def test_no_renumber_replacement_receipts_rather_than_guessing_which_move_it_rewrites() -> None:
+    """W-32(b): one replacement clause, two moves — no attribution, no op.
+
+    The shape of corpus witness ``no/lovtid/2024-06-21-42``, the one measured
+    ``skal lyde`` move-block whose move arity is not one.
+    """
+    html_bytes = """<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <main>
+      <section class="section" data-name="kapI" id="kapittel-1">
+        <article class="document-change" data-document="lov/1998-07-17-56">
+          <article class="change" data-move-part="lov/1998-07-17-56/§3-1/ledd/3;;lov/1998-07-17-56/§3-1/ledd/2 lov/1998-07-17-56/§3-1/ledd/4;;lov/1998-07-17-56/§3-1/ledd/3">
+            <article class="defaultP">Tredje og fjerde ledd blir annet og tredje, hvor nytt tredje ledd skal lyde:</article>
+            <article class="legalP">Regnskapspliktige skal utarbeide årsregnskap.</article>
+          </article>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+    adjudications: list[CompileAdjudication] = []
+    grouped = iter_no_document_change_ops(
+        html_bytes, "no/lovtid/2024-06-21-42", adjudications_out=adjudications
+    )
+
+    _base_id, ops = grouped[0]
+    assert [op.action for op in ops] == [StructuralAction.RENUMBER, StructuralAction.RENUMBER]
+    receipts = [
+        a
+        for a in adjudications
+        if a.kind == "no_parse_structured_renumber_replacement_not_lowered"
+    ]
+    assert len(receipts) == 1
+    assert receipts[0].detail["reason"] == "move_arity_not_one"
+    assert receipts[0].detail["move_count"] == 2
+
+
+@pytest.mark.parametrize(
+    ("lead", "expected"),
+    [
+        # W-32(c): the witness address. Lovtidend spells the letter suffix with a
+        # SPACE, which the bare label class could not span — and did not merely
+        # fail on: it matched with the section cut short ("28") and the stray
+        # letter absorbed into the ordinal phrase ("b andre"), which then failed
+        # the ordinal table and returned NOTHING. A silent drop, not a receipt.
+        (
+            "§ 28 b andre ledd tredje punktum skal lyde",
+            [(("section", "28b"), ("subsection", "2"), ("sentence", "3"))],
+        ),
+        # The single-letter Norwegian word that could have been prose rather than
+        # a label occurs only as a real section in straffeprosessloven's
+        # § 216 a-o run, so there is no prose reading to lose.
+        (
+            "§ 216 i første ledd tredje punktum skal lyde",
+            [(("section", "216i"), ("subsection", "1"), ("sentence", "3"))],
+        ),
+        # Unsuffixed labels are untouched.
+        (
+            "§ 55 første ledd annet punktum skal lyde",
+            [(("section", "55"), ("subsection", "1"), ("sentence", "2"))],
+        ),
+    ],
+)
+def test_no_spaced_section_label_resolves_in_the_ledd_carrying_sentence_grammar(
+    lead: str, expected: list[tuple[tuple[str, str], ...]]
+) -> None:
+    """W-32(c): the widened label class, in the one production it was measured for."""
+    specs = _infer_same_base_sentence_target_specs_from_lead(lead)
+    assert [target.path for _action, target in specs] == expected
+
+
+def test_no_spaced_section_label_is_not_widened_in_the_ledd_less_sentence_grammar() -> None:
+    """W-32(c): the bound the op-level sweep forced, pinned so it cannot lapse.
+
+    The ledd-less production resolves a section/sentence address with NO
+    subsection step, and the structured lowering lets an inferred sentence spec
+    OVERRIDE the markup's own — fuller — target. Widening here shortened
+    ``no/lovtid/2025-06-20-38``'s ``§13a/ledd/1/setning/4`` to
+    ``§13a/setning/4``: 2 ops right->wrong. The widening therefore stops at the
+    ledd-carrying production, which always resolves all three steps.
+    """
+    assert (
+        _infer_same_base_sentence_target_specs_from_lead(
+            "§ 13 a nytt fjerde og femte punktum skal lyde"
+        )
+        == []
+    )
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w32_eierseksjonsloven_payoff_chain_lowers_the_del_iv_erratum() -> None:
+    """W-32 payoff chain, end to end, through UNCHANGED W-24 machinery.
+
+    The multi-``bokstav`` lead was the sole blocker: with § 49 andre ledd
+    bokstav e/f in the host op stream, W-24's ``no_corrected_host_op`` guard
+    passes on its own terms and the Del IV erratum lowers. The erratum is
+    verified by the sign-off-accepted byte relation against the host op it
+    corrects, and it is sequenced after that op.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2020-12-04-137", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    adjudications: list[CompileAdjudication] = []
+    grouped = dict(
+        iter_no_document_change_ops(
+            html_bytes, "no/lovtid/2020-12-04-137", adjudications_out=adjudications
+        )
+    )
+    ops = grouped["no/lov/2017-06-16-65"]
+    # 4 on base + the two recovered items + the erratum.
+    assert len(ops) == 7
+    item_ops = [op for op in ops if op.target.path[0] == ("section", "49")]
+    assert [(op.action, op.target.path[-1]) for op in item_ops] == [
+        (StructuralAction.REPLACE, ("item", "e")),
+        (StructuralAction.INSERT, ("item", "f")),
+        (StructuralAction.REPLACE, ("item", "f")),
+    ]
+    host, erratum = item_ops[1], item_ops[2]
+    assert erratum.witness_rule_id == "no_rettelse_lowered"
+    assert "rettelse:published_correction" in erratum.provenance_tags
+    assert "rettelse_date:2020-12-07" in erratum.provenance_tags
+    assert "rettelse_part:IV" in erratum.provenance_tags
+    assert erratum.sequence > host.sequence
+    assert host.payload is not None and erratum.payload is not None
+    assert host.payload.text.replace("§ 22.", "§ 22 a .") == erratum.payload.text
+    # The artifact's OTHER note corrects publication metadata ("Referansefeltet"),
+    # which the IR does not model — a permanent recorded ceiling, not this
+    # erratum's business. The Del IV note leaves no receipt behind.
+    assert [a.detail["reason"] for a in adjudications if a.kind == "no_rettelse_not_lowered"] == [
+        "no_same_act_item_address"
+    ]
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w32_fagskoleloven_renumber_replacement_lands_but_the_erratum_still_receipts() -> None:
+    """W-32(b)+(c) corpus witness, and the ONE blocker they do not clear.
+
+    The replacement half now lowers (and corrects the stale heading), and the
+    spaced-label widening moves the erratum's own receipt from
+    ``no_part_scoped_target_address`` to ``no_corrected_host_op``. It stops
+    there: the erratum addresses § 28 b ANDRE LEDD TREDJE PUNKTUM, while the
+    host op is a whole-section REPLACE at § 28 b, and W-24's guard requires the
+    corrected address to be in the op stream EXACTLY — an ancestor is not a
+    match. Extending the guard to ancestor containment is a W-24 design
+    decision, not a W-32 one, so the guard is left exactly as it is and this
+    test pins the residue.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2025-06-20-101", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    adjudications: list[CompileAdjudication] = []
+    grouped = dict(
+        iter_no_document_change_ops(
+            html_bytes, "no/lovtid/2025-06-20-101", adjudications_out=adjudications
+        )
+    )
+    ops = grouped["no/lov/2018-06-08-28"]
+    assert [(op.action, op.target.path) for op in ops] == [
+        (StructuralAction.RENUMBER, (("section", "14a"),)),
+        (StructuralAction.REPLACE, (("section", "28b"),)),
+    ]
+    assert ops[1].payload is not None
+    assert ops[1].payload.children[0].text == "§ 28 b. Nasjonalt studentombud"
+
+    receipts = [a for a in adjudications if a.kind == "no_rettelse_not_lowered"]
+    assert len(receipts) == 1
+    assert receipts[0].detail["reason"] == "no_corrected_host_op"
+    assert receipts[0].detail["base_id"] == "no/lov/2018-06-08-28"
+    assert receipts[0].detail["part"] == "II"

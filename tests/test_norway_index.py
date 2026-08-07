@@ -1029,7 +1029,13 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
     # 528 -> 539 at W-30: eleven of the 64 first-time entries have commencement
     # instruments that authorize them; the offer-gate conjuncts are unchanged,
     # only the population grew. Signed off 2026-08-06.
-    assert len(authorized_ids) == 539
+    # 539 -> 540 at W-32: four artifacts gained their FIRST index entry (their
+    # only amendment lead was one of the two silently-dropped shapes), and one of
+    # the four — ``no/lovtid/2022-12-20-116``, patentloven § 62 a fjerde ledd
+    # første punktum, a spaced letter-suffixed label — has a commencement
+    # instrument that authorizes it at 2023-02-01. The offer-gate conjuncts are
+    # again unchanged; only the population grew. Signed off 2026-08-07.
+    assert len(authorized_ids) == 540
     assert not [
         diagnostic
         for diagnostic in index.diagnostics
@@ -1051,7 +1057,13 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # +32 contingent / +21 dated / +11 instrument_authorized — exactly
         # conserving the 64; no existing entry's status moved. Signed off
         # 2026-08-06.
-        "contingent": 953,
+        # 953 -> 954, 1049 -> 1051, 539 -> 540 at W-32 (multi-``bokstav`` and
+        # spaced-label leads): the FOUR acts gaining their first index entry
+        # split +1 contingent (`2007-06-01-18`), +2 dated (`2006-06-30-48`,
+        # `2021-04-16-19`) and +1 instrument_authorized (`2022-12-20-116`) —
+        # exactly conserving the 4; no existing entry's status moved. Signed off
+        # 2026-08-07.
+        "contingent": 954,
         # 1021 -> 1020 at W-15 (multi-part misbinding fix): the sole moved entry
         # is no/lovtid/2018-12-20-119, whose only "op" was its own part II
         # commencement sentence ("Lova tek til å gjelde straks.") swallowed as a
@@ -1064,9 +1076,10 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # dated bucket. Every other bucket unchanged. Signed off 2026-08-06.
         # 1021 -> 1028 at W-21: see the contingent comment above.
         # 1028 -> 1049 at W-30: see the contingent comment above.
-        "dated": 1049,
+        # 1049 -> 1051 at W-32: see the contingent comment above.
+        "dated": 1051,
         "immediate": 1,
-        "instrument_authorized": 539,
+        "instrument_authorized": 540,
         "unknown": 2,
     }
 
@@ -1163,14 +1176,18 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     # same four, only the population offered to them grew.
     # 528 -> 539 (and 520 -> 531 non-staged) at W-30: eleven first-time entries
     # with authorizing instruments, none staged. Signed off 2026-08-06.
-    assert len(authorized) == 539
+    # 539 -> 540 (and 531 -> 532 non-staged) at W-32: ONE first-time entry with
+    # an authorizing instrument, ``no/lovtid/2022-12-20-116`` (patentloven
+    # § 62 a fjerde ledd første punktum, a spaced letter-suffixed label), not
+    # staged. Signed off 2026-08-07.
+    assert len(authorized) == 540
     assert (
         len([
             entry
             for entry in authorized
             if entry.commencement_shape != NOCommencementShape.STAGED_DELEGATED
         ])
-        == 531
+        == 532
     )
     assert all(entry.effective_date for entry in authorized)
     authorization_receipts = [
@@ -1178,7 +1195,7 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
         for diagnostic in index.diagnostics
         if diagnostic["rule_id"] == NO_COMMENCEMENT_EXECUTION_AUTHORIZED
     ]
-    assert len(authorization_receipts) == 539
+    assert len(authorization_receipts) == 540
     assert not [
         diagnostic
         for diagnostic in index.diagnostics
@@ -1266,17 +1283,26 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     ]
     # 1,031 -> 975 receipts (one per act with a gap); 3,141 -> 2,850 unbound
     # (act, target) pairs, net of the 20 newly unbound explained above.
-    assert len(unbound) == 975
-    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2850
-    assert len({diagnostic["source_id"] for diagnostic in unbound}) == 975
+    # 975 -> 963 receipts and 2,850 -> 2,806 pairs at W-32: the two host-lead
+    # lowering gaps (multi-``bokstav`` leads, spaced letter-suffixed section
+    # labels) bind 44 more declared targets across 12 acts that lose their gap
+    # entirely. Purely additive here — W-32 removes no binding, and the one
+    # act whose bindings move (``no/lovtid/2015-06-19-65``, six ops crossing a
+    # swallowed law-switch lead) was already misbound to a different stale base
+    # before and after. Signed off 2026-08-07.
+    assert len(unbound) == 963
+    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2806
+    assert len({diagnostic["source_id"] for diagnostic in unbound}) == 963
 
     # 64 acts gain their FIRST index entry: they announced every one of their
     # parts with an unlisted tail, so they had bound no law at all.
-    assert len(index.entries) == 2544
+    # 2,544 -> 2,548 and 6,084 -> 6,131 at W-32: four more acts whose only
+    # amendment lead was one of the two dropped shapes.
+    assert len(index.entries) == 2548
     bindings = {
         (entry.source_id, base_id) for entry in index.entries for base_id in entry.base_ids
     }
-    assert len(bindings) == 6084
+    assert len(bindings) == 6131
     # 26,218 at W-30; +2 at W-24, both reconciled to a named erratum and neither
     # touching this test's own subject. W-24 lowered two Del-scoped Rettelser
     # corrections into the law each part amends — ``2019-12-20-110`` Del I into
@@ -1284,7 +1310,13 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # append to a group this artifact ALREADY bound, so bindings (6,084) and
     # entries (2,544) above are unmoved, as are every status count,
     # ``fully_replayable`` (56) and all 56 scan rows.
-    assert sum(entry.n_ops for entry in index.entries) == 26220
+    # 26,220 -> 26,691 at W-32: +478 gained ops (240 from multi-``bokstav``
+    # leads, 227 from the spaced-label sentence widening, 6 renumber
+    # replacements, 4 downstream, 1 erratum) less 7 that left one stale base
+    # for another inside ``no/lovtid/2015-06-19-65``. Base-agnostic op identity
+    # over the whole corpus: 472 gained, 1 lost — the single lost op is
+    # documented in the W-32 report as a fired stop condition.
+    assert sum(entry.n_ops for entry in index.entries) == 26691
 
 
 def test_no_amendment_index_staleness_report_detects_archive_change(tmp_path) -> None:

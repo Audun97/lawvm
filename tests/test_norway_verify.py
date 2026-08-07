@@ -2244,9 +2244,17 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # set with its 212 divergences and its sparse signal; 2017-06-16-65
     # dropped 57 -> 13 and 2017-06-16-67 dropped 6 -> 2 via newly-bound
     # instrument-authorized amenders.)
+    # W-32 moved the scan again, one row only and priced for sign-off
+    # (2026-08-07): 2017-06-16-65 dropped 13 -> 9 as its § 49 andre ledd
+    # bokstav e/f/g divergences closed — the multi-``bokstav`` lead that used to
+    # drop both ops now lowers them, the Del IV erratum lowers on top, and a
+    # second act's ``bokstav f og ny bokstav g`` lead binds. The four closed
+    # divergences are exactly those three item addresses plus the matching
+    # CONSOLIDATED_MISSING for item e; verdicts, membership, ceiling and the
+    # other 55 rows are byte-identical.
     assert report["scanned_count"] == 56
     assert report["summary"] == {"consistent": 22, "divergent": 34, "error": 0}
-    assert report["divergence_totals"] == {"total": 1252, "ceiling": 918, "unexplained": 334}
+    assert report["divergence_totals"] == {"total": 1248, "ceiling": 918, "unexplained": 330}
     # The signal still fires; it simply no longer decides routing.
     assert report["source_signal_counts"] == {"sparse_indexed_history": 3}
 

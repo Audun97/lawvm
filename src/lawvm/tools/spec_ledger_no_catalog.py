@@ -232,6 +232,15 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "rebound; recorded as target_resolution_recovery so the rebound is "
         "auditable, not silent."
     ),
+    "no_parse_structured_renumber_replacement_not_lowered": (
+        "A Norway structured renumber lead ALSO declared a replacement of the "
+        "moved provision (\"§ 14 a blir ny § 28 b og skal lyde\") but the "
+        "replacement was not lowered: either the change block moved more than "
+        "one provision, so which one the payload rewrites is not recoverable "
+        "(move_arity_not_one), or no payload could be built for the destination "
+        "address (payload_unresolved). Typed and blocking rather than a guessed "
+        "attribution. W-32."
+    ),
     "no_parse_unresolved_structured_renumber_skipped": (
         "A Norway structured renumber could not lower its source or destination "
         "path; skipped with a typed finding, not coerced."
@@ -308,6 +317,14 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "An unstructured Norway amendment lead looked operative but matched no "
         "supported lowering family; recorded as a parse finding, not silently "
         "discarded."
+    ),
+    "no_parse_unstructured_multi_item_payload_arity_mismatch": (
+        "An unstructured Norway lead declared SEVERAL lettered items in one "
+        "sentence (\"§ 49 andre ledd bokstav e og ny bokstav f skal lyde\") but "
+        "the payload did not split to cover all of them. The whole lead is "
+        "dropped rather than lowered against a guessed split — the W-19 "
+        "all-or-nothing rule applied to declared item arity — and the declared "
+        "and unresolved targets are both recorded. W-32."
     ),
     "no_parse_unstructured_payload_unresolved": (
         "An unstructured Norway heading-replacement lead resolved a target but no "
