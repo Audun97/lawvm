@@ -151,6 +151,13 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "its Endrer header names, one receipt per part; parts the header omits, and "
         "acts a later instrument commences again, stay as unresolved as before."
     ),
+    "no_lovtidend_commencement_named_part_list_execution_authorized": (
+        "A Norsk Lovtidend instrument whose operative text names the romertall parts it "
+        "commences — a list carrying no section sign, no sub-part qualifier and no "
+        "exception — dates every part its Endrer header spans, provided the list covers "
+        "them all and every later instrument on the act is provably about other parts, "
+        "by both its own declared laws and its own named list."
+    ),
     "no_lovtidend_commencement_part_execution_date_conflict": (
         "Two Norsk Lovtidend instruments commence the same part of an amendment act at "
         "different dates; contradictory official commencement evidence is blocking "

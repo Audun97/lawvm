@@ -33,6 +33,25 @@ supplies the part-to-law mapping those dates are keyed by. Deliberately NOT
 routed through ``whole_act_scope``: that would re-date the act wholesale,
 including parts the header never named, and move its act-level status. See
 :class:`NOCommencementMultiPartAuthorizationConjunct`.
+
+W-49 adds the gate's fourth route, for the largest sub-shape W-47's text guard
+refuses: an instrument that names a part LIST agreeing with the header ("del I
+og III trer i kraft", "Romertall II, III og IV trer i kraft straks", "del I-V og
+del VII og VIII"). W-47 refuses those by construction — its guard forbids the
+very word ``del`` — so nothing here loosens that guard; the list is read by a
+separate, TOTAL reader (:func:`_named_part_labels`) that refuses anything it
+cannot account for, and the two routes are mutually exclusive because a text
+naming a part can never satisfy ``whole_act_operative_text``.
+
+The route's crux is not the list grammar but the refutation semantics. W-47's
+``ACT_HAS_NO_LATER_INSTRUMENT`` is act-global: ANY later instrument on the act
+refutes "the act came into force as a whole then". For a part-LIST claim that is
+wrong in both directions. A later instrument commencing OTHER parts is the
+expected staged pattern and must not refute — measured, act-global semantics
+would cost 4 of this route's 12 pairs, two of them purely on that pattern — while
+a later instrument re-commencing one of the NAMED parts must refute even though
+the act-global rule would notice it too. See
+:class:`NOCommencementNamedPartListAuthorizationConjunct`.
 """
 
 from __future__ import annotations
@@ -65,6 +84,9 @@ NO_COMMENCEMENT_PART_EXECUTION_DATE_CONFLICT = (
 )
 NO_COMMENCEMENT_MULTI_PART_EXECUTION_AUTHORIZED = (
     "no_lovtidend_commencement_multi_part_execution_authorized"
+)
+NO_COMMENCEMENT_NAMED_PART_LIST_EXECUTION_AUTHORIZED = (
+    "no_lovtidend_commencement_named_part_list_execution_authorized"
 )
 
 _WS_RE = re.compile(r"\s+")
@@ -147,6 +169,62 @@ _CITED_ACT_SUBJECT_RE = compile_classifier_regex(
     + _COMMENCEMENT_VERB,
     re.IGNORECASE,
     classifier_id="no.lovtidend.cited_act_commencement_subject",
+)
+_COMMENCEMENT_VERB_RE = compile_classifier_regex(
+    _COMMENCEMENT_VERB,
+    re.IGNORECASE,
+    classifier_id="no.lovtidend.commencement_verb",
+)
+# W-49. The named-part-list reader's refusing guard: ``_SUBDIVISION_SCOPE_RE``
+# with the PART vocabulary taken out (this reader's whole job is to read those
+# words) and the sub-part qualifiers W-47 never needed put in. Every token here
+# only ever REFUSES; none can make a text acceptable.
+#
+# The two additions are measured, not speculative. ``setning`` is what stops
+# ``no/forskrift/2019-11-22-1552`` ("romertall I siste setning og romertall
+# II-VII"), a PROVEN header/text disagreement whose part list otherwise reads as
+# a clean superset of its header. ``overskrift`` is its sibling shape, and the
+# delegated-date phrases ("fra det tidspunkt ... bestemmer", "Kongen bestemmer")
+# refuse an instrument that commences some named parts now and defers others —
+# the one way a single-dated text can still be staged inside itself.
+_PART_LIST_HAZARD_RE = compile_classifier_regex(
+    r"(?:§"
+    r"|\bpunkt(?:um|et|a)?\b"
+    r"|\bavsnitt(?:et|a)?\b"
+    r"|\bkapit(?:tel|let|la|lene|el)\b"
+    r"|\bbokstav(?:en|ene|er)?\b"
+    r"|\bledd(?:et)?\b"
+    r"|\bsetning(?:en|a|er|ene)?\b"
+    r"|\boverskrift(?:en|a|er|ene)?\b"
+    r"|\bmed\s+unntak\b|\bunntak\s+for\b|\bunntatt\b|\bikke\s+i\s+kraft\b"
+    r"|\bfor\s+så\s+vidt\b|\bbortsett\s+fra\b|\bmed\s+mindre\b"
+    r"|\bfra\s+det\s+tidspunkt\b|\bbestemmer\b|\bforeløpig\s+ikke\b)",
+    re.IGNORECASE,
+    classifier_id="no.lovtidend.commencement_part_list_hazard",
+)
+# The list grammar itself is a hand-written scanner, not a regex: the shapes it
+# has to accept ("del I, II, III, IV og V", "Romertall II, III og IV", "del I-V
+# og del VII og VIII", "Endringsloven del I til III") are a token language, and
+# the property that makes the reader safe — every token accounted for, anything
+# unknown CLOSES the list rather than being skipped over — is a property of the
+# scanner's control flow, not of a pattern.
+_PART_LIST_PART_WORDS = frozenset(
+    {"del", "delen", "delene", "deler", "dele", "dels", "romertall", "romartal", "romartall"}
+)
+_PART_LIST_CONJUNCTIONS = frozenset({",", "og", "eller"})
+_PART_LIST_RANGE_TOKENS = frozenset({"-", "–", "—", "til"})
+_PART_LIST_PUNCTUATION = ",.;:()[]«»/–—-"
+_ROMAN_DIGIT_VALUES = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100}
+_ROMAN_LABEL_STEPS = (
+    (100, "C"),
+    (90, "XC"),
+    (50, "L"),
+    (40, "XL"),
+    (10, "X"),
+    (9, "IX"),
+    (5, "V"),
+    (4, "IV"),
+    (1, "I"),
 )
 
 
@@ -329,6 +407,126 @@ class NOCommencementMultiPartAuthorizationConjunct(StrEnum):
     """
 
 
+class NOCommencementNamedPartListAuthorizationConjunct(StrEnum):
+    """The conjuncts a pair must satisfy to date the parts its TEXT names.
+
+    A fourth closed set. Six of these are the multi-part route's conjuncts
+    unchanged — the part-structure requirements do not weaken when the scope
+    proof moves from the header to the text — and five are this route's own.
+    """
+
+    SINGLE_EFFECTIVE_DATE = "single_effective_date"
+    """The instrument's ``dateInForce`` carries exactly one ISO date."""
+
+    BLOCKED_ONLY_ON_SCOPE = "blocked_only_on_scope"
+    """The parse failed for no reason other than whole-act scope."""
+
+    INSTRUMENT_DECLARES_CHANGED_LAWS = "instrument_declares_changed_laws"
+    """The instrument's own ``Endrer`` block is present and non-empty."""
+
+    INSTRUMENT_CITES_ONE_ACT = "instrument_cites_one_act"
+    """The instrument's operative text is about ONE amending act.
+
+    This route's only conjunct with no counterpart above it, and it exists
+    because this route is the first to read a scope out of PROSE. An instrument
+    may commence parts of two different acts in one document
+    (``no/forskrift/2020-04-29-885`` commences del I and del II of
+    ``2018-04-20-12`` and del II of ``2019-03-08-5``), and the operative blocks
+    are read joined, so its two part lists would merge into one. Nothing in the
+    merged list says which act each label came from. Rather than guess at
+    per-sentence attribution, the route refuses the whole shape: measured, no
+    pair it would otherwise grant cites more than one act.
+    """
+
+    ACT_PART_LAW_MAP_INJECTIVE = "act_part_law_map_injective"
+    """No law is amended by two of the act's parts."""
+
+    ACT_BINDINGS_INSIDE_PART_MAP = "act_bindings_inside_part_map"
+    """Every law the act actually binds is the law of some part."""
+
+    ENDRER_MATCHES_A_PART_SET_EXACTLY = "endrer_matches_a_part_set_exactly"
+    """The ``Endrer`` law set equals the union of the spanned parts' law sets,
+    and that span is more than one part — as at W-47, and for the same reasons.
+    """
+
+    OPERATIVE_TEXT_NAMES_A_PART_LIST = "operative_text_names_a_part_list"
+    """The operative text reads as a romertall part list, TOTALLY.
+
+    ``_named_part_labels`` is a refusing reader: it returns labels only for a
+    text that carries no ``§``, no sub-part qualifier (``punkt``, ``ledd``,
+    ``bokstav``, ``setning``, ``kapittel``, ``avsnitt``, ``overskrift``), no
+    negative or exception phrase, no delegated-date phrase, and exactly one
+    commencement verb — and inside the list itself, any token the grammar does
+    not know CLOSES the list rather than being skipped. The asymmetry is
+    deliberate and is the reader's safety argument: under-reading a list only
+    ever shrinks the claim (and then ``PART_LIST_COVERS_THE_HEADER`` refuses),
+    while over-reading one would date a part the instrument never commenced.
+    """
+
+    PART_LIST_COVERS_THE_HEADER = "part_list_covers_the_header"
+    """Every part the ``Endrer`` header spans is named in the text's list.
+
+    This is the licensing conjunct, and it is the part-list analogue of W-47's
+    ``WHOLE_ACT_OPERATIVE_TEXT``: given it, the parts dated are a SUBSET of the
+    parts the instrument says it commences, so the grant claims strictly less
+    than the text does. Equality is not required — three of the granting pairs
+    name a part the header omits (``no/forskrift/2010-09-03-1239`` names del II,
+    III and IV under a II/III header) — and the extra parts are simply not
+    dated, exactly as W-47 leaves unnamed parts alone.
+
+    The eleven proven header/text disagreements of the W-47 census are this
+    conjunct's built-in negative suite: six of them are refused right here
+    (their list is missing a header part), the other five never reach it because
+    the reader refuses their text outright.
+    """
+
+    WHOLE_PART_SCOPE_PER_PART = "whole_part_scope_per_part"
+    """Every spanned part passes the single-part route's ``whole_part_scope``.
+
+    Vacuous by construction, as at W-47 and for a stronger reason: the reader
+    refuses any text containing ``§``, and ``_COMMENCED_SECTION_RE`` can only
+    produce a label from a ``§``, so ``commenced_section_labels`` is
+    NECESSARILY empty on every pair that reaches this route. That is also this
+    route's corruption-immunity proof: the W-48 ordinal-swallowing defect in
+    that reader cannot make a W-49 pair authorize, because no W-49 pair ever has
+    a label for it to corrupt.
+    """
+
+    LATER_INSTRUMENTS_NAME_OTHER_PARTS = "later_instruments_name_other_parts"
+    """Every strictly later instrument on the act is PROVABLY about other parts.
+
+    The per-part reading of W-47's ``ACT_HAS_NO_LATER_INSTRUMENT``, and the
+    reason this route needed its own conjunct set. Act-global refutation is
+    wrong here in both directions: a later instrument commencing OTHER parts is
+    the ordinary staged pattern this whole lane exists for and must not refute
+    (measured: the act-global rule costs 4 of 12 pairs, two of them purely on
+    that pattern), while a later instrument re-commencing a NAMED part must.
+
+    "Provably about other parts" needs TWO independent witnesses, and both must
+    clear:
+
+    * the STRUCTURAL one — the parts of the laws that later instrument's own
+      ``Endrer`` header names, disjoint from the parts claimed here. This is
+      precisely the sibling test the W-39/W-41/W-47 zero-early soundness probe
+      applies from the outside, so requiring it makes the probe's verdict a
+      property of the gate rather than a measurement of it;
+    * the TEXTUAL one — the same reader run over that instrument's own operative
+      text, yielding a list disjoint from the parts claimed here. A text the
+      reader cannot account for is not evidence of anything and refutes.
+
+    Two witnesses rather than one because neither is sound alone. The header is
+    not an upper bound on scope (``no/forskrift/2017-12-19-2156``'s header spans
+    I-V while its text commences del VI), so the structural witness can miss.
+    The textual witness costs one otherwise-granting pair where the two
+    disagree: ``no/forskrift/2017-06-16-758``'s text commences only del III
+    while its header spans I, II and III, which would clear the text witness but
+    not the structural one, and it is the later sibling of a pair claiming del I
+    and del II. Refusing on disagreement is the right call — a header/text
+    disagreement is exactly the unfaithfulness W-47 measured, and this route is
+    not the place to adjudicate it.
+    """
+
+
 class NOCommencementInstrumentCoverageError(ValueError):
     """Persisted commencement-instrument coverage has an invalid shape."""
 
@@ -366,6 +564,11 @@ class NOCommencementInstrumentCandidate:
     # this flag deliberately feeds ONLY the multi-part route, never the whole-act
     # one, so a looser reading can never re-date an act wholesale.
     whole_act_operative_text: bool = False
+    # W-49. The romertall parts the operative text names, in romertall order.
+    # EMPTY MEANS REFUSED, not "names none": the reader only ever returns a
+    # non-empty tuple, so callers need no second flag to tell "no list here"
+    # from "a list the reader could not account for" — both refuse.
+    named_part_labels: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -383,6 +586,7 @@ class NOCommencementInstrumentCandidate:
             "changed_law_ids": list(self.changed_law_ids),
             "commenced_section_labels": list(self.commenced_section_labels),
             "whole_act_operative_text": self.whole_act_operative_text,
+            "named_part_labels": list(self.named_part_labels),
         }
 
     @classmethod
@@ -409,6 +613,7 @@ class NOCommencementInstrumentCandidate:
         return cls(
             changed_law_ids=_str_tuple("changed_law_ids"),
             commenced_section_labels=_str_tuple("commenced_section_labels"),
+            named_part_labels=_str_tuple("named_part_labels"),
             source_id=str(data["source_id"]),
             locator=str(data["locator"]),
             archive=str(data.get("archive", "")),
@@ -659,6 +864,51 @@ class NOCommencementMultiPartAuthorizationReceipt:
 
 
 @dataclass(frozen=True, slots=True)
+class NOCommencementNamedPartListAuthorizationReceipt:
+    """One part of a multi-part act dated by an instrument that NAMES it.
+
+    Same fields as the other two part receipts and the same landing place, plus
+    the list the instrument's own text named — which is what a reader of this
+    receipt needs in order to check the subset claim by hand. Its own rule id,
+    for the same reason W-47 took one: the three routes prove different things
+    and a pin that could not tell them apart would move for any of them.
+    """
+
+    act_source_id: str
+    instrument_source_ids: tuple[str, ...]
+    part_label: str
+    law_id: str
+    effective_date: str
+    spanned_part_labels: tuple[str, ...]
+    named_part_labels: tuple[str, ...]
+    passed_conjuncts: tuple[NOCommencementNamedPartListAuthorizationConjunct, ...]
+
+    def to_diagnostic_detail(self) -> dict[str, Any]:
+        return diagnostic_detail(
+            rule_id=NO_COMMENCEMENT_NAMED_PART_LIST_EXECUTION_AUTHORIZED,
+            family="temporal_recovery",
+            phase="temporal",
+            reason=(
+                "Norway commencement instrument names the romertall parts it commences and "
+                "that list covers every part the act's Endrer header spans, so each of those "
+                "parts takes the instrument's date; parts the header does not name, and any "
+                "part a later instrument may still touch, stay as unresolved as before."
+            ),
+            blocking=False,
+            strict_disposition="record",
+            quirks_disposition=QuirksDisposition.RECORD,
+            source_id=self.act_source_id,
+            instrument_source_ids=list(self.instrument_source_ids),
+            part_label=self.part_label,
+            law_id=self.law_id,
+            effective_date=self.effective_date,
+            spanned_part_labels=list(self.spanned_part_labels),
+            named_part_labels=list(self.named_part_labels),
+            passed_conjuncts=[str(conjunct) for conjunct in self.passed_conjuncts],
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class NOCommencementPartDateConflictReceipt:
     """Two instruments commencing one part at different dates; both refused."""
 
@@ -718,6 +968,9 @@ class NOCommencementExecutionAuthorization:
     part_authorizations: tuple[NOCommencementPartAuthorizationReceipt, ...] = ()
     part_conflicts: tuple[NOCommencementPartDateConflictReceipt, ...] = ()
     multi_part_authorizations: tuple[NOCommencementMultiPartAuthorizationReceipt, ...] = ()
+    named_part_list_authorizations: tuple[
+        NOCommencementNamedPartListAuthorizationReceipt, ...
+    ] = ()
 
     def authorized_effective_dates(self) -> dict[str, str]:
         return {
@@ -727,14 +980,18 @@ class NOCommencementExecutionAuthorization:
     def part_authorized_effective_dates(self) -> dict[str, dict[str, str]]:
         """act -> {law -> date}, the per-binding dates the part routes granted.
 
-        Both part routes land here: they grant the same KIND of thing (one
-        binding's date) and every consumer wants one map. The single-part route
-        is written second so that if the two ever proposed the same binding the
-        older, narrower proof would win; measured over the corpus they never
-        overlap, and the multi-part route refuses any key the single-part route
+        All three part routes land here: they grant the same KIND of thing (one
+        binding's date) and every consumer wants one map. They are written
+        weakest-proof first so that if two ever proposed the same binding the
+        older, narrower proof would win; measured over the corpus none of the
+        three ever overlap, and each later route refuses a key an earlier one
         already holds before it gets this far.
         """
         out: dict[str, dict[str, str]] = {}
+        for named_receipt in self.named_part_list_authorizations:
+            out.setdefault(named_receipt.act_source_id, {})[
+                named_receipt.law_id
+            ] = named_receipt.effective_date
         for multi_receipt in self.multi_part_authorizations:
             out.setdefault(multi_receipt.act_source_id, {})[
                 multi_receipt.law_id
@@ -797,6 +1054,13 @@ def authorize_no_commencement_instruments(
     two do not — the dates every OTHER instrument gives the same act, gathered
     below into ``instrument_dates_by_act`` — because its claim is about the act
     as a whole, and a later instrument is exactly what refutes such a claim.
+
+    W-49 adds a FOURTH, last in the same ordering: an instrument whose text
+    names the parts it commences. Its claim is about those parts only, so it
+    needs more of each sibling than a date — the sibling's own declared laws and
+    its own named parts, gathered below into ``instrument_scopes_by_act`` — to
+    tell the staged pattern (a later instrument on OTHER parts, which does not
+    refute) from a genuine contradiction.
     """
     offered = frozenset(offered_act_ids)
     part_evidence = dict(act_part_evidence or {})
@@ -805,6 +1069,13 @@ def authorize_no_commencement_instruments(
     # another instrument commenced part of it later, whatever that instrument's
     # own scope was and whether or not it went on to authorize anything itself.
     instrument_dates_by_act: dict[str, list[tuple[str, str]]] = {}
+    # act -> [(instrument id, date, declared laws, named parts)], the same
+    # population with the two scope witnesses the part-list route's refutation
+    # needs. Kept beside rather than folded into the pair list above so W-47's
+    # conjunct keeps reading exactly what it read before.
+    instrument_scopes_by_act: dict[
+        str, list[tuple[str, str, tuple[str, ...], tuple[str, ...]]]
+    ] = {}
     for _parse_status, sibling in parsed_instruments:
         for sibling_law_id in sibling.affected_law_ids:
             sibling_act_id = no_commencement_act_id_from_law_id(sibling_law_id)
@@ -813,6 +1084,14 @@ def authorize_no_commencement_instruments(
             for sibling_date in sibling.effective_dates:
                 instrument_dates_by_act.setdefault(sibling_act_id, []).append(
                     (sibling.source_id, sibling_date)
+                )
+                instrument_scopes_by_act.setdefault(sibling_act_id, []).append(
+                    (
+                        sibling.source_id,
+                        sibling_date,
+                        sibling.changed_law_ids,
+                        sibling.named_part_labels,
+                    )
                 )
     proposals: dict[str, dict[str, list[str]]] = {}
     part_proposals: dict[
@@ -823,6 +1102,8 @@ def authorize_no_commencement_instruments(
     ] = {}
     multi_part_proposals: dict[tuple[str, str, str], dict[str, list[str]]] = {}
     multi_part_spans: dict[tuple[str, str, str], tuple[str, ...]] = {}
+    named_part_list_proposals: dict[tuple[str, str, str], dict[str, list[str]]] = {}
+    named_part_list_spans: dict[tuple[str, str, str], tuple[str, ...]] = {}
     refusals: list[NOCommencementRefusalReceipt] = []
     for parse_status, candidate in parsed_instruments:
         cited_act_ids = tuple(
@@ -871,6 +1152,23 @@ def authorize_no_commencement_instruments(
                         ).append(candidate.source_id)
                         multi_part_spans[key] = tuple(
                             sorted(label for label, _law in multi_part_match)
+                        )
+                    continue
+                named_part_list_match = _named_part_list_authorization_scope(
+                    parse_status,
+                    candidate,
+                    failed_conjuncts,
+                    part_evidence.get(act_id),
+                    instrument_scopes_by_act.get(act_id, ()),
+                )
+                if named_part_list_match is not None:
+                    for part_label, law_id in named_part_list_match:
+                        key = (act_id, part_label, law_id)
+                        named_part_list_proposals.setdefault(key, {}).setdefault(
+                            candidate.effective_dates[0], []
+                        ).append(candidate.source_id)
+                        named_part_list_spans[key] = tuple(
+                            sorted(label for label, _law in named_part_list_match)
                         )
                     continue
                 refusals.append(
@@ -1005,6 +1303,61 @@ def authorize_no_commencement_instruments(
         )
         authorized_instrument_ids.update(instrument_source_ids)
 
+    # The named-part-list route resolves after all three, and yields to each of
+    # them on the same terms: to the whole-act route per act, to the two
+    # part-scoped ones per BINDING. Its proof is the newest and reads the most
+    # prose, so where an older route already holds a key that key keeps its
+    # older proof. Measured over the corpus none of the three collisions occur.
+    multi_part_authorized_keys = {
+        (receipt.act_source_id, receipt.part_label, receipt.law_id)
+        for receipt in multi_part_authorizations
+    }
+    named_part_list_authorizations: list[
+        NOCommencementNamedPartListAuthorizationReceipt
+    ] = []
+    for (act_id, part_label, law_id), instrument_ids_by_date in sorted(
+        named_part_list_proposals.items()
+    ):
+        if act_id in whole_act_authorized:
+            continue
+        if (act_id, part_label, law_id) in single_part_authorized_keys:
+            continue
+        if (act_id, part_label, law_id) in multi_part_authorized_keys:
+            continue
+        if len(instrument_ids_by_date) > 1:
+            part_conflicts.append(
+                NOCommencementPartDateConflictReceipt(
+                    act_source_id=act_id,
+                    instrument_source_ids=tuple(
+                        sorted(
+                            source_id
+                            for source_ids in instrument_ids_by_date.values()
+                            for source_id in source_ids
+                        )
+                    ),
+                    part_label=part_label,
+                    law_id=law_id,
+                    effective_dates=tuple(sorted(instrument_ids_by_date)),
+                )
+            )
+            continue
+        effective_date, instrument_source_ids = next(iter(instrument_ids_by_date.items()))
+        named_part_list_authorizations.append(
+            NOCommencementNamedPartListAuthorizationReceipt(
+                act_source_id=act_id,
+                instrument_source_ids=tuple(sorted(set(instrument_source_ids))),
+                part_label=part_label,
+                law_id=law_id,
+                effective_date=effective_date,
+                spanned_part_labels=named_part_list_spans[(act_id, part_label, law_id)],
+                named_part_labels=_named_part_labels_of(
+                    parsed_instruments, instrument_source_ids
+                ),
+                passed_conjuncts=tuple(NOCommencementNamedPartListAuthorizationConjunct),
+            )
+        )
+        authorized_instrument_ids.update(instrument_source_ids)
+
     return NOCommencementExecutionAuthorization(
         instruments=tuple(
             replace(
@@ -1019,7 +1372,28 @@ def authorize_no_commencement_instruments(
         part_authorizations=tuple(part_authorizations),
         part_conflicts=tuple(part_conflicts),
         multi_part_authorizations=tuple(multi_part_authorizations),
+        named_part_list_authorizations=tuple(named_part_list_authorizations),
     )
+
+
+def _named_part_labels_of(
+    parsed_instruments: Sequence[
+        tuple[NOCommencementParseStatus, NOCommencementInstrumentCandidate]
+    ],
+    instrument_source_ids: Sequence[str],
+) -> tuple[str, ...]:
+    """The union of the named part lists of the instruments granting one key.
+
+    Sorted in romertall order. A one-element union in every measured case — a
+    key with two granting instruments would have had to agree on the date, which
+    the conflict branch above has already established.
+    """
+    wanted = set(instrument_source_ids)
+    labels: set[str] = set()
+    for _parse_status, candidate in parsed_instruments:
+        if candidate.source_id in wanted:
+            labels.update(candidate.named_part_labels)
+    return tuple(sorted(labels, key=_roman_label_sort_key))
 
 
 def _part_scoped_authorization_scope(
@@ -1151,6 +1525,102 @@ def _multi_part_scoped_authorization_scope(
     )
 
 
+def _named_part_list_authorization_scope(
+    parse_status: NOCommencementParseStatus,
+    candidate: NOCommencementInstrumentCandidate,
+    failed_whole_act_conjuncts: tuple[NOCommencementAuthorizationConjunct, ...],
+    evidence: "NOCommencementActPartEvidence | None",
+    instrument_scopes_for_act: Sequence[tuple[str, str, tuple[str, ...], tuple[str, ...]]],
+) -> tuple[tuple[str, str], ...] | None:
+    """Prove which NAMED parts this instrument commences, or return ``None``.
+
+    Every conjunct of
+    :class:`NOCommencementNamedPartListAuthorizationConjunct` must hold, and as
+    at W-47 there is no per-part credit: what proves the span is one sentence
+    about a list, so the list authorizes whole or not at all. Returns the
+    ``(part label, law id)`` pairs the act's Endrer header spans — a subset of
+    the parts the text names — in part-label order.
+    """
+    if evidence is None:
+        return None
+    if len(candidate.effective_dates) != 1:
+        return None
+    if parse_status is not NOCommencementParseStatus.BLOCKED_UNRESOLVED:
+        return None
+    if set(failed_whole_act_conjuncts) != {
+        NOCommencementAuthorizationConjunct.PARSE_STATUS_CANDIDATE,
+        NOCommencementAuthorizationConjunct.WHOLE_ACT_SCOPE,
+    }:
+        return None
+    changed = set(candidate.changed_law_ids)
+    if not changed:
+        return None
+    # One document, one amending act: the operative blocks are read joined, so
+    # two acts' part lists would merge into one unattributable list.
+    cited_act_ids = {
+        act_id
+        for act_id in (
+            no_commencement_act_id_from_law_id(law_id)
+            for law_id in candidate.affected_law_ids
+        )
+        if act_id
+    }
+    if len(cited_act_ids) != 1:
+        return None
+
+    parts_by_law: dict[str, list[str]] = {}
+    for part_label, law_id in evidence.part_law_ids.items():
+        parts_by_law.setdefault(law_id, []).append(part_label)
+    if any(len(labels) > 1 for labels in parts_by_law.values()):
+        return None
+    if any(law_id not in parts_by_law for law_id in evidence.bound_law_ids):
+        return None
+    if any(law_id not in parts_by_law for law_id in changed):
+        return None
+    spanned_labels = {parts_by_law[law_id][0] for law_id in changed}
+    if len(spanned_labels) < 2:
+        return None
+    spanned_laws = {
+        law_id for law_id, labels in parts_by_law.items() if labels[0] in spanned_labels
+    }
+    if spanned_laws != changed:
+        return None
+    named_labels = set(candidate.named_part_labels)
+    if not named_labels:
+        return None
+    # The subset claim: dating the header's parts claims strictly less than the
+    # text says, because the text names all of them and possibly more.
+    if not spanned_labels <= named_labels:
+        return None
+    named_sections = set(candidate.commenced_section_labels)
+    if named_sections and any(
+        named_sections != set(evidence.law_section_labels.get(law_id, frozenset()))
+        for law_id in changed
+    ):
+        return None
+    effective_date = candidate.effective_dates[0]
+    for source_id, date, sibling_changed, sibling_named in instrument_scopes_for_act:
+        if source_id == candidate.source_id or date <= effective_date:
+            continue
+        sibling_header_labels = {
+            parts_by_law[law_id][0] for law_id in sibling_changed if law_id in parts_by_law
+        }
+        # Witness one, structural. An empty set means the sibling's declared
+        # laws place it nowhere in this act's part structure, which is not a
+        # proof of disjointness — it is an absence of evidence, and refutes.
+        if not sibling_header_labels or sibling_header_labels & named_labels:
+            return None
+        # Witness two, textual, read by this same reader. A text it cannot
+        # account for bounds nothing and refutes.
+        if not sibling_named or set(sibling_named) & named_labels:
+            return None
+    return tuple(
+        sorted(
+            (parts_by_law[law_id][0], law_id) for law_id in changed
+        )
+    )
+
+
 def _failed_authorization_conjuncts(
     parse_status: NOCommencementParseStatus,
     candidate: NOCommencementInstrumentCandidate,
@@ -1237,6 +1707,127 @@ def _whole_act_operative_text(operative_blocks: Sequence[str]) -> bool:
         return True
     # lawvm-regex: owning_parser same reader, the act's own citation as the clause subject
     return bool(_CITED_ACT_SUBJECT_RE.search(text))
+
+
+def _roman_label_value(token: str) -> int | None:
+    """The value of a canonical romertall label, or ``None`` for anything else.
+
+    Case-SENSITIVE on purpose: the Norwegian preposition ``i`` is one lowercase
+    letter away from part I, and the operative texts are full of it. Canonical
+    spelling is required too — the value is re-rendered and compared — so a
+    token like ``IIII`` or a stray uppercase abbreviation is not a part label.
+    """
+    if not token:
+        return None
+    value = 0
+    previous = 0
+    for character in reversed(token):
+        digit = _ROMAN_DIGIT_VALUES.get(character)
+        if digit is None:
+            return None
+        value += -digit if digit < previous else digit
+        previous = max(previous, digit)
+    if value <= 0 or _roman_label(value) != token:
+        return None
+    return value
+
+
+def _roman_label(value: int) -> str:
+    label = ""
+    remainder = value
+    for step, symbol in _ROMAN_LABEL_STEPS:
+        while remainder >= step:
+            label += symbol
+            remainder -= step
+    return label
+
+
+def _roman_label_sort_key(label: str) -> tuple[int, str]:
+    """Romertall order, with a total fallback for anything not canonical."""
+    value = _roman_label_value(label)
+    return (value if value is not None else 0, label)
+
+
+def _part_list_tokens(text: str) -> list[str]:
+    """Split the operative text into words and single punctuation tokens.
+
+    Deliberately not a regex: the reader's safety comes from its control flow
+    (an unknown token CLOSES the list), and that argument is easier to check
+    against a token list than against a pattern. Punctuation is padded rather
+    than dropped so that ``del I-V`` and ``del VIII.`` tokenize the way the
+    grammar reads them.
+    """
+    padded = text
+    for character in _PART_LIST_PUNCTUATION:
+        padded = padded.replace(character, f" {character} ")
+    return padded.split()
+
+
+def _named_part_labels(operative_blocks: Sequence[str]) -> tuple[str, ...]:
+    """The romertall parts the operative text names, or ``()`` for REFUSED.
+
+    Total by construction. Three global refusals run first — a subdivision or
+    negation hazard anywhere in the text, and a commencement-verb count other
+    than exactly one (two verbs means two clauses, and the second may defer
+    what the first commenced). Then the scanner walks the tokens: a part word
+    OPENS a list, romertall labels and the conjunction/range vocabulary CONTINUE
+    it, and the first token the grammar does not know CLOSES it. Nothing is
+    skipped over inside a list, so a qualifier the hazard guard missed can only
+    end a list early, never be read past.
+
+    Under-reading is safe and over-reading is not, which is why an orphan part
+    word ("Følgende deler av loven trer i kraft ...") is passed over rather than
+    refused, while a range that never gets its second end refuses outright.
+    """
+    text = " ".join(operative_blocks)
+    # lawvm-regex: owning_parser this IS the part-list reader's hazard half; refusing only, cannot accept
+    if _PART_LIST_HAZARD_RE.search(text):
+        return ()
+    # lawvm-regex: owning_parser same reader; exactly one commencement clause, else two scopes
+    if len(_COMMENCEMENT_VERB_RE.findall(text)) != 1:
+        return ()
+    tokens = _part_list_tokens(text)
+    labels: set[str] = set()
+    saw_a_list = False
+    index = 0
+    while index < len(tokens):
+        opener = tokens[index]
+        index += 1
+        if opener.lower() not in _PART_LIST_PART_WORDS:
+            continue
+        previous_value: int | None = None
+        pending_range = False
+        opened = False
+        while index < len(tokens):
+            token = tokens[index]
+            value = _roman_label_value(token)
+            if value is not None:
+                if pending_range:
+                    if previous_value is None or previous_value > value:
+                        return ()
+                    labels.update(
+                        _roman_label(step) for step in range(previous_value, value + 1)
+                    )
+                    pending_range = False
+                else:
+                    labels.add(token)
+                previous_value = value
+                opened = True
+            elif not opened:
+                break
+            elif token.lower() in _PART_LIST_RANGE_TOKENS:
+                pending_range = True
+            elif token.lower() in _PART_LIST_CONJUNCTIONS:
+                pending_range = False
+            elif token.lower() not in _PART_LIST_PART_WORDS:
+                break
+            index += 1
+        if pending_range:
+            return ()
+        saw_a_list = saw_a_list or opened
+    if not saw_a_list:
+        return ()
+    return tuple(sorted(labels, key=_roman_label_sort_key))
 
 
 def _document_title(root: etree._Element) -> str:
@@ -1333,6 +1924,7 @@ def parse_no_commencement_instrument(
         changed_law_ids=declared_change_targets_from_root(root).law_ids,
         commenced_section_labels=_commenced_section_labels(operative_blocks),
         whole_act_operative_text=_whole_act_operative_text(operative_blocks),
+        named_part_labels=_named_part_labels(operative_blocks),
     )
     residuals: tuple[NOCommencementInstrumentResidual, ...] = ()
     parse_status = NOCommencementParseStatus.CANDIDATE

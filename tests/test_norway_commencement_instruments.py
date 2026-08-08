@@ -13,10 +13,12 @@ from lawvm.norway.commencement_instruments import (
     NO_COMMENCEMENT_EXECUTION_REFUSED,
     NO_COMMENCEMENT_INSTRUMENT_COVERAGE_INVALID,
     NO_COMMENCEMENT_MULTI_PART_EXECUTION_AUTHORIZED,
+    NO_COMMENCEMENT_NAMED_PART_LIST_EXECUTION_AUTHORIZED,
     NO_COMMENCEMENT_PART_EXECUTION_AUTHORIZED,
     NO_COMMENCEMENT_PART_EXECUTION_DATE_CONFLICT,
     NOCommencementActPartEvidence,
     NOCommencementMultiPartAuthorizationConjunct,
+    NOCommencementNamedPartListAuthorizationConjunct,
     NOCommencementPartAuthorizationConjunct,
     NOCommencementAuthorizationConjunct,
     NOCommencementInstrumentCandidate,
@@ -24,6 +26,7 @@ from lawvm.norway.commencement_instruments import (
     NOCommencementInstrumentCoverageError,
     NOCommencementParseStatus,
     NOCommencementScopeStatus,
+    _named_part_labels,
     _whole_act_operative_text,
     authorize_no_commencement_instruments,
     parse_no_commencement_instrument,
@@ -542,6 +545,8 @@ def _part_instrument(
     commenced_section_labels: tuple[str, ...] = (),
     effective_dates: tuple[str, ...] = ("2025-04-01",),
     whole_act_operative_text: bool = False,
+    named_part_labels: tuple[str, ...] = (),
+    affected_law_ids: tuple[str, ...] = ("no/lov/2025-02-02-5",),
 ) -> NOCommencementInstrumentCandidate:
     return NOCommencementInstrumentCandidate(
         source_id=source_id,
@@ -549,13 +554,14 @@ def _part_instrument(
         archive="norway.farchive",
         member_name="",
         title="Delvis ikraftsetting av lov 2. februar 2025 nr. 5",
-        affected_law_ids=("no/lov/2025-02-02-5",),
+        affected_law_ids=affected_law_ids,
         effective_dates=effective_dates,
         scope_status=NOCommencementScopeStatus.UNRESOLVED,
         source_excerpt="",
         changed_law_ids=changed_law_ids,
         commenced_section_labels=commenced_section_labels,
         whole_act_operative_text=whole_act_operative_text,
+        named_part_labels=named_part_labels,
     )
 
 
@@ -1394,6 +1400,697 @@ def test_w47_corpus_totals_and_the_untouched_single_part_route() -> None:
         for law_id, _date in entry.part_scoped_effective_dates
         if law_id not in entry.base_ids
     ]
-    assert len(inert) == 29
+    # W-49 adds 2 more, both unreachable for the same reason; the per-route
+    # split is asserted with the W-49 totals.
+    assert len(inert) == 31
     assert sum(1 for d in single if d["law_id"] not in entries[d["source_id"]].base_ids) == 2
     assert sum(1 for d in multi if d["law_id"] not in entries[d["source_id"]].base_ids) == 27
+
+
+# --- W-49: the named-part-list route ---------------------------------------
+#
+# The design pass measured the 97 (instrument, act) pairs W-47's route refuses.
+# 12 of them have an operative text naming a part LIST that covers the Endrer
+# header; 20 name a list that does not, 9 of those being proven header/text
+# disagreements; the reader refuses the other 65 outright. Artifacts:
+# ``.tmp/w49/surface.json``, ``.tmp/w49/w49_gate.json``, ``.tmp/w49/payoff.json``.
+
+
+@pytest.mark.parametrize(
+    ("blocks", "expected"),
+    [
+        # "romertall" as the part word, plain conjunction — 2009-10-23-1295.
+        (
+            (
+                "Lov 19. juni 2009 nr. 106 om endringer i industrikonsesjonsloven, "
+                "vassdragsreguleringsloven og vannressursloven (utleie av "
+                "vannkraftproduksjon mv.) romertall II og III trer i kraft 1. januar 2010.",
+            ),
+            ("II", "III"),
+        ),
+        # "del" with a comma list and a nynorsk verb — 2010-09-03-1239.
+        (
+            (
+                "Lov 19. juni 2009 nr. 107 om endringer i jernbaneloven, "
+                "jernbaneansvarsloven og COTIF-loven, lovens del II, III og IV blir "
+                "sette i kraft straks.",
+            ),
+            ("II", "III", "IV"),
+        ),
+        # A bare "gjelder fra" clause — 2011-06-24-646.
+        (("Lovens del I og II gjelder fra 30. juni 2011.",), ("I", "II")),
+        # A five-element comma list — 2012-12-14-1208.
+        (
+            (
+                "Lov 22. juni 2012 nr. 52 om endringer i utleveringsloven m.m. del I, "
+                "II, III, IV og V trer i kraft 1. januar 2013.",
+            ),
+            ("I", "II", "III", "IV", "V"),
+        ),
+        # The reader must NOT read "UCITS V-direktivet" as part V of the act: a
+        # romertall only counts when a part word opens it — 2016-12-16-1592, whose
+        # list happens to name a real del V as well, so the case is about the
+        # SOURCE of the label rather than its presence.
+        (
+            (
+                "Delt ikraftsetting av Stortingets vedtak 12. desember 2016 til lov om "
+                "endringer i verdipapirfondloven mv. (UCITS V-direktivet mv.). Lovens "
+                "del I, II, IV og V trer i kraft 1. januar 2017.",
+            ),
+            ("I", "II", "IV", "V"),
+        ),
+        # An en-dash range plus singles — 2024-05-31-875.
+        (
+            (
+                "Delt ikraftsetting av lov 24. november 2023 nr. 84 om endringer i "
+                "forsvarsloven mv. (militær disiplinærmyndighet) del I–V og del VII og "
+                "VIII. Loven trer i kraft 1. juli 2024.",
+            ),
+            ("I", "II", "III", "IV", "V", "VII", "VIII"),
+        ),
+        # A "til" range — 2026-06-12-1058.
+        (
+            (
+                "Delt ikraftsetting av lov 12. juni 2026 om endringer i grenseloven, "
+                "utlendingsloven og SIS-loven (screening av tredjelandsborgere). "
+                "Følgende endringer trer i kraft 12. juni 2026: "
+                "Endringsloven del I til III.",
+            ),
+            ("I", "II", "III"),
+        ),
+        # Blocks as a list, an ORPHAN part word ("deler") that opens nothing, and
+        # parenthetical law names between the items — 2023-02-17-229.
+        (
+            (
+                "Følgende deler av loven trer i kraft 1. mars 2023: del I "
+                "(varemerkeloven) del II (patentloven) del III (panteloven) del IV "
+                "(foretaksnavneloven) del V (designloven).",
+                "del I (varemerkeloven)",
+                "del V (designloven).",
+            ),
+            ("I", "II", "III", "IV", "V"),
+        ),
+        # The list repeated across blocks, as Lovdata's list markup yields it —
+        # 2025-11-21-2305.
+        (
+            ("Følgende trer i kraft 1. januar 2026: Romertall IV og V", "Romertall IV og V"),
+            ("IV", "V"),
+        ),
+    ],
+)
+def test_named_part_labels_reads_the_measured_list_shapes(
+    blocks: tuple[str, ...], expected: tuple[str, ...]
+) -> None:
+    assert _named_part_labels(blocks) == expected
+
+
+@pytest.mark.parametrize(
+    "blocks",
+    [
+        # --- the proven header/text disagreements the READER itself refuses ---
+        # A sub-part qualifier the W-47 guard never needed: part I is commenced
+        # only in its LAST SENTENCE (no/forskrift/2019-11-22-1552). Reading the
+        # list naively would date the whole of del I.
+        (
+            "Endringsloven romertall I siste setning og romertall II–VII trer i "
+            "kraft 1. januar 2020.",
+        ),
+        # A punkt qualifier (no/forskrift/2017-12-19-2156).
+        (
+            "Delt ikraftsetjing av Stortinget sitt vedtak 15. desember 2017. Del VI "
+            "punkt 1, endringar i lov om pensjonstrygd for sjømenn, setjast i kraft "
+            "1. januar 2018.",
+        ),
+        # An exception carving a hole in the list (no/forskrift/2024-11-29-2890).
+        (
+            "Delt ikraftsetting av loven. Loven trer i kraft 1. desember 2024, med "
+            "unntak av endringene under del V.",
+        ),
+        # An exception scoped by chapter (no/forskrift/2019-06-21-802).
+        (
+            "Delt ikraftsetting av loven. Loven trer i kraft 21. juli 2019 med unntak "
+            "av endringene i verdipapirhandelloven kapittel 3, 4, 5, 12, 19 og 21.",
+        ),
+        # "avsnitt" as a part word is not in this reader's vocabulary, and the
+        # chapter this one adds is why (no/forskrift/2013-02-01-130).
+        (
+            "Lov 19. juni 2009 nr. 75 om endringer i straffeloven og "
+            "straffeprosessloven avsnitt I og nytt kapittel 16 c i "
+            "straffeprosessloven, trer i kraft straks.",
+        ),
+        # --- the hazard classes, as such ---
+        # A section sign anywhere: the slice surface, W-41's business.
+        ("Del I § 3 og del II trer i kraft 1. januar 2020.",),
+        # A ledd qualifier.
+        ("Del I første ledd og del II trer i kraft 1. januar 2020.",),
+        # A bokstav qualifier.
+        ("Del I bokstav a og del II trer i kraft 1. januar 2020.",),
+        # A part deferred to a delegated date: one ISO date, two scopes.
+        (
+            "Del I og del II trer i kraft 1. januar 2020. Del III trer i kraft fra "
+            "det tidspunkt departementet bestemmer.",
+        ),
+        # Two commencement clauses, hence two scopes, hence no single list.
+        ("Del I trer i kraft straks. Del II trer i kraft 1. januar 2027.",),
+        # No commencement clause at all.
+        ("Ikraftsetting av endringsloven del I og del II.",),
+        # A whole-act text: W-47's business, and this reader must not claim it.
+        ("Loven trer i kraft 1. januar 2020.",),
+        # A range that never gets its second end.
+        ("Del I– trer i kraft 1. januar 2020.",),
+        # A descending range is not a range.
+        ("Del V–I trer i kraft 1. januar 2020.",),
+        # An orphan part word alone names nothing.
+        ("Følgende deler av loven trer i kraft 1. januar 2020.",),
+        (),
+    ],
+)
+def test_named_part_labels_refuses_everything_it_cannot_account_for(
+    blocks: tuple[str, ...],
+) -> None:
+    assert _named_part_labels(blocks) == ()
+
+
+def test_named_part_list_and_whole_act_readers_are_mutually_exclusive() -> None:
+    """The two routes cannot both fire, and the reason is structural.
+
+    ``_whole_act_operative_text``'s refusing half lists ``del`` and ``romertall``
+    among the subdivision tokens, and ``_named_part_labels`` needs one of those
+    words to open a list at all. So no text can satisfy both, and the ordering
+    between the W-47 and W-49 routes is a formality rather than a tie-break.
+    """
+    part_list = ("Lovens del I og II gjelder fra 30. juni 2011.",)
+    whole_act = ("Loven trer i kraft 1. januar 2020.",)
+
+    assert _named_part_labels(part_list) == ("I", "II")
+    assert _whole_act_operative_text(part_list) is False
+    assert _named_part_labels(whole_act) == ()
+    assert _whole_act_operative_text(whole_act) is True
+
+
+def test_named_part_list_authorization_dates_every_part_the_list_covers() -> None:
+    """The positive: a list covering the header dates each part the header names.
+
+    Modelled on ``no/forskrift/2011-06-24-646`` ("Lovens del I og II gjelder fra
+    30. juni 2011") against ``no/lovtid/2011-06-24-31``, whose Endrer header
+    spans two of the act's five parts.
+    """
+    authorization = authorize_no_commencement_instruments(
+        [(
+            NOCommencementParseStatus.BLOCKED_UNRESOLVED,
+            _part_instrument(
+                "no/forskrift/2025-03-01-401",
+                changed_law_ids=("no/lov/1997-06-13-55", "no/lov/2001-01-05-1"),
+                named_part_labels=("I", "III"),
+            ),
+        )],
+        offered_act_ids={"no/lovtid/2025-02-02-5"},
+        act_part_evidence=_multi_part_evidence(),
+    )
+
+    assert authorization.authorizations == ()
+    assert authorization.part_authorizations == ()
+    assert authorization.multi_part_authorizations == ()
+    assert authorization.refusals == ()
+    assert len(authorization.named_part_list_authorizations) == 2
+    assert {
+        (receipt.part_label, receipt.law_id, receipt.effective_date)
+        for receipt in authorization.named_part_list_authorizations
+    } == {
+        ("I", "no/lov/2001-01-05-1", "2025-04-01"),
+        ("III", "no/lov/1997-06-13-55", "2025-04-01"),
+    }
+    detail = authorization.named_part_list_authorizations[0].to_diagnostic_detail()
+    assert detail["rule_id"] == NO_COMMENCEMENT_NAMED_PART_LIST_EXECUTION_AUTHORIZED
+    assert detail["blocking"] is False
+    assert detail["strict_disposition"] == "record"
+    assert detail["named_part_labels"] == ["I", "III"]
+    assert detail["spanned_part_labels"] == ["I", "III"]
+    assert detail["passed_conjuncts"] == [
+        str(conjunct) for conjunct in NOCommencementNamedPartListAuthorizationConjunct
+    ]
+    assert [item.replay_authorized for item in authorization.instruments] == [True]
+
+
+def test_named_part_list_authorization_dates_only_the_parts_the_header_names() -> None:
+    """A list wider than the header still dates only the header's parts.
+
+    ``no/forskrift/2010-09-03-1239`` names del II, III and IV under a II/III
+    header; ``no/forskrift/2016-12-16-1592`` names I, II, IV and V under an
+    I/II/IV one. The extra part is simply not dated — the grant stays a SUBSET
+    of what the text commences, which is the whole licensing argument.
+    """
+    authorization = authorize_no_commencement_instruments(
+        [(
+            NOCommencementParseStatus.BLOCKED_UNRESOLVED,
+            _part_instrument(
+                "no/forskrift/2025-03-01-402",
+                changed_law_ids=("no/lov/1997-06-13-55", "no/lov/2001-01-05-1"),
+                named_part_labels=("I", "III", "IV"),
+            ),
+        )],
+        offered_act_ids={"no/lovtid/2025-02-02-5"},
+        act_part_evidence=_multi_part_evidence(),
+    )
+
+    dated = authorization.part_authorized_effective_dates()["no/lovtid/2025-02-02-5"]
+    assert set(dated) == {"no/lov/1997-06-13-55", "no/lov/2001-01-05-1"}
+    assert "no/lov/2006-06-30-50" not in dated
+    assert {
+        receipt.named_part_labels
+        for receipt in authorization.named_part_list_authorizations
+    } == {("I", "III", "IV")}
+
+
+def test_named_part_list_authorization_refuses_a_list_narrower_than_the_header() -> None:
+    """The negative suite's own shape: the list misses a part the header spans.
+
+    Six of the eleven proven W-47 header/text disagreements are refused right
+    here — ``no/forskrift/2012-12-07-1149`` ("Loven del I", header I+II),
+    ``2014-12-19-1735`` (text II/III/IV, header I/III/IV), ``2016-06-17-706``,
+    ``2017-06-16-758``, ``2012-12-14-1324``, ``2024-11-11-2739``. Forgiving any
+    of them would date a part years early.
+    """
+    authorization = authorize_no_commencement_instruments(
+        [(
+            NOCommencementParseStatus.BLOCKED_UNRESOLVED,
+            _part_instrument(
+                "no/forskrift/2025-03-01-403",
+                changed_law_ids=("no/lov/1997-06-13-55", "no/lov/2001-01-05-1"),
+                named_part_labels=("I",),
+            ),
+        )],
+        offered_act_ids={"no/lovtid/2025-02-02-5"},
+        act_part_evidence=_multi_part_evidence(),
+    )
+
+    assert authorization.named_part_list_authorizations == ()
+    assert len(authorization.refusals) == 1
+    assert [item.replay_authorized for item in authorization.instruments] == [False]
+
+
+def test_named_part_list_authorization_refuses_an_unreadable_text() -> None:
+    """No list, no route: an empty label tuple is the reader's REFUSAL."""
+    authorization = authorize_no_commencement_instruments(
+        [(
+            NOCommencementParseStatus.BLOCKED_UNRESOLVED,
+            _part_instrument(
+                "no/forskrift/2025-03-01-404",
+                changed_law_ids=("no/lov/1997-06-13-55", "no/lov/2001-01-05-1"),
+                named_part_labels=(),
+            ),
+        )],
+        offered_act_ids={"no/lovtid/2025-02-02-5"},
+        act_part_evidence=_multi_part_evidence(),
+    )
+
+    assert authorization.named_part_list_authorizations == ()
+    assert len(authorization.refusals) == 1
+
+
+def test_named_part_list_admits_a_later_instrument_on_other_parts() -> None:
+    """Half one of the per-part refutation: the staged pattern must NOT refute.
+
+    A later instrument commencing del IV — another part of the same act, by both
+    its declared laws and its own named list — says nothing against "del I and
+    del III commenced then". W-47's act-global conjunct would refuse this, and
+    measured over the corpus that is what it costs: two of this route's twelve
+    pairs (``no/forskrift/2009-10-23-1295`` and ``2016-12-16-1592``) exist only
+    because the refutation is per part.
+    """
+    authorization = authorize_no_commencement_instruments(
+        [
+            (
+                NOCommencementParseStatus.BLOCKED_UNRESOLVED,
+                _part_instrument(
+                    "no/forskrift/2025-03-01-405",
+                    changed_law_ids=("no/lov/1997-06-13-55", "no/lov/2001-01-05-1"),
+                    named_part_labels=("I", "III"),
+                ),
+            ),
+            (
+                NOCommencementParseStatus.BLOCKED_UNRESOLVED,
+                _part_instrument(
+                    "no/forskrift/2026-05-01-406",
+                    changed_law_ids=("no/lov/2006-06-30-50",),
+                    named_part_labels=("IV",),
+                    effective_dates=("2026-05-01",),
+                ),
+            ),
+        ],
+        offered_act_ids={"no/lovtid/2025-02-02-5"},
+        act_part_evidence=_multi_part_evidence(),
+    )
+
+    assert len(authorization.named_part_list_authorizations) == 2
+    # The later instrument is a single-part match in its own right, and takes
+    # the single-part route: the two coexist on one act at two dates.
+    assert len(authorization.part_authorizations) == 1
+
+
+def test_named_part_list_refuses_a_later_instrument_naming_a_claimed_part() -> None:
+    """Half two: a later instrument re-commencing a NAMED part DOES refute.
+
+    This is the W-47 revocation witness in list form. On the real corpus the
+    witness is ``no/lovtid/2019-12-06-76``, whose whole-act instrument is
+    followed by ``no/forskrift/2021-01-29-266`` re-commencing del I on
+    2021-03-01; had the first instrument named "del I og del II" instead of
+    commencing the act whole, this is the conjunct that would still catch it.
+    """
+    authorization = authorize_no_commencement_instruments(
+        [
+            (
+                NOCommencementParseStatus.BLOCKED_UNRESOLVED,
+                _part_instrument(
+                    "no/forskrift/2025-03-01-407",
+                    changed_law_ids=("no/lov/1997-06-13-55", "no/lov/2001-01-05-1"),
+                    named_part_labels=("I", "III"),
+                ),
+            ),
+            (
+                NOCommencementParseStatus.BLOCKED_UNRESOLVED,
+                _part_instrument(
+                    "no/forskrift/2026-05-01-408",
+                    changed_law_ids=("no/lov/2001-01-05-1",),
+                    named_part_labels=("I",),
+                    effective_dates=("2026-05-01",),
+                ),
+            ),
+        ],
+        offered_act_ids={"no/lovtid/2025-02-02-5"},
+        act_part_evidence=_multi_part_evidence(),
+    )
+
+    assert authorization.named_part_list_authorizations == ()
+
+
+def test_named_part_list_refuses_a_later_instrument_it_cannot_read() -> None:
+    """A later text the reader cannot account for bounds nothing, so it refutes.
+
+    The corpus case is ``no/forskrift/2015-09-18-1059``, whose declared laws put
+    it in del I of ``no/lovtid/2012-01-20-7`` — disjoint from the II/III/IV claim
+    of ``no/forskrift/2012-01-20-36`` — but whose own text the reader refuses.
+    One clear witness is not two, so the pair does not grant.
+    """
+    authorization = authorize_no_commencement_instruments(
+        [
+            (
+                NOCommencementParseStatus.BLOCKED_UNRESOLVED,
+                _part_instrument(
+                    "no/forskrift/2025-03-01-409",
+                    changed_law_ids=("no/lov/1997-06-13-55", "no/lov/2001-01-05-1"),
+                    named_part_labels=("I", "III"),
+                ),
+            ),
+            (
+                NOCommencementParseStatus.BLOCKED_UNRESOLVED,
+                _part_instrument(
+                    "no/forskrift/2026-05-01-410",
+                    changed_law_ids=("no/lov/2006-06-30-50",),
+                    commenced_section_labels=("7",),
+                    effective_dates=("2026-05-01",),
+                ),
+            ),
+        ],
+        offered_act_ids={"no/lovtid/2025-02-02-5"},
+        act_part_evidence=_multi_part_evidence(),
+    )
+
+    assert authorization.named_part_list_authorizations == ()
+
+
+def test_named_part_list_refuses_when_the_two_witnesses_disagree() -> None:
+    """A later instrument whose header is coarser than its text still refutes.
+
+    ``no/forskrift/2017-06-16-758``'s text commences only del III while its
+    Endrer header spans del I, II and III, and it is the later sibling of
+    ``no/forskrift/2017-09-01-1328``'s del I / del II claim. The textual witness
+    clears; the structural one does not. Refusing on disagreement costs exactly
+    this one pair, and it is the price of not adjudicating a header/text
+    disagreement inside a route whose whole premise is that they exist.
+    """
+    authorization = authorize_no_commencement_instruments(
+        [
+            (
+                NOCommencementParseStatus.BLOCKED_UNRESOLVED,
+                _part_instrument(
+                    "no/forskrift/2025-03-01-411",
+                    changed_law_ids=("no/lov/1997-06-13-55", "no/lov/2001-01-05-1"),
+                    named_part_labels=("I", "III"),
+                ),
+            ),
+            (
+                NOCommencementParseStatus.BLOCKED_UNRESOLVED,
+                _part_instrument(
+                    "no/forskrift/2026-05-01-412",
+                    changed_law_ids=("no/lov/2001-01-05-1", "no/lov/2006-06-30-50"),
+                    named_part_labels=("IV",),
+                    effective_dates=("2026-05-01",),
+                ),
+            ),
+        ],
+        offered_act_ids={"no/lovtid/2025-02-02-5"},
+        act_part_evidence=_multi_part_evidence(),
+    )
+
+    assert authorization.named_part_list_authorizations == ()
+
+
+def test_named_part_list_admits_an_earlier_sibling() -> None:
+    """The conjunct is about LATER instruments only, exactly as at W-47.
+
+    The earlier sibling here commences del IV, a part outside the claim; had it
+    commenced del I the claim would still hold, but the I grant would be the
+    single-part route's rather than this one's — the yield, not a refusal.
+    """
+    authorization = authorize_no_commencement_instruments(
+        [
+            (
+                NOCommencementParseStatus.BLOCKED_UNRESOLVED,
+                _part_instrument(
+                    "no/forskrift/2024-01-01-413",
+                    changed_law_ids=("no/lov/2006-06-30-50",),
+                    named_part_labels=("IV",),
+                    effective_dates=("2024-01-01",),
+                ),
+            ),
+            (
+                NOCommencementParseStatus.BLOCKED_UNRESOLVED,
+                _part_instrument(
+                    "no/forskrift/2025-03-01-414",
+                    changed_law_ids=("no/lov/1997-06-13-55", "no/lov/2001-01-05-1"),
+                    named_part_labels=("I", "III"),
+                ),
+            ),
+        ],
+        offered_act_ids={"no/lovtid/2025-02-02-5"},
+        act_part_evidence=_multi_part_evidence(),
+    )
+
+    assert len(authorization.named_part_list_authorizations) == 2
+
+
+def test_named_part_list_refuses_a_two_act_instrument() -> None:
+    """One document commencing parts of two acts merges two lists into one.
+
+    ``no/forskrift/2020-04-29-885`` commences del I and del II of
+    ``2018-04-20-12`` and del II of ``2019-03-08-5`` in one text; read joined,
+    nothing in the merged list says which act each label belongs to.
+    """
+    authorization = authorize_no_commencement_instruments(
+        [(
+            NOCommencementParseStatus.BLOCKED_UNRESOLVED,
+            _part_instrument(
+                "no/forskrift/2025-03-01-415",
+                changed_law_ids=("no/lov/1997-06-13-55", "no/lov/2001-01-05-1"),
+                named_part_labels=("I", "III"),
+                affected_law_ids=("no/lov/2025-02-02-5", "no/lov/2024-01-01-9"),
+            ),
+        )],
+        offered_act_ids={"no/lovtid/2025-02-02-5"},
+        act_part_evidence=_multi_part_evidence(),
+    )
+
+    assert authorization.named_part_list_authorizations == ()
+    assert len(authorization.refusals) == 1
+
+
+def test_named_part_list_route_yields_to_the_multi_part_route() -> None:
+    """Ordering, asserted rather than assumed.
+
+    The two readers are mutually exclusive on real text, so this can only be
+    reached by a hand-built candidate — which is exactly why it is worth
+    pinning: if the guards ever overlap, the older proof must win.
+    """
+    authorization = authorize_no_commencement_instruments(
+        [(
+            NOCommencementParseStatus.BLOCKED_UNRESOLVED,
+            _part_instrument(
+                "no/forskrift/2025-03-01-416",
+                changed_law_ids=("no/lov/1997-06-13-55", "no/lov/2001-01-05-1"),
+                whole_act_operative_text=True,
+                named_part_labels=("I", "III"),
+            ),
+        )],
+        offered_act_ids={"no/lovtid/2025-02-02-5"},
+        act_part_evidence=_multi_part_evidence(),
+    )
+
+    assert len(authorization.multi_part_authorizations) == 2
+    assert authorization.named_part_list_authorizations == ()
+
+
+def test_named_part_list_route_is_disabled_without_part_evidence() -> None:
+    authorization = authorize_no_commencement_instruments(
+        [(
+            NOCommencementParseStatus.BLOCKED_UNRESOLVED,
+            _part_instrument(
+                "no/forskrift/2025-03-01-417",
+                changed_law_ids=("no/lov/1997-06-13-55", "no/lov/2001-01-05-1"),
+                named_part_labels=("I", "III"),
+            ),
+        )],
+        offered_act_ids={"no/lovtid/2025-02-02-5"},
+    )
+
+    assert authorization.named_part_list_authorizations == ()
+    assert len(authorization.refusals) == 1
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_w49_corpus_witness_dates_the_two_parts_a_list_names() -> None:
+    """W-49 corpus witness: the staged act the per-part refutation unlocks.
+
+    ``no/forskrift/2009-10-23-1295`` commences "romertall II og III" of
+    ``no/lovtid/2009-06-19-106``; ``no/forskrift/2010-06-25-938`` commences its
+    del I nine months later. Under W-47's act-global conjunct that later sibling
+    would refuse the whole span — here it clears both witnesses and the two
+    parts take their date.
+    """
+    index = build_no_amendment_index(_NO_FARCHIVE_PATH)
+    entry = next(e for e in index.entries if e.source_id == "no/lovtid/2009-06-19-106")
+
+    assert entry.effective_status == "contingent"
+    assert entry.effective_date is None
+    assert ("no/lov/1917-12-14-17", "2010-01-01") in entry.part_scoped_effective_dates
+    assert ("no/lov/2000-11-24-82", "2010-01-01") in entry.part_scoped_effective_dates
+
+    receipts = [
+        d
+        for d in index.diagnostics
+        if d.get("rule_id") == NO_COMMENCEMENT_NAMED_PART_LIST_EXECUTION_AUTHORIZED
+        and d.get("source_id") == "no/lovtid/2009-06-19-106"
+    ]
+    assert {(r["part_label"], r["law_id"]) for r in receipts} == {
+        ("II", "no/lov/1917-12-14-17"),
+        ("III", "no/lov/2000-11-24-82"),
+    }
+    assert {r["instrument_source_ids"][0] for r in receipts} == {
+        "no/forskrift/2009-10-23-1295"
+    }
+    assert {tuple(r["named_part_labels"]) for r in receipts} == {("II", "III")}
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_w49_corpus_negatives_the_proven_disagreements_stay_refused() -> None:
+    """The eleven proven header/text disagreements, pinned as negatives.
+
+    Each of these acts has an instrument whose text commences strictly less than
+    its Endrer header names. None of them may pick up a named-part-list grant
+    from that instrument.
+    """
+    index = build_no_amendment_index(_NO_FARCHIVE_PATH)
+    granted = {
+        (d["source_id"], d["instrument_source_ids"][0])
+        for d in index.diagnostics
+        if d.get("rule_id") == NO_COMMENCEMENT_NAMED_PART_LIST_EXECUTION_AUTHORIZED
+    }
+    disagreements = {
+        ("no/lovtid/2012-12-07-71", "no/forskrift/2012-12-07-1149"),
+        ("no/lovtid/2012-12-14-82", "no/forskrift/2012-12-14-1324"),
+        ("no/lovtid/2017-06-16-66", "no/forskrift/2017-06-16-758"),
+        ("no/lovtid/2017-12-19-113", "no/forskrift/2017-12-19-2156"),
+        ("no/lovtid/2024-11-29-73", "no/forskrift/2024-11-29-2890"),
+        ("no/lovtid/2019-06-21-41", "no/forskrift/2019-06-21-802"),
+        ("no/lovtid/2013-06-21-79", "no/forskrift/2014-12-19-1735"),
+        ("no/lovtid/2016-06-17-48", "no/forskrift/2016-06-17-706"),
+        ("no/lovtid/2016-04-22-4", "no/forskrift/2019-11-22-1552"),
+        ("no/lovtid/2009-06-19-75", "no/forskrift/2013-02-01-130"),
+        ("no/lovtid/2018-12-20-115", "no/forskrift/2024-11-11-2739"),
+    }
+    assert granted & disagreements == set()
+    # ``2016-04-22-4`` is the one whose list READS as a superset of its header
+    # (romertall I plus II-VII against an I-VI header) and is refused only
+    # because "siste setning" qualifies part I. It gets no part date at all.
+    entry = next(e for e in index.entries if e.source_id == "no/lovtid/2016-04-22-4")
+    assert entry.part_scoped_effective_dates == ()
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_w49_corpus_totals_and_the_untouched_older_routes() -> None:
+    """The route's whole corpus footprint, with the two older pins beside it.
+
+    33 named-part-list grants over 10 acts; W-39's 123 and W-47's 260 do not
+    move, which is the check that the three routes are disjoint rather than
+    competing. No part-date conflict appears in any of them.
+    """
+    index = build_no_amendment_index(_NO_FARCHIVE_PATH)
+    named = [
+        d
+        for d in index.diagnostics
+        if d.get("rule_id") == NO_COMMENCEMENT_NAMED_PART_LIST_EXECUTION_AUTHORIZED
+    ]
+    multi = [
+        d
+        for d in index.diagnostics
+        if d.get("rule_id") == NO_COMMENCEMENT_MULTI_PART_EXECUTION_AUTHORIZED
+    ]
+    single = [
+        d
+        for d in index.diagnostics
+        if d.get("rule_id") == NO_COMMENCEMENT_PART_EXECUTION_AUTHORIZED
+    ]
+    assert len(named) == 33
+    assert len({d["source_id"] for d in named}) == 10
+    assert len(multi) == 260
+    assert len(single) == 123
+    assert not [
+        d
+        for d in index.diagnostics
+        if d.get("rule_id") == NO_COMMENCEMENT_PART_EXECUTION_DATE_CONFLICT
+    ]
+    # No binding is claimed by two routes.
+    keys = [
+        (d["source_id"], d["part_label"], d["law_id"]) for d in named + multi + single
+    ]
+    assert len(set(keys)) == len(keys)
+
+    # F-10: dates only, never base_ids — the property that keeps every part
+    # route free of decertification risk.
+    assert all("base_ids" not in d for d in named)
+    entries = {e.source_id: e for e in index.entries}
+    for d in named:
+        entry = entries[d["source_id"]]
+        assert (d["law_id"], d["effective_date"]) in entry.part_scoped_effective_dates
+
+    # P2 / corruption immunity, asserted at the corpus: the reader refuses any
+    # text containing "§" and ``_COMMENCED_SECTION_RE`` can only emit a label
+    # from a "§", so no W-49 grant has a section label at all — the W-48
+    # ordinal-swallowing defect has nothing here to corrupt.
+    instruments = {c.source_id: c for c in index.commencement_instruments}
+    for d in named:
+        for instrument_id in d["instrument_source_ids"]:
+            assert instruments[instrument_id].commenced_section_labels == ()
+            assert instruments[instrument_id].named_part_labels != ()
+
+    # The inert population grows by 2 and stays unreachable (W-39 2, W-47 27).
+    assert sum(1 for d in named if d["law_id"] not in entries[d["source_id"]].base_ids) == 2

@@ -470,6 +470,11 @@ def _authorize_no_commencement_instruments_into_index(
     whose Endrer header spans several parts under a whole-act operative text. So
     the act-level histogram does not move for it either — an act with parts
     commencing on one date still has no single act-level date to claim.
+
+    W-49's named-part-list route changes neither either, for the third time and
+    the same reason: one more per-binding date into the same field, from an
+    instrument that names the parts it commences instead of commencing the act
+    whole. No act-level status moves, and no ``base_ids`` are ever written.
     """
     authorization = authorize_no_commencement_instruments(
         parsed_instruments,
@@ -507,6 +512,8 @@ def _authorize_no_commencement_instruments_into_index(
         index.diagnostics.append(receipt.to_diagnostic_detail())
     for multi_part_receipt in authorization.multi_part_authorizations:
         index.diagnostics.append(multi_part_receipt.to_diagnostic_detail())
+    for named_part_receipt in authorization.named_part_list_authorizations:
+        index.diagnostics.append(named_part_receipt.to_diagnostic_detail())
     for refusal in authorization.refusals:
         index.diagnostics.append(refusal.to_diagnostic_detail())
     for conflict in authorization.conflicts:
