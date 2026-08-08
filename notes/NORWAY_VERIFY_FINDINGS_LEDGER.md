@@ -43,6 +43,7 @@ consolidation; every class below is evidence to triage, not a repair license.
 | **2026-07-10, after W-34 (56 candidates; see note)** | **21** | **35** | 0 |
 | **2026-07-10, after W-35 (56 candidates)** | **22** | **34** | 0 |
 | **2026-07-10, after W-39 (58 candidates; see note)** | **23** | **35** | 0 |
+| **2026-07-10, after W-47 (65 candidates; see note)** | **25** | **40** | 0 |
 
 W-15 commensurability caveat: the candidate set moved 58 → 56, so the 21/35
 row is not row-for-row comparable with the 18/40 row above. On the 54 laws
@@ -119,6 +120,17 @@ merged walk recovers 103 consolidation sections (16 laws) and 48
 replay-base sections (4 laws) as latent coverage; only this law is
 currently in the candidate set, and the candidate set provably
 cannot move from this fix.
+
+W-47 note: the candidate set grows 58 → 65 — seven entrants via the
+multi-part commencement route, 0 repairs, 0 decertifications, 0
+pre-existing rows moved. Two entrants arrive already CONSISTENT
+(`2022-06-17-56`, `2024-12-20-96` — a series first); the other five:
+`2010-06-04-21` (3, replay_defect), `2011-06-24-39` (5,
+replay_defect), `2018-04-20-7` (14, untouched_drift),
+`2004-12-17-101` (26, replay_defect), `2013-04-12-13` (191,
+source_sparse — the F-09 family's next big target). Totals
+`total=1447 (ceiling=1011, unexplained=436)` — the +239 is entirely
+entrant rows, conservation exact, ceiling untouched.
 
 Batch 03 increased coverage rather than changing an existing verdict: all 20
 old rows stayed byte-identical, and 38 laws that had previously been excluded
@@ -2081,19 +2093,49 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    Reviewer edit at apply: the universe-gap comment softened to what
    W-45 measured (110 of the 118 proven amending acts, not all 118).
    No stop conditions, no scan or pin movement.
-47. **W-47 (`endrer_spans_multiple_parts`, the lane's real lever,
-   ceiling +17 candidates):** 168 (instrument, act) pairs (155 acts)
-   are refused because the act's Endrer header spans multiple parts
-   while the W-39 matcher requires exactly one. The W-41 lane-ceiling
-   census (`.tmp/w41/lane_ceiling.json`) prices forgiving this
-   population at 58 → 75 candidates — 17× the whole W-41 surface.
-   The question is STRUCTURAL, not prose-parsing: does the
-   instrument commence both parts (per-part authorization under the
-   existing conjunct vocabulary, one `whole_part_scope` check per
-   part), or is the Endrer header coarser than the instrument's own
-   scope? Needs the W-39 soundness probe as gate and the same
-   design-pass discipline as W-41 (measure the 168, census the
-   shapes, gate before building).
+47. **W-47 (`endrer_spans_multiple_parts`, the lane's real lever):**
+   DONE (`47e49f0ae`, 2026-08-08). The design pass settled the
+   structural question both ways: the Endrer header IS a faithful
+   part→law map (168/168, implied by injectivity + one-law-per-part
+   evidence) but is NOT a statement of instrument scope — eleven
+   proven counterexamples (e.g. `2012-12-07-1149` "Loven del I trer
+   i kraft" under a I+II header), so forgiving on the header alone
+   is unsound and W-41's +17 was a wholesale upper bound, not a
+   target. What licenses a grant is the instrument's OWN text
+   commencing the whole act — then dating the header's parts is a
+   strict subset claim. Shape census: S1-A whole-act text (71 pairs)
+   IMPLEMENTED; S1-B/C/D part-naming texts (24, 11 proven narrower,
+   ~13 agreeing part-lists → W-49) REFUSED typed; S3 section-naming
+   (73) REFUSED — the multi-part analogue of W-41's empty slice
+   surface (0/73 reach section-set equality). Guard G1∧G2
+   (`_SUBDIVISION_SCOPE_RE` negative half — subsumes W-48(iv)'s
+   fence here — ∧ act-level clause subject positive half): 71
+   accepted, 0 of the 11 disagreements leak; the route is
+   corruption-IMMUNE (G1 refuses any `§`, and label emission
+   requires one, so `WHOLE_PART_SCOPE_PER_PART` is unreachable on
+   the accept path — verified 0 labels under either reader for all
+   70 granted instruments; 1 pair left on the table for W-48).
+   **P1 FIRED at 2 EARLY** (`2019-12-06-76` del I: a later
+   instrument REVOKED the commencement and re-issued 15 months
+   later) — closed by promoting the probe to the
+   `ACT_HAS_NO_LATER_INSTRUMENT` conjunct (any later instrument
+   citing the act refutes whole-act commencement), cost 2 grants /
+   1 act / 0 candidates; shipped P1 over all 383 grants: 0 EARLY,
+   10 late-conservative; P2 = 0 (measured, vacuous by construction).
+   260 multi-part grants over 70 acts (29 inert grants pinned — a
+   part resolving a law the act never binds dates nothing; 2 of
+   W-39's 123 already were; decide someday whether they should
+   receipt at all). Scan signed off 2026-08-08: 58 → 65, 25/40/0,
+   totals 1,208 → 1,447 with unexplained 197 → 436 (all entrant
+   rows, ceiling unmoved, conservation exact), 7 entrants / 0
+   repairs / 0 decerts (F-10: dates only, asserted three ways).
+   Ladder lessons recorded: the catalog discovery scrapes ANY
+   `no_`-prefixed literal (conjunct VALUES included — renamed
+   `act_has_no_later_instrument`), and each semantic-regex use-site
+   needs its own `# lawvm-regex:` waiver line. Also noted:
+   `_WHOLE_ACT_RE`'s two mechanical misses (anchored fullmatch,
+   narrow verb set) are why 72 genuine whole-act commencements land
+   in the part lane → W-50.
 48. **W-48 (slice-lane hygiene bundle — the reader fix must NEVER
    land alone):** four interlocking pieces from the W-41 design
    pass, to land together or not at all: (i) fix
@@ -2116,7 +2158,28 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    ever revisiting the slice surface, and (iv) is a safety fence.
    Also noted: `2016-06-17-73` is the single law the slice surface
    could unblock — if wanted, a targeted one-off far below the cost
-   of a slice model.
+   of a slice model. W-47 datum: the reader fix unlocks exactly 1
+   additional multi-part pair (`2017-06-02-745` → `2016-06-17-45`,
+   the `2-7a`/`2-7` swallow).
+49. **W-49 (named-part-list instruments, ~13 pairs):** the largest
+   refused sub-shape of W-47's surface — instruments whose operative
+   text names a part LIST that AGREES with the Endrer header
+   (`del I og III trer i kraft`). Needs a romertall-list parser with
+   range expansion (`del I–V`); the 11 proven header/text
+   disagreements from the W-47 census are its built-in negative
+   suite (`.tmp/w47/multipart_census.json`). Same gates: P1
+   zero-early incl. `ACT_HAS_NO_LATER_INSTRUMENT` semantics
+   per-part, corruption-immunity analysis, design pass before code.
+50. **W-50 (size the `_WHOLE_ACT_RE` widening):** 72 genuine
+   whole-act commencements land in the multi-part lane only because
+   `_WHOLE_ACT_RE`'s anchored `fullmatch` breaks on title prefixes,
+   verbs outside `trer i kraft`, and multi-block bodies. Widening it
+   would route them through `whole_act_scope` and move ACT-LEVEL
+   status (instrument_authorized), not just part dates — a different
+   risk class that wants its own sizing pass: measure which acts'
+   statuses would move, whether any F-10 decert exposure appears
+   (act-level status CAN change offered-set membership), and whether
+   the multi-part route's grants stay equivalent or upgrade.
 
 ## 5. Demo / Inspection Tooling
 
@@ -2134,6 +2197,25 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-08 (W-47 applied)** — **The multi-part commencement route
+  opens: 260 grants over 70 acts, seven candidate entrants (two
+  arriving consistent — a series first), and the biggest scan growth
+  of the programme, 58 → 65** (`47e49f0ae`). The Endrer header is a
+  faithful part→law map (168/168) but NOT an instrument-scope
+  statement (11 proven counterexamples), so the route grants only
+  when the instrument's own text commences the WHOLE act — dating
+  the header's parts is then a strict subset claim, guarded G1∧G2
+  (no subdivision named ∧ act-level clause subject; 0 of 11
+  disagreements leak; corruption-immune by construction). P1 fired
+  at 2 early on a revoked-and-reissued commencement and was closed
+  by promoting the probe to the `ACT_HAS_NO_LATER_INSTRUMENT`
+  conjunct (cost 2 grants, 0 candidates); shipped P1 over 383
+  grants: 0 early. Scan 25/40/0, totals 1,447 = 1,011 + 436 (+239
+  all-entrant, conservation exact, 0 decerts). W-49 opened
+  (agreeing part-lists, ~13 pairs) and W-50 opened (size the
+  `_WHOLE_ACT_RE` widening — 72 whole-act commencements currently
+  routed as parts).
 
 - **2026-08-08 (W-41 design pass: the slice surface is worth zero,
   and the lane's real lever is elsewhere)** — **Every sound model of
