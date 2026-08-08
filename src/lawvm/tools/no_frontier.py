@@ -119,6 +119,15 @@ def main(args: "argparse.Namespace") -> None:
         progress_callback=(lambda msg: print(msg, file=sys.stderr)) if getattr(args, "progress", False) else None,
     )
     partitions = verify_partition["partitions"]
+    # W-46: the W-45 census, reprinted where the dashboard already composes
+    # every other Norway frontier number. Read off ``build_no_verify_partition``
+    # rather than recomputed — this tool already pays for that call, and the
+    # census must not be able to disagree with the partition run beside it.
+    # Indexed directly, not ``.get``: unlike ``no-verify-partition`` (which can
+    # be pointed at a saved pre-W-45 partition JSON) this composes a report it
+    # just built in-process, and the same reasoning already applies to
+    # ``partitions`` above.
+    no_consolidation = verify_partition["unverifiable"]["no_stored_consolidation"]
     active_lane = "consistent"
     active_lane_count = len(partitions["consistent"])
     # W-23: ``annex_ceiling`` sits between ``source_sparse`` and ``error`` in the
@@ -151,6 +160,21 @@ def main(args: "argparse.Namespace") -> None:
         "missing_base_source": missing_base_report,
         "consistency_sample": verify_report,
         "consistency_partition": verify_partition,
+        "unverifiable_census": {
+            # Both universes, because the W-45 STOP-1 distinction is
+            # load-bearing: 763 consolidations are stored, 645 of them are
+            # operative, and the 118-law gap is consolidations with no
+            # operative content (measured at W-45 for the 110 with stored
+            # originals: amending acts reduced to bare change instructions).
+            # Every other number
+            # on this dashboard is denominated in the 645; the census counts
+            # originals that have neither. Printing the census total without
+            # both universes invites reading it against whichever denominator
+            # the reader already had in mind.
+            "stored_consolidations": inventory_data["stored_consolidations"],
+            "current_laws": inventory_data["current_laws"],
+            "no_stored_consolidation": no_consolidation,
+        },
         "active_consistency_lane": active_lane,
         "active_consistency_lane_label": lane_label_map[active_lane],
         "active_consistency_lane_count": active_lane_count,
@@ -197,6 +221,23 @@ def main(args: "argparse.Namespace") -> None:
         f"annex_ceiling={len(partitions['annex_ceiling'])}, "
         f"consistent={len(partitions['consistent'])}, "
         f"error={len(partitions['error'])}"
+    )
+    # W-46: printed immediately after the partition it is a sibling of, and
+    # before the queues — it is a receipt on the scan's reach, not a work queue.
+    print(
+        "  unverifiable census         : "
+        f"no_stored_consolidation={no_consolidation['total']}, "
+        f"would_be_candidates={no_consolidation['would_be_candidates']}, "
+        f"substantive_unexplained={no_consolidation['substantive_unexplained']}"
+    )
+    print(
+        "  ...census by family         : "
+        + ", ".join(f"{k}={v}" for k, v in sorted(no_consolidation["by_family"].items()))
+    )
+    print(
+        "  ...census universe          : "
+        f"stored_consolidations={report['unverifiable_census']['stored_consolidations']}, "
+        f"current_laws={report['unverifiable_census']['current_laws']}"
     )
     candidate_counts = report.get("commencement_candidate_source_counts", {})
     if candidate_counts:

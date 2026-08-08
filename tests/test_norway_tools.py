@@ -745,6 +745,23 @@ def test_no_frontier_tool_emits_json(tmp_path, monkeypatch, capsys) -> None:
                 "consistent": [],
                 "error": [],
             },
+            # W-45 added the ``unverifiable`` sibling BESIDE ``partitions``;
+            # W-46 reads it here. Same convention as ``annex_ceiling`` above:
+            # the stub mirrors build_no_verify_partition's return shape rather
+            # than making no_frontier default a missing key to empty.
+            "unverifiable": {
+                "no_stored_consolidation": {
+                    "total": 3,
+                    "by_family": {
+                        "amending_act": 2,
+                        "temporary_act": 0,
+                        "wage_board_act": 0,
+                        "substantive_act": 1,
+                    },
+                    "would_be_candidates": 1,
+                    "substantive_unexplained": 1,
+                },
+            },
         },
     )
     args = Namespace(
@@ -766,6 +783,23 @@ def test_no_frontier_tool_emits_json(tmp_path, monkeypatch, capsys) -> None:
     assert "missing_base_source" in data
     assert "consistency_sample" in data
     assert "consistency_partition" in data
+    # W-46: the census reaches the dashboard's JSON unchanged, carried straight
+    # off the partition rather than recomputed, and with both universes beside
+    # it (they come from the inventory, which this test stubs empty).
+    census = data["unverifiable_census"]
+    assert census["no_stored_consolidation"] == {
+        "total": 3,
+        "by_family": {
+            "amending_act": 2,
+            "temporary_act": 0,
+            "wage_board_act": 0,
+            "substantive_act": 1,
+        },
+        "would_be_candidates": 1,
+        "substantive_unexplained": 1,
+    }
+    assert census["stored_consolidations"] == data["inventory"]["stored_consolidations"]
+    assert census["current_laws"] == data["inventory"]["current_laws"]
     assert data["index_diagnostic_count"] == 1
     assert data["index_diagnostics"][0]["rule_id"] == "no_amendment_index_no_change_ops"
     assert data["active_consistency_lane"] in {
@@ -811,6 +845,23 @@ def test_no_frontier_tool_prints_partition_summary(tmp_path, capsys) -> None:
     assert "commencement candidate lanes" in output
     assert "active consistency lane" in output
     assert "top replay defects:" in output
+    # W-46: the census prints beside the partition it is a sibling of. This
+    # fixture's two-lane corpus stores an original for both laws and a
+    # consolidation for only the base, so the amending act 2025-02-02-5 is the
+    # one census row — invisible to every partition lane above, which is the
+    # whole reason the section exists. It lands in ``substantive_act`` (and so
+    # in ``substantive_unexplained``) because the fixture's amendment title is
+    # not one of the family-classifier's endringslov forms; the assert pins
+    # what this corpus is, not a claim about the real one.
+    assert (
+        "unverifiable census         : no_stored_consolidation=1, "
+        "would_be_candidates=0, substantive_unexplained=1"
+    ) in output
+    assert (
+        "...census by family         : amending_act=0, substantive_act=1, "
+        "temporary_act=0, wage_board_act=0"
+    ) in output
+    assert "...census universe          : stored_consolidations=1, current_laws=1" in output
 
 
 def test_no_verify_partition_tool_emits_json(tmp_path, capsys) -> None:
