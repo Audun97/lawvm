@@ -3,7 +3,7 @@
   "branch": "audun/norway-receipt-spine",
   "sourceReview": {
     "path": "notes/NORWAY_VERIFY_FINDINGS_LEDGER.md",
-    "sha256": "b6095b3b711f043f284893a5710aec5bd589c968b9965a1b0e10c668d0a4af0d"
+    "sha256": "d51d5195c618995921101f0467ed3f630f0e42a5276636f8bc1f83411f10389d"
   },
   "executionPolicy": {
     "runnableState": "ready",

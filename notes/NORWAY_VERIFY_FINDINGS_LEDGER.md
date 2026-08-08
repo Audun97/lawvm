@@ -2001,26 +2001,44 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    candidate amending acts a fetch would predict ~1 hit. Receipt
    item → W-45.
 45. **W-45 (typed no-consolidation receipt, W-44 recommendation,
-   size S):** make the 2,642-law family visible and sized, mirroring
-   the converse `no-missing-base` report. (1)
-   `build_no_no_consolidation_report` in `inventory.py` (input
-   `load_available_lti_law_ids() - current_law_ids`; rows: base_id,
-   title, family, would_be_status, repealed_by, amendments) + a
-   `lawvm no-no-consolidation` CLI tool mirroring
-   `no_missing_base.py` (~60 lines). (2) Four counters on
-   `NOInventory.to_dict()`: total 2,642 / amending 2,514 /
-   temporary+wage-board 65 / substantive 63 (+
-   substantive_without_repeal_evidence 13). (3) An `unverifiable`
-   sibling key BESIDE `build_no_verify_partition`'s `partitions`
-   (not inside — never-scanned laws carry no scan-row fields), with
-   the load-bearing tripwire assert `substantive_unexplained == 13`,
-   each spent/absorbed/never-commenced — fires if a future corpus
-   really does lose an in-force law. No rule id, no parse/replay
-   change, no scan movement (58 candidates, every scoreboard number
-   byte-identical). Optional XS sub-item: live-probe Lovdata for
-   consolidations of the 29 would-be-candidate amending acts
-   (`family_joined.json`, base rate predicts ~1 hit); if nothing
-   returns, the receipt is provably total.
+   size S):** DONE (`ef2a3d9c9`, 2026-08-08). The family is a live,
+   runtime-computed receipt: `build_no_no_consolidation_report` in
+   `inventory.py` (rows: base_id, title, family, would_be_status,
+   repealed_by, amendments; family by title shape, repealed_by via
+   the structural manifest reader, all regexes classifier-wrapped
+   with ratchet waivers), `lawvm no-no-consolidation` mirroring
+   `no_missing_base.py` (+`--family`), inventory counters, and an
+   `unverifiable` sibling BESIDE `partitions` (a sixth bucket would
+   be a row shape that lies). Runtime reconciliation with the W-44
+   probe: **14/14 MATCH** incl. both cross-tabs. **STOP-1 fired and
+   was resolved by measurement, not tuning:** the item's stated
+   input (`… - current_law_ids`) gave 2,752, not 2,642 — the probe's
+   universe is STORED ARTIFACTS (763, new
+   `load_no_stored_consolidation_law_ids`), while `current_law_ids`
+   is the operative-content-filtered 645; the 110-law delta is
+   amending acts whose consolidation is bare change instructions, so
+   counting them "no consolidation" would be a false receipt. Both
+   universes surfaced side by side; signed off 2026-08-08. Deviation
+   from item text, signed off with it: SIX counters (the five plus
+   `stored_consolidations`, load-bearing per STOP-1). The tripwire
+   pins the 13 ids BY ID, not count (a new id is the alarm; an id
+   leaving is benign; never re-derive the list). Catalog:
+   `no_stored_consolidation` added to `_NON_RULE_LITERALS` (names a
+   population, not a rule); a second collision renamed away. Two
+   synthetic partition tests monkeypatch the census out (stub index
+   would crash it), all pre-existing asserts byte-identical; zero
+   scan movement (58 / 23-35-0 / 1,208-1,011-197). Cost: inventory
+   build 48s → 51s. Still open from W-44: the optional XS Lovdata
+   live-probe (29 ids now runtime-obtainable via
+   `no-no-consolidation --family amending_act --json`). Noted for CI
+   hygiene: the norway shard is the long pole (745s vs 195s avg) and
+   W-45 adds ~60s of corpus pins to it — split candidate.
+46. **W-46 (surface the no-consolidation census in `no-frontier`,
+   XS, presentation only):** `no-frontier` already composes
+   inventory + missing-base + partition; the W-45 census is the one
+   gap-shaped number its dashboard omits. Add the `unverifiable`
+   summary (and the 763/645 universe pair) to its output; no new
+   computation.
 
 ## 5. Demo / Inspection Tooling
 
@@ -2038,6 +2056,21 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-08 (W-45 applied)** — **The scan's blind spot becomes a
+  live receipt: 2,642 laws with a replayable original and no stored
+  consolidation are censused at runtime, families and repeal
+  evidence recomputed from the archive, with a 13-id tripwire that
+  fires if a future corpus loses an in-force law** (`ef2a3d9c9`).
+  `build_no_no_consolidation_report` + `lawvm no-no-consolidation`
+  (mirror of `no-missing-base`), six inventory counters, and an
+  `unverifiable` sibling beside the partition buckets. Runtime
+  reconciliation with the W-44 probe 14/14. STOP-1 fired and
+  resolved: the census universe is stored artifacts (763), not the
+  operative-content-filtered `current_law_ids` (645) — the 110-law
+  delta is amending acts consolidated to bare change instructions,
+  and both universes are now reported side by side. Zero scan
+  movement. W-46 opened (surface the census in `no-frontier`, XS).
 
 - **2026-08-08 (W-44 probe: no consolidation ≠ missing data)** —
   **The 2,642 laws with a replayable original and no stored
