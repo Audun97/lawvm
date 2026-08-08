@@ -1900,16 +1900,44 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    already asserted separately). The 4 residual rows are the enacting
    act's own §§ 1-4, which the published consolidation does not print
    at all → W-42.
-41. **W-41 (partial-part commencement slices, sized surface):** the
-   109 (instrument, act) pairs W-39's `whole_part_scope` conjunct
-   refused — instruments commencing a genuinely narrower slice of a
-   part (named sections only). A partial-part commencement model
-   (per-op authorization inside a part) would reach them; needs its
-   own design pass with the W-39 soundness probe as its gate. Also
-   from W-39, small: `2006-06-30-41`'s bare-address collective
-   members; the `Lovens tittel:` restatement recognized-not-applied
-   (no law-title op exists); the pre-existing spaced `data-name`
-   heading-label artefact (939 base-state ops, untouched).
+41. **W-41 (partial-part commencement slices, sized surface):** DONE
+   (design pass, RESEARCH-ONLY, 2026-08-08; artifacts `.tmp/w41/`,
+   no product change). Verdict: **no family implemented — under
+   every sound model the whole surface is worth ZERO candidates**
+   (+1 only under a deliberately unsound "date every sliced binding
+   wholesale" upper bound: `2016-06-17-73`; of the 56 slice-touched
+   laws, 55 still carry contingent blockers afterwards). Divergence
+   movement is structurally zero and F-10 decert risk nil (the part
+   route sets dates, never `base_ids`). Corrections to the record:
+   the surface is **121 pairs, not 109** (W-39's sweep regex
+   differed from the shipped one), and W-39's shipped
+   `_COMMENCED_SECTION_RE` has an **ordinal-swallowing defect** —
+   the trailing optional letter eats the first letter of a following
+   Norwegian ordinal (`§ 2-7 fjerde ledd` → `2-7f`), corrupting 98
+   of 244 compared pairs; direction conservative, 0 corrupted rows
+   authorize, W-39's witness reads identically — but it masked the
+   real shape (corrected census: 74 genuine subsets, 22 overlap, 15
+   equal incl. 13 whole-part matches hidden by corruption, 10
+   disjoint, 2 superset). Why no model: 88% of slices qualify to
+   ledd/punktum granularity while ops are section-granular (§4(a)
+   over-claim, P2 probe: 6 of 9 new grants); slices are prose with
+   no closed member set for an all-or-nothing guard; and per-op
+   dates need a new plane through index/replay/inventory (the first
+   lane to split a binding). **The naive reader fix alone FIRES the
+   0-early probe** (smittevernloven: `2021-06-18-1976` "§ 8-1 andre
+   ledd" would authorize 2021-06-18, sibling commences §4a-1 of the
+   same part 13 days later); the only both-probe-clean combination
+   nets zero coverage, loses one authorization, adds one blocking
+   staged-commencement conflict, churns ~98 label pins — not
+   proposed. Sound-but-nil alternative recorded: model B slice
+   union (all named sections together cover the part → existing slot
+   at max(dates)), reaches 8/82 bindings, moves nothing. Lane
+   ceiling census: **`endrer_spans_multiple_parts` is worth +17
+   candidates — 17× this item** → W-47; the slice-lane hygiene
+   bundle (reader fix NEVER alone) → W-48. Also from W-39, small,
+   still open: `2006-06-30-41`'s bare-address collective members;
+   the `Lovens tittel:` restatement recognized-not-applied; the
+   spaced `data-name` heading-label artefact (939 base-state ops).
 42. **W-42 (`2012-12-14-81`'s consolidation prints only the annex —
    parse defect or source shape?):** DONE (probe, research-only,
    2026-08-08; artifacts `.tmp/w42/`). Verdict: **(a) PARSE DEFECT,
@@ -2053,6 +2081,42 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    Reviewer edit at apply: the universe-gap comment softened to what
    W-45 measured (110 of the 118 proven amending acts, not all 118).
    No stop conditions, no scan or pin movement.
+47. **W-47 (`endrer_spans_multiple_parts`, the lane's real lever,
+   ceiling +17 candidates):** 168 (instrument, act) pairs (155 acts)
+   are refused because the act's Endrer header spans multiple parts
+   while the W-39 matcher requires exactly one. The W-41 lane-ceiling
+   census (`.tmp/w41/lane_ceiling.json`) prices forgiving this
+   population at 58 → 75 candidates — 17× the whole W-41 surface.
+   The question is STRUCTURAL, not prose-parsing: does the
+   instrument commence both parts (per-part authorization under the
+   existing conjunct vocabulary, one `whole_part_scope` check per
+   part), or is the Endrer header coarser than the instrument's own
+   scope? Needs the W-39 soundness probe as gate and the same
+   design-pass discipline as W-41 (measure the 168, census the
+   shapes, gate before building).
+48. **W-48 (slice-lane hygiene bundle — the reader fix must NEVER
+   land alone):** four interlocking pieces from the W-41 design
+   pass, to land together or not at all: (i) fix
+   `_COMMENCED_SECTION_RE`'s ordinal swallowing (correct pattern
+   with non-ASCII-aware lookahead in `.tmp/w41/s5_label_fix2.py` —
+   an ASCII lookahead still corrupts `første`); (ii) the ledd
+   conjunct refusing sub-section-qualified pairs (the §4(a)
+   over-claim guard, P2); (iii) a staged part-commencement model —
+   one date per (act, part, law) currently reads two slices at two
+   dates as a blocking contradiction (finansforetaksloven part I:
+   `2021-04-23-1251` @2021-07-01 vs `2025-06-24-1204` @2025-08-01);
+   (iv) typed refusals for negative/exception instruments (`settes
+   ikke i kraft`, `med unntak av`, `for så vidt gjelder`) — today
+   harmless only because corrupted labels refuse them by accident,
+   dangerous the day the reader improves. Measured effect of the
+   clean combination: authorizations 123 → 123 (+`2021-06-18-92`/I,
+   −`2021-04-23-22`/I), P1 EARLY 0, zero coverage change, ~98
+   instruments' serialized-label pin churn (`guarded_option.json`
+   enumerates). Low priority on its own numbers; prerequisite for
+   ever revisiting the slice surface, and (iv) is a safety fence.
+   Also noted: `2016-06-17-73` is the single law the slice surface
+   could unblock — if wanted, a targeted one-off far below the cost
+   of a slice model.
 
 ## 5. Demo / Inspection Tooling
 
@@ -2070,6 +2134,24 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-08 (W-41 design pass: the slice surface is worth zero,
+  and the lane's real lever is elsewhere)** — **Every sound model of
+  partial-part commencement slices yields 0 candidates, 0
+  divergences; the unsound upper bound buys exactly one law. No
+  code shipped.** Research only (artifacts `.tmp/w41/`). The pass
+  corrected the surface count (121 pairs, not 109), found W-39's
+  `_COMMENCED_SECTION_RE` swallowing Norwegian ordinals (98/244
+  compared pairs corrupted — conservatively: 0 corrupted rows
+  authorize and W-39's landed result is untainted), and proved by
+  probe that the naive reader fix ALONE fires the 0-early soundness
+  assertion (smittevernloven, 13-day-early §8-1). 88% of slices
+  qualify below section granularity, where ops have no finer
+  evidence — the model's address plane does not exist. Lane-ceiling
+  census: `endrer_spans_multiple_parts` is worth +17 candidates,
+  17× this surface → W-47 opened; the interlocking hygiene bundle
+  (reader fix + ledd conjunct + staged-part model + negative/
+  exception refusals, never separately) → W-48 opened.
 
 - **2026-08-08 (W-46 applied)** — **The frontier dashboard now shows
   the scan's reach, not just its results: `no-frontier` prints the
