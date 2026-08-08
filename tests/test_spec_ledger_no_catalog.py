@@ -37,6 +37,11 @@ _NON_RULE_LITERALS = frozenset(
         "no_affecting_act:",  # EV-05 per-instance authorization_rule_id f-string prefix
         #                       (grafter.py f"no_affecting_act:{statute_id}"); the rule
         #                       FAMILY no_affecting_act_authorizes_apply IS cataloged.
+        "no_stored_consolidation",  # W-45 census key under build_no_verify_partition's
+        #                             ``unverifiable`` sibling (verify.py). A report
+        #                             dict key naming a corpus population, not a
+        #                             hypothesis a replay could falsify: nothing emits
+        #                             it as a witness_rule_id and no finding carries it.
     }
 )
 

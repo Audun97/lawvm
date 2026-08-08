@@ -20,6 +20,7 @@ from lawvm.tools.no_frontier import main as no_frontier_main
 from lawvm.tools.no_ingest import main as no_ingest_main
 from lawvm.tools.no_law import main as no_law_main
 from lawvm.tools.no_missing_base import main as no_missing_base_main
+from lawvm.tools.no_no_consolidation import main as no_no_consolidation_main
 from lawvm.tools.no_progress import main as no_progress_main
 from lawvm.tools.no_source import main as no_source_main
 from lawvm.tools.no_statsrad import main as no_statsrad_main
@@ -354,6 +355,53 @@ def test_no_missing_base_tool_emits_json(tmp_path, capsys) -> None:
 
     assert data["missing_base_source_law_count"] == 1
     assert data["laws"][0]["base_id"] == "no/lov/1946-12-13-21"
+
+
+def test_no_no_consolidation_tool_emits_json(tmp_path, capsys) -> None:
+    """W-45's converse of the missing-base tool, over a two-lane fixture corpus."""
+    lti = (
+        '<?xml version="1.0" encoding="utf-8"?>'
+        '<html lang="no"><body>'
+        '<header class="documentHeader"><dl>'
+        '<dt class="dateInForce">I kraft fra</dt><dd class="dateInForce">2025-01-02</dd>'
+        '<dt class="title">Tittel</dt>'
+        '<dd class="title">Lov om endringer i testloven</dd>'
+        "</dl></header>"
+        '<main class="documentBody" data-lovdata-URL="LTI/lov/2025-01-02-2">'
+        '<article class="legalArticle" data-name="§1">'
+        '<h3 class="legalArticleHeader">§ 1. Formaal</h3>'
+        '<article class="legalP">Loven gjelder testdata.</article>'
+        "</article></main></body></html>"
+    ).encode("utf-8")
+    # An original with no consolidation: present in the lovtidend lane only.
+    _write_archive(
+        tmp_path / "gjeldende-lover.tar.bz2",
+        [("nl/nl-19461213-021.xml", b"<html/>")],
+    )
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [("lti/2025/nl-20250102-002.xml", lti)],
+    )
+    args = Namespace(
+        data_dir=str(tmp_path),
+        index=None,
+        base_id=None,
+        family=None,
+        min_amendments=0,
+        limit=None,
+        json=True,
+    )
+
+    no_no_consolidation_main(args)
+    data = json.loads(capsys.readouterr().out)
+
+    assert data["without_consolidation_law_count"] == 1
+    assert data["laws"][0]["base_id"] == "no/lov/2025-01-02-2"
+    assert data["laws"][0]["family"] == "amending_act"
+    assert data["laws"][0]["would_be_status"] is None
+    assert data["laws"][0]["repealed_by"] == []
+    assert data["counts_by_family"]["amending_act"] == 1
+    assert data["substantive_unexplained"] == 0
 
 
 def test_no_ingest_tool_emits_json(tmp_path, capsys) -> None:

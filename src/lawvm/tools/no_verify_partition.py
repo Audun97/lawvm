@@ -74,6 +74,22 @@ def main(args: "argparse.Namespace") -> None:
     if output_path is not None:
         print(f"  output          : {output_path}")
 
+    # W-45: the laws the run could never have reached, printed beside the
+    # verdicts rather than as one of them. ``.get`` because it is a sibling of
+    # ``partitions``, not a bucket in it, and a saved pre-W-45 partition JSON
+    # replayed through this renderer has no such key.
+    no_consolidation = report.get("unverifiable", {}).get("no_stored_consolidation")
+    if no_consolidation:
+        print(
+            f"  unverifiable    : no_stored_consolidation={no_consolidation['total']} "
+            f"(would-be candidates={no_consolidation['would_be_candidates']}, "
+            f"substantive unexplained={no_consolidation['substantive_unexplained']})"
+        )
+        print(
+            "  ...by family    : "
+            + ", ".join(f"{k}={v}" for k, v in sorted(no_consolidation["by_family"].items()))
+        )
+
     partitions = report["partitions"]
     for key, label in [
         ("replay_defect", "Replay Defects"),

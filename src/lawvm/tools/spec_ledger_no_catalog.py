@@ -44,6 +44,14 @@ Honest scope note — what is and is not statically enumerable.
     - ``no_replay_`` — a *prefix* matched by ``kind.startswith("no_replay_")`` in
       the diagnostic family-stratification path (``grafter.py``); the bare prefix
       is never an emitted rule id, only its suffixed instances are.
+    - ``no_stored_consolidation`` — the W-45 census key under
+      ``build_no_verify_partition``'s ``unverifiable`` sibling (``verify.py``). A
+      report dict key naming a corpus population ("laws with a replayable original
+      and no stored consolidation"), not a falsifiable claim about amendment
+      semantics; nothing emits it as a ``rule_id`` and no finding carries it. The
+      family labels on its rows (``amending_act`` / ``temporary_act`` /
+      ``wage_board_act`` / ``substantive_act``) are likewise data values, and are
+      outside the ``no_*`` discovery surface anyway.
 
 * Dynamic op-id prefixes: there is no Norway counterpart of Estonia's
   ``ee_snap_{n}``. Norway does not synthesize prefix+runtimesuffix op ids, so no

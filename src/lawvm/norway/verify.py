@@ -26,7 +26,11 @@ from lawvm.core.verification_contracts import (
 )
 from lawvm.norway.grafter import parse_no_statute
 from lawvm.norway.index import NOAmendmentIndex, build_no_amendment_index, load_no_amendment_index
-from lawvm.norway.inventory import build_no_inventory
+from lawvm.norway.inventory import (
+    build_no_inventory,
+    build_no_no_consolidation_rows,
+    summarize_no_no_consolidation_rows,
+)
 from lawvm.norway.replay import NOReplayResult, replay_no_to_pit
 from lawvm.norway.sources import (
     load_no_current_bytes,
@@ -1824,6 +1828,22 @@ def build_no_verify_partition(
     consistent.sort(key=_sort_key)
     errors.sort(key=lambda item: str(item.get("base_id", "")))
 
+    # W-45: the laws this run could never have reached. Every bucket above is a
+    # verdict on a law the scan SAW; this is the census of laws with a
+    # replayable original and no stored consolidation, which the scan cannot
+    # see at all because there is nothing to compare a replay against. It sits
+    # BESIDE ``partitions``, not inside it, on purpose: a never-scanned law
+    # carries none of the scan-row fields (``divergence_count``,
+    # ``source_signal``, ``consistent``, ``error``) that every partition
+    # consumer indexes off a row, so a sixth bucket would be a row shape that
+    # lies. The counts are a receipt, not a work queue —
+    # ``lawvm no-no-consolidation`` is where the per-law rows live.
+    unverifiable = {
+        "no_stored_consolidation": summarize_no_no_consolidation_rows(
+            build_no_no_consolidation_rows(data_dir, index=loaded_index)
+        ),
+    }
+
     return {
         "data_dir": scan["data_dir"],
         "as_of": scan["as_of"],
@@ -1841,6 +1861,7 @@ def build_no_verify_partition(
             "consistent": consistent,
             "error": errors,
         },
+        "unverifiable": unverifiable,
     }
 
 

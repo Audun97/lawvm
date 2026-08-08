@@ -530,6 +530,13 @@ def test_build_no_verify_partition_separates_untouched_drift(monkeypatch) -> Non
         "lawvm.norway.verify._load_no_index",
         lambda **_: SimpleNamespace(),
     )
+    # W-45: the ``unverifiable`` sibling is a corpus census, and this test's
+    # scan is entirely synthetic (``_load_no_index`` is a bare namespace). Stub
+    # it so the routing assertions below stay a statement about routing.
+    monkeypatch.setattr(
+        "lawvm.norway.verify.build_no_no_consolidation_rows",
+        lambda *_args, **_kwargs: [],
+    )
 
     report = build_no_verify_partition(as_of="2026-03-29", data_dir=None, limit=10)
 
@@ -538,6 +545,21 @@ def test_build_no_verify_partition_separates_untouched_drift(monkeypatch) -> Non
     # W-23 added a bucket; a scan whose rows carry no W-17 ceiling fields must
     # still route exactly as before, with the new bucket simply empty.
     assert report["partitions"]["annex_ceiling"] == []
+    # W-45: the census sits BESIDE the buckets, never in them. A law with no
+    # stored consolidation was never scanned, so it carries none of the
+    # scan-row fields every ``partitions`` consumer indexes off a row.
+    assert "no_stored_consolidation" not in report["partitions"]
+    assert report["unverifiable"]["no_stored_consolidation"] == {
+        "total": 0,
+        "by_family": {
+            "amending_act": 0,
+            "temporary_act": 0,
+            "wage_board_act": 0,
+            "substantive_act": 0,
+        },
+        "would_be_candidates": 0,
+        "substantive_unexplained": 0,
+    }
 
 
 # --- W-23: annex-ceiling routing ------------------------------------------
@@ -666,6 +688,12 @@ def test_build_no_verify_partition_keeps_the_annex_family_in_one_bucket(monkeypa
         },
     )
     monkeypatch.setattr("lawvm.norway.verify._load_no_index", lambda **_: SimpleNamespace())
+    # W-45: synthetic scan, so the corpus census is stubbed (see the routing
+    # test above). Nothing here depends on it.
+    monkeypatch.setattr(
+        "lawvm.norway.verify.build_no_no_consolidation_rows",
+        lambda *_args, **_kwargs: [],
+    )
 
     report = build_no_verify_partition(as_of="2026-07-10", data_dir=None, limit=10)
     partitions = report["partitions"]
@@ -2721,6 +2749,33 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
         if bucket == "annex_ceiling":
             continue
         assert all(item["ceiling_divergence_count"] == 0 for item in items), bucket
+
+    # W-45 (2026-08-08): the census of laws this run could never have reached,
+    # asserted as a SIBLING of ``partitions``. It adds no row to any bucket and
+    # moves no scan number — ``scanned_count``, ``summary``,
+    # ``divergence_totals``, ``source_signal_counts`` and all six bucket
+    # memberships above are unmoved by its arrival, which is the whole point of
+    # keeping it outside ``partitions``.
+    #
+    # The relation between the two numbers on this line: 58 laws are scannable
+    # and 2,642 are not, and the 2,642 are not a backlog. 2,514 are amending
+    # acts with no standing text of their own, 65 expired by their own terms,
+    # and of the 63 substantive acts 50 are named in another act's structural
+    # repeal manifest. The 55 ``would_be_candidates`` are the counterfactual
+    # ceiling: if Lovdata published a consolidation for every one of these,
+    # the candidate set would go 58 -> 113 and no further.
+    assert set(report) >= {"partitions", "unverifiable"}
+    assert report["unverifiable"]["no_stored_consolidation"] == {
+        "total": 2642,
+        "by_family": {
+            "amending_act": 2514,
+            "temporary_act": 40,
+            "wage_board_act": 25,
+            "substantive_act": 63,
+        },
+        "would_be_candidates": 55,
+        "substantive_unexplained": 13,
+    }
 
 
 def test_verify_no_against_current_ignores_section_heading_only_drift(tmp_path) -> None:

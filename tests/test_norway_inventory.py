@@ -3,7 +3,10 @@ from __future__ import annotations
 import io
 import json
 import tarfile
+from collections import Counter
 from typing import Any, cast
+
+import pytest
 
 from lawvm.norway.index import NOAmendmentIndex, NOAmendmentIndexEntry
 from lawvm.norway.index import build_no_amendment_index, save_no_amendment_index
@@ -413,3 +416,457 @@ def test_build_no_missing_base_report_preserves_title_diagnostics(tmp_path, monk
         "no_current_law_title_parse_skipped": 1
     }
     assert report["current_law_title_diagnostics"][0]["strict_disposition"] == "block"
+
+
+# ---------------------------------------------------------------------------
+# W-45: the "replayable original, no stored consolidation" census
+# ---------------------------------------------------------------------------
+
+_LTI_HEADER_TEMPLATE = """<?xml version="1.0" encoding="utf-8"?>
+<html lang="no"><head><title>{title}</title></head><body>
+<header class="documentHeader"><dl class="data-document-key-info">
+<dt class="dateInForce">I kraft fra</dt><dd class="dateInForce">{date_in_force}</dd>
+<dt class="title">Tittel</dt><dd class="title">{title}</dd>
+</dl></header>
+<main class="documentBody" data-lovdata-URL="LTI/lov/{law}" id="dokument">
+<h1>{title}</h1>{body}
+<article class="legalArticle" data-name="§1">
+  <h3 class="legalArticleHeader">§ 1. Formaal</h3>
+  <article class="legalP">Loven gjelder testdata.</article>
+</article>
+</main></body></html>
+"""
+
+# The real Lovdata manifest shape (LOV-2013-06-21-60): a ``defaultP`` block whose
+# own lead text carries the discriminator, an inner ``defaultList``, and one
+# long-form citation per list item wrapped in nested articles.
+_REPEAL_MANIFEST = (
+    '<article class="defaultP" data-text-size="small">Følgende lov oppheves:'
+    '<ul class="defaultList"><li><article class="listArticle">'
+    '<article class="legalP">Lov 3. juni 2005 nr. 33 om forbud mot diskriminering '
+    "på grunn av etnisitet, religion mv. (diskrimineringsloven).</article>"
+    "</article></li></ul></article>"
+)
+# Structurally IDENTICAL block, different lead text: amend, not repeal.
+_AMEND_MANIFEST = (
+    '<article class="defaultP" data-text-size="small">Endringar i følgjande lover:'
+    '<ul class="defaultList"><li><article class="listArticle">'
+    '<article class="legalP">Lov 17. juni 2005 nr. 58 om skipssikkerhet.</article>'
+    "</article></li></ul></article>"
+)
+
+
+def _lti_xml(law: str, title: str, *, date_in_force: str = "2025-01-01", body: str = "") -> bytes:
+    return _LTI_HEADER_TEMPLATE.format(
+        law=law, title=title, date_in_force=date_in_force, body=body
+    ).encode("utf-8")
+
+
+def test_no_no_consolidation_family_classifies_by_title_shape() -> None:
+    from lawvm.norway.inventory import no_no_consolidation_family
+
+    # Amending acts, both målform, and the "oppheving av" repeal-act spelling.
+    assert no_no_consolidation_family("Lov om endringer i folketrygdloven") == "amending_act"
+    assert (
+        no_no_consolidation_family("Lov om endringar i lov 4. desember 1992 nr. 127")
+        == "amending_act"
+    )
+    assert (
+        no_no_consolidation_family("Lov om oppheving av lov om Statens obligasjonsfond")
+        == "amending_act"
+    )
+    assert no_no_consolidation_family("Lov om opphevelse av losloven") == "amending_act"
+    # An amending act that is ALSO temporary stays an amending act: the ordering
+    # inside ``no_no_consolidation_family`` is what decides this, and it decides
+    # for the more specific "has no standing text of its own" story.
+    assert (
+        no_no_consolidation_family("Lov om midlertidige endringer i smittevernloven")
+        == "amending_act"
+    )
+    assert (
+        no_no_consolidation_family("Lov om mellombelse endringar i løyveloven")
+        == "amending_act"
+    )
+    # Wage-board acts lapse on the Rikslønnsnemnda ruling.
+    assert (
+        no_no_consolidation_family("Lov om lønnsnemndbehandling av arbeidstvisten")
+        == "wage_board_act"
+    )
+    # Temporary by title, and temporary by a built-in expiry in dateInForce only.
+    assert no_no_consolidation_family("Midlertidig lov om tilpasninger") == "temporary_act"
+    assert no_no_consolidation_family("Mellombels lov om tilpassingar") == "temporary_act"
+    assert no_no_consolidation_family("Lov om midlertidig tilskudd") == "temporary_act"
+    assert (
+        no_no_consolidation_family("Lov om tilskudd", "2020-04-01, oppheves 2021-01-01")
+        == "temporary_act"
+    )
+    assert (
+        no_no_consolidation_family("Lov om tilskudd", "2020-04-01, oppheves ved kgl.res.")
+        == "temporary_act"
+    )
+    # Everything else is a real standalone act and therefore owes an explanation.
+    assert no_no_consolidation_family("Lov om Statens obligasjonsfond") == "substantive_act"
+    assert (
+        no_no_consolidation_family("Lov om frittståande skolar (friskolelova).")
+        == "substantive_act"
+    )
+    assert no_no_consolidation_family("") == "substantive_act"
+
+
+def test_read_no_structural_repeal_manifest_reads_the_repeal_block_only() -> None:
+    """Repeal manifest and amend manifest are the same markup; the lead decides."""
+    from lawvm.norway.inventory import read_no_structural_repeal_manifest
+
+    payload = _lti_xml(
+        "2013-06-21-60",
+        "Lov om forbud mot diskriminering",
+        body=_REPEAL_MANIFEST + _AMEND_MANIFEST,
+    )
+
+    named = read_no_structural_repeal_manifest(payload, self_id="no/lov/2013-06-21-60")
+
+    # Only the repeal block's citation; the amend block names a law it AMENDS.
+    assert named == ("no/lov/2005-06-03-33",)
+
+
+def test_read_no_structural_repeal_manifest_ignores_a_self_citation() -> None:
+    from lawvm.norway.inventory import read_no_structural_repeal_manifest
+
+    payload = _lti_xml("2005-06-03-33", "Lov om noe", body=_REPEAL_MANIFEST)
+
+    assert read_no_structural_repeal_manifest(payload, self_id="no/lov/2005-06-03-33") == ()
+    # Without the suppression the same document names itself as its own repealer.
+    assert read_no_structural_repeal_manifest(payload) == ("no/lov/2005-06-03-33",)
+
+
+def test_read_no_structural_repeal_manifest_survives_documents_with_no_manifest() -> None:
+    from lawvm.norway.inventory import read_no_structural_repeal_manifest
+
+    assert read_no_structural_repeal_manifest(b"") == ()
+    assert read_no_structural_repeal_manifest(b"<html><body>no manifest</body></html>") == ()
+    assert read_no_structural_repeal_manifest(_lti_xml("2025-01-01-1", "Lov om data")) == ()
+
+
+def test_build_no_inventory_censuses_originals_without_a_consolidation(tmp_path) -> None:
+    """An original with no consolidation is invisible to every pre-W-45 counter."""
+    # 2025-01-01-1 has BOTH lanes; the other three have an original only.
+    _write_archive(
+        tmp_path / "gjeldende-lover.tar.bz2",
+        [("nl/nl-20250101-001.xml", _BASE_XML)],
+    )
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [
+            ("lti/2025/nl-20250101-001.xml", _BASE_XML),
+            (
+                "lti/2025/nl-20250102-002.xml",
+                _lti_xml("2025-01-02-2", "Lov om endringer i testloven"),
+            ),
+            (
+                "lti/2025/nl-20250103-003.xml",
+                _lti_xml("2025-01-03-3", "Midlertidig lov om tilpasninger"),
+            ),
+            (
+                "lti/2025/nl-20250104-004.xml",
+                _lti_xml("2025-01-04-4", "Lov om noe substansielt"),
+            ),
+        ],
+    )
+
+    inventory = build_no_inventory(tmp_path)
+    data = inventory.to_dict()
+
+    # The pre-W-45 universe sees one law; the census sees the other three.
+    assert data["current_laws"] == 1
+    assert data["stored_consolidations"] == 1
+    assert data["originals_without_consolidation"] == 3
+    assert data["originals_without_consolidation_amending_act"] == 1
+    assert data["originals_without_consolidation_temporary_or_wage_board"] == 1
+    assert data["originals_without_consolidation_substantive"] == 1
+    assert data["originals_without_consolidation_substantive_without_repeal_evidence"] == 1
+    assert [row["base_id"] for row in inventory.no_consolidation_rows] == [
+        "no/lov/2025-01-02-2",
+        "no/lov/2025-01-03-3",
+        "no/lov/2025-01-04-4",
+    ]
+
+
+def test_build_no_no_consolidation_report_rows_and_filters(tmp_path) -> None:
+    from lawvm.norway.inventory import build_no_no_consolidation_report
+
+    inventory = NOInventory(data_dir=tmp_path)
+    inventory.current_law_ids = {"no/lov/2013-06-21-60"}
+    inventory.stored_consolidation_law_ids = {"no/lov/2013-06-21-60"}
+    inventory.no_consolidation_rows = [
+        {
+            "base_id": "no/lov/2005-06-03-33",
+            "title": "Lov om forbud mot diskriminering",
+            "family": "substantive_act",
+            "would_be_status": "fully_replayable",
+            "repealed_by": ["no/lov/2013-06-21-60"],
+            "amendments": 3,
+        },
+        {
+            "base_id": "no/lov/2009-03-06-13",
+            "title": "Lov om Statens obligasjonsfond",
+            "family": "substantive_act",
+            "would_be_status": None,
+            "repealed_by": [],
+            "amendments": 0,
+        },
+        {
+            "base_id": "no/lov/2025-01-02-2",
+            "title": "Lov om endringer i testloven",
+            "family": "amending_act",
+            "would_be_status": None,
+            "repealed_by": [],
+            "amendments": 1,
+        },
+    ]
+
+    report = build_no_no_consolidation_report(inventory)
+
+    assert report["stored_consolidations"] == 1
+    assert report["without_consolidation_law_count"] == 3
+    # 0, not the missing-base report's 1: the un-amended rows ARE the census.
+    assert report["min_amendments"] == 0
+    # Sorted by amendment count descending, then id -- the missing-base ordering.
+    assert [row["base_id"] for row in report["laws"]] == [
+        "no/lov/2005-06-03-33",
+        "no/lov/2025-01-02-2",
+        "no/lov/2009-03-06-13",
+    ]
+    assert report["counts_by_family"] == {
+        "amending_act": 1,
+        "temporary_act": 0,
+        "wage_board_act": 0,
+        "substantive_act": 2,
+    }
+    assert report["would_be_candidates"] == 1
+    assert report["substantive_unexplained"] == 1
+    assert report["substantive_unexplained_law_ids"] == ["no/lov/2009-03-06-13"]
+
+    filtered = build_no_no_consolidation_report(inventory, family="substantive_act")
+    assert [row["base_id"] for row in filtered["laws"]] == [
+        "no/lov/2005-06-03-33",
+        "no/lov/2009-03-06-13",
+    ]
+    assert filtered["family_filter"] == "substantive_act"
+
+    by_id = build_no_no_consolidation_report(inventory, base_id="no/lov/2009-03-06-13")
+    assert by_id["without_consolidation_law_count"] == 1
+    assert by_id["base_id_filter"] == "no/lov/2009-03-06-13"
+
+    amended = build_no_no_consolidation_report(inventory, min_amendments=1)
+    assert [row["base_id"] for row in amended["laws"]] == [
+        "no/lov/2005-06-03-33",
+        "no/lov/2025-01-02-2",
+    ]
+
+
+# --- corpus pins -----------------------------------------------------------
+#
+# These three assert against the ingested corpus, not a fixture. They exist
+# because the census's whole claim is a claim about THIS corpus: "2,642 laws
+# have a replayable original and no stored consolidation, and every one of them
+# is explained". A fixture cannot carry that claim.
+
+
+def _no_corpus_dir():
+    """The ingested Norway corpus, or None when it is not installed."""
+    from lawvm.norway.sources import iter_no_original_lti_artifacts, resolve_no_source_path
+
+    data_dir = resolve_no_source_path(None)
+    if not data_dir.exists():
+        return None
+    for _artifact in iter_no_original_lti_artifacts(data_dir):
+        return data_dir
+    return None
+
+
+def test_corpus_no_consolidation_census_reproduces_the_w44_measurement() -> None:
+    """W-44's answer, recomputed at runtime rather than replayed from its JSON.
+
+    The four families and their sizes are the whole finding: of 2,642 laws with
+    a replayable original and no stored consolidation, 2,514 are amending acts
+    (no standing text of their own — Lovdata consolidates ~4% of them), 40 are
+    temporaries with a built-in expiry, 25 are wage-board acts that lapse on the
+    Rikslønnsnemnda ruling, and only 63 are substantive acts that owe a repeal
+    explanation. Zero demonstrated acquisition gaps.
+
+    The precision control on the structural repeal manifest is pinned in the
+    same test because the substantive residue below is only meaningful if the
+    manifest read is precise: 332 laws corpus-wide are named in some act's
+    repeal manifest, and only 24 of them still have a stored consolidation —
+    each of those 24 a staged or not-yet-commenced repeal. A manifest read that
+    started over-firing would push that 24 up and the residue down, so the two
+    numbers move together and are pinned together.
+
+    Index-free on purpose: nothing asserted here depends on the amendment index,
+    only on titles and manifests, so the pin costs a corpus walk and not a
+    45-second index build. The index-derived half is pinned separately below.
+    """
+    from lawvm.norway.inventory import (
+        build_no_no_consolidation_rows,
+        build_no_structural_repeal_manifest,
+        load_no_stored_consolidation_law_ids,
+        summarize_no_no_consolidation_rows,
+    )
+
+    data_dir = _no_corpus_dir()
+    if data_dir is None:
+        pytest.skip("local Norway corpus is not installed")
+
+    stored = load_no_stored_consolidation_law_ids(data_dir)
+    rows = build_no_no_consolidation_rows(
+        data_dir,
+        stored_consolidation_law_ids=stored,
+        base_to_statuses={},
+        base_to_sources={},
+    )
+    summary = summarize_no_no_consolidation_rows(rows)
+
+    assert summary["total"] == 2642
+    assert summary["by_family"] == {
+        "amending_act": 2514,
+        "temporary_act": 40,
+        "wage_board_act": 25,
+        "substantive_act": 63,
+    }
+    # "Stored consolidation" is artifact presence (763), NOT
+    # ``load_no_current_law_ids``'s narrower operative-content test (645). The
+    # 118-law difference is amending acts consolidated down to bare change
+    # instructions; 110 of them also have an original, and counting those as
+    # "no stored consolidation" would move this census to 2,752 / 2,624
+    # amending. See ``load_no_stored_consolidation_law_ids``.
+    assert len(stored) == 763
+
+    manifest = build_no_structural_repeal_manifest(data_dir)
+    assert len(manifest) == 332
+    assert len(set(manifest) & stored) == 24
+
+
+def test_corpus_no_consolidation_substantive_residue_is_the_adjudicated_thirteen() -> None:
+    """TRIPWIRE. Fires if a future corpus really does lose an in-force law.
+
+    Of the 63 substantive acts with no stored consolidation, 50 are named in
+    another act's structural repeal manifest — machine-readable proof they were
+    repealed. The remaining 13 have no manifest evidence and were adjudicated
+    ONE BY ONE at W-44 (``.tmp/w44/adjudicate_no_repeal_evidence.json``); each is
+    spent, absorbed into a successor, or never commenced. They are pinned by ID
+    and not merely by count, because the count alone would stay at 13 if one of
+    these thirteen gained a consolidation while some genuinely in-force law
+    silently lost one — which is the exact failure this guards.
+
+    What a failure means, and what it does NOT mean:
+
+    * a NEW id in the set is the alarm — a substantive act that is in nobody's
+      repeal manifest and has no current text is either a real acquisition gap
+      or a Lovdata regression, and it must be adjudicated before this pin moves;
+    * an id LEAVING the set is benign and expected — it means the corpus gained
+      either a consolidation for that law or an act naming it in a repeal
+      manifest. Drop it here with a one-line note on which.
+
+    Never re-derive this list from the corpus to make the test pass. The list is
+    the human adjudication; the corpus is what it is being checked against.
+    """
+    from lawvm.norway.inventory import (
+        build_no_no_consolidation_report,
+        build_no_no_consolidation_rows,
+        load_no_stored_consolidation_law_ids,
+        summarize_no_no_consolidation_rows,
+    )
+
+    data_dir = _no_corpus_dir()
+    if data_dir is None:
+        pytest.skip("local Norway corpus is not installed")
+
+    rows = build_no_no_consolidation_rows(
+        data_dir,
+        stored_consolidation_law_ids=load_no_stored_consolidation_law_ids(data_dir),
+        base_to_statuses={},
+        base_to_sources={},
+    )
+    summary = summarize_no_no_consolidation_rows(rows)
+
+    assert summary["substantive_unexplained"] == 13
+    substantive = [row for row in rows if row["family"] == "substantive_act"]
+    assert len(substantive) == 63
+    assert sum(1 for row in substantive if row["repealed_by"]) == 50
+    assert sorted(row["base_id"] for row in substantive if not row["repealed_by"]) == [
+        # Stiftelsen wound up by the act itself; nothing survives to consolidate.
+        "no/lov/2002-01-11-1",
+        # Mehamn commission of inquiry: discharged when it reported.
+        "no/lov/2003-04-11-20",
+        # Corrections act ("retting av feil m.m. i lovverket") -- pure errata,
+        # absorbed into the laws it corrected.
+        "no/lov/2003-06-20-45",
+        # Friskolelova: superseded in substance by privatskolelova, whose
+        # renaming act does not spell out a structural repeal manifest.
+        "no/lov/2003-07-04-85",
+        # One-off transfer of asset positions on a change of agency
+        # responsibility; spent on execution.
+        "no/lov/2003-09-12-94",
+        # Statskonsult AS employee preference/wait-pay: spent transitional.
+        "no/lov/2003-12-19-118",
+        # Statens embets- og tjenestemenn: absorbed by statsansatteloven (2017).
+        "no/lov/2005-06-17-103",
+        # Addendum to eigedomsskattelova; folded into the host act.
+        "no/lov/2008-12-12-103",
+        # Statens obligasjonsfond: 2009 crisis vehicle, wound up.
+        "no/lov/2009-03-06-13",
+        # Second corrections act; same shape as 2003-06-20-45.
+        "no/lov/2014-05-09-16",
+        # Transitional rule to a 2012 amending act's del V; spent.
+        "no/lov/2014-12-19-87",
+        # Covid: procedural exemption in konkurranseloven, expired.
+        "no/lov/2020-04-17-30",
+        # Covid: annual-accounts deadline postponement, expired.
+        "no/lov/2021-06-18-102",
+    ]
+
+    # The report surfaces the same thirteen, so the CLI receipt and the tripwire
+    # cannot drift apart.
+    inventory = NOInventory(data_dir=data_dir)
+    inventory.no_consolidation_rows = rows
+    report = build_no_no_consolidation_report(inventory, family="substantive_act")
+    assert report["substantive_unexplained_law_ids"] == sorted(
+        row["base_id"] for row in substantive if not row["repealed_by"]
+    )
+
+
+def test_corpus_no_consolidation_inventory_counters_and_would_be_ceiling() -> None:
+    """The index-derived half: the five ``to_dict`` counters and the ceiling.
+
+    ``would_be_status`` is the status the inventory WOULD assign each of these
+    laws if a consolidation existed, computed off the same per-binding statuses
+    ``build_no_inventory`` feeds ``no_base_replay_status_from_statuses``. It is
+    the counterfactual ceiling on the scan: 55 of the 2,642 would enter as
+    ``fully_replayable`` candidates (58 -> 113), 35 as ``blocked_contingent``,
+    and 2,552 have no index binding at all -- ``None``, not ``no_amendments``,
+    because "the index has no opinion" is not "the index says zero".
+
+    This pin and the 58-candidate pin in ``test_norway_index.py`` are the two
+    halves of one statement about scan coverage and are expected to move
+    together only when the corpus does.
+    """
+    data_dir = _no_corpus_dir()
+    if data_dir is None:
+        pytest.skip("local Norway corpus is not installed")
+
+    inventory = build_no_inventory(data_dir)
+    data = inventory.to_dict()
+
+    assert data["stored_consolidations"] == 763
+    assert data["originals_without_consolidation"] == 2642
+    assert data["originals_without_consolidation_amending_act"] == 2514
+    assert data["originals_without_consolidation_temporary_or_wage_board"] == 65
+    assert data["originals_without_consolidation_substantive"] == 63
+    assert data["originals_without_consolidation_substantive_without_repeal_evidence"] == 13
+
+    would_be = Counter(
+        str(row["would_be_status"]) for row in inventory.no_consolidation_rows
+    )
+    assert would_be == Counter(
+        {"None": 2552, "fully_replayable": 55, "blocked_contingent": 35}
+    )

@@ -1602,6 +1602,7 @@ TOOL_SOURCE_SHARD_GROUPS: dict[tuple[str, ...], tuple[str, ...]] = {
         "src/lawvm/tools/no_inventory.py",
         "src/lawvm/tools/no_law.py",
         "src/lawvm/tools/no_missing_base.py",
+        "src/lawvm/tools/no_no_consolidation.py",
         "src/lawvm/tools/no_op_trace.py",
         "src/lawvm/tools/no_progress.py",
         "src/lawvm/tools/no_replay.py",
