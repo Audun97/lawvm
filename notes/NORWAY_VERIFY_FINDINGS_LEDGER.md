@@ -2201,16 +2201,88 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    disjointness witness for ~5 more grants at 0 candidates; inert
    population now 31 across three routes, cleanup question
    unchanged.
-50. **W-50 (size the `_WHOLE_ACT_RE` widening):** 72 genuine
-   whole-act commencements land in the multi-part lane only because
-   `_WHOLE_ACT_RE`'s anchored `fullmatch` breaks on title prefixes,
-   verbs outside `trer i kraft`, and multi-block bodies. Widening it
-   would route them through `whole_act_scope` and move ACT-LEVEL
-   status (instrument_authorized), not just part dates — a different
-   risk class that wants its own sizing pass: measure which acts'
-   statuses would move, whether any F-10 decert exposure appears
-   (act-level status CAN change offered-set membership), and whether
-   the multi-part route's grants stay equivalent or upgrade.
+50. **W-50 (size the `_WHOLE_ACT_RE` widening):** DONE (sizing pass,
+   RESEARCH-ONLY, 2026-08-09; artifacts `.tmp/w50/`, no product
+   change). **The recommended variant (`route5`) PASSES all four
+   gate criteria but is blocked on two discovered prerequisites,
+   each bigger than the widening.** Sizing corrections: the surface
+   is **518 mechanical misses / 449 offered acts, 7× the item's
+   estimate** (swept all 2,365 commencement instruments; the
+   ledger's three miss classes did not survive measurement — 0
+   title-prefix hits; what breaks is the SUBJECT: 317 cited-act
+   subjects, 181 adjacent subjects with verbs outside the anchored
+   set; `gjelder fra`/`skal gjelde`/nynorsk forms). Five variants
+   built end-to-end; `route5` (shipped ∪ bounded new route over the
+   498 single-block misses, with act-level
+   `ACT_HAS_NO_LATER_INSTRUMENT`): 428 acts move, ALL forward
+   (423 contingent→instrument_authorized, 5 dated→ re-dated all
+   LATER); 8 laws blocked_contingent→fully_replayable, candidates
+   65 → 73, scoreboard 25/40/0 → 28/44/1, totals 1,447 → 1,485
+   (ceiling unmoved, +38 all-entrant); **decert exposure ZERO and
+   structurally so** (resolution is monotone; the lane writes dates,
+   never base_ids; 0 of the 65 base rows change byte-for-byte).
+   Route interaction: absorbs 346 of 416 part grants — 344
+   date-identical, 2 later-conservative, scope inflation just 2
+   acts / 4 bindings, each proven sound per binding. The two
+   blockers: **(1) the SHIPPED whole-act route is already in
+   act-level P1 breach** → W-51; **(2) the counterfactual surfaces
+   the programme's first `error` verdict** (klimakvoteloven
+   `2004-12-17-99`, renumber/observed-write audit violation — an
+   impeccable date exposing a replay-engine defect) → W-52. Also
+   recorded: `_CITED_ACT_SUBJECT_RE`'s 400-char gap swallows
+   qualifiers (witness `2001-05-04-474`, inert today; fence priced
+   and rejected — false-positives on act titles); rejected variants
+   priced (`reader` admits delegation/forskrift-amendment texts;
+   `single` fires P1 on `2019-12-06-76` at act level — strictly
+   worse than the part grant W-47 refused); full implementation
+   note + expected pin package written for the eventual landing →
+   W-53. Deliberate-decision flag for that landing: `route5`
+   retires 346 of the 416 part grants.
+51. **W-51 (the shipped whole-act route is in act-level P1 breach —
+   repair before any widening):** measured at W-50 over today's 542
+   whole-act authorizations: **8 EARLY over 5 acts.** Two genuine:
+   `no/forskrift/2020-05-07-944` — "Loven trer i kraft 1. juli
+   2020, **med unntak av kapittel 6**…" authorizes the whole act
+   @2020-07-01 while `2021-08-26-2589` commences that chapter 15
+   months later (`_WHOLE_ACT_RE`'s `[^§]{0,400}$` tail swallows
+   carve-outs — two sibling instruments are inert only by carrying
+   two dates); and etterretningstjenesteloven `2020-06-19-77`
+   @2021-01-01 vs kap. 7/8 @2022-01-01. Three are probe artefacts:
+   the "later sibling" cites the law as *hjemmel* via `basedOn` —
+   the sibling definition needs sharpening before the repair is
+   priced. The `singlenl` variant (act-level no-later-instrument,
+   global) reaches 0 EARLY over 965 grants at 5 demotions (2
+   repairs, 3 artefacts). Deliverables: sharpen the sibling
+   predicate, fence the carve-out tail, add the act-level
+   refutation conjunct to the shipped route, P1 zero-early over all
+   whole-act grants; expect ~2-5 act demotions (status movement =
+   sign-off).
+52. **W-52 (klimakvoteloven renumber/observed-write replay defect,
+   blocks the first `error` verdict):** `no/lov/2004-12-17-99`
+   replays 124 ops from 10 amenders and fails `Failed to apply
+   ops: Norway observed-write audit violation after renumber
+   (('section','23'),)` — surfaced by W-50's counterfactual (its
+   commencement date is impeccable: sole instrument, no siblings).
+   Today the law is blocked_contingent so the scan never sees it;
+   under any widening it becomes the scoreboard's first non-zero
+   error column. Triage the audit violation (replay-engine defect
+   class, not commencement), fix or type it, and only then let
+   W-53 flip the column.
+53. **W-53 (land the `route5` widening, after W-51 + W-52):** the
+   implementation note and expected pin package are in the W-50
+   entry's artifacts (`.tmp/w50/`, §6): a fifth route with a closed
+   conjunct set (`SINGLE_EFFECTIVE_DATE`, `BLOCKED_ONLY_ON_SCOPE`,
+   `SINGLE_OPERATIVE_BLOCK`, `WHOLE_ACT_OPERATIVE_TEXT`,
+   `ACT_HAS_NO_LATER_INSTRUMENT`), receipt
+   `no_lovtidend_commencement_widened_whole_act_execution_authorized`,
+   parse-time `widened_whole_act_scope` flag — leaves the coverage
+   partition untouched exactly as W-39/47/49 did. Expected: +428
+   receipts, status 962/1,052/542 → 539/1,047/970, part grants
+   123/260/33 → 33/4/33 (the deliberate retirement decision),
+   inert 31 → 4, candidates 65 → 73, scoreboard 28/44/1, totals
+   1,485 = 1,011 + 474. Prerequisites: W-51 (else it banks on a
+   baseline in breach) and W-52 (else it absorbs an engine defect
+   into a commencement landing).
 
 ## 5. Demo / Inspection Tooling
 
@@ -2228,6 +2300,23 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-09 (W-50 sizing: the widening passes its gates but the
+  shipped route is already unsound)** — **The whole-act widening is
+  a 518-instrument / 449-act surface (7× the estimate) worth +8
+  candidates with zero decert exposure — and the sizing found the
+  SHIPPED whole-act route in act-level P1 breach today (8 EARLY / 5
+  acts, incl. a med-unntak-av carve-out swallowed by the regex
+  tail) plus the programme's first `error` verdict waiting behind
+  the coverage (klimakvoteloven's renumber/observed-write replay
+  defect).** Research only (artifacts `.tmp/w50/`). Five variants
+  priced end-to-end; the bounded `route5` passes all four gate
+  criteria (0 new EARLY, 0 conflicts, 0 decerts — monotonicity
+  argument — 344/346 absorbed part grants date-identical) but
+  landing it would bank on a baseline in breach and absorb an
+  engine defect, so it waits. W-51 (repair the shipped route's
+  soundness), W-52 (triage the replay defect), W-53 (land route5
+  after both) opened.
 
 - **2026-08-08 (W-49 applied)** — **The named-part-list route closes
   the commencement lane's readable remainder: 33 grants over 10
