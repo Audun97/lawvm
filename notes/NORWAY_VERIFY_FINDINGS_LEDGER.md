@@ -110,6 +110,16 @@ partition bucket moves `source_sparse` → `annex_ceiling`; every row's
 address and type stayed byte-identical — W-40 types rows, it moves
 nothing.
 
+W-43 note (verdicts unmoved, so no new scoreboard row): totals now
+`total=1208 (ceiling=1011, unexplained=197)` — the four rows that
+close were `2012-12-14-81`'s own §§ 1-4, fabricated by the top-level
+parse either/or (W-42's finding), so total and unexplained drop by
+the same 4 and the law is wholly ceiling at 93/93. Corpus-wide the
+merged walk recovers 103 consolidation sections (16 laws) and 48
+replay-base sections (4 laws) as latent coverage; only this law is
+currently in the candidate set, and the candidate set provably
+cannot move from this fix.
+
 Batch 03 increased coverage rather than changing an existing verdict: all 20
 old rows stayed byte-identical, and 38 laws that had previously been excluded
 for unresolved commencement entered the scan. Their first durable baseline is:
@@ -1928,20 +1938,46 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    for the 13 no-status and 3 blocked laws when they enter. Fix →
    W-43.
 43. **W-43 (merge `parse_no_statute`'s top-level body walk, W-42
-   fix):** replace the either/or at `grafter.py:937-950` with one
-   order-preserving pass over `_direct_children(main)` dispatching
-   `section.section → _parse_container` / `article.legalArticle →
-   _parse_section` — i.e. make the top level look like
-   `_parse_container`. Size S, risk low. Order preservation is the
-   part to insist on: recovered §§ must land BEFORE the annex chapter
-   as in the source ("run both walks" emits them after and breaks the
-   day an `S…A` document appears). Expected: unexplained −4
-   (`2012-12-14-81` 97 = 93 + 4 → 93 = 93 + 0), everything else
-   byte-identical; both-lane movement confined to 3 non-candidate
-   laws, symmetric. Pins: the W-17 subset row and partition row for
-   the law; add a mixed-shape unit test to `test_norway_grafter.py`.
-   Worth doing before the 13 latent laws enter the scan carrying a
-   fabricated CONSOLIDATED_MISSING block.
+   fix):** DONE (`609fd7ce8`, 2026-08-08). The either/or at
+   `grafter.py:937-950` replaced with one order-preserving pass over
+   `_direct_children(main)` dispatching `section.section →
+   _parse_container` / `article.legalArticle → _parse_section` — the
+   top level now looks exactly like `_parse_container` one level
+   down; the `None`-on-heading-only guard untouched. Every W-42
+   probe prediction reproduced as an ACTUAL measurement on the first
+   try, nothing tuned: current lane 16 laws / 103 sections gained /
+   0 lost / all strict supersets / 747 byte-identical (per-law table
+   row-for-row identical to the probe's); replay lane 4 laws / 48
+   sections / 0 lost / 3,085 byte-identical; scan moves exactly
+   `2012-12-14-81` 97 = 93 + 4 → 93 = 93 + 0 (wholly ceiling),
+   totals 1,212 → 1,208 with unexplained 201 → 197, ceiling unmoved
+   at 1,011, verdicts 23/35/0 and all index pins unmoved (34/34,
+   none edited — confirmed empirically and by the strict-superset
+   argument: the one indirect candidacy path,
+   `_has_operative_content`, can only go False→True and all 16
+   changed laws already had non-empty bodies). Two new order tests
+   incl. the hypothetical `S…A` mirror that separates the merged
+   pass from "run both walks unconditionally". Ceiling-share floor
+   deliberately NOT tightened back (0.95 stays a floor to clear, not
+   a running record; smallest member is `2017-06-16-51` at 97.1%
+   again). Signed off 2026-08-08. Notes: 102 of the 103 recovered
+   sections are latent coverage for 15 laws outside today's scan —
+   they now enter parsed correctly instead of carrying a fabricated
+   CONSOLIDATED_MISSING block; two-lane symmetry (both lanes
+   recovering the same sections) is a property of this corpus, not
+   enforced — a cheap guard would pin that both lanes parse through
+   the same walk. Follow-up census → W-44.
+44. **W-44 (laws with a replayable original but NO stored
+   consolidation are invisible to verify):** found at W-43:
+   `no/lov/2005-06-03-33` gains 17 sections on the replay lane and
+   has no stored `current.xml` at all, so it can produce no
+   comparison rows in either direction — by construction the scan
+   can neither confirm nor diverge it. Census (~probe-sized): how
+   many laws have a replayable original and no stored consolidation,
+   and is that an acquisition gap (fetchable from Lovdata) or a
+   Lovdata fact (e.g. repealed laws with no current text)? Decide
+   whether the family needs a typed receipt in the partition or an
+   acquisition item.
 
 ## 5. Demo / Inspection Tooling
 
@@ -1959,6 +1995,22 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-08 (W-43 applied)** — **The top-level body walk is merged:
+  mixed chapter+article documents keep both kinds in source order,
+  103 dropped consolidation sections and 48 replay-base sections are
+  recovered, and `2012-12-14-81` closes its last 4 rows — wholly
+  ceiling at 93/93** (`609fd7ce8`). The W-42-diagnosed `if not
+  body_children:` fallback replaced by one order-preserving dispatch
+  pass mirroring `_parse_container`; recovered `§§` land BEFORE the
+  annex chapter as in the source, pinned by an `S…A` mirror test that
+  a "run both walks" variant would fail. Every probe prediction
+  reproduced on first measurement (16/103/0 current lane, 4/48/0
+  replay lane, scan −4 exactly); totals 1,212 → 1,208, unexplained
+  201 → 197, ceiling/verdicts/index pins byte-identical. W-44 opened:
+  census of laws with a replayable original but no stored
+  consolidation (found via `2005-06-03-33`), invisible to verify by
+  construction.
 
 - **2026-08-08 (W-42 probe: the annex-only consolidation is a parse
   defect)** — **`2012-12-14-81`'s missing §§ 1-4 are in the source;
