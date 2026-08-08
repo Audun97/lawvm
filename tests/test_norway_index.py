@@ -1254,9 +1254,12 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
         for base_id in entry.base_ids:
             # W-39: the status a binding contributes is that BINDING's status,
             # which is what ``build_no_inventory`` reads. For every act but the
-            # 121 with a part-scoped authorization this is the act's own status,
-            # byte for byte; for those it is the status of the one part that
-            # amends this base law.
+            # 190 with a part-scoped authorization (121 acts from the
+            # single-part route, 70 from W-47's multi-part one, and
+            # ``no/lovtid/2008-12-19-106`` in both — its del II is proved by a
+            # single-part instrument and its other 17 parts by a whole-act one)
+            # this is the act's own status, byte for byte; for those it is the
+            # status of the one part that amends this base law.
             _date, binding_status = entry.effective_date_for_base(base_id)
             by_base.setdefault(base_id, []).append(binding_status)
     executable = load_no_current_law_ids(data_dir) & load_available_lti_law_ids(data_dir)
@@ -1293,7 +1296,24 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     # the W-15 decertification mechanism exactly. It is not decertified because
     # `no/forskrift/2011-04-01-342` commences that act's del I. The two halves
     # of W-39 land together for this reason and no other.
-    assert len(fully_replayable) == 58
+    # 58 -> 65 at W-47 (multi-part commencement), the same mechanism one
+    # granularity wider: 260 grants over 70 acts whose Endrer header spans
+    # several parts under an operative text commencing the whole act. SEVEN
+    # laws enter, each traced to a named grant, and ZERO leave — the route only
+    # ever turns an unresolved binding into a dated one, so it cannot
+    # decertify:
+    #   2004-12-17-101 <- 2021-04-23-25 del II  (2023-09-15-1422 @2023-09-15)
+    #   2010-06-04-21  <- 2014-06-20-56 del V   (2014-06-20-782  @2014-07-01)
+    #                   + 2020-12-18-157 del V  (2021-06-04-1778 @2021-07-01)
+    #   2011-06-24-39  <- 2014-06-20-56 del IV  (2014-06-20-782  @2014-07-01)
+    #                   + 2020-12-18-157 del IV (2021-06-04-1778 @2021-07-01)
+    #   2013-04-12-13  <- 2021-04-23-25 del I   (2023-09-15-1422 @2023-09-15)
+    #   2018-04-20-7   <- 2021-05-07-33 del I   (2021-05-07-1415 @2021-06-01)
+    #   2022-06-17-56  <- 2023-06-16-38 del VI  (2023-06-16-930  @2023-10-01)
+    #   2024-12-20-96  <- 2026-01-23-1 del VII  (2026-03-13-402  @2026-07-01)
+    # The act-level histogram above is untouched, as it was at W-39 and for the
+    # same reason: the grant is per binding and never per act.
+    assert len(fully_replayable) == 65
 
 
 def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> None:

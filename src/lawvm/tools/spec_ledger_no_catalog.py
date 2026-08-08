@@ -144,6 +144,13 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "evidence; the act's operations on that part's law take the instrument's date "
         "while every other part of the act stays as unresolved as before."
     ),
+    "no_lovtidend_commencement_multi_part_execution_authorized": (
+        "A Norsk Lovtidend instrument whose operative text commences a multi-part "
+        "amendment act as a WHOLE — naming no subdivision of it and no exception, "
+        "with the act itself as the commencement clause's subject — dates every part "
+        "its Endrer header names, one receipt per part; parts the header omits, and "
+        "acts a later instrument commences again, stay as unresolved as before."
+    ),
     "no_lovtidend_commencement_part_execution_date_conflict": (
         "Two Norsk Lovtidend instruments commence the same part of an amendment act at "
         "different dates; contradictory official commencement evidence is blocking "

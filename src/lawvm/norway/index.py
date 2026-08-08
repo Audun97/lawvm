@@ -464,6 +464,12 @@ def _authorize_no_commencement_instruments_into_index(
     ``effective_date``. That asymmetry is the point — the act's whole-act
     verdict is untouched (the corpus's status histogram does not move), while
     the ONE binding the instrument proves gets a date.
+
+    W-47 changes neither the offering nor the landing place: its multi-part
+    route grants the same kind of per-binding date into the same field, for acts
+    whose Endrer header spans several parts under a whole-act operative text. So
+    the act-level histogram does not move for it either — an act with parts
+    commencing on one date still has no single act-level date to claim.
     """
     authorization = authorize_no_commencement_instruments(
         parsed_instruments,
@@ -499,6 +505,8 @@ def _authorize_no_commencement_instruments_into_index(
         index.diagnostics.append(receipt.to_diagnostic_detail())
     for receipt in authorization.part_authorizations:
         index.diagnostics.append(receipt.to_diagnostic_detail())
+    for multi_part_receipt in authorization.multi_part_authorizations:
+        index.diagnostics.append(multi_part_receipt.to_diagnostic_detail())
     for refusal in authorization.refusals:
         index.diagnostics.append(refusal.to_diagnostic_detail())
     for conflict in authorization.conflicts:

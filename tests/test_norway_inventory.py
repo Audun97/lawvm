@@ -841,14 +841,22 @@ def test_corpus_no_consolidation_inventory_counters_and_would_be_ceiling() -> No
     ``would_be_status`` is the status the inventory WOULD assign each of these
     laws if a consolidation existed, computed off the same per-binding statuses
     ``build_no_inventory`` feeds ``no_base_replay_status_from_statuses``. It is
-    the counterfactual ceiling on the scan: 55 of the 2,642 would enter as
-    ``fully_replayable`` candidates (58 -> 113), 35 as ``blocked_contingent``,
+    the counterfactual ceiling on the scan: 57 of the 2,642 would enter as
+    ``fully_replayable`` candidates (65 -> 122), 33 as ``blocked_contingent``,
     and 2,552 have no index binding at all -- ``None``, not ``no_amendments``,
     because "the index has no opinion" is not "the index says zero".
 
-    This pin and the 58-candidate pin in ``test_norway_index.py`` are the two
-    halves of one statement about scan coverage and are expected to move
-    together only when the corpus does.
+    This pin and the candidate pin in ``test_norway_index.py`` are the two
+    halves of one statement about scan coverage, and they move together.
+
+    55 -> 57 / 35 -> 33 at W-47 (2026-08-08). The multi-part commencement route
+    resolves bindings, so it moves the counterfactual ceiling exactly as it
+    moves the scan: two of these laws stop being blocked by a contingent
+    amender. The movement is a pure TRANSFER between the two buckets -- their
+    sum is unmoved at 90, and ``None`` is unmoved at 2,552, because no law
+    gained or lost an index binding. Same +2 as
+    ``test_norway_verify.py``'s ``would_be_candidates``, which is the same
+    number read off the partition report.
     """
     data_dir = _no_corpus_dir()
     if data_dir is None:
@@ -868,5 +876,5 @@ def test_corpus_no_consolidation_inventory_counters_and_would_be_ceiling() -> No
         str(row["would_be_status"]) for row in inventory.no_consolidation_rows
     )
     assert would_be == Counter(
-        {"None": 2552, "fully_replayable": 55, "blocked_contingent": 35}
+        {"None": 2552, "fully_replayable": 57, "blocked_contingent": 33}
     )

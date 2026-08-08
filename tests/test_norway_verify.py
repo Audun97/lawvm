@@ -2602,14 +2602,32 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # the merge recovers 103 top-level sections across 16 consolidations and 48
     # across 4 replay bases; 15 of those 16 laws are outside the candidate set,
     # so they move no scoreboard number today.)
-    assert report["scanned_count"] == 58
-    assert report["summary"] == {"consistent": 23, "divergent": 35, "error": 0}
-    assert report["divergence_totals"] == {"total": 1208, "ceiling": 1011, "unexplained": 197}
+    # W-47 (2026-08-08). 58 -> 65 candidates and 23/35 -> 25/40. SEVEN laws
+    # enter, none leaves, and no pre-existing row moves at all: the multi-part
+    # commencement route only ever turns an unresolved binding into a dated one,
+    # so a law already scanning keeps every row it had. Each entrant is traced
+    # to the grant that unblocked it in
+    # ``tests/test_norway_index.py``'s candidate pin; their rows are
+    #   * 2022-06-17-56 and 2024-12-20-96 enter CONSISTENT at 0 — the first
+    #     landing in this series to admit a law that needs no repair at all.
+    #   * 2013-04-12-13 enters divergent at 191, the largest entrant since
+    #     W-39's 2012-12-14-81, and carries the sparse-history signal.
+    #   * 2004-12-17-101 at 26, 2019-06-14-21's neighbour in replay_defect;
+    #     2018-04-20-7 at 14 (untouched_drift); 2011-06-24-39 at 5 and
+    #     2010-06-04-21 at 3 (replay_defect).
+    # Ceiling is untouched at 1,011 for the sixth landing running; total and
+    # unexplained both move by the same +239, so W-47 explains nothing away —
+    # it admits 239 rows on five laws that were previously unreachable. That
+    # unexplained rise is the honest cost of new coverage, exactly as at W-39.
+    assert report["scanned_count"] == 65
+    assert report["summary"] == {"consistent": 25, "divergent": 40, "error": 0}
+    assert report["divergence_totals"] == {"total": 1447, "ceiling": 1011, "unexplained": 436}
     # 3 -> 2 at W-34: no/lov/2001-01-05-1 gains 4 bound ops from
     # no/lovtid/2015-06-19-65 item 178, so its indexed history is no longer
     # sparse. Its 83 divergences do not move; only the bucket does.
     # 2 -> 3 at W-39: the newly-admitted 2012-12-14-81 carries the signal.
-    assert report["source_signal_counts"] == {"sparse_indexed_history": 3}
+    # 3 -> 4 at W-47: so does the newly-admitted 2013-04-12-13.
+    assert report["source_signal_counts"] == {"sparse_indexed_history": 4}
 
     expected = {
         # W-34 (2026-08-07): -2013-06-21-102 (off-scan, see above),
@@ -2621,10 +2639,14 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
         # change in the whole partition.
         # W-39: 2001-01-05-1 leaves for `consistent` (81 -> 0) and
         # 2019-06-21-63 enters with the candidate set. 15 -> 15.
+        # W-47: three of the seven entrants land here. 15 -> 18.
         "replay_defect": [
             "no/lov/2001-06-15-65",
             "no/lov/2004-05-28-29",
+            "no/lov/2004-12-17-101",
+            "no/lov/2010-06-04-21",
             "no/lov/2010-06-25-28",
+            "no/lov/2011-06-24-39",
             "no/lov/2012-11-30-70",
             "no/lov/2014-08-15-59",
             "no/lov/2015-05-22-33",
@@ -2648,6 +2670,9 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             "no/lov/2017-05-22-28",
             "no/lov/2017-06-16-65",
             "no/lov/2017-06-16-67",
+            # W-47: enters the candidate set at 14 rows, none of them a ceiling
+            # row and none of them traceable to a replay defect. 16 -> 17.
+            "no/lov/2018-04-20-7",
             "no/lov/2020-12-04-136",
             "no/lov/2021-04-16-18",
             "no/lov/2021-06-18-121",
@@ -2674,7 +2699,11 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
         # closed by typing the rows rather than by re-bucketing the law. The
         # bucket is F-09 proper again: one member, 0 ceiling rows, and the
         # sparse signal would still fire off the W-17 residue.
+        # W-47 (2026-08-08): 2013-04-12-13 enters the candidate set carrying the
+        # signal, at 191 unexplained rows and 0 ceiling rows — the same shape as
+        # the bucket's other member. 1 -> 2.
         "source_sparse": [
+            "no/lov/2013-04-12-13",
             "no/lov/2020-11-27-131",
         ],
         # no/lov/2006-06-30-50 left this bucket with the candidate set at
@@ -2692,6 +2721,10 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
         # W-35: it returns. 21 -> 22.
         # W-39: 2001-01-05-1 arrives from replay_defect at 0 divergences,
         # the largest single-law repair in the series. 22 -> 23.
+        # W-47: 2022-06-17-56 and 2024-12-20-96 ENTER the candidate set already
+        # consistent — a first for this series, and the cheapest coverage the
+        # programme has bought: two laws certified with no repair at all,
+        # each on a single multi-part grant. 23 -> 25.
         "consistent": [
             "no/lov/2001-01-05-1",
             "no/lov/2004-05-14-25",
@@ -2710,10 +2743,12 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             "no/lov/2021-06-18-115",
             "no/lov/2022-03-18-12",
             "no/lov/2022-05-12-28",
+            "no/lov/2022-06-17-56",
             "no/lov/2023-06-16-62",
             "no/lov/2024-01-12-1",
             "no/lov/2024-06-25-69",
             "no/lov/2024-12-13-77",
+            "no/lov/2024-12-20-96",
             "no/lov/2025-06-20-102",
             "no/lov/2025-12-22-116",
         ],
@@ -2727,8 +2762,8 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # Complete and disjoint, asserted directly rather than inferred from the
     # per-bucket lists.
     routed = [item["base_id"] for bucket in partitions.values() for item in bucket]
-    assert len(routed) == 58
-    assert len(set(routed)) == 58
+    assert len(routed) == 65
+    assert len(set(routed)) == 65
 
     # Every member of the ceiling bucket is ceiling-DOMINATED, and the margin
     # to the routing boundary is enormous in both directions: the smallest
@@ -2757,13 +2792,19 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # memberships above are unmoved by its arrival, which is the whole point of
     # keeping it outside ``partitions``.
     #
-    # The relation between the two numbers on this line: 58 laws are scannable
+    # The relation between the two numbers on this line: 65 laws are scannable
     # and 2,642 are not, and the 2,642 are not a backlog. 2,514 are amending
     # acts with no standing text of their own, 65 expired by their own terms,
     # and of the 63 substantive acts 50 are named in another act's structural
-    # repeal manifest. The 55 ``would_be_candidates`` are the counterfactual
+    # repeal manifest. The 57 ``would_be_candidates`` are the counterfactual
     # ceiling: if Lovdata published a consolidation for every one of these,
-    # the candidate set would go 58 -> 113 and no further.
+    # the candidate set would go 65 -> 122 and no further.
+    # 55 -> 57 at W-47 (2026-08-08): the census counts laws that WOULD be
+    # candidates but for the missing consolidation, so a route that resolves
+    # commencements moves it exactly as it moves the candidate set. The two
+    # extra laws are unreachable for the same reason as the other 55 and this
+    # is the only number here W-47 touches — total and the family split are
+    # properties of the corpus, not of the index.
     assert set(report) >= {"partitions", "unverifiable"}
     assert report["unverifiable"]["no_stored_consolidation"] == {
         "total": 2642,
@@ -2773,7 +2814,7 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             "wage_board_act": 25,
             "substantive_act": 63,
         },
-        "would_be_candidates": 55,
+        "would_be_candidates": 57,
         "substantive_unexplained": 13,
     }
 
