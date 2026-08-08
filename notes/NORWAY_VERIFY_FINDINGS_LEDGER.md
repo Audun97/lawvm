@@ -2034,11 +2034,25 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    hygiene: the norway shard is the long pole (745s vs 195s avg) and
    W-45 adds ~60s of corpus pins to it — split candidate.
 46. **W-46 (surface the no-consolidation census in `no-frontier`,
-   XS, presentation only):** `no-frontier` already composes
-   inventory + missing-base + partition; the W-45 census is the one
-   gap-shaped number its dashboard omits. Add the `unverifiable`
-   summary (and the 763/645 universe pair) to its output; no new
-   computation.
+   XS, presentation only):** DONE (`36c7af021`, 2026-08-08). An
+   `unverifiable_census` section in both output modes, read straight
+   off `build_no_verify_partition`'s W-45 sibling (a call the tool
+   already pays for) and `inventory.to_dict()`'s universe pair — the
+   load-bearing choice is that the census CANNOT disagree with the
+   partition printed beside it, because it is the same object. Text
+   mode prints three lines (census, by-family, universe pair)
+   between the partition and the queues; JSON gains the key between
+   `consistency_partition` and `active_consistency_lane`. Both
+   universes printed because substituting 645 for 763 would inflate
+   the amending family to 2,624 and the ceiling to 64. 39 product
+   lines / 51 test lines; one existing test's partition stub grew
+   the new key (addition-only, the stub's own stated convention, all
+   10 pre-existing asserts unchanged); indexed `["unverifiable"]`
+   directly, matching the tool's in-process composition (unlike
+   `no-verify-partition`, which reads saved JSON and `.get`s).
+   Reviewer edit at apply: the universe-gap comment softened to what
+   W-45 measured (110 of the 118 proven amending acts, not all 118).
+   No stop conditions, no scan or pin movement.
 
 ## 5. Demo / Inspection Tooling
 
@@ -2056,6 +2070,15 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-08 (W-46 applied)** — **The frontier dashboard now shows
+  the scan's reach, not just its results: `no-frontier` prints the
+  no-consolidation census beside the partition it is a sibling of**
+  (`36c7af021`). Presentation only, 39 lines: the census is the
+  same object the partition call already computed, so the two cannot
+  disagree; both universes (763 stored / 645 operative) printed so
+  the census total cannot be read against the wrong denominator. No
+  stop conditions, no scan or pin movement.
 
 - **2026-08-08 (W-45 applied)** — **The scan's blind spot becomes a
   live receipt: 2,642 laws with a replayable original and no stored
