@@ -2161,15 +2161,46 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    of a slice model. W-47 datum: the reader fix unlocks exactly 1
    additional multi-part pair (`2017-06-02-745` → `2016-06-17-45`,
    the `2-7a`/`2-7` swallow).
-49. **W-49 (named-part-list instruments, ~13 pairs):** the largest
-   refused sub-shape of W-47's surface — instruments whose operative
-   text names a part LIST that AGREES with the Endrer header
-   (`del I og III trer i kraft`). Needs a romertall-list parser with
-   range expansion (`del I–V`); the 11 proven header/text
-   disagreements from the W-47 census are its built-in negative
-   suite (`.tmp/w47/multipart_census.json`). Same gates: P1
-   zero-early incl. `ACT_HAS_NO_LATER_INSTRUMENT` semantics
-   per-part, corruption-immunity analysis, design pass before code.
+49. **W-49 (named-part-list instruments):** DONE (`f241d8975`,
+   2026-08-08). Gated in at zero candidate payoff for lane
+   completeness: 33 grants over 10 acts, no status/candidate/
+   divergence movement, and the per-part refutation semantics landed
+   as the tested asset W-48(iii) and any slice revisit will need.
+   Surface measured 12 pairs (the "~13"; a naive covers-check says
+   55 but 43 are `§`-carrying slice shapes — W-41's surface). Reader:
+   a ~40-line tokenizer + scanner, NO regex for the grammar (one
+   refusing hazard regex + one verb-count check); part vocabulary
+   closed (`del`/`romertall` morphology; `avsnitt` deliberately
+   excluded as ambiguous — `2013-02-01-130` is the measuring pair if
+   ever widened); romertall tokens case-sensitive and canonically
+   re-rendered (keeps the preposition `i` and `UCITS V` out); the
+   safety asymmetry is that under-reading shrinks the claim while
+   the first unknown token closes the list, and dangling/descending
+   ranges refuse outright. All 11 W-47 disagreements refused, 0
+   leaks. **Refutation semantics (the design crux):**
+   `LATER_INSTRUMENTS_NAME_OTHER_PARTS` — every strictly later
+   instrument on the act must be provably about OTHER parts under
+   BOTH witnesses: structural (its own Endrer header's parts,
+   disjoint) AND textual (this same reader over its text, disjoint);
+   an unreadable text bounds nothing and refutes. Neither witness is
+   sound alone — textual-only gains one pair (`2017-09-01-1328`)
+   that FIRES P1 (recorded as the near-miss); act-global (W-47's)
+   wrongly refuses the staged pattern (2 pairs). W-47's revocation
+   witness still caught in list form, pinned both ways. Corruption
+   immunity by construction: the reader refuses any `§`, so no pair
+   reaching the route has a section label. P1 zero-early over ALL
+   416 shipped grants (12 late-conservative); P2 = 0. Routes
+   provably disjoint (whole-act reader refuses `del`/`romertall`;
+   this reader requires one), pinned. Pin package: exactly one edit,
+   inert grants 29 → 31 (signed off 2026-08-08; per-route splits
+   pinned separately). CI green on the FIRST run — the W-47 ladder
+   lessons (no `no_` conjunct values, per-use-site waivers) landed
+   as briefed. Still open from the follow-ups: the 2 reader-clean
+   pairs refused on section-naming later siblings (`2012-01-20-36`,
+   `2017-09-01-1328`) — W-48's slice reader could serve as a third
+   disjointness witness for ~5 more grants at 0 candidates; inert
+   population now 31 across three routes, cleanup question
+   unchanged.
 50. **W-50 (size the `_WHOLE_ACT_RE` widening):** 72 genuine
    whole-act commencements land in the multi-part lane only because
    `_WHOLE_ACT_RE`'s anchored `fullmatch` breaks on title prefixes,
@@ -2197,6 +2228,21 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-08 (W-49 applied)** — **The named-part-list route closes
+  the commencement lane's readable remainder: 33 grants over 10
+  acts, zero scan movement, and per-part refutation semantics proven
+  on the corpus** (`f241d8975`). A total-refusing tokenizer (no
+  grammar regex) reads `del I og III` / `del I–V` lists; all 11
+  W-47 header/text disagreements refuse with 0 leaks. The shipped
+  two-witness refutation (later instruments provably about OTHER
+  parts, structurally AND textually) is the semantics W-47's
+  act-global conjunct could not express — and the textual-only
+  variant was measured to fire P1 on one pair, the near-miss that
+  justifies the pair of witnesses. P1 zero-early over all 416
+  shipped grants. Inert grants 29 → 31 (the one pin edit). What
+  remains in the multi-part population is `§`-carrying slice shapes
+  (W-41's zero-priced surface, fenced by W-48).
 
 - **2026-08-08 (W-47 applied)** — **The multi-part commencement route
   opens: 260 grants over 70 acts, seven candidate entrants (two
