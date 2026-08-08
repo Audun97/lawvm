@@ -2169,10 +2169,12 @@ def test_annex_ceiling_nested_rule_reaches_the_deepest_item_nesting() -> None:
 
 def test_annex_ceiling_nested_rule_does_not_type_ordinary_section_addresses() -> None:
     # §2.9 paired negative: ordinary Norwegian section addresses must not match,
-    # including the ones inside the very law the rule covers. The first three
-    # rows below are 2012-12-14-81's own remaining 4 divergences (§§ 1-4 of the
-    # enacting act, which the published consolidation does not print); the rest
-    # are ordinary shapes from elsewhere in the corpus.
+    # including the ones inside the very law the rule covers. The first two rows
+    # below are §§ 1 and 4 of the enacting act — which W-40 saw as
+    # CONSOLIDATED_MISSING divergences and W-43 closed by parsing them (they are
+    # printed; the top-level walk dropped them). They stay here as fixtures: the
+    # rule must keep refusing to type the law's OWN sections whether or not they
+    # currently diverge. The rest are ordinary shapes from elsewhere in corpus.
     rows = [
         _no_div((("section", "1"), ("subsection", "1")), "CONSOLIDATED_MISSING", ops_text="Lova gjeld …"),
         _no_div((("section", "4"), ("subsection", "1")), "CONSOLIDATED_MISSING", ops_text="Kongen kan gi forskrift …"),
@@ -2417,10 +2419,15 @@ def test_annex_ceiling_corpus_counts_are_pinned() -> None:
         "no/lov/2017-06-16-51": (210, 204, 6, {address: 204}),
         # W-40 (2026-08-08): EØS-arbeidstakarlova, admitted by W-39 and typed
         # here. Regulation (EU) nr. 492/2011 under chapter:1/chapter:1-1, the
-        # nested (compound sub-chapter) annex encoding — 93 of 97. The 4
-        # unexplained are the enacting act's own §§ 1-4, which the published
-        # consolidation of this law does not print at all.
-        "no/lov/2012-12-14-81": (97, 93, 4, {nested: 93}),
+        # nested (compound sub-chapter) annex encoding.
+        # 97 -> 93 and 4 -> 0 unexplained at W-43 (2026-08-08): the 4 rows were
+        # the enacting act's own §§ 1-4, and the published consolidation DOES
+        # print them — `parse_no_statute` dropped them. Its top-level article
+        # walk was an `if not body_children:` fallback to the chapter walk, so a
+        # documentBody carrying both top-level `§§` and the annex `section` lost
+        # every article. The merged order-preserving walk recovers them and the
+        # four CONSOLIDATED_MISSING rows close. The law is now wholly ceiling.
+        "no/lov/2012-12-14-81": (93, 93, 0, {nested: 93}),
         # SCE-loven's row (212, 211, 1, {address: 104, counterpart: 107}) is
         # off-scan since W-30 — see the set(rows) comment above.
         # 83 -> 81 at W-35 (2026-08-07, signed off): still 0 ceiling, which is
@@ -2555,9 +2562,21 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # and unexplained 294 -> 201 against an unmoved total of 1,212. The
     # law's partition bucket moves with them, source_sparse -> annex_ceiling,
     # which is the W-23 predicate doing exactly what it was built for.
+    # W-43 (2026-08-08) moves four rows and nothing else — the ONLY corpus
+    # numbers that change are total and unexplained, both by the same 4.
+    # `parse_no_statute`'s top-level article walk was an `if not body_children:`
+    # fallback to the chapter walk, so 2012-12-14-81's own §§ 1-4 (siblings of
+    # the annex `section`, not children of it) were dropped from the parsed
+    # consolidation and read back as CONSOLIDATED_MISSING. Merging the two walks
+    # into one order-preserving pass closes exactly those 4 rows: total
+    # 1,212 -> 1,208, unexplained 201 -> 197, ceiling unmoved at 1,011,
+    # verdicts, membership and the other 57 laws byte-identical. (Corpus-wide
+    # the merge recovers 103 top-level sections across 16 consolidations and 48
+    # across 4 replay bases; 15 of those 16 laws are outside the candidate set,
+    # so they move no scoreboard number today.)
     assert report["scanned_count"] == 58
     assert report["summary"] == {"consistent": 23, "divergent": 35, "error": 0}
-    assert report["divergence_totals"] == {"total": 1212, "ceiling": 1011, "unexplained": 201}
+    assert report["divergence_totals"] == {"total": 1208, "ceiling": 1011, "unexplained": 197}
     # 3 -> 2 at W-34: no/lov/2001-01-05-1 gains 4 bound ops from
     # no/lovtid/2015-06-19-65 item 178, so its indexed history is no longer
     # sparse. Its 83 divergences do not move; only the bucket does.
@@ -2691,6 +2710,10 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # 93/97. The separation is still total — the next law down carries zero
     # ceiling rows — so this floor stays a description of the corpus, not a
     # routing constant; the predicate itself is still a strict majority.
+    # 95.8% -> 97.1% again at W-43 (2026-08-08): 2012-12-14-81 is 93/93, wholly
+    # ceiling, and the smallest member is 2017-06-16-51 at 204/210 once more.
+    # The 0.95 floor is deliberately NOT tightened back — it is a floor the
+    # bucket must clear, not a running record of where the members happen to sit.
     for item in partitions["annex_ceiling"]:
         assert item["ceiling_divergence_count"] > item["unexplained_divergence_count"]
         assert item["ceiling_divergence_count"] / item["divergence_count"] > 0.95

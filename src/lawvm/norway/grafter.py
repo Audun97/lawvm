@@ -934,20 +934,21 @@ def parse_no_statute(html_bytes: bytes, statute_id: str) -> IRStatute:
     )
     main = main_nodes[0] if main_nodes else root
 
+    # W-43: one order-preserving pass over the top level, mirroring `_parse_container`.
+    # Previously the article walk was an `if not body_children:` fallback to the chapter
+    # walk, so any document mixing top-level `§§` with chapters (typically act-own
+    # provisions followed by an annexed instrument) silently lost every article.
     body_children: list[IRNode] = []
-    chapter_nodes = [child for child in _direct_children(main, "section") if _has_class(child, "section")]
-    for chapter_el in chapter_nodes:
-        chapter = _parse_container(chapter_el)
-        if chapter is not None:
-            body_children.append(chapter)
-
-    if not body_children:
-        for article in _direct_children(main, "article"):
-            if not _has_class(article, "legalArticle"):
-                continue
-            section = _parse_section(article)
-            if section is not None:
-                body_children.append(section)
+    for child in _direct_children(main):
+        lname = _local_name(child)
+        if lname == "section" and _has_class(child, "section"):
+            parsed = _parse_container(child)
+        elif lname == "article" and _has_class(child, "legalArticle"):
+            parsed = _parse_section(child)
+        else:
+            continue
+        if parsed is not None:
+            body_children.append(parsed)
 
     return IRStatute(
         statute_id=statute_id,

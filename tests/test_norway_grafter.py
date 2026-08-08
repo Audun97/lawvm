@@ -178,6 +178,91 @@ def test_parse_no_statute_preserves_chapter_section_and_item_structure() -> None
     ]
 
 
+_MIXED_SHAPE_STATUTE_XML = """<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <head>
+    <title>Blandalov om data</title>
+  </head>
+  <body>
+    <main class="documentBody" data-lovdata-URL="NL/lov/2025-01-01-2">
+      <h1>Blandalov om data</h1>
+      <article class="legalArticle" data-name="§1" data-lovdata-URL="NL/lov/2025-01-01-2/§1">
+        <h3 class="legalArticleHeader">§ 1. Verkeområde</h3>
+        <article class="legalP" id="ledd1">Lova gjeld testdata.</article>
+      </article>
+      <article class="legalArticle" data-name="§2" data-lovdata-URL="NL/lov/2025-01-01-2/§2">
+        <h3 class="legalArticleHeader">§ 2. Ikraftsetjing</h3>
+        <article class="legalP" id="ledd1">Lova gjeld frå den tid Kongen fastset.</article>
+      </article>
+      <section class="section" data-name="kap1" data-lovdata-URL="NL/lov/2025-01-01-2/KAPITTEL_1">
+        <h2>Vedlegg. Forordninga</h2>
+        <article class="legalArticle" data-name="§3" data-lovdata-URL="NL/lov/2025-01-01-2/§3">
+          <h3 class="legalArticleHeader">Artikkel 1. Foremaal</h3>
+          <article class="legalP" id="ledd1">Forordninga gjeld dette.</article>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def test_parse_no_statute_keeps_top_level_sections_and_chapters_in_source_order() -> None:
+    # W-43: a documentBody mixing top-level `article.legalArticle` with
+    # `section.section` must yield BOTH, in document order. The pre-W-43 walk ran
+    # the article pass only as an `if not body_children:` fallback to the chapter
+    # pass, so the act's own §§ were dropped whenever any chapter parsed non-empty.
+    statute = parse_no_statute(_MIXED_SHAPE_STATUTE_XML, "no/lov/2025-01-01-2")
+
+    assert [(child.kind, child.label) for child in statute.body.children] == [
+        (IRNodeKind.SECTION, "1"),
+        (IRNodeKind.SECTION, "2"),
+        (IRNodeKind.CHAPTER, "1"),
+    ]
+
+    chapter = statute.body.children[2]
+    assert chapter.children[0].kind == IRNodeKind.HEADING
+    assert [child.label for child in chapter.children[1:]] == ["3"]
+
+
+def test_parse_no_statute_keeps_top_level_order_when_chapter_precedes_sections() -> None:
+    # W-43: the mirror shape (`S…A`) does not occur in today's corpus, but the
+    # merged walk must emit document order rather than a fixed chapters-then-
+    # articles order, so pin it here.
+    xml = """<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <head><title>Blandalov om data</title></head>
+  <body>
+    <main class="documentBody" data-lovdata-URL="NL/lov/2025-01-01-2">
+      <section class="section" data-name="kap1" data-lovdata-URL="NL/lov/2025-01-01-2/KAPITTEL_1">
+        <h2>Kapittel 1. Innleiing</h2>
+        <article class="legalArticle" data-name="§3">
+          <h3 class="legalArticleHeader">§ 3. Definisjonar</h3>
+          <article class="legalP" id="ledd1">Med data meiner ein testdata.</article>
+        </article>
+      </section>
+      <article class="legalArticle" data-name="§1">
+        <h3 class="legalArticleHeader">§ 1. Verkeområde</h3>
+        <article class="legalP" id="ledd1">Lova gjeld testdata.</article>
+      </article>
+      <article class="legalArticle" data-name="§2">
+        <h3 class="legalArticleHeader">§ 2. Ikraftsetjing</h3>
+        <article class="legalP" id="ledd1">Lova gjeld frå den tid Kongen fastset.</article>
+      </article>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+    statute = parse_no_statute(xml, "no/lov/2025-01-01-2")
+
+    assert [(child.kind, child.label) for child in statute.body.children] == [
+        (IRNodeKind.CHAPTER, "1"),
+        (IRNodeKind.SECTION, "1"),
+        (IRNodeKind.SECTION, "2"),
+    ]
+
+
 def test_parse_no_statute_normalizes_letter_item_labels_with_trailing_paren() -> None:
     xml = """<?xml version="1.0" encoding="utf-8"?>
 <html lang="nb">

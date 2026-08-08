@@ -1281,7 +1281,9 @@ def _no_nested_annexed_instrument_address(path: TreePath) -> tuple[str, str] | N
     rule's rows. Measured over all 1,212 divergence addresses of the 58 scan
     candidates at as-of 2026-07-10: 93 rows match, all in ``2012-12-14-81``,
     all ``OPS_MISSING``, none of them already typed by either W-17 criterion,
-    and zero rows in the other 57 laws.
+    and zero rows in the other 57 laws. (W-43 dropped the denominator to 1,208
+    by parsing that law's own §§ 1-4, which the top-level body walk had been
+    discarding; the 93 matching rows are unmoved.)
     """
     if len(path) < 2 or path[0][0] != "chapter" or path[1][0] != "chapter":
         return None
@@ -1363,7 +1365,10 @@ def classify_no_annex_ceiling(
 
     W-40 adds criterion 2 on top of that, measured over the 58 scan candidates
     at the same as-of: 93 further rows, all in ``2012-12-14-81``, taking the
-    corpus ceiling to 1,011 of 1,212.
+    corpus ceiling to 1,011 of 1,212. W-43 then closed that law's remaining 4
+    rows in the parser rather than here (its §§ 1-4 were dropped by the
+    top-level body walk, not absent from the source), so the same 1,011 ceiling
+    rows now sit against a 1,208 total and the law is wholly ceiling.
     """
     records: dict[int, NOCeilingDivergence] = {}
     # article number -> (annex token, the address that witnessed it)
