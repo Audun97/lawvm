@@ -1968,16 +1968,59 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    enforced — a cheap guard would pin that both lanes parse through
    the same walk. Follow-up census → W-44.
 44. **W-44 (laws with a replayable original but NO stored
-   consolidation are invisible to verify):** found at W-43:
-   `no/lov/2005-06-03-33` gains 17 sections on the replay lane and
-   has no stored `current.xml` at all, so it can produce no
-   comparison rows in either direction — by construction the scan
-   can neither confirm nor diverge it. Census (~probe-sized): how
-   many laws have a replayable original and no stored consolidation,
-   and is that an acquisition gap (fetchable from Lovdata) or a
-   Lovdata fact (e.g. repealed laws with no current text)? Decide
-   whether the family needs a typed receipt in the partition or an
-   acquisition item.
+   consolidation are invisible to verify):** DONE (probe,
+   research-only, 2026-08-08; artifacts `.tmp/w44/`). Verdict:
+   **(b) typed receipt — NOT an acquisition item; zero demonstrated
+   gaps.** Census: 3,089 stored originals (= the Lovtidend 2001–2026
+   window, id set byte-identical to the amendment lane) vs 763
+   stored consolidations; **2,642** originals have no consolidation
+   (the converse 316 is entirely pre-2001 — the known boundary,
+   already reported by `no-missing-base`; W-44 is its unreported
+   mirror). Snapshot completeness proven locally: of 308 laws
+   amended by a 2025+ act, 24 lack consolidations and ALL 24
+   adjudicate (unnumbered-ref artifacts, repeal-manifest-named, or
+   amending acts); the snapshot even carries 115 amending-act
+   consolidations, behaving like a complete alle-gjeldende-lover
+   listing. Families: **2,514 amending acts** (95.2%, absorbed into
+   targets on commencement), **40 temporary** (built-in expiry),
+   **25 wage-board** (self-repeal on Rikslønnsnemnda ruling),
+   **63 substantive** — of which 50 are named in another act's
+   structural repeal manifest (`Følgjande lover blir oppheva:`,
+   read structurally; precision control: of 332 manifest-named laws
+   only 24 still have consolidations, all staged repeals) and 13
+   are spent/absorbed/never-commenced one-offs, each adjudicated by
+   hand. The W-43 seed `2005-06-03-33` is diskrimineringsloven
+   (2005), repealed by `2013-06-21-60` — no fetch recovers a
+   current text. Scan relation: the block is structural
+   (`load_no_current_law_ids` walks stored consolidations only, so
+   the family is absent from the inventory universe, no denominator,
+   no bucket); counterfactual ceiling if all had consolidations:
+   +55 would-be candidates (58 → 113), +35 blocked_contingent,
+   2,552 unchanged. The only locally-undecidable sliver: Lovdata
+   consolidates ~4% of amending acts, so of the 29 would-be-
+   candidate amending acts a fetch would predict ~1 hit. Receipt
+   item → W-45.
+45. **W-45 (typed no-consolidation receipt, W-44 recommendation,
+   size S):** make the 2,642-law family visible and sized, mirroring
+   the converse `no-missing-base` report. (1)
+   `build_no_no_consolidation_report` in `inventory.py` (input
+   `load_available_lti_law_ids() - current_law_ids`; rows: base_id,
+   title, family, would_be_status, repealed_by, amendments) + a
+   `lawvm no-no-consolidation` CLI tool mirroring
+   `no_missing_base.py` (~60 lines). (2) Four counters on
+   `NOInventory.to_dict()`: total 2,642 / amending 2,514 /
+   temporary+wage-board 65 / substantive 63 (+
+   substantive_without_repeal_evidence 13). (3) An `unverifiable`
+   sibling key BESIDE `build_no_verify_partition`'s `partitions`
+   (not inside — never-scanned laws carry no scan-row fields), with
+   the load-bearing tripwire assert `substantive_unexplained == 13`,
+   each spent/absorbed/never-commenced — fires if a future corpus
+   really does lose an in-force law. No rule id, no parse/replay
+   change, no scan movement (58 candidates, every scoreboard number
+   byte-identical). Optional XS sub-item: live-probe Lovdata for
+   consolidations of the 29 would-be-candidate amending acts
+   (`family_joined.json`, base rate predicts ~1 hit); if nothing
+   returns, the receipt is provably total.
 
 ## 5. Demo / Inspection Tooling
 
@@ -1995,6 +2038,24 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-08 (W-44 probe: no consolidation ≠ missing data)** —
+  **The 2,642 laws with a replayable original and no stored
+  consolidation are amending acts (2,514), expired temporaries (40),
+  self-repealing wage-board acts (25), and 63 substantive acts that
+  are ALL repealed, spent, absorbed, or never commenced — zero
+  demonstrated acquisition gaps.** Research only (artifacts
+  `.tmp/w44/`). Snapshot completeness proven locally via the 2025+
+  recency test (24 residual absences, all adjudicated) and Lovdata's
+  structural repeal manifests (`Følgjande lover blir oppheva:`).
+  The W-43 seed `2005-06-03-33` is the repealed 2005
+  diskrimineringsloven. The family is structurally invisible to the
+  scan (absent from the inventory universe, no denominator); its
+  counterfactual would-be-candidate ceiling is +55. W-45 opened:
+  typed receipt (report + inventory counters + `unverifiable`
+  partition sibling with the `substantive_unexplained == 13`
+  tripwire), size S; optional XS live-probe for the 29
+  would-be-candidate amending acts (~1 predicted hit).
 
 - **2026-08-08 (W-43 applied)** — **The top-level body walk is merged:
   mixed chapter+article documents keep both kinds in source order,
