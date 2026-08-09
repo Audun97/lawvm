@@ -282,6 +282,14 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "A Norway structured renumber attribute had a malformed token shape "
         "(e.g. trailing separators); skipped with a typed finding, not coerced."
     ),
+    "no_parse_structured_move_legs_completed_from_lead_prose": (
+        "A Norway structured change block's ``data-move-part`` declared FEWER "
+        "ledd move legs than its own lead sentence spells; the missing legs were "
+        "templated from the declared ones (same base act, section and container "
+        "path — only the shift map comes from the prose) so the cascade lowers "
+        "whole. Lowering the partial set instead is what let (RENUMBER, "
+        "dest_occupied) remove an occupant the true timeline merely moves down."
+    ),
     "no_parse_replace_promoted_to_insert_for_same_target_renumber": (
         "A Norway REPLACE targeting the same address as a RENUMBER in the same "
         "group is compiled as an INSERT at the newly-renumbered label; the "

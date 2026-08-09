@@ -1666,7 +1666,20 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # `2021-06-11-60`'s three new barnelova sections. Both are verified
     # against the published consolidation; the first takes its law's scan row
     # from 81 divergences to 0.
-    assert sum(entry.n_ops for entry in index.entries) == 26946
+    # 26,946 -> 26,950 at W-56 (+4, all RENUMBER, 0 lost / 0 rebound). Four
+    # change blocks carry a ``data-move-part`` that declares FEWER ledd move legs
+    # than the block's own lead sentence commands; the missing legs are now
+    # templated from the declared ones. One leg each on
+    # ``no/lovtid/2024-12-13-78`` (tvisteloven § 24-8),
+    # ``no/lovtid/2024-05-31-26`` (lov/2018-06-08-28 § 7),
+    # ``no/lovtid/2024-06-21-44`` (lov/1999-07-02-64 § 57) and
+    # ``no/lovtid/2025-12-22-129`` (lov/2020-04-17-29 § 11) — the complete
+    # corpus population of that shape, swept over all 3,089 amendment artifacts.
+    # Exactly one law's replayed TEXT moves as a result (tvisteloven, whose
+    # § 24-8 vitneforsikring stops being destroyed by the occupied-destination
+    # recovery); the other three are content-neutral and all 73 scan candidates'
+    # divergence rows are byte-identical across the change.
+    assert sum(entry.n_ops for entry in index.entries) == 26950
 
 
 def test_no_amendment_index_staleness_report_detects_archive_change(tmp_path) -> None:

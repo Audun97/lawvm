@@ -596,6 +596,124 @@ def _same_chapter_renumber_amendment_xml() -> bytes:
 """.encode("utf-8")
 
 
+def _under_declared_ledd_shift_amendment_xml() -> bytes:
+    """W-56: the tvisteloven shape — prose spells TWO limbs, markup declares ONE.
+
+    Verbatim structure of ``no/lovtid/2024-12-13-78``'s § 24-8 block: a
+    ``data-move-part`` carrying only ``ledd/3;;ledd/4`` under a lead sentence
+    that commands both ``3 → 4`` and ``4 → 5``.
+    """
+    return """<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="dateInForce">2025-01-01</dd>
+    <article class="document-change" data-document="lov/2025-01-01-1">
+      <article class="change"
+               data-move-part="lov/2025-01-01-1/&#167;2/ledd/3;;lov/2025-01-01-1/&#167;2/ledd/4">
+        <article class="defaultP">N&#229;v&#230;rende tredje og fjerde ledd blir fjerde og nytt femte ledd.</article>
+      </article>
+    </article>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def _unparseable_ledd_shift_amendment_xml() -> bytes:
+    """W-56 polarity control: the SAME under-declared markup under a lead whose
+    ordinal vocabulary this grammar cannot name ("tolvte" is outside
+    ``_NORWEGIAN_ORDINALS``). The completion must refuse and leave the markup's
+    own single leg exactly as declared — never a differently-guessed set.
+    """
+    return """<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="dateInForce">2025-01-01</dd>
+    <article class="document-change" data-document="lov/2025-01-01-1">
+      <article class="change"
+               data-move-part="lov/2025-01-01-1/&#167;2/ledd/3;;lov/2025-01-01-1/&#167;2/ledd/4">
+        <article class="defaultP">N&#229;v&#230;rende tredje og tolvte ledd blir fjerde og nytt trettende ledd.</article>
+      </article>
+    </article>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def test_no_under_declared_move_attr_is_completed_from_its_own_lead_prose() -> None:
+    """W-56: an under-declared ``data-move-part`` lowers the WHOLE ledd shift.
+
+    Lovtidend spelled one move leg where its own lead sentence commands two.
+    Lowering the partial set is what let ``(RENUMBER, dest_occupied)`` remove
+    tvisteloven § 24-8's vitneforsikring (W-54 firing 9, ``removal_wrong``): the
+    surviving ``3 → 4`` leg landed on a slot whose occupant no op ever moved
+    out. With both legs lowered the destination IS a renumber source, the
+    recovery's ``destination not in renumber_sources`` guard suppresses it, and
+    the occupant simply shifts down.
+    """
+    ops = parse_no_amendment_ops(
+        _under_declared_ledd_shift_amendment_xml(), "no/lovtid/2025-02-02-5"
+    )
+    renumbers = _renumber_ops(ops)
+    assert [
+        (str(op.target), str(op.destination)) for op in renumbers
+    ] == [
+        ("section:2/subsection:4", "section:2/subsection:5"),
+        ("section:2/subsection:3", "section:2/subsection:4"),
+    ]
+    # Both legs carry the ordinary structured-renumber witness — the completion
+    # mints no new migration semantics, only the missing leg.
+    assert {op.witness_rule_id for op in renumbers} == {_RENUMBER_RULE_ID}
+
+
+def test_no_under_declared_move_attr_completion_is_receipted() -> None:
+    """W-56: the completion is never silent — it emits a non-blocking finding
+    naming both the declared and the completed leg sets."""
+    from lawvm.norway.grafter import NO_PARSE_MOVE_LEGS_COMPLETED_FROM_LEAD_PROSE
+
+    adjudications: list = []
+    parse_no_amendment_ops(
+        _under_declared_ledd_shift_amendment_xml(),
+        "no/lovtid/2025-02-02-5",
+        adjudications_out=adjudications,
+    )
+    completions = [
+        a for a in adjudications if a.kind == NO_PARSE_MOVE_LEGS_COMPLETED_FROM_LEAD_PROSE
+    ]
+    assert len(completions) == 1, [a.kind for a in adjudications]
+    finding = completions[0]
+    assert finding.blocking is False
+    assert finding.detail["declared_leg_count"] == 1
+    assert finding.detail["completed_leg_count"] == 2
+    assert finding.detail["completed_legs"] == (
+        "lov/2025-01-01-1/§2/ledd/3;;lov/2025-01-01-1/§2/ledd/4",
+        "lov/2025-01-01-1/§2/ledd/4;;lov/2025-01-01-1/§2/ledd/5",
+    )
+
+
+def test_no_move_attr_completion_refuses_a_lead_it_cannot_fully_account_for() -> None:
+    """W-56 conservative polarity: a lead this grammar cannot fully lower leaves
+    the markup's own legs untouched rather than emitting a different partial set.
+
+    Partial lowering is precisely the failure this work item repairs, so the
+    refusal arm must never *replace* the declared legs with a guess — it may only
+    decline to add.
+    """
+    from lawvm.norway.grafter import NO_PARSE_MOVE_LEGS_COMPLETED_FROM_LEAD_PROSE
+
+    adjudications: list = []
+    ops = parse_no_amendment_ops(
+        _unparseable_ledd_shift_amendment_xml(),
+        "no/lovtid/2025-02-02-5",
+        adjudications_out=adjudications,
+    )
+    assert [
+        (str(op.target), str(op.destination)) for op in _renumber_ops(ops)
+    ] == [("section:2/subsection:3", "section:2/subsection:4")]
+    assert [
+        a for a in adjudications if a.kind == NO_PARSE_MOVE_LEGS_COMPLETED_FROM_LEAD_PROSE
+    ] == []
+
+
 def test_no_renumber_across_chapters_declares_the_removed_occupant() -> None:
     """Cross-chapter occupied destination: the receipt declares the removal and
     strict apply does NOT raise.
@@ -704,29 +822,284 @@ def test_no_renumber_within_chapter_does_not_duplicate_the_destination_leg() -> 
 _REPO_ROOT = _Path(__file__).resolve().parents[1]
 _REAL_ARCHIVE = _REPO_ROOT / "data" / "norway.farchive"
 
-#: Every base law in the Lovdata corpus whose replay fires
+#: Every base law in the Lovdata corpus that fires — or used to fire —
 #: ``no_replay_renumber_occupied_destination_removed`` at as-of 2026-07-10,
 #: with (firings, receipts carrying a collateral ``removed_paths`` entry).
-#: Measured over all 782 base laws with an indexed amendment source; 10 firings
-#: in total, of which exactly 3 are cross-container. The two laws with a
-#: cross-container firing are exactly the two whose strict replay failed with
-#: ``Norway observed-write audit violation`` before W-52.
+#: Measured over all 782 base laws with an indexed amendment source.
+#:
+#: W-52 measured 10 firings, of which exactly 3 were cross-container; the two
+#: laws with a cross-container firing are exactly the two whose strict replay
+#: failed with ``Norway observed-write audit violation`` before W-52.
+#:
+#: W-56 lowered that to **9**. ``no/lov/2005-06-17-90`` (tvisteloven) drops from
+#: 1 firing to 0 — that is the two-limb ledd-shift repair's INTENDED effect, not
+#: a weakened pin: ``no/lovtid/2024-12-13-78``'s § 24-8 block now lowers BOTH
+#: legs it commands, so the destination is itself a renumber source and the
+#: recovery's own guard suppresses it. The key is deliberately KEPT at ``(0, 0)``
+#: rather than deleted, so a regression that resurrects the firing (and with it
+#: the destruction of the vitneforsikring) trips this assertion instead of
+#: passing unnoticed under a shorter table.
 _NO_OCCUPIED_DESTINATION_LAWS: dict[str, tuple[int, int]] = {
     "no/lov/2001-01-05-1": (2, 0),
     "no/lov/2003-07-04-84": (1, 0),
     "no/lov/2004-12-17-99": (2, 1),
     "no/lov/2005-06-10-44": (2, 2),
     "no/lov/2005-06-17-67": (1, 0),
-    "no/lov/2005-06-17-90": (1, 0),
+    "no/lov/2005-06-17-90": (0, 0),  # W-56: repaired at the lowering; see above.
     "no/lov/2021-06-18-97": (1, 0),
 }
+
+#: W-54's per-firing verdict table, pinned (W-56).
+#:
+#: W-54 deliberately did NOT pin this: two of its ten rows were ``removal_wrong``
+#: — proven destruction of in-force law — and pinning them would have frozen a
+#: known defect as expected behaviour. W-56 repairs one of the two at the
+#: lowering, which is the event that licenses the pin.
+#:
+#: One entry per surviving firing:
+#:   op_id → (base_id, source_path, destination_path, verdict, occupant probe,
+#:            the paths where the occupant's text survives IN THE REPLAY).
+#:
+#: The probe is the normalised opening of the removed occupant's text (W-54
+#: ``.tmp/w54/survival.json``); the survival tuple is the honest observed answer
+#: to "did this removal destroy live law", re-derived here rather than asserted
+#: as a slogan.
+#:
+#: TRIPWIRE SEMANTICS — deliberately ASYMMETRIC (modelled on W-45's thirteen-id
+#: pin):
+#:   * a NEW op_id appearing in the corpus = alarm. The table is compared by
+#:     equality, so an unadjudicated firing cannot land silently.
+#:   * ``no/lovtid/2024-12-20-87:2`` (skattebetalingsloven § 8-2) is pinned as
+#:     ``removal_wrong`` ON PURPOSE. Its root cause is NOT a lowering defect —
+#:     both legs of that instrument lower correctly. Our § 8-2 carries a stale
+#:     duplicate fourth ledd because no indexed instrument repeals the base act's
+#:     first ledd, so the correctly-lowered ``4 → 5`` leg grabs the wrong node.
+#:     That missing archive artifact is W-58's item. Until W-58 lands this row
+#:     MUST stay wrong; when W-58 lands, this test fails and the row is flipped
+#:     CONSCIOUSLY. A green run therefore means "the known defect is still
+#:     exactly one row wide", never "all removals are correct".
+_NO_OCCUPIED_DESTINATION_VERDICTS: dict[str, tuple[str, str, str, str, str, tuple[str, ...]]] = {
+    "no/lovtid/2009-06-19-85:1": (
+        "no/lov/2001-01-05-1",
+        "section:12",
+        "section:14",
+        "removal_correct",
+        "foretak som utøver vaktvirksomhet plikter å gi tillatelses og",
+        ("section:16/subsection:1",),
+    ),
+    "no/lovtid/2009-06-19-85:2": (
+        "no/lov/2001-01-05-1",
+        "section:13",
+        "section:15",
+        "removal_correct",
+        "departementet kan gi nærmere forskrifter til gjennomføring av loven",
+        (),
+    ),
+    "no/lovtid/2024-06-14-34:3": (
+        "no/lov/2003-07-04-84",
+        "chapter:2/section:2-2/subsection:4",
+        "chapter:2/section:2-2/subsection:5",
+        "removal_correct",
+        "skolen må være registrert i einingsregisteret jf lov 3",
+        (),
+    ),
+    "no/lovtid/2012-05-25-29:22": (
+        "no/lov/2004-12-17-99",
+        "chapter:5/section:21a",
+        "chapter:5/section:20",
+        "removal_correct",
+        "ved overtredelse av rapporteringsplikten etter 16 kan forurensningsmyndighetene fatte",
+        (),
+    ),
+    "no/lovtid/2012-05-25-29:24": (
+        "no/lov/2004-12-17-99",
+        "chapter:6/section:23",
+        "chapter:5/section:22",
+        "removal_correct",
+        # The occupant is a heading-only § 22 shell in our tree, so there is no
+        # body text to probe; the empty probe is skipped by the survival check.
+        "",
+        (),
+    ),
+    "no/lovtid/2015-04-10-17:27": (
+        "no/lov/2005-06-10-44",
+        "part:3/chapter:7/section:7-8",
+        "part:2/chapter:2/section:2-4",
+        "removal_correct",
+        "utenlandsk forsikringsselskap kan gis konsesjon til å drive virksomhet",
+        (),
+    ),
+    "no/lovtid/2015-04-10-17:106": (
+        "no/lov/2005-06-10-44",
+        "part:6/chapter:16/section:16-1",
+        "part:4/chapter:9/section:9-1",
+        "removal_correct",
+        "bestemmelsene i dette kapittel gjelder for selskaper som yter",
+        (),
+    ),
+    "no/lovtid/2024-12-20-87:2": (
+        "no/lov/2005-06-17-67",
+        "part:2/chapter:8/section:8-2/subsection:4",
+        "part:2/chapter:8/section:8-2/subsection:5",
+        # KNOWN DEFECT, owned by W-58 (missing archive artifact). The occupant —
+        # § 8-2's Skattedirektoratet regulation power — is live at consolidation
+        # § 8-2 femte ledd and is NOT at that address in the replay. The single
+        # surviving hit below is § 8-3's own identically-worded regulation power,
+        # a different provision: the probe finding it is exactly what proves the
+        # § 8-2 one is gone.
+        "removal_wrong",
+        "skattedirektoratet kan i forskrift gi nærmere regler om gjennomføringen",
+        ("part:2/chapter:8/section:8-3/subsection:3",),
+    ),
+    "no/lovtid/2026-06-19-35:18": (
+        "no/lov/2021-06-18-97",
+        "chapter:10/section:10-17/subsection:4",
+        "chapter:10/section:10-17/subsection:5",
+        "removal_correct",
+        "avgjørelser om godkjenning kan påklages til sentralt nivå i",
+        (),
+    ),
+}
+
+#: The vitneforsikring (tvisteloven § 24-8's witness-oath formula) — the live
+#: provision W-54 proved the recovery destroyed, and the reason W-56 exists.
+#: The replay carries the ledd sentence-split (an earlier amendment addressed
+#: § 24-8's punktum individually), so the oath's opening sentence sits one step
+#: below the ledd the consolidation prints as a single block. The ADDRESS that
+#: matters is the ledd — ``subsection:5`` — and the divergence metric agrees:
+#: the ``OPS_MISSING …/section:24-8/subsection:5`` row closes with this fix.
+_TVISTELOVEN_OATH_PROBE = "før forklaring gis skal retten formane vitnet til å"
+_TVISTELOVEN_OATH_ADDRESS = "part:5/chapter:24/section:24-8/subsection:5/sentence:1"
+
+
+def _no_normalise_probe_text(text: str) -> str:
+    import re as _re
+    import unicodedata as _ud
+
+    text = _ud.normalize("NFKC", text or "")
+    text = _re.sub(r"\s+", " ", text)
+    text = _re.sub(r"[^0-9a-zA-ZæøåÆØÅ ]", "", text)
+    return text.strip().lower()
+
+
+def _no_probe_hits(statute, probe: str) -> tuple[str, ...]:
+    """Every address in ``statute`` whose own text contains ``probe``."""
+    if not probe or statute is None:
+        return ()
+
+    def walk(node, path):
+        for child in node.children:
+            here = path + ((str(child.kind), child.label or ""),)
+            if probe in _no_normalise_probe_text(child.text or ""):
+                yield "/".join(f"{k}:{lbl}" for k, lbl in here)
+            yield from walk(child, here)
+
+    return tuple(walk(statute.body, ()))
+
+
+@pytest.fixture(scope="module")
+def _no_occupied_destination_replays():
+    """Replay every law in the pinned table ONCE and share it across the pins."""
+    if not _REAL_ARCHIVE.exists():
+        pytest.skip("requires the local Lovdata archive (data/norway.farchive)")
+    from lawvm.norway.index import build_no_amendment_index
+
+    index = build_no_amendment_index(_REAL_ARCHIVE)
+    return {
+        base_id: replay_no_to_pit(
+            base_id, as_of="2026-07-10", data_dir=_REAL_ARCHIVE, index=index
+        )
+        for base_id in sorted(_NO_OCCUPIED_DESTINATION_LAWS)
+    }
 
 
 @pytest.mark.skipif(
     not _REAL_ARCHIVE.exists(),
     reason="requires the local Lovdata archive (data/norway.farchive)",
 )
-def test_no_corpus_occupied_renumber_destinations_are_all_declared() -> None:
+def test_no_corpus_occupied_renumber_destination_verdicts_are_pinned(
+    _no_occupied_destination_replays,
+) -> None:
+    """Corpus pin (W-56, deferred from W-54): every ``(RENUMBER, dest_occupied)``
+    firing in the corpus is an ADJUDICATED one, and each one's effect on the
+    occupant's text is the effect W-54 recorded.
+
+    Read the asymmetry on ``_NO_OCCUPIED_DESTINATION_VERDICTS`` before touching
+    this test: one row is pinned WRONG on purpose and belongs to W-58.
+    """
+    observed: dict[str, tuple[str, str, str]] = {}
+    for base_id, replay in sorted(_no_occupied_destination_replays.items()):
+        assert replay.error is None, (base_id, replay.error)
+        for a in replay.adjudications:
+            if a.kind != "no_replay_renumber_occupied_destination_removed":
+                continue
+            assert a.op_id is not None, base_id
+            observed[a.op_id] = (
+                base_id,
+                str(a.detail.get("source_path")),
+                str(a.detail.get("destination_path")),
+            )
+
+    expected = {
+        op_id: (base_id, source, destination)
+        for op_id, (base_id, source, destination, _v, _p, _s) in
+        _NO_OCCUPIED_DESTINATION_VERDICTS.items()
+    }
+    assert observed == expected
+
+    for op_id, (base_id, _src, _dst, verdict, probe, survives) in sorted(
+        _NO_OCCUPIED_DESTINATION_VERDICTS.items()
+    ):
+        replayed = _no_occupied_destination_replays[base_id].replayed
+        assert replayed is not None, base_id
+        assert _no_probe_hits(replayed, probe) == survives, (op_id, verdict)
+
+    wrong = sorted(
+        op_id
+        for op_id, (_b, _s, _d, verdict, _p, _sv) in _NO_OCCUPIED_DESTINATION_VERDICTS.items()
+        if verdict == "removal_wrong"
+    )
+    # W-58's tripwire. If this list SHRINKS, W-58 landed — flip the row
+    # consciously. If it GROWS, a new live-law destruction reached the corpus.
+    assert wrong == ["no/lovtid/2024-12-20-87:2"]
+
+
+@pytest.mark.skipif(
+    not _REAL_ARCHIVE.exists(),
+    reason="requires the local Lovdata archive (data/norway.farchive)",
+)
+def test_no_tvisteloven_vitneforsikring_survives_the_two_limb_ledd_shift(
+    _no_occupied_destination_replays,
+) -> None:
+    """W-56's payoff, pinned at the corpus: tvisteloven § 24-8's witness-oath
+    ledd is present in the replay, at the address the consolidation puts it.
+
+    W-54's firing 9: ``no/lovtid/2024-12-13-78``'s ``"Nåværende tredje og fjerde
+    ledd blir fjerde og nytt femte ledd."`` lowered only its ``3 → 4`` limb, and
+    the occupied-destination recovery removed the oath outright
+    (``OPS_MISSING part:5/chapter:24/section:24-8/subsection:5``).
+    """
+    replay = _no_occupied_destination_replays["no/lov/2005-06-17-90"]
+    assert replay.replayed is not None
+    hits = _no_probe_hits(replay.replayed, _TVISTELOVEN_OATH_PROBE)
+    assert hits == (_TVISTELOVEN_OATH_ADDRESS,)
+    # And the ledd itself exists — before W-56 the recovery removed the whole
+    # node, so there was no ``subsection:5`` under § 24-8 at all.
+    assert hits[0].rsplit("/", 1)[0] == "part:5/chapter:24/section:24-8/subsection:5"
+    assert [
+        a.op_id
+        for a in replay.adjudications
+        if a.kind == "no_replay_renumber_occupied_destination_removed"
+    ] == []
+
+
+@pytest.mark.skipif(
+    not _REAL_ARCHIVE.exists(),
+    reason="requires the local Lovdata archive (data/norway.farchive)",
+)
+def test_no_corpus_occupied_renumber_destinations_are_all_declared(
+    _no_occupied_destination_replays,
+) -> None:
     """Corpus pin (W-52): every occupied-destination removal in the corpus is
     declared on its receipt, and no replay is blocked by the observed-write
     audit any more.
@@ -738,17 +1111,12 @@ def test_no_corpus_occupied_renumber_destinations_are_all_declared() -> None:
     are the same defect class that never tripped the audit because the occupant
     stood at the destination leg — their receipts are unchanged, which is what
     the ``0`` collateral count pins.
+
+    W-56 moved the total from 10 to 9: see ``_NO_OCCUPIED_DESTINATION_LAWS`` for
+    why tvisteloven's row is now ``(0, 0)``.
     """
-    from lawvm.norway.index import build_no_amendment_index
-
-    data_dir = _REAL_ARCHIVE
-    index = build_no_amendment_index(data_dir)
-
     observed: dict[str, tuple[int, int]] = {}
-    for base_id in sorted(_NO_OCCUPIED_DESTINATION_LAWS):
-        replay = replay_no_to_pit(
-            base_id, as_of="2026-07-10", data_dir=data_dir, index=index
-        )
+    for base_id, replay in sorted(_no_occupied_destination_replays.items()):
         assert replay.error is None, (base_id, replay.error)
         assert replay.replayed is not None, base_id
         firings = sum(
@@ -771,5 +1139,8 @@ def test_no_corpus_occupied_renumber_destinations_are_all_declared() -> None:
         ] == [], base_id
 
     assert observed == _NO_OCCUPIED_DESTINATION_LAWS, observed
-    assert sum(f for f, _ in observed.values()) == 10
+    assert sum(f for f, _ in observed.values()) == 9
     assert sum(c for _, c in observed.values()) == 3
+    # The two tables must agree on the firing population, so neither can drift
+    # alone: one row per firing, keyed by op_id.
+    assert sum(f for f, _ in observed.values()) == len(_NO_OCCUPIED_DESTINATION_VERDICTS)

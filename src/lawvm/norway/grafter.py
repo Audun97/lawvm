@@ -1010,6 +1010,7 @@ def _split_change_attr(value: str, default_action: str) -> list[tuple[str, str]]
 
 
 NO_PARSE_MALFORMED_STRUCTURED_RENUMBER_ATTR_SKIPPED = "no_parse_malformed_structured_renumber_attr_skipped"
+NO_PARSE_MOVE_LEGS_COMPLETED_FROM_LEAD_PROSE = "no_parse_structured_move_legs_completed_from_lead_prose"
 
 
 def _structured_move_attr_skip_reason(token: str) -> Optional[str]:
@@ -1064,6 +1065,211 @@ def _split_move_attr(
         src, dst = token.split(";;", 1)
         out.append((src, dst))
     return out
+
+
+# W-56: Lovtidend's ``data-move-part`` sometimes UNDER-DECLARES a ledd shift.
+# The change block's own lead sentence is the operative instruction
+# ("Nåværende tredje og fjerde ledd blir fjerde og nytt femte ledd." — TWO
+# limbs), but the markup carries only some of the matching move legs
+# (``§24-8/ledd/3;;§24-8/ledd/4`` — ONE). Lowering the markup verbatim then
+# emits a PARTIAL cascade, and a partial cascade is what destroys live law: the
+# surviving 3→4 leg lands on a slot whose occupant is never moved out, so
+# (RENUMBER, dest_occupied) recovers by REMOVING that occupant. W-54 proved two
+# such firings wrong; tvisteloven § 24-8 lost the in-force vitneforsikring ledd
+# exactly this way. The markup is the defect, not the prose.
+#
+# Corpus sweep (W-56, all 3,089 amendment artifacts / 3,885 change blocks / 286
+# with ``data-move-part``): 166 blocks carry ledd-shift prose. 148 agree with
+# their markup, 1 has RICHER markup than prose (a ledd→punktum move the prose
+# spells as one limb), and 17 declare more limbs than the markup has legs. The
+# 17 split three ways and only ONE class is repaired here:
+#
+#   * 10 blocks carry NO ``data-move-part`` at all — a total drop with no anchor
+#     to template from. Repairing those means minting a base act, a section and
+#     a container from prose alone; that is a different (larger) production with
+#     its own blast radius, recorded rather than guessed at.
+#   * 3 blocks carry only MALFORMED tokens (``::`` for ``;;``, a stray space
+#     after ``;;``, tokens with no separator at all), already receipted by
+#     ``no_parse_malformed_structured_renumber_attr_skipped``. Zero valid legs
+#     means zero template, so they stay refused.
+#   * 4 blocks carry a well-formed but INCOMPLETE leg set — this production.
+#     ``no/lovtid/2024-12-13-78`` (tvisteloven § 24-8, the W-54 firing),
+#     ``no/lovtid/2024-05-31-26`` (lov/2018-06-08-28 § 7),
+#     ``no/lovtid/2024-06-21-44`` (lov/1999-07-02-64 § 57),
+#     ``no/lovtid/2025-12-22-129`` (lov/2020-04-17-29 § 11).
+#
+# The completion is pure TEMPLATING off markup the block already carries: every
+# existing leg must read ``<prefix>/ledd/<n>`` on BOTH sides under one shared
+# ``<prefix>``, and the completed set is that same prefix carrying the prose's
+# ledd numbers. Nothing about the base act, the section or the container comes
+# from the prose — only the shift MAP does. Conservative polarity throughout:
+# every check below leaves the markup's own legs exactly as they were rather
+# than emitting a guessed set, so a sentence this production cannot fully
+# account for lowers to nothing NEW (never to a different partial set).
+_NO_LEDD_SHIFT_SECTION_PREFIX_RE = compile_classifier_regex(
+    r"^§+\s*[0-9A-Za-z-]+\s+",
+    re.IGNORECASE,
+    classifier_id="norway.grafter.ledd_shift_section_prefix",
+)
+_NO_LEDD_SHIFT_MARKER_RE = compile_classifier_regex(
+    r"^(?:nåværende|noverande|nåverande|nuværende)\s+",
+    re.IGNORECASE,
+    classifier_id="norway.grafter.ledd_shift_marker",
+)
+_NO_LEDD_SHIFT_PIVOT_RE = compile_classifier_regex(
+    r"\s+ledd\s+blir\s+",
+    re.IGNORECASE,
+    classifier_id="norway.grafter.ledd_shift_pivot",
+)
+_NO_LEDD_SHIFT_TAIL_RE = compile_classifier_regex(
+    r"\s+ledd\.?$",
+    re.IGNORECASE,
+    classifier_id="norway.grafter.ledd_shift_tail",
+)
+# Newness/currency markers that may sit in front of any ordinal in either list
+# ("blir fjerde og NYTT femte ledd"). They carry no address information — the
+# ordinal does — so they are stripped before the ordinal lookup.
+_NO_LEDD_SHIFT_NEWNESS_MARKERS = ("nytt ", "nye ", "ny ", "nåværende ", "noverande ", "nåverande ")
+_NO_LEDD_PATH_STEP = "/ledd/"
+
+
+def _no_strip_ledd_shift_newness(token: str) -> str:
+    token = token.strip()
+    changed = True
+    while changed:
+        changed = False
+        for marker in _NO_LEDD_SHIFT_NEWNESS_MARKERS:
+            if token.startswith(marker):
+                token = token[len(marker) :].strip()
+                changed = True
+    return token
+
+
+def _no_ledd_shift_ordinals(phrase: str) -> Optional[list[int]]:
+    """``"tredje og fjerde"`` → ``[3, 4]``; ``"nytt tredje til sjette"`` → ``[3, 4, 5, 6]``.
+
+    The ordinal vocabulary is ``_NORWEGIAN_ORDINALS`` verbatim — deliberately NOT
+    widened here. An ordinal this grammar cannot name returns ``None`` and the
+    whole completion is refused, which is the all-or-nothing rule at the grammar.
+    """
+    ordinals: list[int] = []
+    for chunk in re.split(r"\s*(?:,| og )\s*", _normalize_space(phrase).lower()):
+        chunk = _no_strip_ledd_shift_newness(chunk)
+        if not chunk:
+            return None
+        low, separator, high = chunk.partition(" til ")
+        first = _NORWEGIAN_ORDINALS.get(_no_strip_ledd_shift_newness(low))
+        if first is None:
+            return None
+        if not separator:
+            ordinals.append(int(first))
+            continue
+        last = _NORWEGIAN_ORDINALS.get(_no_strip_ledd_shift_newness(high))
+        if last is None or int(last) < int(first):
+            return None
+        ordinals.extend(range(int(first), int(last) + 1))
+    return ordinals
+
+
+def _no_ledd_shift_pairs_from_sentence(sentence: str) -> Optional[tuple[str, list[tuple[int, int]]]]:
+    """Lower one ledd-shift sentence to ``(section_label, [(src, dst), …])``.
+
+    ``section_label`` is ``""`` when the sentence does not spell one (the common
+    shape — the block inherits its section from the preceding lead). Returns
+    ``None`` for anything that is not exactly one fully-accounted ledd shift.
+    """
+    residue = _normalize_space(sentence)
+    section_label = ""
+    # The section may be spelled before OR after the currency marker, so the
+    # prefix anchor is tried on both sides of it.
+    # lawvm-regex: owning_parser this IS the ledd-shift sentence parser
+    prefix_match = _NO_LEDD_SHIFT_SECTION_PREFIX_RE.match(residue)
+    if prefix_match is not None:
+        section_label = _normalize_no_section_label(prefix_match.group(0).lstrip("§").strip())
+        residue = residue[prefix_match.end() :]
+    # lawvm-regex: owning_parser this IS the ledd-shift sentence parser
+    marker_match = _NO_LEDD_SHIFT_MARKER_RE.match(residue)
+    if marker_match is None:
+        return None
+    residue = residue[marker_match.end() :]
+    # lawvm-regex: owning_parser this IS the ledd-shift sentence parser
+    prefix_match = _NO_LEDD_SHIFT_SECTION_PREFIX_RE.match(residue)
+    if prefix_match is not None:
+        if section_label:
+            return None
+        section_label = _normalize_no_section_label(prefix_match.group(0).lstrip("§").strip())
+        residue = residue[prefix_match.end() :]
+    # lawvm-regex: owning_parser this IS the ledd-shift sentence parser
+    tail_match = _NO_LEDD_SHIFT_TAIL_RE.search(residue)
+    if tail_match is None:
+        return None
+    residue = residue[: tail_match.start()]
+    # Exactly one pivot: "… ledd blir …" twice in one sentence is a shape this
+    # grammar cannot attribute, so it is refused rather than split on the first.
+    pivots = list(_NO_LEDD_SHIFT_PIVOT_RE.finditer(residue))  # lawvm-regex: owning_parser this IS the ledd-shift sentence parser
+    if len(pivots) != 1:
+        return None
+    sources = _no_ledd_shift_ordinals(residue[: pivots[0].start()])
+    destinations = _no_ledd_shift_ordinals(residue[pivots[0].end() :])
+    if sources is None or destinations is None or len(sources) != len(destinations):
+        return None
+    if len(set(sources)) != len(sources) or len(set(destinations)) != len(destinations):
+        return None
+    if any(src == dst for src, dst in zip(sources, destinations, strict=True)):
+        return None
+    return section_label, list(zip(sources, destinations, strict=True))
+
+
+def _no_split_ledd_path(path: str) -> Optional[tuple[str, int]]:
+    """``"lov/2005-06-17-90/§24-8/ledd/3"`` → ``("lov/2005-06-17-90/§24-8/ledd/", 3)``."""
+    prefix, separator, tail = path.rpartition(_NO_LEDD_PATH_STEP)
+    if not separator or not tail.isdigit() or "§" not in prefix:
+        return None
+    return prefix + separator, int(tail)
+
+
+def _no_completed_move_legs_from_ledd_shift_prose(
+    lead: str,
+    legs: Sequence[tuple[str, str]],
+) -> Optional[list[tuple[str, str]]]:
+    """Complete an under-declared ``data-move-part`` from the block's own prose.
+
+    Returns the FULL leg list in markup order (ascending prose order — the same
+    order Lovtidend writes a complete attribute in, so the caller's ordinary
+    reversal applies unchanged), or ``None`` to leave ``legs`` exactly as given.
+    """
+    if not legs:
+        return None
+    shifts = [
+        parsed
+        for parsed in (_no_ledd_shift_pairs_from_sentence(sentence) for sentence in _split_no_sentences(lead))
+        if parsed is not None
+    ]
+    if len(shifts) != 1:
+        return None
+    section_label, prose_pairs = shifts[0]
+    if len(prose_pairs) <= len(legs):
+        return None
+    template = ""
+    declared: set[tuple[int, int]] = set()
+    for raw_source, raw_destination in legs:
+        source_step = _no_split_ledd_path(raw_source)
+        destination_step = _no_split_ledd_path(raw_destination)
+        if source_step is None or destination_step is None:
+            return None
+        if source_step[0] != destination_step[0]:
+            return None
+        if template and template != source_step[0]:
+            return None
+        template = source_step[0]
+        declared.add((source_step[1], destination_step[1]))
+    if not declared.issubset(set(prose_pairs)):
+        return None
+    if section_label:
+        markup_section = template[: -len(_NO_LEDD_PATH_STEP)].rpartition("/")[2]
+        if _normalize_no_section_label(markup_section.lstrip("§")) != section_label:
+            return None
+    return [(f"{template}{src}", f"{template}{dst}") for src, dst in prose_pairs]
 
 
 def _payload_from_direct_text_article(
@@ -4382,6 +4588,38 @@ def iter_no_document_change_ops(
                 source_doc=source_doc,
                 raw_text=raw_text,
             )
+            # W-56: the markup may under-declare the shift its own lead spells.
+            # ``_split_move_attr`` hands back the legs already REVERSED (Lovtidend
+            # writes them in ascending prose order and the shift must be applied
+            # top-down), so the completion is computed in markup order and
+            # reversed back on the same convention.
+            completed_move_legs = _no_completed_move_legs_from_ledd_shift_prose(
+                lead_text, list(reversed(renumber_specs))
+            )
+            if completed_move_legs is not None:
+                _append_no_parse_adjudication(
+                    adjudications_out,
+                    kind=NO_PARSE_MOVE_LEGS_COMPLETED_FROM_LEAD_PROSE,
+                    message=(
+                        "Norway parser completed an under-declared structured move attribute "
+                        "from the change block's own ledd-shift lead sentence."
+                    ),
+                    source_id=source_id,
+                    detail=diagnostic_detail(
+                        rule_id=NO_PARSE_MOVE_LEGS_COMPLETED_FROM_LEAD_PROSE,
+                        phase="parse",
+                        family="source_pathology",
+                        blocking=False,
+                        base_id=base_id,
+                        source_doc=source_doc,
+                        declared_leg_count=len(renumber_specs),
+                        completed_leg_count=len(completed_move_legs),
+                        declared_legs=tuple(f"{src};;{dst}" for src, dst in reversed(renumber_specs)),
+                        completed_legs=tuple(f"{src};;{dst}" for src, dst in completed_move_legs),
+                        lead=lead_text,
+                    ),
+                )
+                renumber_specs = list(reversed(completed_move_legs))
             specs.extend(_split_change_attr(change_el.get("data-change-part", ""), "replace"))
             specs.extend(_split_change_attr(change_el.get("data-add-new-part", ""), "insert"))
             specs.extend(_split_change_attr(change_el.get("data-remove-part", ""), "repeal"))
