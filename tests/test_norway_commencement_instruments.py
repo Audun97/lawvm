@@ -3,11 +3,14 @@ from __future__ import annotations
 import io
 import os
 import tarfile
+from dataclasses import replace as dataclass_replace
 from pathlib import Path
 
 import pytest
 
 from lawvm.norway.commencement_instruments import (
+    _WHOLE_ACT_RE,
+    no_commencement_act_id_from_law_id,
     NO_COMMENCEMENT_EXECUTION_AUTHORIZED,
     NO_COMMENCEMENT_EXECUTION_DATE_CONFLICT,
     NO_COMMENCEMENT_EXECUTION_REFUSED,
@@ -66,13 +69,28 @@ def _whole_act_instrument_xml() -> bytes:
 </body></html>"""
 
 
-def _partial_instrument_xml() -> bytes:
-    return b"""<html><body>
-<dd class="title">Delt ikraftsetting av lov 2. februar 2025 nr. 5</dd>
-<dd class="basedOn"><a href="lov/2025-02-02-5">endringsloven</a></dd>
-<dd class="dateInForce">2025-04-01 og 2025-06-01</dd>
-<main class="documentBody">Loven \xc2\xa7 2 trer i kraft 1. april 2025. Resten trer i kraft 1. juni 2025.</main>
-</body></html>"""
+def _partial_instrument_xml(
+    date_in_force: str = "2025-04-01 og 2025-06-01",
+    body: str = "Loven § 2 trer i kraft 1. april 2025. Resten trer i kraft 1. juni 2025.",
+) -> bytes:
+    """A partial commencement instrument, refused for want of whole-act scope.
+
+    W-51 parameterizes the dates, because after the repair they are no longer
+    inert: this instrument cites the same act as the whole-act one beside it, so
+    a date of its LATER than the whole-act grant refutes that grant. The default
+    keeps the shape the parse tests assert on; the end-to-end archive below uses
+    a variant whose staging is finished before the whole-act date, and
+    :func:`test_a_later_partial_instrument_demotes_the_whole_act_grant_end_to_end`
+    pins what the default shape now does.
+    """
+    return (
+        "<html><body>\n"
+        '<dd class="title">Delt ikraftsetting av lov 2. februar 2025 nr. 5</dd>\n'
+        '<dd class="basedOn"><a href="lov/2025-02-02-5">endringsloven</a></dd>\n'
+        f'<dd class="dateInForce">{date_in_force}</dd>\n'
+        f'<main class="documentBody">{body}</main>\n'
+        "</body></html>"
+    ).encode("utf-8")
 
 
 def _ordinary_forskrift_xml() -> bytes:
@@ -411,7 +429,16 @@ def test_ingest_index_and_replay_execute_the_whole_act_lovtidend_instrument(tmp_
             ("lti/2025/nl-20250101-001.xml", _BASE_XML),
             ("lti/2025/nl-20250202-005.xml", _amendment_xml()),
             ("lti/2025/sf-20250301-0100.xml", _whole_act_instrument_xml()),
-            ("lti/2025/sf-20250301-0101.xml", _partial_instrument_xml()),
+            # W-51: the partial instrument's staging finishes on the whole-act
+            # date, so it is a sibling but not a LATER one and the act's
+            # whole-act grant stands. See the test below for the other case.
+            (
+                "lti/2025/sf-20250301-0101.xml",
+                _partial_instrument_xml(
+                    date_in_force="2025-01-15 og 2025-04-01",
+                    body="Loven § 2 trer i kraft 15. januar 2025. Resten trer i kraft 1. april 2025.",
+                ),
+            ),
             ("lti/2025/sf-20250301-0102.xml", _ordinary_forskrift_xml()),
         ],
     )
@@ -480,6 +507,61 @@ def test_ingest_index_and_replay_execute_the_whole_act_lovtidend_instrument(tmp_
     )
     assert before_the_instrument_date.amendments_applied == []
     assert before_the_instrument_date.amendments_skipped_future == ["no/lovtid/2025-02-02-5"]
+
+
+def test_a_later_partial_instrument_demotes_the_whole_act_grant_end_to_end(
+    tmp_path,
+) -> None:
+    """W-51 through ingest, index and replay: the etterretningstjenesteloven shape.
+
+    Same archive as above but with the partial instrument staging the REST of the
+    act two months after the whole-act instrument's date. Before W-51 the act
+    took 2025-04-01 and replay applied every op of it from that day, including
+    the ones the partial instrument says arrive on 2025-06-01 — a two-month early
+    application. Now the act stays contingent and replay applies nothing.
+    """
+    _write_archive(
+        tmp_path / "gjeldende-lover.tar.bz2",
+        [("nl/nl-20250101-001.xml", _BASE_XML)],
+    )
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [
+            ("lti/2025/nl-20250101-001.xml", _BASE_XML),
+            ("lti/2025/nl-20250202-005.xml", _amendment_xml()),
+            ("lti/2025/sf-20250301-0100.xml", _whole_act_instrument_xml()),
+            ("lti/2025/sf-20250301-0101.xml", _partial_instrument_xml()),
+        ],
+    )
+    db_path = tmp_path / "norway.farchive"
+    ingest_no_public_archives(tmp_path, db_path)
+    index = build_no_amendment_index(db_path)
+
+    assert len(index.entries) == 1
+    assert index.entries[0].effective_status == "contingent"
+    assert index.entries[0].effective_date is None
+    assert [
+        (item.source_id, item.replay_authorized) for item in index.commencement_instruments
+    ] == [
+        ("no/forskrift/2025-03-01-100", False),
+        ("no/forskrift/2025-03-01-101", False),
+    ]
+    refusal = next(
+        d
+        for d in index.diagnostics
+        if d.get("rule_id") == NO_COMMENCEMENT_EXECUTION_REFUSED
+        and d.get("instrument_source_id") == "no/forskrift/2025-03-01-100"
+    )
+    assert refusal["failed_conjuncts"] == ["act_has_no_later_instrument"]
+
+    replay = replay_no_to_pit(
+        "no/lov/2025-01-01-1",
+        as_of="2025-12-31",
+        data_dir=db_path,
+        index=index,
+    )
+    assert replay.amendments_applied == []
+    assert replay.amendments_skipped_contingent == ["no/lovtid/2025-02-02-5"]
 
 
 def test_real_corpus_whole_act_commencement_witness_when_archive_available() -> None:
@@ -2094,3 +2176,587 @@ def test_w49_corpus_totals_and_the_untouched_older_routes() -> None:
 
     # The inert population grows by 2 and stays unreachable (W-39 2, W-47 27).
     assert sum(1 for d in named if d["law_id"] not in entries[d["source_id"]].base_ids) == 2
+
+
+# --------------------------------------------------------------------------
+# W-51: the shipped whole-act route's soundness repair.
+#
+# The W-50 sizing pass ran the act-level zero-early probe over the corpus's 542
+# whole-act authorizations for the first time and found the OLDEST route in
+# breach: 8 EARLY rows over 5 acts. Three repairs, measured in ``.tmp/w51/``:
+# a sharpened sibling predicate (5 of the 8 rows were forskrift instruments
+# citing the act as hjemmel), a fence on ``_WHOLE_ACT_RE``'s carve-out tail, and
+# the act-level refutation W-47's route already asserted.
+# --------------------------------------------------------------------------
+
+
+def _sibling_xml(
+    *,
+    title: str,
+    based_on: str,
+    date_in_force: str,
+    body: str,
+    endrer: str | None = None,
+) -> bytes:
+    endrer_block = (
+        f'<dd class="changesToDocuments"><ul>{endrer}</ul></dd>' if endrer else ""
+    )
+    return (
+        f'<html><body><dd class="title">{title}</dd>'
+        f'<dd class="basedOn"><ul><li>{based_on}</li></ul></dd>'
+        f"{endrer_block}"
+        f'<dd class="dateInForce">{date_in_force}</dd>'
+        f'<main class="documentBody"><article class="legalP">{body}</article></main>'
+        "</body></html>"
+    ).encode("utf-8")
+
+
+def _hjemmel_only(payload: bytes) -> bool:
+    result = parse_no_commencement_instrument(
+        payload,
+        source_id="no/forskrift/2025-03-01-900",
+        locator="no://forskrift/2025-03-01-900/original.lti.xml",
+        archive="lovtidend-avd1-2025.tar.bz2",
+        member_name="lti/2025/sf-20250301-0900.xml",
+    )
+    assert result.candidate is not None
+    return result.candidate.cites_acts_as_hjemmel_only
+
+
+def test_hjemmel_only_reader_excludes_a_forskrift_commencement() -> None:
+    """The measured artefact shape, both witnesses holding.
+
+    ``no/forskrift/2016-06-29-845`` commences forskrift 2006-04-21-433, declares
+    exactly that forskrift in its ``Endrer`` block, and cites fiskesalslagslova
+    only as the hjemmel it was made under. The act-level probe read it as
+    fiskesalslagslova still commencing something in 2023.
+    """
+    assert _hjemmel_only(
+        _sibling_xml(
+            title="Ikrafttredelse av forskrift 21. april 2006 nr. 433 om transitt av fisk",
+            based_on="lov/2013-06-21-75/§8",
+            date_in_force="2016-09-01",
+            endrer="<li>forskrift/2006-04-21-433</li>",
+            body=(
+                "Forskrift 21. april 2006 nr. 433 om transitt av fisk trer i kraft "
+                "1. september 2016."
+            ),
+        )
+    )
+
+
+def test_hjemmel_only_reader_keeps_a_sibling_with_no_endrer_block() -> None:
+    """The structural witness must be POSITIVE, not merely absent.
+
+    ``no/forskrift/2021-08-26-2589`` — the genuine sibling that refutes
+    bredbåndsutbyggingsloven's whole-act grant — declares no ``Endrer`` block at
+    all. An absent block proves nothing about what the instrument commences, so
+    the sibling stays in.
+    """
+    assert not _hjemmel_only(
+        _sibling_xml(
+            title="Delt ikraftsetting av lov 7. mai 2020 nr. 40",
+            based_on="lov/2020-05-07-40/§26",
+            date_in_force="2021-10-01",
+            body=(
+                "Delt ikraftsetting av lov 7. mai 2020 nr. 40 om tilrettelegging for "
+                "utbygging av høyhastighetsnett for elektronisk kommunikasjon "
+                "(bredbåndsutbyggingsloven). Lovens kapittel 6 trer i kraft "
+                "1. oktober 2021."
+            ),
+        )
+    )
+
+
+def test_hjemmel_only_reader_keeps_a_sibling_declaring_a_law() -> None:
+    """``no/forskrift/2021-08-26-2581``: the Endrer block names the act itself."""
+    assert not _hjemmel_only(
+        _sibling_xml(
+            title="Delt ikrafttredelse av lov om Etterretningstjenesten kapittel 7 og 8",
+            based_on="lov/2020-06-19-77/§12-1",
+            date_in_force="2022-01-01",
+            endrer="<li>lov/2020-06-19-77</li>",
+            body=(
+                "Delt ikraftsetting av lov 19. juni 2020 nr. 77 om Etterretningstjenesten "
+                "(etterretningstjenesteloven). Loven kapittel 7 og 8 trer i kraft "
+                "1. januar 2022, med unntak av § 7-3."
+            ),
+        )
+    )
+
+
+def test_hjemmel_only_reader_keeps_an_act_commencement_rewriting_a_resolution() -> None:
+    """The textual witness earning its keep, on a measured shape.
+
+    ``no/forskrift/2013-12-13-1449`` POSTPONES an act's commencement, and its
+    ``Endrer`` block names only the kongelig resolusjon it rewrites — so the
+    structural witness alone would drop the most refuting sibling there is.
+    The definite act-word in its text keeps it. Eight instruments in the corpus
+    are held back by this second witness; 242 clear the structural one and 234
+    clear both.
+    """
+    assert not _hjemmel_only(
+        _sibling_xml(
+            title="Utsatt ikrafttredelse av lov 28. mai 2010 nr. 16",
+            based_on="lov/2010-05-28-16/§74",
+            date_in_force="2014-07-01",
+            endrer="<li>forskrift/2013-09-27-1132</li>",
+            body=(
+                "I kongelig resolusjon 27. september 2013 nr. 1132 gjøres følgende "
+                "endringer: Loven trer i kraft 1. juli 2014, unntatt § 57 som trer i "
+                "kraft senere."
+            ),
+        )
+    )
+
+
+def test_hjemmel_only_reader_is_not_fooled_by_a_short_title_compound() -> None:
+    """``folkehelseloven`` is not the definite act-word ``loven``.
+
+    ``no/forskrift/2018-10-23-1603`` names the act in full — "med hjemmel i lov
+    24. juni 2011 nr. 29 om folkehelsearbeid (folkehelseloven) § 21" — while
+    commencing a forskrift amendment. The word boundary is what makes the
+    textual witness hold here, and it is the reason the reader looks for the
+    bare definite form rather than for the act's name.
+    """
+    assert _hjemmel_only(
+        _sibling_xml(
+            title="Vedtak om ikrafttredelse av forskrift 11. mai 2018 nr. 724",
+            based_on="lov/2011-06-24-29/§21",
+            date_in_force="2018-10-23",
+            endrer="<li>forskrift/2018-05-11-724</li>",
+            body=(
+                "Forskriftsendringen (forskrift 11. mai 2018 nr. 724) er fastsatt av "
+                "Helse- og omsorgsdepartementet 11. mai 2018 med hjemmel i lov 24. juni "
+                "2011 nr. 29 om folkehelsearbeid (folkehelseloven) § 21 fjerde ledd. "
+                "Forskriftsendringen trer i kraft straks."
+            ),
+        )
+    )
+
+
+@pytest.mark.parametrize(
+    "tail",
+    [
+        # The live breach: bredbåndsutbyggingsloven's chapter 6, commenced 15
+        # months later by ``no/forskrift/2021-08-26-2589``.
+        ", med unntak av kapittel 6 om sentral informasjonstjeneste, som trer i "
+        "kraft når departementet bestemmer",
+        ", unntatt bestemmelsene om klage",
+        ", med unntak for del V",
+        ", bortsett fra kapittel 3",
+        " for så vidt gjelder del I",
+        ". Kapittel 4 settes foreløpig ikke i kraft",
+        ", likevel slik at tredje ledd trer i kraft senere",
+        ". Romertall II trer i kraft senere",
+        ", med unntak av punkt 3",
+        ", men bokstav c gjelder først fra 2027",
+    ],
+)
+def test_whole_act_scope_refuses_a_carve_out_in_the_regex_tail(tail: str) -> None:
+    """W-51 repair two: ``[^§]{0,400}$`` may not swallow an exception.
+
+    The head of every one of these is a clean "Loven trer i kraft <date>" that
+    ``_WHOLE_ACT_RE`` matches end to end; what the fence reads is the tail. The
+    first assertion is what makes this a test OF THE FENCE rather than of some
+    other refusal: the shipped pattern still accepts every one of these texts.
+    """
+    body = f"Loven trer i kraft 1. april 2025{tail}."
+    assert _WHOLE_ACT_RE.fullmatch(body) is not None
+    payload = _sibling_xml(
+        title="Ikraftsetting av lov 2. februar 2025 nr. 5",
+        based_on="lov/2025-02-02-5/§26",
+        date_in_force="2025-04-01",
+        body=body,
+    )
+    result = parse_no_commencement_instrument(
+        payload,
+        source_id="no/forskrift/2025-03-01-901",
+        locator="no://forskrift/2025-03-01-901/original.lti.xml",
+        archive="lovtidend-avd1-2025.tar.bz2",
+        member_name="lti/2025/sf-20250301-0901.xml",
+    )
+    assert result.parse_status is NOCommencementParseStatus.BLOCKED_UNRESOLVED
+    assert result.candidate is not None
+    assert result.candidate.scope_status is NOCommencementScopeStatus.UNRESOLVED
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        # The bare shape, and the overwhelming majority of the 607.
+        "Loven trer i kraft 1. april 2025.",
+        "Lova trer i verk 1. april 2025.",
+        "Denne loven trer i kraft 1. april 2025.",
+        # An innocuous tail: it narrows nothing about WHICH provisions commence.
+        "Loven trer i kraft 1. april 2025 med virkning for regnskapsår påbegynt "
+        "etter 31. desember 2024.",
+        "Loven trer i kraft 1. april 2025. Fremmet av Finansdepartementet.",
+    ],
+)
+def test_whole_act_scope_still_accepts_an_unqualified_commencement(body: str) -> None:
+    """The fence is refusing only: it may not cost the shape the route exists for."""
+    payload = _sibling_xml(
+        title="Ikraftsetting av lov 2. februar 2025 nr. 5",
+        based_on="lov/2025-02-02-5/§26",
+        date_in_force="2025-04-01",
+        body=body,
+    )
+    result = parse_no_commencement_instrument(
+        payload,
+        source_id="no/forskrift/2025-03-01-902",
+        locator="no://forskrift/2025-03-01-902/original.lti.xml",
+        archive="lovtidend-avd1-2025.tar.bz2",
+        member_name="lti/2025/sf-20250301-0902.xml",
+    )
+    assert result.parse_status is NOCommencementParseStatus.CANDIDATE
+    assert result.candidate is not None
+    assert result.candidate.scope_status is NOCommencementScopeStatus.WHOLE_ACT
+
+
+def test_whole_act_authorization_refuses_a_later_instrument_for_the_act() -> None:
+    """W-51 repair three, the refuting direction.
+
+    The etterretningstjenesteloven shape: a clean whole-act instrument dates the
+    act at 2021-01-01 while a later one commences its chapters 7 and 8 on
+    2022-01-01. The act-level claim is that EVERY op was in force on the granted
+    day, so any later commencement of any part of the act refutes it — there is
+    no disjointness to prove, unlike W-49's per-part claim, because a whole-act
+    claim leaves no part of the act unclaimed.
+    """
+    whole = _instrument_candidate(
+        "no/forskrift/2025-03-01-910",
+        affected_law_ids=("no/lov/2025-02-02-5",),
+        effective_dates=("2025-04-01",),
+    )
+    later = _instrument_candidate(
+        "no/forskrift/2026-01-05-911",
+        affected_law_ids=("no/lov/2025-02-02-5",),
+        effective_dates=("2026-01-05",),
+        scope_status=NOCommencementScopeStatus.UNRESOLVED,
+    )
+
+    authorization = authorize_no_commencement_instruments(
+        [
+            (NOCommencementParseStatus.CANDIDATE, whole),
+            (NOCommencementParseStatus.BLOCKED_UNRESOLVED, later),
+        ],
+        offered_act_ids={"no/lovtid/2025-02-02-5"},
+    )
+
+    assert authorization.authorizations == ()
+    assert [item.replay_authorized for item in authorization.instruments] == [False, False]
+    refusal = next(
+        r for r in authorization.refusals if r.instrument_source_id.endswith("910")
+    )
+    assert refusal.failed_conjuncts == (
+        NOCommencementAuthorizationConjunct.ACT_HAS_NO_LATER_INSTRUMENT,
+    )
+    detail = refusal.to_diagnostic_detail()
+    assert detail["rule_id"] == NO_COMMENCEMENT_EXECUTION_REFUSED
+    assert detail["failed_conjuncts"] == ["act_has_no_later_instrument"]
+    assert detail["source_id"] == "no/lovtid/2025-02-02-5"
+
+
+def test_whole_act_authorization_admits_an_earlier_sibling() -> None:
+    """An earlier instrument says nothing against "the rest commenced later"."""
+    earlier = _instrument_candidate(
+        "no/forskrift/2024-01-01-912",
+        affected_law_ids=("no/lov/2025-02-02-5",),
+        effective_dates=("2024-01-01",),
+        scope_status=NOCommencementScopeStatus.UNRESOLVED,
+    )
+    whole = _instrument_candidate(
+        "no/forskrift/2025-03-01-913",
+        affected_law_ids=("no/lov/2025-02-02-5",),
+        effective_dates=("2025-04-01",),
+    )
+
+    authorization = authorize_no_commencement_instruments(
+        [
+            (NOCommencementParseStatus.BLOCKED_UNRESOLVED, earlier),
+            (NOCommencementParseStatus.CANDIDATE, whole),
+        ],
+        offered_act_ids={"no/lovtid/2025-02-02-5"},
+    )
+
+    assert authorization.authorized_effective_dates() == {
+        "no/lovtid/2025-02-02-5": "2025-04-01"
+    }
+
+
+def test_whole_act_authorization_admits_a_later_hjemmel_only_sibling() -> None:
+    """The sharpening, at the gate: a hjemmel citation is not a sibling.
+
+    Without it this is one of the five artefact rows the W-50 probe reported —
+    a forskrift commencement whose enabling statute is the act.
+    """
+    whole = _instrument_candidate(
+        "no/forskrift/2025-03-01-914",
+        affected_law_ids=("no/lov/2025-02-02-5",),
+        effective_dates=("2025-04-01",),
+    )
+    hjemmel = dataclass_replace(
+        _instrument_candidate(
+            "no/forskrift/2026-01-05-915",
+            affected_law_ids=("no/lov/2025-02-02-5",),
+            effective_dates=("2026-01-05",),
+            scope_status=NOCommencementScopeStatus.UNRESOLVED,
+        ),
+        cites_acts_as_hjemmel_only=True,
+    )
+
+    authorization = authorize_no_commencement_instruments(
+        [
+            (NOCommencementParseStatus.CANDIDATE, whole),
+            (NOCommencementParseStatus.BLOCKED_UNRESOLVED, hjemmel),
+        ],
+        offered_act_ids={"no/lovtid/2025-02-02-5"},
+    )
+
+    assert authorization.authorized_effective_dates() == {
+        "no/lovtid/2025-02-02-5": "2025-04-01"
+    }
+
+
+def test_whole_act_refutation_is_per_act_not_per_instrument() -> None:
+    """One instrument commencing two acts is refuted on only the refuted one."""
+    whole = _instrument_candidate(
+        "no/forskrift/2025-03-01-916",
+        affected_law_ids=("no/lov/2025-02-02-5", "no/lov/2025-02-02-6"),
+        effective_dates=("2025-04-01",),
+    )
+    later = _instrument_candidate(
+        "no/forskrift/2026-01-05-917",
+        affected_law_ids=("no/lov/2025-02-02-6",),
+        effective_dates=("2026-01-05",),
+        scope_status=NOCommencementScopeStatus.UNRESOLVED,
+    )
+
+    authorization = authorize_no_commencement_instruments(
+        [
+            (NOCommencementParseStatus.CANDIDATE, whole),
+            (NOCommencementParseStatus.BLOCKED_UNRESOLVED, later),
+        ],
+        offered_act_ids={"no/lovtid/2025-02-02-5", "no/lovtid/2025-02-02-6"},
+    )
+
+    assert authorization.authorized_effective_dates() == {
+        "no/lovtid/2025-02-02-5": "2025-04-01"
+    }
+    assert [
+        r.act_source_id
+        for r in authorization.refusals
+        if r.failed_conjuncts
+        == (NOCommencementAuthorizationConjunct.ACT_HAS_NO_LATER_INSTRUMENT,)
+    ] == ["no/lovtid/2025-02-02-6"]
+
+
+def test_whole_act_date_conflict_still_blocks_under_the_refutation() -> None:
+    """The refutation is asserted AFTER the conflict branch, deliberately.
+
+    Two instruments giving one act two whole-act dates is a contradiction the
+    lane blocks on. Applied while proposals are gathered, the refutation would
+    resolve every such disagreement in favour of the later date and the blocking
+    receipt would never be written. Measured, the corpus carries no whole-act
+    date conflict, so the ordering costs nothing and keeps the louder verdict.
+    """
+    first = _instrument_candidate(
+        "no/forskrift/2025-03-01-918",
+        affected_law_ids=("no/lov/2025-02-02-5",),
+        effective_dates=("2025-04-01",),
+    )
+    second = _instrument_candidate(
+        "no/forskrift/2025-03-01-919",
+        affected_law_ids=("no/lov/2025-02-02-5",),
+        effective_dates=("2025-07-01",),
+    )
+
+    authorization = authorize_no_commencement_instruments(
+        [
+            (NOCommencementParseStatus.CANDIDATE, first),
+            (NOCommencementParseStatus.CANDIDATE, second),
+        ],
+        offered_act_ids={"no/lovtid/2025-02-02-5"},
+    )
+
+    assert authorization.authorizations == ()
+    assert len(authorization.conflicts) == 1
+    assert authorization.conflicts[0].effective_dates == ("2025-04-01", "2025-07-01")
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_w51_corpus_the_two_demoted_acts_and_their_repairs() -> None:
+    """The whole measured cost of the repair: two acts, one per mechanism.
+
+    ``no/lovtid/2020-05-07-40`` (bredbåndsutbyggingsloven) falls to the CARVE-OUT
+    FENCE — its instrument's text excepts kapittel 6 — so its instrument is no
+    longer a candidate at all. ``no/lovtid/2020-06-19-77``
+    (etterretningstjenesteloven) falls to the REFUTATION — its instrument is
+    still a clean whole-act candidate, and the receipt says which conjunct
+    failed. Both were live P1 breaches: chapter 6 commenced 2021-10-01 against a
+    2020-07-01 grant, chapters 7 and 8 on 2022-01-01 against 2021-01-01.
+    """
+    index = build_no_amendment_index(_NO_FARCHIVE_PATH)
+    entries = {e.source_id: e for e in index.entries}
+    instruments = {c.source_id: c for c in index.commencement_instruments}
+
+    for act_id in ("no/lovtid/2020-05-07-40", "no/lovtid/2020-06-19-77"):
+        assert entries[act_id].effective_status == "contingent"
+        assert entries[act_id].effective_date is None
+        assert entries[act_id].part_scoped_effective_dates == ()
+
+    # The fenced one is no longer a whole-act candidate at all, and W-47's
+    # reader had always refused its text for the same reason (the exception
+    # phrase is in ``_SUBDIVISION_SCOPE_RE`` too) — which is exactly the
+    # inconsistency W-51 removes: two readers of the same sentence disagreeing.
+    fenced = instruments["no/forskrift/2020-05-07-944"]
+    assert fenced.scope_status is NOCommencementScopeStatus.UNRESOLVED
+    assert fenced.whole_act_operative_text is False
+    assert fenced.effective_dates == ("2020-07-01",)
+    # The sibling that made the old grant a live breach.
+    chapter_six = instruments["no/forskrift/2021-08-26-2589"]
+    assert chapter_six.effective_dates == ("2021-10-01",)
+    assert chapter_six.affected_law_ids == ("no/lov/2020-05-07-40",)
+    assert chapter_six.cites_acts_as_hjemmel_only is False
+
+    refuted = instruments["no/forskrift/2020-06-19-1231"]
+    assert refuted.scope_status is NOCommencementScopeStatus.WHOLE_ACT
+    refusals = [
+        d
+        for d in index.diagnostics
+        if d.get("rule_id") == NO_COMMENCEMENT_EXECUTION_REFUSED
+        and "act_has_no_later_instrument" in (d.get("failed_conjuncts") or [])
+    ]
+    assert [(d["source_id"], d["instrument_source_id"]) for d in refusals] == [
+        ("no/lovtid/2020-06-19-77", "no/forskrift/2020-06-19-1231")
+    ]
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_w51_corpus_zero_early_over_every_whole_act_grant() -> None:
+    """P1, promoted from a measurement of the gate to a property of it.
+
+    The probe W-50 ran from the outside, run here over the sharpened sibling
+    set: no whole-act grant has a later commencement-relevant sibling. Given the
+    conjunct that is now close to a tautology — which is the point of moving it
+    inside — so the assertion that carries information is the second one: the
+    234 sibling exclusions did not hide a breach, because every one of them is
+    an instrument whose ``Endrer`` block declares no law at all.
+    """
+    index = build_no_amendment_index(_NO_FARCHIVE_PATH)
+    instruments = {c.source_id: c for c in index.commencement_instruments}
+    dates_by_act: dict[str, list[tuple[str, str]]] = {}
+    for candidate in index.commencement_instruments:
+        if candidate.cites_acts_as_hjemmel_only:
+            continue
+        for law_id in candidate.affected_law_ids:
+            act_id = no_commencement_act_id_from_law_id(law_id)
+            if not act_id:
+                continue
+            for date in candidate.effective_dates:
+                dates_by_act.setdefault(act_id, []).append((candidate.source_id, date))
+
+    grants = [
+        d
+        for d in index.diagnostics
+        if d.get("rule_id") == NO_COMMENCEMENT_EXECUTION_AUTHORIZED
+    ]
+    assert len(grants) == 540
+    early = [
+        (d["source_id"], d["effective_date"], sibling_id, sibling_date)
+        for d in grants
+        for sibling_id, sibling_date in dates_by_act.get(d["source_id"], ())
+        if sibling_id not in set(d["instrument_source_ids"])
+        and sibling_date > d["effective_date"]
+    ]
+    assert early == []
+
+    excluded = [c for c in instruments.values() if c.cites_acts_as_hjemmel_only]
+    assert len(excluded) == 234
+    assert all(c.changed_law_ids == () for c in excluded)
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_w51_corpus_totals_and_the_untouched_part_routes() -> None:
+    """The repair's whole corpus footprint, with the three part pins beside it.
+
+    540 whole-act grants (542 - 2), and W-39's 123, W-47's 260 and W-49's 33 do
+    NOT move. That is the check the sharpening owes: it only ever removes
+    siblings, so it can only ever remove refutations, so no part grant can be
+    lost to it — and measured, none is gained either, because every sibling it
+    drops was already failing to refute for some other reason.
+    """
+    index = build_no_amendment_index(_NO_FARCHIVE_PATH)
+    counts = {
+        rule: len([d for d in index.diagnostics if d.get("rule_id") == rule])
+        for rule in (
+            NO_COMMENCEMENT_EXECUTION_AUTHORIZED,
+            NO_COMMENCEMENT_PART_EXECUTION_AUTHORIZED,
+            NO_COMMENCEMENT_MULTI_PART_EXECUTION_AUTHORIZED,
+            NO_COMMENCEMENT_NAMED_PART_LIST_EXECUTION_AUTHORIZED,
+        )
+    }
+    assert counts == {
+        NO_COMMENCEMENT_EXECUTION_AUTHORIZED: 540,
+        NO_COMMENCEMENT_PART_EXECUTION_AUTHORIZED: 123,
+        NO_COMMENCEMENT_MULTI_PART_EXECUTION_AUTHORIZED: 260,
+        NO_COMMENCEMENT_NAMED_PART_LIST_EXECUTION_AUTHORIZED: 33,
+    }
+    assert not [
+        d
+        for d in index.diagnostics
+        if d.get("rule_id")
+        in {
+            NO_COMMENCEMENT_EXECUTION_DATE_CONFLICT,
+            NO_COMMENCEMENT_PART_EXECUTION_DATE_CONFLICT,
+        }
+    ]
+    # The inert part-grant population is untouched too (W-39 2, W-47 27, W-49 2).
+    inert = [
+        (entry.source_id, law_id)
+        for entry in index.entries
+        for law_id, _date in entry.part_scoped_effective_dates
+        if law_id not in entry.base_ids
+    ]
+    assert len(inert) == 31
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_w51_corpus_the_carve_out_fence_flips_exactly_one_instrument() -> None:
+    """The fence's whole corpus effect, recorded — not tuned.
+
+    Of the 608 instruments the shipped ``_WHOLE_ACT_RE`` accepted, the fence
+    refuses exactly one: 608 - 1 = 607 whole-act scopes, and the one missing is
+    named. The two other carve-out texts the W-50 sizing found
+    (``2010-06-04-771``, ``2011-12-09-1221``) never reach the fence: each
+    carries two ``dateInForce`` dates, so ``SINGLE_EFFECTIVE_DATE`` had already
+    left them inert — asserted here so a later widening of the date reader
+    cannot quietly promote a carve-out.
+    """
+    index = build_no_amendment_index(_NO_FARCHIVE_PATH)
+    assert index.commencement_instrument_coverage.to_dict()["candidates"] == 607
+    whole_act_scoped = {
+        candidate.source_id
+        for candidate in index.commencement_instruments
+        if candidate.scope_status is NOCommencementScopeStatus.WHOLE_ACT
+    }
+    assert len(whole_act_scoped) == 607
+    assert "no/forskrift/2020-05-07-944" not in whole_act_scoped
+    instruments = {c.source_id: c for c in index.commencement_instruments}
+    for inert_carve_out in ("no/forskrift/2010-06-04-771", "no/forskrift/2011-12-09-1221"):
+        candidate = instruments[inert_carve_out]
+        assert candidate.scope_status is NOCommencementScopeStatus.UNRESOLVED
+        assert len(candidate.effective_dates) == 2

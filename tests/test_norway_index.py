@@ -1045,7 +1045,14 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
     # and ``no/lovtid/2016-06-10-23``, both W-28 acts whose only law-switch lead
     # cited a pre-numbering act, and both ``plain`` rather than staged. The
     # offer-gate conjuncts are again unchanged; only the population grew.
-    assert len(authorized_ids) == 542
+    # 542 -> 540 at W-51, and this is the FIRST time this pin has fallen rather
+    # than grown: the whole-act route's soundness repair. Two acts lose their
+    # grant, both measured P1 breaches, neither of them staged —
+    # ``no/lovtid/2020-05-07-40`` (its instrument's text excepts kapittel 6,
+    # which commenced 15 months later) and ``no/lovtid/2020-06-19-77`` (kapittel
+    # 7 and 8 a year later). The offering is untouched; what changed is a
+    # conjunct. The eight staged re-datings above are unaffected.
+    assert len(authorized_ids) == 540
     assert not [
         diagnostic
         for diagnostic in index.diagnostics
@@ -1088,7 +1095,13 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # in 2011 and del III in 2023 has no single act-level date and inventing
         # one would be a claim the evidence does not make. In particular
         # ``instrument_authorized`` stays at exactly 542.
-        "contingent": 962,
+        # 962 -> 964 and 542 -> 540 at W-51: the two acts the whole-act route's
+        # soundness repair demotes fall back to the status they would have had
+        # without an instrument, which for both is ``contingent`` ("Kongen
+        # bestemmer" with no date). Exactly conserving: nothing else moves, and
+        # in particular no part-scoped grant appears in their place (both acts'
+        # ``part_scoped_effective_dates`` stay empty).
+        "contingent": 964,
         # 1021 -> 1020 at W-15 (multi-part misbinding fix): the sole moved entry
         # is no/lovtid/2018-12-20-119, whose only "op" was its own part II
         # commencement sentence ("Lova tek til å gjelde straks.") swallowed as a
@@ -1104,7 +1117,7 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # 1049 -> 1051 at W-32: see the contingent comment above.
         "dated": 1052,
         "immediate": 1,
-        "instrument_authorized": 542,
+        "instrument_authorized": 540,
         "unknown": 2,
     }
 
@@ -1187,11 +1200,17 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     if index.commencement_instrument_coverage.total_instruments == 0:
         pytest.skip("local Norway corpus is not installed")
 
+    # candidates 608 -> 607 and blocked_unresolved 1757 -> 1758 at W-51: the
+    # carve-out fence on ``_WHOLE_ACT_RE``'s tail. Exactly ONE instrument moves
+    # across the partition — ``no/forskrift/2020-05-07-944``, "Loven trer i
+    # kraft 1. juli 2020, med unntak av kapittel 6 …" — and it moves to
+    # ``blocked_unresolved`` with its scope residual, so the partition still
+    # totals 35,955.
     assert index.commencement_instrument_coverage.to_dict() == {
         "total_instruments": 35955,
-        "candidates": 608,
+        "candidates": 607,
         "benign_non_commencement": 33590,
-        "blocked_unresolved": 1757,
+        "blocked_unresolved": 1758,
     }
     authorized = [
         entry for entry in index.entries if entry.effective_status == "instrument_authorized"
@@ -1208,14 +1227,18 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     # 540 -> 542 (and 532 -> 534 non-staged) at W-36/W-28: two first-time entries
     # with authorizing instruments, ``no/lovtid/2009-06-19-101`` and
     # ``no/lovtid/2016-06-10-23``, neither staged.
-    assert len(authorized) == 542
+    # 542 -> 540 (and 534 -> 532 non-staged) at W-51: the two acts the whole-act
+    # route's soundness repair demotes, both ``plain``. The staged eight are
+    # untouched, which is the check that the repair did not reach the
+    # re-dating population the offer gate exists for.
+    assert len(authorized) == 540
     assert (
         len([
             entry
             for entry in authorized
             if entry.commencement_shape != NOCommencementShape.STAGED_DELEGATED
         ])
-        == 534
+        == 532
     )
     assert all(entry.effective_date for entry in authorized)
     authorization_receipts = [
@@ -1223,7 +1246,9 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
         for diagnostic in index.diagnostics
         if diagnostic["rule_id"] == NO_COMMENCEMENT_EXECUTION_AUTHORIZED
     ]
-    assert len(authorization_receipts) == 542
+    # 542 -> 540 at W-51, in step with the entry count above: one authorization
+    # receipt per authorized act, still.
+    assert len(authorization_receipts) == 540
     assert not [
         diagnostic
         for diagnostic in index.diagnostics

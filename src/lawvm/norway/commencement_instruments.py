@@ -52,6 +52,28 @@ would cost 4 of this route's 12 pairs, two of them purely on that pattern — wh
 a later instrument re-commencing one of the NAMED parts must refute even though
 the act-global rule would notice it too. See
 :class:`NOCommencementNamedPartListAuthorizationConjunct`.
+
+W-51 adds no route. It repairs the OLDEST one: measured over the corpus's 542
+whole-act authorizations, the shipped whole-act route was in act-level soundness
+breach at 8 EARLY rows over 5 acts — grants dating an act's whole op stream on a
+day when another instrument had not yet commenced part of it. Three repairs, in
+dependency order, and the first is shared by all four routes:
+
+* the SIBLING predicate is sharpened. Every route that refutes a claim does so
+  from the set of instruments citing the same act, and that set was built from
+  ``basedOn`` alone — which conflates "commences this act" with "was made under
+  this act". Five of the eight EARLY rows were the second kind: an instrument
+  commencing a *forskrift* whose enabling statute happens to be the act. See
+  :func:`_cites_acts_as_hjemmel_only`. Sharpening only ever REMOVES siblings, so
+  it can only ever remove refutations: measured, it adds 0 and loses 0 of the
+  part routes' 416 grants and it clears 5 of the 8 EARLY rows.
+* the CARVE-OUT tail is fenced. ``_WHOLE_ACT_RE`` accepted "Loven trer i kraft
+  <date>" followed by up to 400 non-``§`` characters, and that tail swallowed
+  "…, med unntak av kapittel 6 …". See ``_WHOLE_ACT_TAIL_HAZARD_RE``.
+* the act-level REFUTATION becomes a conjunct of the gate rather than a
+  property the outside probe measures — the same move W-49 made for its own
+  route. See
+  :attr:`NOCommencementAuthorizationConjunct.ACT_HAS_NO_LATER_INSTRUMENT`.
 """
 
 from __future__ import annotations
@@ -119,6 +141,55 @@ _WHOLE_ACT_RE = compile_classifier_regex(
     r"^(?:denne )?(?:loven|lova) trer i (?:kraft|verk)\b[^§]{0,400}$",
     re.IGNORECASE,
     classifier_id="no.lovtidend.whole_act_commencement",
+)
+# W-51. The fence on ``_WHOLE_ACT_RE``'s tail, and purely REFUSING: nothing here
+# can make a text acceptable. The pattern above ends in ``[^§]{0,400}$``, which
+# was meant to let an innocuous trailing clause through ("Loven trer i kraft 1.
+# januar 2012, med virkning for regnskapsår påbegynt etter …") but also swallows
+# a CARVE-OUT: ``no/forskrift/2020-05-07-944`` reads "Loven trer i kraft 1. juli
+# 2020, med unntak av kapittel 6 …, som trer i kraft når departementet
+# bestemmer" and authorized the whole of ``no/lovtid/2020-05-07-40`` on
+# 2020-07-01 while ``2021-08-26-2589`` commenced that chapter fifteen months
+# later. A whole-act claim cannot survive a sentence that names an exception.
+#
+# The vocabulary is the hazard set W-41 and W-47 catalogued, not a fresh
+# invention: the negative/exception phrases plus the subdivision nouns. It is
+# deliberately spelled out here rather than shared with ``_SUBDIVISION_SCOPE_RE``
+# below, which serves a different route over a different measured population —
+# widening THAT one to cover ``unntak for`` and ``foreløpig ikke`` could only
+# take grants away from W-47. ``§`` is absent because ``_WHOLE_ACT_RE``'s own
+# ``[^§]`` already excludes it.
+#
+# Measured over the 608 instruments the shipped regex accepts today, this fence
+# refuses exactly one: ``2020-05-07-944``. The two sibling carve-out texts
+# W-50 found (``2010-06-04-771``, ``2011-12-09-1221``) never reach it — each
+# carries two ``dateInForce`` dates, so they were already inert.
+_WHOLE_ACT_TAIL_HAZARD_RE = compile_classifier_regex(
+    r"(?:\bmed\s+unntak\b|\bunntak\s+for\b|\bunntatt\b"
+    r"|\bbortsett\s+fra\b|\bfor\s+så\s+vidt\b|\bmed\s+mindre\b"
+    r"|\bikke\s+i\s+kraft\b|\bforeløpig\s+ikke\b"
+    r"|\bdel(?:en|ene|er|e|s)?\b"
+    r"|\bromertall\b|\bromartal\b|\bromartall\b"
+    r"|\bpunkt(?:um|et|a)?\b"
+    r"|\bavsnitt(?:et|a)?\b"
+    r"|\bkapit(?:tel|let|la|lene|el)\b"
+    r"|\bbokstav(?:en|ene|er)?\b"
+    r"|\bledd(?:et)?\b)",
+    re.IGNORECASE,
+    classifier_id="no.lovtidend.whole_act_tail_hazard",
+)
+# W-51. The definite act-word, and the textual half of the hjemmel-only sibling
+# predicate. An instrument that commences an act — the whole of it, a chapter of
+# it, one section of it — says so with the definite form: "Loven trer i kraft",
+# "Lovens kapittel 6 trer i kraft", "Loven § 7-3 trer i kraft straks". An
+# instrument that merely rests on the act says "med hjemmel i lov 24. juni 2011
+# nr. 29 …" and never needs the definite form at all. Word-bounded on purpose:
+# the short-title compounds Norwegian statutes are named by (``folkehelseloven``,
+# ``finansforetaksloven``) end in the same letters and are NOT this word.
+_DEFINITE_ACT_WORD_RE = compile_classifier_regex(
+    r"\b(?:loven|lova|lovens|lovas)\b",
+    re.IGNORECASE,
+    classifier_id="no.lovtidend.definite_act_word",
 )
 # W-47. The multi-part route's text guard, in two halves that must BOTH hold.
 #
@@ -245,6 +316,30 @@ class NOCommencementAuthorizationConjunct(StrEnum):
     PARSE_STATUS_CANDIDATE = "parse_status_candidate"
     WHOLE_ACT_SCOPE = "whole_act_scope"
     SINGLE_EFFECTIVE_DATE = "single_effective_date"
+
+    ACT_HAS_NO_LATER_INSTRUMENT = "act_has_no_later_instrument"
+    """No commencement-relevant instrument commences anything of this act LATER.
+
+    W-51. The oldest route's claim is the strongest one the lane makes — every
+    op of the act, for every law it binds, in force on this one day — and a
+    later instrument commencing part of the same act is direct evidence against
+    it, whatever that instrument's own scope. W-47 already asserts exactly this
+    for the multi-part route (:attr:`NOCommencementMultiPartAuthorizationConjunct.ACT_HAS_NO_LATER_INSTRUMENT`);
+    the whole-act route asserted it nowhere, and the outside soundness probe
+    measured the gap at 8 EARLY rows over 5 acts. Both now call one helper,
+    :func:`_act_has_later_commencement_sibling`, over one sibling set.
+
+    W-49's route needed a two-witness DISJOINTNESS proof in place of this
+    conjunct because its claim is about named parts, so a later instrument on
+    OTHER parts is the ordinary staged pattern and must not refute. None of that
+    applies here, and the difference is worth stating rather than inheriting: a
+    whole-act claim leaves no part of the act un-claimed, so there is no
+    disjointness to prove and no sibling that can be "about something else in
+    this act". ANY later commencement-relevant sibling refutes.
+
+    What "commencement-relevant" means is the other half of the repair, and it
+    is shared with both older conjuncts: see :func:`_cites_acts_as_hjemmel_only`.
+    """
 
 
 class NOCommencementPartAuthorizationConjunct(StrEnum):
@@ -569,6 +664,13 @@ class NOCommencementInstrumentCandidate:
     # non-empty tuple, so callers need no second flag to tell "no list here"
     # from "a list the reader could not account for" — both refuse.
     named_part_labels: tuple[str, ...] = ()
+    # W-51. The acts this instrument cites appear in it only as HJEMMEL: its own
+    # commencement action is about some other document. Read at parse time, from
+    # the two pieces of evidence that are in hand there and nowhere else — the
+    # ``Endrer`` block and the operative text — and consumed by every route that
+    # refutes a claim from a sibling set. Defaults to False, which is the safe
+    # value: an unproven sibling counts and refutes.
+    cites_acts_as_hjemmel_only: bool = False
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -587,6 +689,7 @@ class NOCommencementInstrumentCandidate:
             "commenced_section_labels": list(self.commenced_section_labels),
             "whole_act_operative_text": self.whole_act_operative_text,
             "named_part_labels": list(self.named_part_labels),
+            "cites_acts_as_hjemmel_only": self.cites_acts_as_hjemmel_only,
         }
 
     @classmethod
@@ -625,6 +728,7 @@ class NOCommencementInstrumentCandidate:
             source_excerpt=str(data.get("source_excerpt", "")),
             replay_authorized=bool(data.get("replay_authorized", False)),
             whole_act_operative_text=bool(data.get("whole_act_operative_text", False)),
+            cites_acts_as_hjemmel_only=bool(data.get("cites_acts_as_hjemmel_only", False)),
         )
 
 
@@ -1061,13 +1165,22 @@ def authorize_no_commencement_instruments(
     its own named parts, gathered below into ``instrument_scopes_by_act`` — to
     tell the staged pattern (a later instrument on OTHER parts, which does not
     refute) from a genuine contradiction.
+
+    W-51 adds no route and changes no offering. It changes WHO IS A SIBLING —
+    once, for all three refuting conjuncts, at the two maps below — and gives
+    the whole-act route the act-level refutation the other two already had.
+    Being a property of the ACT rather than of any one candidate, that conjunct
+    is asserted where the act's proposals have already been gathered and
+    reconciled, not in :func:`_failed_authorization_conjuncts`, whose signature
+    says plainly that it sees one candidate and no act.
     """
     offered = frozenset(offered_act_ids)
     part_evidence = dict(act_part_evidence or {})
-    # act -> [(instrument id, date)] over EVERY parsed candidate citing it,
-    # authorized or not: what refutes "the whole act commenced then" is that
-    # another instrument commenced part of it later, whatever that instrument's
-    # own scope was and whether or not it went on to authorize anything itself.
+    # act -> [(instrument id, date)] over every parsed candidate that commences
+    # something of it, authorized or not: what refutes "the whole act commenced
+    # then" is that another instrument commenced part of it later, whatever that
+    # instrument's own scope was and whether or not it went on to authorize
+    # anything itself.
     instrument_dates_by_act: dict[str, list[tuple[str, str]]] = {}
     # act -> [(instrument id, date, declared laws, named parts)], the same
     # population with the two scope witnesses the part-list route's refutation
@@ -1077,6 +1190,14 @@ def authorize_no_commencement_instruments(
         str, list[tuple[str, str, tuple[str, ...], tuple[str, ...]]]
     ] = {}
     for _parse_status, sibling in parsed_instruments:
+        # W-51. THE sharpening, and it is applied once, here, so all three
+        # refuting conjuncts read one sibling set: an instrument whose own
+        # commencement action is about another document does not speak to when
+        # this act came into force, however prominently the act appears in its
+        # ``basedOn``. Dropping a sibling can only ever REMOVE a refutation, so
+        # no route can lose a grant to this line.
+        if sibling.cites_acts_as_hjemmel_only:
+            continue
         for sibling_law_id in sibling.affected_law_ids:
             sibling_act_id = no_commencement_act_id_from_law_id(sibling_law_id)
             if not sibling_act_id:
@@ -1207,6 +1328,34 @@ def authorize_no_commencement_instruments(
             )
             continue
         effective_date, instrument_source_ids = next(iter(instrument_ids_by_date.items()))
+        # W-51. The act-level refutation, and it is asserted HERE — after the
+        # date-conflict branch, on the single surviving proposal — rather than
+        # while proposals are gathered. Two instruments giving the act two
+        # different whole-act dates is a CONFLICT, and a conflict blocks: were
+        # the refutation applied upstream it would quietly resolve every such
+        # disagreement in favour of the later date and the blocking receipt
+        # would never be written. Measured, the corpus has no whole-act date
+        # conflict at all, so the ordering costs nothing today and keeps the
+        # older, louder verdict where the two could ever meet.
+        if _act_has_later_commencement_sibling(
+            effective_date,
+            instrument_source_ids,
+            instrument_dates_by_act.get(act_id, ()),
+        ):
+            for instrument_source_id in sorted(set(instrument_source_ids)):
+                refusals.append(
+                    NOCommencementRefusalReceipt(
+                        act_source_id=act_id,
+                        instrument_source_id=instrument_source_id,
+                        failed_conjuncts=(
+                            NOCommencementAuthorizationConjunct.ACT_HAS_NO_LATER_INSTRUMENT,
+                        ),
+                        parse_status=NOCommencementParseStatus.CANDIDATE,
+                        scope_status=NOCommencementScopeStatus.WHOLE_ACT,
+                        effective_dates=(effective_date,),
+                    )
+                )
+            continue
         authorizations.append(
             NOCommencementAuthorizationReceipt(
                 act_source_id=act_id,
@@ -1512,16 +1661,42 @@ def _multi_part_scoped_authorization_scope(
         for law_id in changed
     ):
         return None
-    effective_date = candidate.effective_dates[0]
-    if any(
-        source_id != candidate.source_id and date > effective_date
-        for source_id, date in instrument_dates_for_act
+    if _act_has_later_commencement_sibling(
+        candidate.effective_dates[0], (candidate.source_id,), instrument_dates_for_act
     ):
         return None
     return tuple(
         sorted(
             (parts_by_law[law_id][0], law_id) for law_id in changed
         )
+    )
+
+
+def _act_has_later_commencement_sibling(
+    effective_date: str,
+    claiming_source_ids: Collection[str],
+    instrument_dates_for_act: Sequence[tuple[str, str]],
+) -> bool:
+    """Does another instrument commence something of this act LATER?
+
+    W-51 makes this one function, called from two conjuncts — W-47's
+    ``ACT_HAS_NO_LATER_INSTRUMENT`` on the multi-part route and the whole-act
+    route's new one of the same name. Both claims are act-global ("the act, or
+    every part of it the header names, was in force on this day"), so both are
+    refuted by the same fact, and having them share a helper is what makes the
+    two conjunct names mean the same thing.
+
+    ``instrument_dates_for_act`` is the SHARPENED sibling list built by
+    :func:`authorize_no_commencement_instruments` — an instrument that cites the
+    act only as its hjemmel is not in it. This function only compares dates.
+    ``claiming_source_ids`` are the instruments making the claim under test; the
+    whole-act route can have several agreeing on one date, the multi-part route
+    is always one.
+    """
+    claiming = frozenset(claiming_source_ids)
+    return any(
+        source_id not in claiming and date > effective_date
+        for source_id, date in instrument_dates_for_act
     )
 
 
@@ -1707,6 +1882,67 @@ def _whole_act_operative_text(operative_blocks: Sequence[str]) -> bool:
         return True
     # lawvm-regex: owning_parser same reader, the act's own citation as the clause subject
     return bool(_CITED_ACT_SUBJECT_RE.search(text))
+
+
+def _cites_acts_as_hjemmel_only(
+    operative_blocks: Sequence[str],
+    *,
+    declared_change_block_present: bool,
+    declared_law_ids: Sequence[str],
+) -> bool:
+    """Is every act this instrument cites merely its legal BASIS?
+
+    W-51. An instrument's ``basedOn`` block answers "under what authority was
+    this made", and for an instrument commencing an act that IS the act — so
+    the sibling sets every refuting conjunct reads were built from it. But a
+    *forskrift* is made under a statute too, and a vedtak commencing that
+    forskrift cites the same statute in the same field. Measured over the 542
+    whole-act authorizations, five of the eight act-level EARLY rows were
+    exactly that: ``no/forskrift/2016-06-29-845`` commences forskrift
+    2006-04-21-433 and cites fiskesalslagslova as its hjemmel, and the probe
+    read it as fiskesalslagslova commencing something in 2023.
+
+    Proof of irrelevance needs TWO witnesses, and both must hold, for the same
+    reason W-49's disjointness proof needs two — neither is sound alone:
+
+    * the STRUCTURAL one — Lovdata's own ``Endrer`` block is present and names
+      only non-law documents. An instrument commencing part of an act declares
+      the LAWS that part amends (the reading W-39 established) or declares
+      nothing at all; one that declares only forskrifter is acting on
+      forskrifter. Measured, 242 of the 2,365 parsed instruments.
+    * the TEXTUAL one — the operative text never uses the definite act-word.
+      An instrument commencing an act says "Loven", "Lovens kapittel 6", "Loven
+      § 7-3"; one commencing a forskrift says "Forskriften", "Denne forskrift",
+      "Forskriftsendringen".
+
+    The structural witness is not sound alone, and the counterexamples are in
+    the corpus rather than hypothetical: ``no/forskrift/2013-12-13-1449``
+    ("Utsatt ikrafttredelse av lov 28. mai 2010 nr. 16 … Loven trer i kraft 1.
+    juli 2014, unntatt § 57") and ``no/forskrift/2014-06-20-789`` postpone an
+    ACT's commencement while their ``Endrer`` block names only the kongelig
+    resolusjon they rewrite. Requiring the textual witness too keeps those, and
+    six others like them, in the sibling sets where they belong: 242 structural
+    hits, 234 excluded, 8 held back by the second witness.
+
+    The polarity is the safety argument. Excluding a sibling removes a
+    refutation, so a false exclusion is UNSOUND while a false inclusion merely
+    costs a grant. Everything unproven therefore stays in, and this function
+    returns True only on the two witnesses together.
+
+    Block PRESENCE stands in for "declares at least one document" because the
+    two are the same thing in this corpus: swept over all 35,955 Lovtidend
+    forskrift artifacts, of the 2,365 that parse as commencement instruments not
+    one carries a ``changesToDocuments`` block with no ``<li>`` in it. (The
+    reader's own docstring records the same for the amendment side.) A present
+    block with no law in it therefore names a non-law document.
+    """
+    if not declared_change_block_present:
+        return False
+    if declared_law_ids:
+        return False
+    text = " ".join(operative_blocks)
+    # lawvm-regex: owning_parser the textual witness of the hjemmel-only reader; presence keeps a sibling, absence is half a proof
+    return not _DEFINITE_ACT_WORD_RE.search(text)
 
 
 def _roman_label_value(token: str) -> int | None:
@@ -1896,11 +2132,12 @@ def parse_no_commencement_instrument(
     # lawvm-regex: owning_parser reads ISO dates from the instrument's own dateInForce field
     effective_dates = tuple(sorted(set(_ISO_DATE_RE.findall(effective_text))))
     operative_blocks = _operative_blocks(root)
-    whole_act = (
-        len(operative_blocks) == 1
-        and bool(_WHOLE_ACT_RE.fullmatch(operative_blocks[0]))
-        and len(effective_dates) == 1
-    )
+    single_block = operative_blocks[0] if len(operative_blocks) == 1 else ""
+    # lawvm-regex: owning_parser this IS the whole-act scope reader; the shape half
+    whole_act_shape = bool(single_block) and bool(_WHOLE_ACT_RE.fullmatch(single_block))
+    # lawvm-regex: owning_parser same reader, W-51's carve-out fence on its tail; refusing only, cannot accept
+    tail_carve_out = bool(_WHOLE_ACT_TAIL_HAZARD_RE.search(single_block))
+    whole_act = whole_act_shape and not tail_carve_out and len(effective_dates) == 1
     scope_status = (
         NOCommencementScopeStatus.WHOLE_ACT
         if whole_act
@@ -1911,6 +2148,7 @@ def parse_no_commencement_instrument(
     # reader is only reachable from inside the function.
     from lawvm.norway.sources import declared_change_targets_from_root
 
+    declared_changes = declared_change_targets_from_root(root)
     candidate = NOCommencementInstrumentCandidate(
         source_id=source_id,
         locator=locator,
@@ -1921,10 +2159,15 @@ def parse_no_commencement_instrument(
         effective_dates=effective_dates,
         scope_status=scope_status,
         source_excerpt=text[:400],
-        changed_law_ids=declared_change_targets_from_root(root).law_ids,
+        changed_law_ids=declared_changes.law_ids,
         commenced_section_labels=_commenced_section_labels(operative_blocks),
         whole_act_operative_text=_whole_act_operative_text(operative_blocks),
         named_part_labels=_named_part_labels(operative_blocks),
+        cites_acts_as_hjemmel_only=_cites_acts_as_hjemmel_only(
+            operative_blocks,
+            declared_change_block_present=declared_changes.block_present,
+            declared_law_ids=declared_changes.law_ids,
+        ),
     )
     residuals: tuple[NOCommencementInstrumentResidual, ...] = ()
     parse_status = NOCommencementParseStatus.CANDIDATE
