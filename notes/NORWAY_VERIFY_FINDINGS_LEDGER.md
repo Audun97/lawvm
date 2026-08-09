@@ -2473,26 +2473,62 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    or re-freeze the baseline.
 
 56. **W-56 (repair the class-C cascade firings — the two
-   `removal_wrong` rows):** from W-54. Preferred: **two-limb
-   ledd-shift lowering** — `"Nåværende tredje og fjerde ledd blir
-   fjerde og nytt femte ledd."` yields 2 renumber legs for
-   `2024-12-20-87` and `2024-06-14-34` but only 1 for
-   `2024-12-13-78`; fixing the drop repairs tvisteloven at the
-   source (the `destination not in renumber_sources` guard then
-   suppresses the firing entirely). Needs a corpus sweep for the
-   drop's frequency and a full blast-radius measurement (parser
-   change ⇒ op streams move — the W-52 byte-identity discipline
-   applies). Fallback priced at W-54: cascade-aware polarity —
-   `stash` the same-parent `dest == src+1` subclass, `remove` the
-   rest (~35 lines in `grafter.py` + receipt `stash` arm so the
-   observed-write audit still judges it + table cell + catalog +
-   tests; measured: live-law destructions 2 → 0 at ~+2 aggregate
-   divergence). Whichever lands, pin the W-54 verdict table with
-   it (per-firing `(op_id → verdict, occupant_probe,
-   expected_survival_address)`). Note skattebetalingsloven's row
-   is only HALF repairable here — its root cause is W-58's
-   archive gap; the polarity fallback preserves the text at a
-   wrong number, the lowering fix does not touch it.
+   `removal_wrong` rows):** DONE (`e2589b292`, 2026-08-09).
+   **Root cause RECLASSIFIED: not a prose-parsing defect but
+   Lovdata markup under-declaration.** Renumber legs come
+   exclusively from `data-move-part` (`_split_move_attr`); the
+   prose was never read for the shift. `2024-12-13-78`'s block
+   declares ONE leg where its lead sentence commands two — the
+   lowering mirrored the markup blindly, and the partial cascade
+   is what destroyed the vitneforsikring. Sweep (3,089 artifacts /
+   3,885 change blocks / 286 with `data-move-part` / 166 with
+   ledd-shift prose): 148 agree, 1 richer-markup (benign), 17
+   under-declared in three classes — **4 well-formed-but-
+   incomplete (REPAIRED here**: `2024-12-13-78`, `2024-05-31-26`,
+   `2024-06-21-44`, `2025-12-22-129` — exactly 4 legs added
+   corpus-wide), 10 with NO attribute at all (no anchor — W-59),
+   3 malformed-token (already receipted — W-59). Fix:
+   `_no_completed_move_legs_from_ledd_shift_prose` — pure
+   templating off the legs the markup already carries (base act /
+   section / container NEVER from prose, only the shift map);
+   add-only polarity (every guard refuses back to the declared
+   legs — a sentence the grammar cannot fully account for lowers
+   to nothing NEW); non-blocking receipt
+   `no_parse_structured_move_legs_completed_from_lead_prose`,
+   cataloged. Blast radius (782 laws): 5 moved, exactly ONE
+   statute text changed — tvisteloven, the intended repair
+   (ops 66→67, `OPS_MISSING …/24-8/subsection:5` CLOSED, 399→398,
+   zero rows opened, occupied-destination firing suppressed by
+   the `destination not in renumber_sources` guard); the other
+   four are op-id shifts / content-neutral completions, incl.
+   scan candidate `2020-04-17-29` with divergence rows
+   byte-identical. **All 73 candidates byte-identical; totals
+   unchanged 1,485 = 1,011 + 474; scoreboard 29/44/0; zero
+   binding/`base_ids` movement; zero new recovery firings; the
+   insert dead cell still 0.** Recovery census 10 → 9 firings /
+   6 laws. **W-54's verdict table now PINNED**
+   (`_NO_OCCUPIED_DESTINATION_VERDICTS`, equality-compared:
+   per-firing verdict + occupant probe + survival addresses
+   re-derived from the replayed statute; a new unadjudicated
+   firing is an alarm). The skattebetalingsloven row is pinned
+   `removal_wrong` ON PURPOSE with `wrong ==
+   ["no/lovtid/2024-12-20-87:2"]` — the designed W-58 handoff:
+   list shrinks = W-58 landed (flip consciously), list grows =
+   new live-law destruction. `_NO_OCCUPIED_DESTINATION_LAWS`:
+   tvisteloven (1,0) → (0,0), key kept so a resurrected firing
+   trips. One out-of-plan pin moved, exact re-pin: `n_ops`
+   26,946 → 26,950 (+4 = the completed legs, 0 lost, 0 rebound).
+   Vitneforsikring survival pinned at
+   `part:5/chapter:24/section:24-8/subsection:5/sentence:1`.
+   Tvisteloven's vitneforsikring row was the LAST live-law
+   destruction reachable by the lowering; the remaining
+   `removal_wrong` is W-58's archive gap. W-57's surface is
+   unaffected (section-level ranges, no `data-move-part` anchor —
+   different production). Honesty note: the completion finding is
+   document-scoped (like the malformed-attr finding), so it
+   appears in every base act the instrument amends (visible as
+   `2021-06-18-97`'s +1 adjudication) — noted, not tidied.
+   Artifacts `.tmp/w56/`.
 
 57. **W-57 (range-renumber lowering, sizing pass):** from W-54.
    `"Nåværende §§ 9-1 til 9-6 blir ny §§ 3-1 til 3-7"` is never
@@ -2514,7 +2550,29 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    five ledd-replacement instructions). Find the missing
    instrument (Lovdata live probe or acquisition sweep), ingest
    or type it; this is the actual root cause of the
-   skattebetalingsloven `removal_wrong` row.
+   skattebetalingsloven `removal_wrong` row. W-56 pinned this row
+   as the designed handoff: when the missing repeal lands,
+   `test_no_corpus_occupied_renumber_destination_verdicts_are_pinned`
+   fails on its `wrong == [...]` assertion — flip the row there,
+   consciously.
+
+59. **W-59 (the anchor-less ledd-shift blocks):** from W-56's
+   sweep (`.tmp/w56/sweep2.json`). **10 change blocks carry
+   ledd-shift prose and NO `data-move-part` at all** — a total
+   drop the W-56 completion cannot reach (nothing to template
+   from; repairing means minting base act + section + container
+   from prose alone, a genuinely larger production needing its
+   own design pass and the full blast discipline). 9 laws:
+   `1953-06-26-11`, `1973-03-09-14`, `1982-05-21-25`,
+   `1994-06-24-39`, `1994-08-05-55`, `1999-07-02-63`,
+   `2005-06-17-67`, `2009-06-19-58`, `2016-08-12-77`. Adjacent
+   residue, cheaper but same discipline: **3 malformed-token
+   blocks** (`2024-06-21-46` no separator + cross-base,
+   `2025-02-07-1` `;; ` with stray space, `2025-06-20-74` `::`
+   for `;;`) — one-character source typos a tolerant token
+   normalizer could recover; changes op streams, needs the
+   W-52/W-56 blast measurement. Size both surfaces before
+   implementing either.
 
 ## 5. Demo / Inspection Tooling
 
@@ -2532,6 +2590,21 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-09 (W-56 applied)** — **Tvisteloven's vitneforsikring
+  is restored: the dropped renumber leg was Lovdata's own
+  `data-move-part` under-declaring the shift, and the lowering now
+  completes an incomplete attribute from the block's own lead
+  sentence — pure templating off the declared legs, add-only
+  polarity, 4 legs added corpus-wide, occupied-destination
+  firings 10 → 9, and the W-54 verdict table finally pinned**
+  (`e2589b292`). Blast radius: 5 of 782 laws moved, exactly one
+  statute text changed (the intended repair; tvisteloven 399→398
+  with zero rows opened); all 73 candidates byte-identical,
+  totals and scoreboard unchanged, zero binding movement, zero
+  new firings. The skattebetalingsloven row is pinned
+  `removal_wrong` as W-58's designed handoff tripwire. The
+  anchor-less and malformed-token remainders opened as W-59.
 
 - **2026-08-09 (W-54 audit: the occupied-destination recovery is
   right 8 of 10 times, and the 2 misses destroy live law)** —
