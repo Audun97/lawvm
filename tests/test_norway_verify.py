@@ -2619,9 +2619,28 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # unexplained both move by the same +239, so W-47 explains nothing away —
     # it admits 239 rows on five laws that were previously unreachable. That
     # unexplained rise is the honest cost of new coverage, exactly as at W-39.
-    assert report["scanned_count"] == 65
-    assert report["summary"] == {"consistent": 25, "divergent": 40, "error": 0}
-    assert report["divergence_totals"] == {"total": 1447, "ceiling": 1011, "unexplained": 436}
+    # W-53 (2026-08-09). 65 -> 73 candidates and 25/40 -> 29/44, the largest
+    # entrant cohort since W-47 and the first bought by an ACT-level route: the
+    # widened whole-act route dates 430 acts whose commencement instruments say
+    # "the act commences" in wording ``_WHOLE_ACT_RE`` does not match. EIGHT laws
+    # enter, none leaves, and no pre-existing row moves at all — the 65 base rows
+    # are byte-identical across the change, and so are every entry's ``base_ids``
+    # and ``n_ops`` (the lane writes DATES, never bindings; decert exposure is
+    # structurally zero, not merely measured as zero).
+    #   * 2004-12-17-99 (klimakvoteloven) enters CONSISTENT at 0 — the entrant
+    #     W-52 existed to make safe. Under the W-50 counterfactual it was the
+    #     programme's only `error` verdict; the receipt fix landed first, so the
+    #     error column never opens here.
+    #   * 2016-12-16-92, 2017-04-28-23, 2021-06-18-136 also enter consistent at 0.
+    #   * 2001-06-15-75 at 15 and 2020-04-17-29 at 15, 2015-05-12-27 at 7,
+    #     2004-03-26-17 at 1 — all divergent, all 0 ceiling rows.
+    # Ceiling is untouched at 1,011 for the seventh landing running; total and
+    # unexplained both move by the same +38, so W-53 explains nothing away — it
+    # admits 38 rows on four laws that were previously unreachable. The honest
+    # cost of new coverage, exactly as at W-39 and W-47.
+    assert report["scanned_count"] == 73
+    assert report["summary"] == {"consistent": 29, "divergent": 44, "error": 0}
+    assert report["divergence_totals"] == {"total": 1485, "ceiling": 1011, "unexplained": 474}
     # 3 -> 2 at W-34: no/lov/2001-01-05-1 gains 4 bound ops from
     # no/lovtid/2015-06-19-65 item 178, so its indexed history is no longer
     # sparse. Its 83 divergences do not move; only the bucket does.
@@ -2640,8 +2659,11 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
         # W-39: 2001-01-05-1 leaves for `consistent` (81 -> 0) and
         # 2019-06-21-63 enters with the candidate set. 15 -> 15.
         # W-47: three of the seven entrants land here. 15 -> 18.
+        # W-53: three of the eight entrants land here. 18 -> 21.
         "replay_defect": [
             "no/lov/2001-06-15-65",
+            "no/lov/2001-06-15-75",
+            "no/lov/2004-03-26-17",
             "no/lov/2004-05-28-29",
             "no/lov/2004-12-17-101",
             "no/lov/2010-06-04-21",
@@ -2657,6 +2679,7 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             "no/lov/2019-06-14-21",
             "no/lov/2019-06-21-63",
             "no/lov/2019-12-20-109",
+            "no/lov/2020-04-17-29",
             "no/lov/2021-06-11-79",
             "no/lov/2022-03-11-9",
         ],
@@ -2667,6 +2690,10 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             "no/lov/2012-01-27-9",
             # W-34: enters the candidate set with its first indexed amendment.
             "no/lov/2013-06-21-75",
+            # W-53: the one entrant of the eight that lands here, at 7 rows,
+            # none of them a ceiling row and none traceable to a replay defect.
+            # 17 -> 18.
+            "no/lov/2015-05-12-27",
             "no/lov/2017-05-22-28",
             "no/lov/2017-06-16-65",
             "no/lov/2017-06-16-67",
@@ -2725,13 +2752,20 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
         # consistent — a first for this series, and the cheapest coverage the
         # programme has bought: two laws certified with no repair at all,
         # each on a single multi-part grant. 23 -> 25.
+        # W-53: FOUR of the eight entrants enter already consistent, the largest
+        # zero-repair cohort the programme has bought in one landing — and one of
+        # them (2004-12-17-99, klimakvoteloven) is the law W-52's receipt fix was
+        # opened for. 25 -> 29.
         "consistent": [
             "no/lov/2001-01-05-1",
             "no/lov/2004-05-14-25",
+            "no/lov/2004-12-17-99",
             "no/lov/2005-06-03-34",
             "no/lov/2006-08-18-61",
             "no/lov/2012-01-27-10",
             "no/lov/2013-06-07-31",
+            "no/lov/2016-12-16-92",
+            "no/lov/2017-04-28-23",
             "no/lov/2017-06-16-60",
             "no/lov/2018-06-15-44",
             "no/lov/2019-06-21-70",
@@ -2741,6 +2775,7 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             "no/lov/2020-12-18-156",
             "no/lov/2021-05-21-42",
             "no/lov/2021-06-18-115",
+            "no/lov/2021-06-18-136",
             "no/lov/2022-03-18-12",
             "no/lov/2022-05-12-28",
             "no/lov/2022-06-17-56",
@@ -2762,8 +2797,8 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # Complete and disjoint, asserted directly rather than inferred from the
     # per-bucket lists.
     routed = [item["base_id"] for bucket in partitions.values() for item in bucket]
-    assert len(routed) == 65
-    assert len(set(routed)) == 65
+    assert len(routed) == 73
+    assert len(set(routed)) == 73
 
     # Every member of the ceiling bucket is ceiling-DOMINATED, and the margin
     # to the routing boundary is enormous in both directions: the smallest
@@ -2792,19 +2827,24 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # memberships above are unmoved by its arrival, which is the whole point of
     # keeping it outside ``partitions``.
     #
-    # The relation between the two numbers on this line: 65 laws are scannable
+    # The relation between the two numbers on this line: 73 laws are scannable
     # and 2,642 are not, and the 2,642 are not a backlog. 2,514 are amending
     # acts with no standing text of their own, 65 expired by their own terms,
     # and of the 63 substantive acts 50 are named in another act's structural
-    # repeal manifest. The 57 ``would_be_candidates`` are the counterfactual
+    # repeal manifest. The 61 ``would_be_candidates`` are the counterfactual
     # ceiling: if Lovdata published a consolidation for every one of these,
-    # the candidate set would go 65 -> 122 and no further.
+    # the candidate set would go 73 -> 134 and no further.
     # 55 -> 57 at W-47 (2026-08-08): the census counts laws that WOULD be
     # candidates but for the missing consolidation, so a route that resolves
     # commencements moves it exactly as it moves the candidate set. The two
     # extra laws are unreachable for the same reason as the other 55 and this
     # is the only number here W-47 touches — total and the family split are
     # properties of the corpus, not of the index.
+    # 57 -> 61 at W-53 (2026-08-09), the same mechanism at the widened route's
+    # scale: four more laws whose every amender is now dated and whose only
+    # remaining obstacle is the missing consolidation. Total and the family
+    # split are again unmoved, which is the check that a commencement route
+    # cannot manufacture or destroy a law.
     assert set(report) >= {"partitions", "unverifiable"}
     assert report["unverifiable"]["no_stored_consolidation"] == {
         "total": 2642,
@@ -2814,7 +2854,7 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             "wage_board_act": 25,
             "substantive_act": 63,
         },
-        "would_be_candidates": 57,
+        "would_be_candidates": 61,
         "substantive_unexplained": 13,
     }
 

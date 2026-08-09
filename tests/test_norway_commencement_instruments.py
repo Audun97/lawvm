@@ -19,7 +19,10 @@ from lawvm.norway.commencement_instruments import (
     NO_COMMENCEMENT_NAMED_PART_LIST_EXECUTION_AUTHORIZED,
     NO_COMMENCEMENT_PART_EXECUTION_AUTHORIZED,
     NO_COMMENCEMENT_PART_EXECUTION_DATE_CONFLICT,
+    NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED,
+    NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_DATE_CONFLICT,
     NOCommencementActPartEvidence,
+    NOCommencementWidenedWholeActAuthorizationConjunct,
     NOCommencementMultiPartAuthorizationConjunct,
     NOCommencementNamedPartListAuthorizationConjunct,
     NOCommencementPartAuthorizationConjunct,
@@ -1369,38 +1372,50 @@ def test_whole_act_operative_text_refuses_anything_narrower(
     _NO_FARCHIVE_PATH is None,
     reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
 )
-def test_w47_corpus_witness_dates_every_part_of_a_two_part_act() -> None:
-    """W-47 corpus witness: one instrument, two parts, two laws certified.
+def test_w47_corpus_witness_is_absorbed_by_the_widened_route_at_the_same_date() -> None:
+    """W-47's corpus witness, and what W-53's absorption does and does not change.
 
     ``no/forskrift/2023-09-15-1422`` commences ``no/lovtid/2021-04-23-25``
     ("Loven trer i kraft straks") whose Endrer header spans del I and del II.
-    The act itself stays contingent — the grant is per binding — and both
-    ``2013-04-12-13`` and ``2004-12-17-101`` enter the candidate set on it.
+    Until W-53 that was two PART grants and the act stayed contingent. The
+    widened whole-act route reads the same sentence as an act-level claim, and
+    the act-level claim SUBSUMES the two part claims: same instrument, same
+    date, same two laws dated — so the two laws
+    (``2013-04-12-13``, ``2004-12-17-101``) keep the certification W-47 bought
+    them, and what changes is that the act now says so at act level.
+
+    This is the deliberate part-grant retirement, asserted on the witness the
+    retired route was pinned by: the part receipts are GONE, and the property
+    they were there to guarantee is asserted here in its stronger form.
     """
     index = build_no_amendment_index(_NO_FARCHIVE_PATH)
     entry = next(e for e in index.entries if e.source_id == "no/lovtid/2021-04-23-25")
 
-    assert entry.effective_status == "contingent"
-    assert entry.effective_date is None
-    assert entry.part_scoped_effective_dates == (
-        ("no/lov/2004-12-17-101", "2023-09-15"),
-        ("no/lov/2013-04-12-13", "2023-09-15"),
-    )
+    assert entry.effective_status == "instrument_authorized"
+    assert entry.effective_date == "2023-09-15"
+    # The part-scoped map is emptied, not contradicted: the act-level date now
+    # answers for every binding, which is what ``effective_date_for_base`` reads
+    # when the map is empty.
+    assert entry.part_scoped_effective_dates == ()
+    for law_id in ("no/lov/2004-12-17-101", "no/lov/2013-04-12-13"):
+        assert law_id in entry.base_ids
+        assert entry.effective_date_for_base(law_id)[0] == "2023-09-15"
 
-    receipts = [
+    assert not [
         d
         for d in index.diagnostics
         if d.get("rule_id") == NO_COMMENCEMENT_MULTI_PART_EXECUTION_AUTHORIZED
         and d.get("source_id") == "no/lovtid/2021-04-23-25"
     ]
-    assert {(r["part_label"], r["law_id"]) for r in receipts} == {
-        ("I", "no/lov/2013-04-12-13"),
-        ("II", "no/lov/2004-12-17-101"),
-    }
-    assert {r["instrument_source_ids"][0] for r in receipts} == {
-        "no/forskrift/2023-09-15-1422"
-    }
-    assert {tuple(r["spanned_part_labels"]) for r in receipts} == {("I", "II")}
+    widened = [
+        d
+        for d in index.diagnostics
+        if d.get("rule_id") == NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED
+        and d.get("source_id") == "no/lovtid/2021-04-23-25"
+    ]
+    assert len(widened) == 1
+    assert widened[0]["instrument_source_ids"] == ["no/forskrift/2023-09-15-1422"]
+    assert widened[0]["effective_date"] == "2023-09-15"
 
 
 @pytest.mark.skipif(
@@ -1426,6 +1441,19 @@ def test_w47_corpus_negative_the_probe_witness_stays_refused() -> None:
         if d.get("rule_id") == NO_COMMENCEMENT_MULTI_PART_EXECUTION_AUTHORIZED
         and d.get("source_id") == "no/lovtid/2019-12-06-76"
     ]
+    # W-53: the widened route reads the same instrument's text as an ACT-level
+    # claim and is refused by the same fact, through the same helper over the
+    # same sharpened sibling set. Widening the reader must not widen the
+    # soundness hole, and this is where that is asserted: the act stays
+    # contingent with no date and no grant of either kind.
+    assert entry.effective_status == "contingent"
+    assert entry.effective_date is None
+    assert not [
+        d
+        for d in index.diagnostics
+        if d.get("rule_id") == NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED
+        and d.get("source_id") == "no/lovtid/2019-12-06-76"
+    ]
 
 
 @pytest.mark.skipif(
@@ -1438,6 +1466,18 @@ def test_w47_corpus_totals_and_the_untouched_single_part_route() -> None:
     260 multi-part grants over 70 acts; the single-part route's 123 do not move,
     which is the check that the two routes are disjoint rather than competing.
     No part-date conflict appears in either route.
+
+    W-53 RETIRES most of both, deliberately and by design: the widened whole-act
+    route grants at ACT level, so an act it dates carries the date its part
+    grants would have given each binding and the part proposals are dropped
+    without a receipt — exactly as they always were for an act the shipped
+    whole-act route dated. 260 -> 4 over 2 acts, and 123 -> 33 over 31 acts.
+    346 of the 416 part grants are absorbed; measured per grant, 344 are
+    DATE-IDENTICAL and 2 are LATER (conservative), and 0 are earlier — which is
+    the property that makes the retirement safe rather than merely intended
+    (``.tmp/w53/absorption.json``). The disjointness this test was written for
+    still holds among the survivors, and now holds against the act-level routes
+    too.
     """
     index = build_no_amendment_index(_NO_FARCHIVE_PATH)
     multi = [
@@ -1450,9 +1490,22 @@ def test_w47_corpus_totals_and_the_untouched_single_part_route() -> None:
         for d in index.diagnostics
         if d.get("rule_id") == NO_COMMENCEMENT_PART_EXECUTION_AUTHORIZED
     ]
-    assert len(multi) == 260
-    assert len({d["source_id"] for d in multi}) == 70
-    assert len(single) == 123
+    assert len(multi) == 4
+    assert len({d["source_id"] for d in multi}) == 2
+    assert len(single) == 33
+    assert len({d["source_id"] for d in single}) == 31
+    # No surviving part grant sits on an act either act-level route dated: the
+    # yield is per act, so the two populations are disjoint by construction.
+    act_level = {
+        d["source_id"]
+        for d in index.diagnostics
+        if d.get("rule_id")
+        in {
+            NO_COMMENCEMENT_EXECUTION_AUTHORIZED,
+            NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED,
+        }
+    }
+    assert not (act_level & {d["source_id"] for d in multi + single})
     assert not [
         d
         for d in index.diagnostics
@@ -1484,9 +1537,14 @@ def test_w47_corpus_totals_and_the_untouched_single_part_route() -> None:
     ]
     # W-49 adds 2 more, both unreachable for the same reason; the per-route
     # split is asserted with the W-49 totals.
-    assert len(inert) == 31
-    assert sum(1 for d in single if d["law_id"] not in entries[d["source_id"]].base_ids) == 2
-    assert sum(1 for d in multi if d["law_id"] not in entries[d["source_id"]].base_ids) == 27
+    # 31 -> 4 at W-53, and the follow-up question this pin recorded is mostly
+    # answered by the absorption rather than by a cleanup: 27 of the 31 sat on
+    # acts the widened route now dates at act level, so their receipts are gone
+    # with the rest of their route's. The 4 that remain (1 single, 1 multi, 2
+    # named) are still unreachable for the reason above.
+    assert len(inert) == 4
+    assert sum(1 for d in single if d["law_id"] not in entries[d["source_id"]].base_ids) == 1
+    assert sum(1 for d in multi if d["law_id"] not in entries[d["source_id"]].base_ids) == 1
 
 
 # --- W-49: the named-part-list route ---------------------------------------
@@ -2124,6 +2182,17 @@ def test_w49_corpus_totals_and_the_untouched_older_routes() -> None:
     33 named-part-list grants over 10 acts; W-39's 123 and W-47's 260 do not
     move, which is the check that the three routes are disjoint rather than
     competing. No part-date conflict appears in any of them.
+
+    W-53 absorbs the two older routes into the widened act-level one (123 -> 33,
+    260 -> 4) and takes NOTHING from this one: all 33 grants over all 10 acts
+    survive, byte for byte. That is not a coincidence and is worth stating,
+    because it is the sharpest evidence the two claim shapes really are
+    different. This route only ever fires on an act whose parts commence in
+    STAGES — its ``LATER_INSTRUMENTS_NAME_OTHER_PARTS`` conjunct requires a later
+    sibling to exist and to be provably about other parts — and a later sibling
+    on the act is exactly what the widened route's act-global
+    ``ACT_HAS_NO_LATER_INSTRUMENT`` refuses. The two routes are mutually
+    exclusive on the corpus for a structural reason, not a numerical one.
     """
     index = build_no_amendment_index(_NO_FARCHIVE_PATH)
     named = [
@@ -2143,8 +2212,17 @@ def test_w49_corpus_totals_and_the_untouched_older_routes() -> None:
     ]
     assert len(named) == 33
     assert len({d["source_id"] for d in named}) == 10
-    assert len(multi) == 260
-    assert len(single) == 123
+    assert len(multi) == 4
+    assert len(single) == 33
+    # Every act this route serves has a later sibling, which is what makes it
+    # unreachable by the widened act-level route — the structural argument in
+    # the docstring, asserted rather than asserted-about.
+    widened_acts = {
+        d["source_id"]
+        for d in index.diagnostics
+        if d.get("rule_id") == NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED
+    }
+    assert not (widened_acts & {d["source_id"] for d in named})
     assert not [
         d
         for d in index.diagnostics
@@ -2604,10 +2682,28 @@ def test_w51_corpus_the_two_demoted_acts_and_their_repairs() -> None:
     entries = {e.source_id: e for e in index.entries}
     instruments = {c.source_id: c for c in index.commencement_instruments}
 
+    # W-53: and neither returns by the widened route, which is the check a
+    # widening owes a soundness repair. Both are still contingent with no date
+    # and no grant of ANY of the five kinds; the mechanisms that demoted them
+    # are the same two the widened route inherits (the carve-out fence on the
+    # scope proof, the act-level refutation on the gate).
+    granted_acts = {
+        d["source_id"]
+        for d in index.diagnostics
+        if d.get("rule_id")
+        in {
+            NO_COMMENCEMENT_EXECUTION_AUTHORIZED,
+            NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED,
+            NO_COMMENCEMENT_PART_EXECUTION_AUTHORIZED,
+            NO_COMMENCEMENT_MULTI_PART_EXECUTION_AUTHORIZED,
+            NO_COMMENCEMENT_NAMED_PART_LIST_EXECUTION_AUTHORIZED,
+        }
+    }
     for act_id in ("no/lovtid/2020-05-07-40", "no/lovtid/2020-06-19-77"):
         assert entries[act_id].effective_status == "contingent"
         assert entries[act_id].effective_date is None
         assert entries[act_id].part_scoped_effective_dates == ()
+        assert act_id not in granted_acts
 
     # The fenced one is no longer a whole-act candidate at all, and W-47's
     # reader had always refused its text for the same reason (the exception
@@ -2616,6 +2712,12 @@ def test_w51_corpus_the_two_demoted_acts_and_their_repairs() -> None:
     fenced = instruments["no/forskrift/2020-05-07-944"]
     assert fenced.scope_status is NOCommencementScopeStatus.UNRESOLVED
     assert fenced.whole_act_operative_text is False
+    # W-53: and therefore no widened scope either — the widened proof is the
+    # conjunction of that flag with a single block and the fence, so the reader
+    # refusing is already enough. This is the assertion that stops a future
+    # loosening of ``_whole_act_operative_text`` from silently re-authorizing the
+    # act W-51 demoted.
+    assert fenced.widened_whole_act_scope is False
     assert fenced.effective_dates == ("2020-07-01",)
     # The sibling that made the old grant a live breach.
     chapter_six = instruments["no/forskrift/2021-08-26-2589"]
@@ -2695,12 +2797,17 @@ def test_w51_corpus_totals_and_the_untouched_part_routes() -> None:
     siblings, so it can only ever remove refutations, so no part grant can be
     lost to it — and measured, none is gained either, because every sibling it
     drops was already failing to refute for some other reason.
+
+    W-53 keeps the 540 exactly (the widened route is entered only by pairs the
+    shipped one refused) and retires the part routes into its own 430 act-level
+    grants; the five-route census below is the whole lane in one assertion.
     """
     index = build_no_amendment_index(_NO_FARCHIVE_PATH)
     counts = {
         rule: len([d for d in index.diagnostics if d.get("rule_id") == rule])
         for rule in (
             NO_COMMENCEMENT_EXECUTION_AUTHORIZED,
+            NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED,
             NO_COMMENCEMENT_PART_EXECUTION_AUTHORIZED,
             NO_COMMENCEMENT_MULTI_PART_EXECUTION_AUTHORIZED,
             NO_COMMENCEMENT_NAMED_PART_LIST_EXECUTION_AUTHORIZED,
@@ -2708,8 +2815,9 @@ def test_w51_corpus_totals_and_the_untouched_part_routes() -> None:
     }
     assert counts == {
         NO_COMMENCEMENT_EXECUTION_AUTHORIZED: 540,
-        NO_COMMENCEMENT_PART_EXECUTION_AUTHORIZED: 123,
-        NO_COMMENCEMENT_MULTI_PART_EXECUTION_AUTHORIZED: 260,
+        NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED: 430,
+        NO_COMMENCEMENT_PART_EXECUTION_AUTHORIZED: 33,
+        NO_COMMENCEMENT_MULTI_PART_EXECUTION_AUTHORIZED: 4,
         NO_COMMENCEMENT_NAMED_PART_LIST_EXECUTION_AUTHORIZED: 33,
     }
     assert not [
@@ -2718,17 +2826,43 @@ def test_w51_corpus_totals_and_the_untouched_part_routes() -> None:
         if d.get("rule_id")
         in {
             NO_COMMENCEMENT_EXECUTION_DATE_CONFLICT,
+            NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_DATE_CONFLICT,
             NO_COMMENCEMENT_PART_EXECUTION_DATE_CONFLICT,
         }
     ]
-    # The inert part-grant population is untouched too (W-39 2, W-47 27, W-49 2).
+    # W-53: no act carries both a grant and a refusal for the SAME instrument.
+    # The whole-act route writes its refusal before any route resolves, so the
+    # widened route withdraws it where it grants — otherwise 274 receipts whose
+    # own reason is "stays evidence and re-dates nothing" would sit on acts that
+    # had just been re-dated. (1,156 -> 882 refusals; the difference is smaller
+    # than the 430 grants because 156 of those pairs had been consumed by a part
+    # route at base and never carried a refusal in the first place.)
+    granted_pairs = {
+        (d["source_id"], instrument_id)
+        for d in index.diagnostics
+        if d.get("rule_id")
+        in {
+            NO_COMMENCEMENT_EXECUTION_AUTHORIZED,
+            NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED,
+        }
+        for instrument_id in d["instrument_source_ids"]
+    }
+    refused_pairs = {
+        (d["source_id"], d["instrument_source_id"])
+        for d in index.diagnostics
+        if d.get("rule_id") == NO_COMMENCEMENT_EXECUTION_REFUSED
+    }
+    assert not (granted_pairs & refused_pairs)
+    assert len(refused_pairs) == 882
+
+    # The inert part-grant population, 31 -> 4 at W-53 with the absorption.
     inert = [
         (entry.source_id, law_id)
         for entry in index.entries
         for law_id, _date in entry.part_scoped_effective_dates
         if law_id not in entry.base_ids
     ]
-    assert len(inert) == 31
+    assert len(inert) == 4
 
 
 @pytest.mark.skipif(
@@ -2760,3 +2894,709 @@ def test_w51_corpus_the_carve_out_fence_flips_exactly_one_instrument() -> None:
         candidate = instruments[inert_carve_out]
         assert candidate.scope_status is NOCommencementScopeStatus.UNRESOLVED
         assert len(candidate.effective_dates) == 2
+
+
+# --------------------------------------------------------------------------
+# W-53: the widened whole-act route, the gate's fifth and its second act-level
+# one.
+#
+# ``_WHOLE_ACT_RE`` is a SHAPE — a single block BEGINNING ``(denne )?loven trer i
+# kraft`` — and the W-50 census measured what that misses at 518 mechanical
+# misses over 449 offered acts. The three miss classes the ledger had guessed did
+# not survive measurement (0 title-prefix hits); what actually breaks is the
+# SUBJECT (317 cited-act subjects like "Lov 17. juni 2005 nr. 62 om … trer i
+# kraft", 181 adjacent subjects whose verb is outside the anchored set) and the
+# verb vocabulary (``gjelder fra``, ``skal gjelde``, the nynorsk forms).
+#
+# The widened route reads those with W-47's reader rather than a new pattern, and
+# bounds it three ways: one operative block, W-51's carve-out fence over that
+# block, and W-51's act-level refutation over W-51's sharpened sibling set. Sized
+# at W-50 (research only), unblocked by W-51 (the shipped route was itself in
+# act-level breach) and W-52 (its first entrant exposed a replay-receipt defect),
+# landed here.
+# --------------------------------------------------------------------------
+
+
+def _widened_instrument(
+    source_id: str,
+    *,
+    affected_law_ids: tuple[str, ...] = ("no/lov/2025-02-02-5",),
+    effective_dates: tuple[str, ...] = ("2025-04-01",),
+    whole_act_operative_text: bool = True,
+    widened_whole_act_scope: bool = True,
+    changed_law_ids: tuple[str, ...] = (),
+    cites_acts_as_hjemmel_only: bool = False,
+) -> NOCommencementInstrumentCandidate:
+    """A candidate the SHIPPED whole-act route refuses and the widened one reads.
+
+    ``scope_status`` is always UNRESOLVED — that is what makes the pair this
+    route's business rather than the shipped route's — and callers always pass
+    ``BLOCKED_UNRESOLVED`` beside it, for the same reason.
+    """
+    return NOCommencementInstrumentCandidate(
+        source_id=source_id,
+        locator=f"no://forskrift/{source_id.removeprefix('no/forskrift/')}/original.lti.xml",
+        archive="lovtidend-avd1-2025.tar.bz2",
+        member_name="",
+        title="Ikraftsetting av lov 2. februar 2025 nr. 5",
+        affected_law_ids=affected_law_ids,
+        effective_dates=effective_dates,
+        scope_status=NOCommencementScopeStatus.UNRESOLVED,
+        source_excerpt="Lov 2. februar 2025 nr. 5 om … gjelder fra 1. april 2025.",
+        changed_law_ids=changed_law_ids,
+        whole_act_operative_text=whole_act_operative_text,
+        cites_acts_as_hjemmel_only=cites_acts_as_hjemmel_only,
+        widened_whole_act_scope=widened_whole_act_scope,
+    )
+
+
+def test_widened_route_dates_an_act_the_shipped_shape_refuses() -> None:
+    """The route's positive case, and its receipt."""
+    authorization = authorize_no_commencement_instruments(
+        [(
+            NOCommencementParseStatus.BLOCKED_UNRESOLVED,
+            _widened_instrument("no/forskrift/2025-03-01-500"),
+        )],
+        offered_act_ids={"no/lovtid/2025-02-02-5"},
+    )
+
+    assert authorization.authorizations == ()
+    assert authorization.widened_whole_act_conflicts == ()
+    # And no refusal: the whole-act route's receipt for this pair is WITHDRAWN
+    # once the widened route grants it, because that receipt's own reason says
+    # the instrument "re-dates nothing".
+    assert authorization.refusals == ()
+    assert len(authorization.widened_whole_act_authorizations) == 1
+    receipt = authorization.widened_whole_act_authorizations[0]
+    assert receipt.act_source_id == "no/lovtid/2025-02-02-5"
+    assert receipt.instrument_source_ids == ("no/forskrift/2025-03-01-500",)
+    assert receipt.effective_date == "2025-04-01"
+    assert receipt.passed_conjuncts == tuple(
+        NOCommencementWidenedWholeActAuthorizationConjunct
+    )
+    # It lands in the ACT-level date map, beside the shipped route's grants.
+    assert authorization.authorized_effective_dates() == {
+        "no/lovtid/2025-02-02-5": "2025-04-01"
+    }
+    assert [item.replay_authorized for item in authorization.instruments] == [True]
+
+    detail = receipt.to_diagnostic_detail()
+    assert detail["rule_id"] == NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED
+    assert detail["source_id"] == "no/lovtid/2025-02-02-5"
+    assert detail["effective_date"] == "2025-04-01"
+    assert detail["blocking"] is False
+    assert detail["passed_conjuncts"] == [
+        "single_effective_date",
+        "blocked_only_on_scope",
+        "single_operative_block",
+        "whole_act_operative_text",
+        "act_has_no_later_instrument",
+    ]
+    # F-10, at the receipt: a DATE and no base_ids, so like the three part
+    # routes this one cannot bind an unresolved amender and carries no
+    # decertification risk.
+    assert "base_ids" not in detail
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "why"),
+    [
+        ({"widened_whole_act_scope": False}, "several operative blocks, or the fence"),
+        (
+            {"whole_act_operative_text": False, "widened_whole_act_scope": False},
+            "the reader refuses the text",
+        ),
+        (
+            {"effective_dates": ("2025-04-01", "2025-07-01")},
+            "two dateInForce dates: the instrument stages itself",
+        ),
+    ],
+)
+def test_widened_route_refuses_without_every_conjunct(kwargs, why: str) -> None:
+    """All-or-nothing: each conjunct alone is enough to refuse."""
+    authorization = authorize_no_commencement_instruments(
+        [(
+            NOCommencementParseStatus.BLOCKED_UNRESOLVED,
+            _widened_instrument("no/forskrift/2025-03-01-501", **kwargs),
+        )],
+        offered_act_ids={"no/lovtid/2025-02-02-5"},
+    )
+    assert authorization.widened_whole_act_authorizations == (), why
+    assert authorization.authorized_effective_dates() == {}
+
+
+def test_widened_route_never_sees_a_pair_the_shipped_route_accepted() -> None:
+    """``BLOCKED_ONLY_ON_SCOPE`` is what keeps the two act-level routes disjoint.
+
+    Not a hypothetical guard: measured over the corpus, ALL 607 shipped whole-act
+    candidates also satisfy the widened scope proof, because a text matching
+    ``_WHOLE_ACT_RE`` is exactly the kind W-47's reader accepts. Without this
+    conjunct the shipped 540 would drain into the new rule id wholesale.
+    """
+    shipped = dataclass_replace(
+        _instrument_candidate(
+            "no/forskrift/2025-03-01-502",
+            affected_law_ids=("no/lov/2025-02-02-5",),
+            effective_dates=("2025-04-01",),
+        ),
+        whole_act_operative_text=True,
+        widened_whole_act_scope=True,
+    )
+
+    authorization = authorize_no_commencement_instruments(
+        [(NOCommencementParseStatus.CANDIDATE, shipped)],
+        offered_act_ids={"no/lovtid/2025-02-02-5"},
+    )
+
+    assert len(authorization.authorizations) == 1
+    assert authorization.widened_whole_act_authorizations == ()
+
+
+def test_widened_route_refuses_a_later_instrument_for_the_act() -> None:
+    """``ACT_HAS_NO_LATER_INSTRUMENT``, the same conjunct through the same helper.
+
+    The claim is act-global, so a later instrument commencing anything of the act
+    refutes it whatever that instrument's own scope — W-49's per-part
+    disjointness reading does not apply, for the reason W-51 gave: a whole-act
+    claim leaves no part of the act unclaimed.
+    """
+    widened = _widened_instrument("no/forskrift/2025-03-01-503")
+    later = _widened_instrument(
+        "no/forskrift/2026-01-05-504",
+        effective_dates=("2026-01-05",),
+        whole_act_operative_text=False,
+        widened_whole_act_scope=False,
+    )
+
+    authorization = authorize_no_commencement_instruments(
+        [
+            (NOCommencementParseStatus.BLOCKED_UNRESOLVED, widened),
+            (NOCommencementParseStatus.BLOCKED_UNRESOLVED, later),
+        ],
+        offered_act_ids={"no/lovtid/2025-02-02-5"},
+    )
+
+    assert authorization.widened_whole_act_authorizations == ()
+    assert authorization.authorized_effective_dates() == {}
+    assert [item.replay_authorized for item in authorization.instruments] == [False, False]
+
+
+def test_widened_route_admits_an_earlier_sibling() -> None:
+    """An earlier instrument says nothing against "the rest commenced later"."""
+    earlier = _widened_instrument(
+        "no/forskrift/2024-01-01-505",
+        effective_dates=("2024-01-01",),
+        whole_act_operative_text=False,
+        widened_whole_act_scope=False,
+    )
+    widened = _widened_instrument("no/forskrift/2025-03-01-506")
+
+    authorization = authorize_no_commencement_instruments(
+        [
+            (NOCommencementParseStatus.BLOCKED_UNRESOLVED, earlier),
+            (NOCommencementParseStatus.BLOCKED_UNRESOLVED, widened),
+        ],
+        offered_act_ids={"no/lovtid/2025-02-02-5"},
+    )
+
+    assert len(authorization.widened_whole_act_authorizations) == 1
+    assert authorization.widened_whole_act_authorizations[0].effective_date == "2025-04-01"
+
+
+def test_widened_route_admits_a_later_hjemmel_only_sibling() -> None:
+    """The route consumes W-51's SHARPENED sibling set, not a re-derivation.
+
+    A later instrument citing the act only as its hjemmel — its own commencement
+    action is about a forskrift — is not in the sibling list at all and cannot
+    refute. Worth its own pin: measured, this is the whole difference between the
+    route's 430 grants and the 428 W-50 sized before the sharpening existed
+    (``no/lovtid/2003-12-12-113`` and ``no/lovtid/2011-06-24-39``).
+    """
+    hjemmel_only = _widened_instrument(
+        "no/forskrift/2026-01-05-507",
+        effective_dates=("2026-01-05",),
+        whole_act_operative_text=False,
+        widened_whole_act_scope=False,
+        cites_acts_as_hjemmel_only=True,
+    )
+    widened = _widened_instrument("no/forskrift/2025-03-01-508")
+
+    authorization = authorize_no_commencement_instruments(
+        [
+            (NOCommencementParseStatus.BLOCKED_UNRESOLVED, hjemmel_only),
+            (NOCommencementParseStatus.BLOCKED_UNRESOLVED, widened),
+        ],
+        offered_act_ids={"no/lovtid/2025-02-02-5"},
+    )
+
+    assert len(authorization.widened_whole_act_authorizations) == 1
+
+
+def test_widened_date_conflict_blocks_instead_of_taking_the_later_date() -> None:
+    """W-51's ordering lesson, inherited: the conflict branch gets FIRST refusal.
+
+    Two instruments each reading the act as commencing whole, on different dates.
+    The refutation alone would resolve that silently in favour of the later one —
+    the earlier claim has a later sibling, the later claim has none — and the
+    contradiction would never be receipted. Asserting the refutation AFTER the
+    conflict branch keeps the louder, blocking verdict.
+    """
+    earlier = _widened_instrument(
+        "no/forskrift/2025-03-01-509", effective_dates=("2025-04-01",)
+    )
+    later = _widened_instrument(
+        "no/forskrift/2025-06-01-510", effective_dates=("2025-09-01",)
+    )
+
+    authorization = authorize_no_commencement_instruments(
+        [
+            (NOCommencementParseStatus.BLOCKED_UNRESOLVED, earlier),
+            (NOCommencementParseStatus.BLOCKED_UNRESOLVED, later),
+        ],
+        offered_act_ids={"no/lovtid/2025-02-02-5"},
+    )
+
+    assert authorization.widened_whole_act_authorizations == ()
+    assert authorization.authorized_effective_dates() == {}
+    assert len(authorization.widened_whole_act_conflicts) == 1
+    conflict = authorization.widened_whole_act_conflicts[0]
+    assert conflict.act_source_id == "no/lovtid/2025-02-02-5"
+    assert conflict.effective_dates == ("2025-04-01", "2025-09-01")
+    assert conflict.instrument_source_ids == (
+        "no/forskrift/2025-03-01-509",
+        "no/forskrift/2025-06-01-510",
+    )
+    detail = conflict.to_diagnostic_detail()
+    assert detail["rule_id"] == NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_DATE_CONFLICT
+    assert detail["blocking"] is True
+    assert detail["strict_disposition"] == "block"
+
+
+def test_widened_route_yields_to_a_shipped_proposal_it_disagrees_with() -> None:
+    """The yield is on a shipped PROPOSAL, not merely on a shipped grant.
+
+    A shape-proved instrument dates the act 2025-04-01 and a read one dates it
+    2025-09-01. The shipped route refuses (its own refutation sees the later
+    sibling) and writes its receipt. Without this yield the widened route would
+    then grant 2025-09-01 — it has no later sibling of its own — and a
+    disagreement between two act-level claims would be resolved silently toward
+    the later date ACROSS routes, which is the same mistake the conflict branch
+    above prevents within one.
+    """
+    shipped = _instrument_candidate(
+        "no/forskrift/2025-03-01-511",
+        affected_law_ids=("no/lov/2025-02-02-5",),
+        effective_dates=("2025-04-01",),
+    )
+    widened = _widened_instrument(
+        "no/forskrift/2025-06-01-512", effective_dates=("2025-09-01",)
+    )
+
+    authorization = authorize_no_commencement_instruments(
+        [
+            (NOCommencementParseStatus.CANDIDATE, shipped),
+            (NOCommencementParseStatus.BLOCKED_UNRESOLVED, widened),
+        ],
+        offered_act_ids={"no/lovtid/2025-02-02-5"},
+    )
+
+    assert authorization.authorizations == ()
+    assert authorization.widened_whole_act_authorizations == ()
+    assert authorization.authorized_effective_dates() == {}
+    # Both instruments keep the whole-act route's refusal, and correctly: the
+    # act is re-dated by nothing, so neither receipt's "stays evidence and
+    # re-dates nothing" is false. The widened route adds no receipt of its own,
+    # because the older act-level route already adjudicated this same claim.
+    assert {
+        r.instrument_source_id: r.failed_conjuncts for r in authorization.refusals
+    } == {
+        "no/forskrift/2025-03-01-511": (
+            NOCommencementAuthorizationConjunct.ACT_HAS_NO_LATER_INSTRUMENT,
+        ),
+        "no/forskrift/2025-06-01-512": (
+            NOCommencementAuthorizationConjunct.PARSE_STATUS_CANDIDATE,
+            NOCommencementAuthorizationConjunct.WHOLE_ACT_SCOPE,
+        ),
+    }
+
+
+def test_part_routes_yield_to_a_widened_act_level_grant() -> None:
+    """The absorption at unit scale: one instrument, one act, one date.
+
+    The same instrument would give the single-part route a grant for del I. The
+    widened route dates the WHOLE act at the same date, so the part proposal is
+    dropped without a receipt — exactly as it always was for an act the shipped
+    whole-act route dated, and the reason 346 of the corpus's 416 part grants
+    retire.
+    """
+    instrument = _widened_instrument(
+        "no/forskrift/2025-03-01-513", changed_law_ids=("no/lov/2001-01-05-1",)
+    )
+
+    authorization = authorize_no_commencement_instruments(
+        [(NOCommencementParseStatus.BLOCKED_UNRESOLVED, instrument)],
+        offered_act_ids={"no/lovtid/2025-02-02-5"},
+        act_part_evidence={
+            "no/lovtid/2025-02-02-5": _part_evidence(
+                part_law_ids={"I": "no/lov/2001-01-05-1", "III": "no/lov/1997-06-13-55"},
+                bound_law_ids=("no/lov/1997-06-13-55", "no/lov/2001-01-05-1"),
+            )
+        },
+    )
+
+    assert len(authorization.widened_whole_act_authorizations) == 1
+    assert authorization.part_authorizations == ()
+    assert authorization.part_authorized_effective_dates() == {}
+    assert authorization.authorized_effective_dates() == {
+        "no/lovtid/2025-02-02-5": "2025-04-01"
+    }
+
+
+def test_a_refuted_widened_claim_leaves_the_part_grant_standing() -> None:
+    """The widened proposal consumes nothing, which is what makes the yield safe.
+
+    Same instrument, plus a later sibling that refutes the ACT-level claim. The
+    act-level claim falls; the part claim — about del I only, proved structurally
+    — does not, and must not: the widened route asked for more and got nothing,
+    rather than taking the part grant down with it.
+    """
+    instrument = _widened_instrument(
+        "no/forskrift/2025-03-01-514", changed_law_ids=("no/lov/2001-01-05-1",)
+    )
+    later = _widened_instrument(
+        "no/forskrift/2026-01-05-515",
+        effective_dates=("2026-01-05",),
+        whole_act_operative_text=False,
+        widened_whole_act_scope=False,
+    )
+
+    authorization = authorize_no_commencement_instruments(
+        [
+            (NOCommencementParseStatus.BLOCKED_UNRESOLVED, instrument),
+            (NOCommencementParseStatus.BLOCKED_UNRESOLVED, later),
+        ],
+        offered_act_ids={"no/lovtid/2025-02-02-5"},
+        act_part_evidence={
+            "no/lovtid/2025-02-02-5": _part_evidence(
+                part_law_ids={"I": "no/lov/2001-01-05-1", "III": "no/lov/1997-06-13-55"},
+                bound_law_ids=("no/lov/1997-06-13-55", "no/lov/2001-01-05-1"),
+            )
+        },
+    )
+
+    assert authorization.widened_whole_act_authorizations == ()
+    assert len(authorization.part_authorizations) == 1
+    assert authorization.part_authorizations[0].part_label == "I"
+
+
+def test_widened_route_is_off_for_an_act_no_caller_offers() -> None:
+    """No offered act, no pair, no receipt — the enabling-statute filter."""
+    authorization = authorize_no_commencement_instruments(
+        [(
+            NOCommencementParseStatus.BLOCKED_UNRESOLVED,
+            _widened_instrument("no/forskrift/2025-03-01-516"),
+        )],
+        offered_act_ids=set(),
+    )
+    assert authorization.widened_whole_act_authorizations == ()
+    assert authorization.refusals == ()
+
+
+# --- W-53's parse-time scope proof -----------------------------------------
+
+
+def _widened_scope_of(blocks: list[str], *, date_in_force: str = "2025-04-01") -> bool:
+    body = "".join(f'<article class="legalP">{text}</article>' for text in blocks)
+    payload = (
+        '<html><body><dd class="title">Ikraftsetting av lov 2. februar 2025 nr. 5</dd>'
+        '<dd class="basedOn"><ul><li>lov/2025-02-02-5</li></ul></dd>'
+        f'<dd class="dateInForce">{date_in_force}</dd>'
+        f'<main class="documentBody">{body}</main>'
+        "</body></html>"
+    ).encode("utf-8")
+    result = parse_no_commencement_instrument(
+        payload,
+        source_id="no/forskrift/2025-03-01-517",
+        locator="no://forskrift/2025-03-01-517/original.lti.xml",
+        archive="lovtidend-avd1-2025.tar.bz2",
+        member_name="lti/2025/sf-20250301-0517.xml",
+    )
+    assert result.candidate is not None
+    return result.candidate.widened_whole_act_scope
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # The W-50 census's two measured miss classes: a cited-act subject, and
+        # an adjacent subject whose verb is outside the anchored set.
+        "Lov 17. juni 2005 nr. 62 om endringer i arbeidsmiljøloven trer i kraft 1. januar 2006.",
+        "Loven gjelder fra 1. april 2025.",
+        "Lova skal gjelde frå 1. april 2025.",
+    ],
+)
+def test_widened_scope_accepts_the_shapes_the_shipped_pattern_misses(text: str) -> None:
+    """The route's whole reason to exist, in the shapes W-50 measured.
+
+    The second assertion is the one that makes these this route's population
+    rather than a duplicate of the old one: ``_WHOLE_ACT_RE`` really does refuse
+    every one of them.
+    """
+    assert _widened_scope_of([text]) is True
+    # lawvm-regex: owning_parser the shipped whole-act shape, asserted negatively
+    assert _WHOLE_ACT_RE.fullmatch(text) is None
+
+
+def test_widened_scope_refuses_a_second_operative_block() -> None:
+    """``SINGLE_OPERATIVE_BLOCK``: the reader joins blocks, so one block only.
+
+    Block one commences the act; block two says something else. The block COUNT
+    has to carry this, because a second block need not mention a subdivision at
+    all in order to say something the first does not — which is exactly how the
+    ``reader`` variant W-50 priced ended up admitting delegation and
+    forskrift-amendment texts.
+    """
+    assert _widened_scope_of(["Loven gjelder fra 1. april 2025."]) is True
+    assert (
+        _widened_scope_of(
+            [
+                "Loven gjelder fra 1. april 2025.",
+                "Departementet kan gi overgangsregler.",
+            ]
+        )
+        is False
+    )
+
+
+@pytest.mark.parametrize(
+    "tail",
+    [
+        ", med unntak av kapittel 6",
+        ", med unntak for § 13a",
+        ". Kapittel 7 settes foreløpig ikke i kraft",
+    ],
+)
+def test_widened_scope_refuses_a_carve_out(tail: str) -> None:
+    """W-51's fence over the widened proof, from the same computed value.
+
+    The item asked specifically whether ``unntak for`` and ``foreløpig ikke``
+    reach this route's reader. They are the only two phrases
+    ``_WHOLE_ACT_TAIL_HAZARD_RE`` carries that ``_SUBDIVISION_SCOPE_RE`` does
+    not, and measured over all 2,365 parsed instruments the fence's flip set on
+    this route is EMPTY: each of the 13 corpus texts carrying either phrase is
+    already refused by the reader on another token, because the grammatical
+    object of ``unntak for`` is itself always a subdivision noun
+    (``.tmp/w53/fence_witnesses.json``). The fence is kept and pinned anyway —
+    it is refusing-only, it costs nothing, and it makes "the module's two
+    whole-act readers agree on carve-outs" true by construction rather than by
+    measurement.
+    """
+    assert _widened_scope_of([f"Loven gjelder fra 1. april 2025{tail}."]) is False
+
+
+def test_widened_scope_round_trips_through_serialization() -> None:
+    """The flag is persisted, so a reloaded index gates identically."""
+    candidate = _widened_instrument("no/forskrift/2025-03-01-518")
+    assert candidate.to_dict()["widened_whole_act_scope"] is True
+    restored = NOCommencementInstrumentCandidate.from_dict(candidate.to_dict())
+    assert restored.widened_whole_act_scope is True
+    # Absent in a pre-W-53 serialized index: the safe default is False, so an
+    # old artifact can never authorize through the new route.
+    assert (
+        NOCommencementInstrumentCandidate.from_dict(
+            {"source_id": "no/forskrift/2025-03-01-519", "locator": "x"}
+        ).widened_whole_act_scope
+        is False
+    )
+
+
+# --- W-53 corpus ------------------------------------------------------------
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_w53_corpus_witness_dates_the_act_that_needed_w52_first() -> None:
+    """W-53's corpus witness, chosen because it is the one W-52 had to make safe.
+
+    ``no/lovtid/2007-06-29-93`` is the contingent amending act that kept
+    ``no/lov/2004-12-17-99`` (klimakvoteloven) out of the candidate set. Under the
+    W-50 counterfactual its admission produced the programme's first and only
+    ``error`` verdict — a renumber whose displaced occupant the receipt did not
+    declare. W-52 fixed the receipt; here the widened route dates the act and the
+    law enters the scan CONSISTENT at 0 divergences, so the error column never
+    opens.
+    """
+    index = build_no_amendment_index(_NO_FARCHIVE_PATH)
+    entry = next(e for e in index.entries if e.source_id == "no/lovtid/2007-06-29-93")
+
+    assert entry.effective_status == "instrument_authorized"
+    assert entry.effective_date == "2007-07-01"
+    assert entry.part_scoped_effective_dates == ()
+    assert "no/lov/2004-12-17-99" in entry.base_ids
+
+    receipts = [
+        d
+        for d in index.diagnostics
+        if d.get("rule_id") == NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED
+        and d.get("source_id") == "no/lovtid/2007-06-29-93"
+    ]
+    assert len(receipts) == 1
+    assert receipts[0]["instrument_source_ids"] == ["no/forskrift/2007-06-29-823"]
+    assert receipts[0]["effective_date"] == "2007-07-01"
+
+    instrument = next(
+        c
+        for c in index.commencement_instruments
+        if c.source_id == "no/forskrift/2007-06-29-823"
+    )
+    # The proof in one place: the shipped SHAPE refuses it, the reader accepts
+    # it, and the widened scope proof holds.
+    assert instrument.scope_status is NOCommencementScopeStatus.UNRESOLVED
+    assert instrument.whole_act_operative_text is True
+    assert instrument.widened_whole_act_scope is True
+    assert instrument.replay_authorized is True
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_w53_corpus_zero_early_over_every_widened_grant() -> None:
+    """P1 at act level over the widened set — the item's hard gate.
+
+    The probe W-51 promoted from a measurement of the gate to a property of it,
+    run over this route's 430 grants. Given the conjunct this is close to a
+    tautology, which is the point of the conjunct; what carries information is
+    the SCOPE — 0 EARLY over all 1,040 grants across all five routes, where the
+    older probe covered 540.
+    """
+    index = build_no_amendment_index(_NO_FARCHIVE_PATH)
+    dates_by_act: dict[str, list[tuple[str, str]]] = {}
+    for candidate in index.commencement_instruments:
+        if candidate.cites_acts_as_hjemmel_only:
+            continue
+        for law_id in candidate.affected_law_ids:
+            act_id = no_commencement_act_id_from_law_id(law_id)
+            if not act_id:
+                continue
+            for date in candidate.effective_dates:
+                dates_by_act.setdefault(act_id, []).append((candidate.source_id, date))
+
+    grants = [
+        d
+        for d in index.diagnostics
+        if d.get("rule_id") == NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED
+    ]
+    assert len(grants) == 430
+    early = [
+        (d["source_id"], d["effective_date"], sibling_id, sibling_date)
+        for d in grants
+        for sibling_id, sibling_date in dates_by_act.get(d["source_id"], ())
+        if sibling_id not in set(d["instrument_source_ids"])
+        and sibling_date > d["effective_date"]
+    ]
+    assert early == []
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_w53_corpus_the_absorbed_part_grants_are_never_dated_earlier() -> None:
+    """The retirement's safety property, asserted where it can still be checked.
+
+    346 of the base's 416 part grants are absorbed by an act-level grant, 70
+    survive. For each absorbed one the act-level date must be the part date or
+    LATER — an earlier date would apply that part's ops on a day the part route's
+    own evidence says it was not yet in force, which is a soundness regression
+    dressed as a coverage win. Measured across the change: 344 identical, 2
+    later, 0 earlier (``.tmp/w53/absorption.json``).
+    """
+    index = build_no_amendment_index(_NO_FARCHIVE_PATH)
+    entries = {e.source_id: e for e in index.entries}
+    act_dates = {
+        d["source_id"]: d["effective_date"]
+        for d in index.diagnostics
+        if d.get("rule_id")
+        in {
+            NO_COMMENCEMENT_EXECUTION_AUTHORIZED,
+            NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED,
+        }
+    }
+    surviving = [
+        d
+        for d in index.diagnostics
+        if d.get("rule_id")
+        in {
+            NO_COMMENCEMENT_PART_EXECUTION_AUTHORIZED,
+            NO_COMMENCEMENT_MULTI_PART_EXECUTION_AUTHORIZED,
+            NO_COMMENCEMENT_NAMED_PART_LIST_EXECUTION_AUTHORIZED,
+        }
+    ]
+    assert len(surviving) == 70
+    # Absorption is total per act, never partial: no act carries both an
+    # act-level date and a part-scoped one. That is what makes "the act-level
+    # date answers for every binding" safe to rely on.
+    for act_id, entry in entries.items():
+        if act_id in act_dates:
+            assert entry.part_scoped_effective_dates == (), act_id
+
+    # The two LATER-conservative absorptions, by id and with both dates. Their
+    # part receipts are gone, so the part dates are the measured base values and
+    # what is asserted here is that the act now says something strictly later.
+    for act_id, part_date, act_date in (
+        ("no/lovtid/2008-12-19-106", "2010-02-01", "2010-03-01"),
+        ("no/lovtid/2009-04-24-22", "2009-12-18", "2010-01-01"),
+    ):
+        assert act_dates[act_id] == act_date
+        assert act_date > part_date
+
+    # SCOPE INFLATION, the other side of the retirement: two acts / four
+    # bindings that no part grant covered and the act-level grant now dates.
+    # Sound per binding — the instrument's text commences the WHOLE act, so the
+    # bindings the Endrer header omitted are commenced by the same sentence —
+    # and pinned so the population cannot grow unnoticed.
+    for act_id, newly_dated in (
+        ("no/lovtid/2005-01-07-2", ("no/lov/1903-06-09-7", "no/lov/1915-08-13-5")),
+        ("no/lovtid/2006-06-30-52", ("no/lov/1975-06-06-31", "no/lov/2006-05-19-16")),
+    ):
+        entry = entries[act_id]
+        assert entry.effective_status == "instrument_authorized"
+        for law_id in newly_dated:
+            assert law_id in entry.base_ids
+            assert entry.effective_date_for_base(law_id)[0] == act_dates[act_id]
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_w53_corpus_the_two_scope_proofs_are_nested_not_overlapping() -> None:
+    """Why ``BLOCKED_ONLY_ON_SCOPE`` is load-bearing rather than decorative.
+
+    The widened proof is strictly WEAKER than the shipped one: every one of the
+    607 shipped whole-act candidates also satisfies it, so route membership is
+    decided entirely by which route got there first. 1,107 candidates carry the
+    widened proof against 1,127 whose text the reader accepts; the 20-candidate
+    gap is the block count, and none of it is the carve-out fence (its flip set
+    here is 0 — see the unit test above).
+    """
+    index = build_no_amendment_index(_NO_FARCHIVE_PATH)
+    candidates = index.commencement_instruments
+    assert len(candidates) == 2365
+    reader = {c.source_id for c in candidates if c.whole_act_operative_text}
+    widened = {c.source_id for c in candidates if c.widened_whole_act_scope}
+    shipped = {
+        c.source_id
+        for c in candidates
+        if c.scope_status is NOCommencementScopeStatus.WHOLE_ACT
+    }
+    assert len(reader) == 1127
+    assert len(widened) == 1107
+    assert len(shipped) == 607
+    # Nesting, in both directions that matter.
+    assert widened <= reader
+    assert shipped <= widened
+    assert len(reader - widened) == 20

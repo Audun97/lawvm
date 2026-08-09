@@ -475,6 +475,15 @@ def _authorize_no_commencement_instruments_into_index(
     the same reason: one more per-binding date into the same field, from an
     instrument that names the parts it commences instead of commencing the act
     whole. No act-level status moves, and no ``base_ids`` are ever written.
+
+    W-53's widened whole-act route is the first since W-39 to move the act-level
+    histogram: its grant lands in ``authorized_effective_dates`` beside the
+    shipped route's, so the acts it dates become ``instrument_authorized`` exactly
+    as they would have under a matched ``_WHOLE_ACT_RE``. What it still does not
+    touch is the OFFERING (unchanged, above) and ``base_ids`` — this lane writes
+    dates and never bindings, which is why widening it cannot decertify a law: a
+    law's coverage partition is a function of its bindings, and resolution is
+    monotone in the dates.
     """
     authorization = authorize_no_commencement_instruments(
         parsed_instruments,
@@ -514,6 +523,10 @@ def _authorize_no_commencement_instruments_into_index(
         index.diagnostics.append(multi_part_receipt.to_diagnostic_detail())
     for named_part_receipt in authorization.named_part_list_authorizations:
         index.diagnostics.append(named_part_receipt.to_diagnostic_detail())
+    for widened_receipt in authorization.widened_whole_act_authorizations:
+        index.diagnostics.append(widened_receipt.to_diagnostic_detail())
+    for widened_conflict in authorization.widened_whole_act_conflicts:
+        index.diagnostics.append(widened_conflict.to_diagnostic_detail())
     for refusal in authorization.refusals:
         index.diagnostics.append(refusal.to_diagnostic_detail())
     for conflict in authorization.conflicts:

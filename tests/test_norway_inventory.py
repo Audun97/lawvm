@@ -857,6 +857,13 @@ def test_corpus_no_consolidation_inventory_counters_and_would_be_ceiling() -> No
     gained or lost an index binding. Same +2 as
     ``test_norway_verify.py``'s ``would_be_candidates``, which is the same
     number read off the partition report.
+
+    57 -> 61 / 33 -> 29 at W-53 (2026-08-09). The widened whole-act route, and
+    the identical mechanism at a larger scale: four more of these laws stop
+    being blocked by a contingent amender. Again a pure TRANSFER — the sum is
+    unmoved at 90 and ``None`` is unmoved at 2,552 — which is the check that an
+    ACT-level commencement route still writes only dates and never bindings.
+    Same +4 as ``test_norway_verify.py``'s ``would_be_candidates``.
     """
     data_dir = _no_corpus_dir()
     if data_dir is None:
@@ -876,5 +883,5 @@ def test_corpus_no_consolidation_inventory_counters_and_would_be_ceiling() -> No
         str(row["would_be_status"]) for row in inventory.no_consolidation_rows
     )
     assert would_be == Counter(
-        {"None": 2552, "fully_replayable": 57, "blocked_contingent": 33}
+        {"None": 2552, "fully_replayable": 61, "blocked_contingent": 29}
     )

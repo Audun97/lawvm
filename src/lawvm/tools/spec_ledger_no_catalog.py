@@ -158,6 +158,21 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "them all and every later instrument on the act is provably about other parts, "
         "by both its own declared laws and its own named list."
     ),
+    "no_lovtidend_commencement_widened_whole_act_execution_authorized": (
+        "A Norsk Lovtidend instrument whose SINGLE operative block commences an "
+        "amendment act as a WHOLE — naming no subdivision of it, carrying no "
+        "exception or carve-out phrase, with the act itself as the commencement "
+        "clause's subject — IS that act's in-force evidence even where the shipped "
+        "whole-act pattern does not match its wording; the act enters force on the "
+        "instrument's date, provided no later instrument commences anything of it "
+        "and the shipped route proposed no date of its own."
+    ),
+    "no_lovtidend_commencement_widened_whole_act_execution_date_conflict": (
+        "Two Norsk Lovtidend instruments whose operative texts each commence the same "
+        "amendment act as a whole give it different dates; contradictory official "
+        "commencement evidence is blocking source pathology and neither date re-dates "
+        "the act."
+    ),
     "no_lovtidend_commencement_part_execution_date_conflict": (
         "Two Norsk Lovtidend instruments commence the same part of an amendment act at "
         "different dates; contradictory official commencement evidence is blocking "

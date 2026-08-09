@@ -74,6 +74,44 @@ dependency order, and the first is shared by all four routes:
   property the outside probe measures — the same move W-49 made for its own
   route. See
   :attr:`NOCommencementAuthorizationConjunct.ACT_HAS_NO_LATER_INSTRUMENT`.
+
+W-53 adds the gate's FIFTH route, and the first since W-39 to make an act-level
+claim. ``_WHOLE_ACT_RE`` is a shape, not a reading: it demands a single operative
+block that BEGINS with ``(denne )?loven trer i kraft``, so it misses every
+instrument that says the same thing with a different subject or a different verb.
+The W-50 census swept all 2,365 parsed instruments and measured the miss at 518
+mechanical misses over 449 offered acts, 7× the estimate that opened the item —
+and the three miss classes the ledger had guessed did not survive contact: 0
+title-prefix hits. What actually breaks is the SUBJECT (317 cited-act subjects
+like "Lov 17. juni 2005 nr. 62 om … trer i kraft 1. januar 2006", 181 adjacent
+subjects whose verb is outside the anchored set) and the verb vocabulary
+(``gjelder fra``, ``skal gjelde``, the nynorsk forms).
+
+The widened route reads those with the reader W-47 already built and W-49 already
+depends on (:func:`_whole_act_operative_text`) instead of with a new pattern, and
+bounds it in three ways rather than replacing the shape test:
+
+* the instrument must say ONE thing, in ONE operative block. The reader joins
+  blocks, so a two-block instrument can pass it while one block commences the act
+  and the other defers a chapter of it; requiring a single block is what makes
+  "the text commences the act" a statement about the whole document. Measured,
+  this is the difference between the ``reader`` variant (which admits delegation
+  and forskrift-amendment texts) and this one;
+* W-51's carve-out fence applies UNCHANGED. ``_whole_act_operative_text``'s own
+  refusing half misses exactly two of ``_WHOLE_ACT_TAIL_HAZARD_RE``'s phrases —
+  ``unntak for`` and ``foreløpig ikke`` — so the widened scope proof runs the same
+  fence over the same single block, from the same computed value the shipped
+  reader uses. The module's readers agree on carve-outs by construction, not by
+  coincidence;
+* the act-level refutation is the same conjunct, over the same sharpened sibling
+  set, through the same helper as W-47 and W-51
+  (:func:`_act_has_later_commencement_sibling`).
+
+It is a separate route rather than a loosening of ``_WHOLE_ACT_RE`` because the
+shipped 540 must keep their proof: a route that could only ever be entered by a
+pair the shipped route already refused cannot take a grant away from it, and the
+two receipts stay separately countable. See
+:class:`NOCommencementWidenedWholeActAuthorizationConjunct`.
 """
 
 from __future__ import annotations
@@ -109,6 +147,12 @@ NO_COMMENCEMENT_MULTI_PART_EXECUTION_AUTHORIZED = (
 )
 NO_COMMENCEMENT_NAMED_PART_LIST_EXECUTION_AUTHORIZED = (
     "no_lovtidend_commencement_named_part_list_execution_authorized"
+)
+NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED = (
+    "no_lovtidend_commencement_widened_whole_act_execution_authorized"
+)
+NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_DATE_CONFLICT = (
+    "no_lovtidend_commencement_widened_whole_act_execution_date_conflict"
 )
 
 _WS_RE = re.compile(r"\s+")
@@ -622,6 +666,98 @@ class NOCommencementNamedPartListAuthorizationConjunct(StrEnum):
     """
 
 
+class NOCommencementWidenedWholeActAuthorizationConjunct(StrEnum):
+    """The conjuncts a pair must satisfy to re-date an act on a READ whole-act text.
+
+    A fifth closed set, and the second that makes an ACT-level claim. It is
+    deliberately not the whole-act route's set with one member swapped: the two
+    routes prove the same conclusion from different evidence — a matched SHAPE
+    there, a read TEXT here — and a refusal naming ``whole_act_scope`` would say
+    nothing about which reading was even attempted.
+    """
+
+    SINGLE_EFFECTIVE_DATE = "single_effective_date"
+    """The instrument's ``dateInForce`` carries exactly one ISO date.
+
+    Same conjunct as everywhere else in this gate. Two dates in the field is an
+    instrument staging itself, and an act-level claim cannot be read out of it.
+    """
+
+    BLOCKED_ONLY_ON_SCOPE = "blocked_only_on_scope"
+    """The parse failed for no reason other than whole-act scope.
+
+    As at W-39: the pair exists only because the instrument cites an offered act,
+    so "no affected law" is excluded; ``SINGLE_EFFECTIVE_DATE`` excludes "no
+    effective date"; what is left is an instrument that IS a commencement, names
+    its act, and whose only defect is that ``_WHOLE_ACT_RE`` did not match its
+    text. That is exactly this route's population, and it is also what keeps the
+    two act-level routes disjoint — a pair the shipped route ACCEPTED never
+    reaches here, so this route can never take a shipped grant away or re-date an
+    act the older proof already dated.
+    """
+
+    SINGLE_OPERATIVE_BLOCK = "single_operative_block"
+    """The instrument has exactly one operative block.
+
+    The bound that separates this route from the ``reader`` variant W-50 priced
+    and rejected. :func:`_whole_act_operative_text` reads the operative blocks
+    JOINED, so on a two-block document "the text commences the act as a whole"
+    is a claim about a concatenation: one block may commence the act while the
+    next defers a chapter of it, or amends a forskrift, or delegates the real
+    date. Requiring a single block makes the reader's verdict a statement about
+    the whole document rather than about part of it.
+
+    Witnessed by the parse-time ``widened_whole_act_scope`` flag, because the
+    block COUNT is XML-only evidence: the gate sees typed candidates and never
+    the document.
+    """
+
+    WHOLE_ACT_OPERATIVE_TEXT = "whole_act_operative_text"
+    """The instrument's operative text commences the act as a WHOLE.
+
+    The same conjunct, the same name and the same reader as W-47's
+    (:attr:`NOCommencementMultiPartAuthorizationConjunct.WHOLE_ACT_OPERATIVE_TEXT`):
+    the text names no subdivision of the act and carries no negative or exception
+    phrase (``_SUBDIVISION_SCOPE_RE``, refusing only), and the subject of its
+    commencement clause is the act itself rather than one of the laws it amends
+    (``_WHOLE_ACT_SUBJECT_RE`` / ``_CITED_ACT_SUBJECT_RE``).
+
+    W-47 could route that reading to PARTS only, and said so in as many words:
+    "this flag deliberately feeds ONLY the multi-part route, never the whole-act
+    one, so a looser reading can never re-date an act wholesale". This route is
+    the deliberate reversal of that restriction, and what pays for it is the
+    other four conjuncts — a single block, W-51's carve-out fence, and an
+    act-level refutation the multi-part route did not have when that line was
+    written.
+
+    Plus the fence, and the fence is the point. Measured over the shipped
+    reader's vocabulary, ``_SUBDIVISION_SCOPE_RE`` misses exactly two of
+    ``_WHOLE_ACT_TAIL_HAZARD_RE``'s phrases — ``unntak for`` and ``foreløpig
+    ikke`` — which is to say the two W-51 had to ADD when it fenced
+    ``_WHOLE_ACT_RE``'s tail. An act-level claim read out of prose cannot be
+    allowed to survive a sentence the shipped route would refuse for naming an
+    exception, so ``widened_whole_act_scope`` applies that same fence, to the same
+    block, from the same computed value.
+    """
+
+    ACT_HAS_NO_LATER_INSTRUMENT = "act_has_no_later_instrument"
+    """No commencement-relevant instrument commences anything of this act LATER.
+
+    Same name, same value, same code and same sibling set as W-47's and W-51's:
+    :func:`_act_has_later_commencement_sibling` over the sharpened list built once
+    in :func:`authorize_no_commencement_instruments`. The claim here is the
+    strongest the lane makes — every op of the act, for every law it binds, in
+    force on this one day — so W-49's per-part disjointness reading does not
+    apply for exactly the reason W-51 gave: a whole-act claim leaves no part of
+    the act un-claimed, so ANY later commencement-relevant sibling refutes.
+
+    Asserted AFTER the date-conflict branch, as at W-51 and for the same reason.
+    Applying it while proposals are gathered would quietly resolve every
+    disagreement between two instruments in favour of the later date and the
+    blocking conflict receipt would never be written.
+    """
+
+
 class NOCommencementInstrumentCoverageError(ValueError):
     """Persisted commencement-instrument coverage has an invalid shape."""
 
@@ -671,6 +807,16 @@ class NOCommencementInstrumentCandidate:
     # refutes a claim from a sibling set. Defaults to False, which is the safe
     # value: an unproven sibling counts and refutes.
     cites_acts_as_hjemmel_only: bool = False
+    # W-53. The widened whole-act route's SCOPE proof, in one flag, because both
+    # halves of it are things only the parser can see: the instrument has exactly
+    # one operative block, that block's text commences the act as a whole, and it
+    # clears W-51's carve-out fence. Stored as the conjunction rather than as two
+    # fields on purpose — the polarity of this gate is that over-authorization is
+    # the danger, and a single conjunctive flag cannot be assembled into an
+    # authorizing candidate one half at a time. ``whole_act_operative_text``
+    # remains separately readable beside it, so the route can still assert its
+    # text conjunct in its own right.
+    widened_whole_act_scope: bool = False
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -690,6 +836,7 @@ class NOCommencementInstrumentCandidate:
             "whole_act_operative_text": self.whole_act_operative_text,
             "named_part_labels": list(self.named_part_labels),
             "cites_acts_as_hjemmel_only": self.cites_acts_as_hjemmel_only,
+            "widened_whole_act_scope": self.widened_whole_act_scope,
         }
 
     @classmethod
@@ -729,6 +876,7 @@ class NOCommencementInstrumentCandidate:
             replay_authorized=bool(data.get("replay_authorized", False)),
             whole_act_operative_text=bool(data.get("whole_act_operative_text", False)),
             cites_acts_as_hjemmel_only=bool(data.get("cites_acts_as_hjemmel_only", False)),
+            widened_whole_act_scope=bool(data.get("widened_whole_act_scope", False)),
         )
 
 
@@ -877,6 +1025,70 @@ class NOCommencementDateConflictReceipt:
             reason=(
                 "Norway commencement instruments give one amendment act contradictory whole-act "
                 "commencement dates; neither date is applied."
+            ),
+            blocking=True,
+            strict_disposition="block",
+            quirks_disposition=QuirksDisposition.BLOCK,
+            source_id=self.act_source_id,
+            instrument_source_ids=list(self.instrument_source_ids),
+            effective_dates=list(self.effective_dates),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class NOCommencementWidenedWholeActAuthorizationReceipt:
+    """One unresolved amendment act re-dated by a READ whole-act text.
+
+    Carries the same three fields as :class:`NOCommencementAuthorizationReceipt`
+    and lands in the same act-level date map, plus the conjuncts it passed. Its
+    own rule id, for the reason W-47 took one: the two act-level routes prove the
+    same conclusion from different evidence, and a pin that could not tell them
+    apart would move for either.
+    """
+
+    act_source_id: str
+    instrument_source_ids: tuple[str, ...]
+    effective_date: str
+    passed_conjuncts: tuple[NOCommencementWidenedWholeActAuthorizationConjunct, ...]
+
+    def to_diagnostic_detail(self) -> dict[str, Any]:
+        return diagnostic_detail(
+            rule_id=NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED,
+            family="temporal_recovery",
+            phase="temporal",
+            reason=(
+                "Norway commencement instrument's single operative block commences an "
+                "unresolved amendment act as a WHOLE — naming no subdivision of it and no "
+                "exception, with the act itself as the commencement clause's subject — and "
+                "no later instrument commences anything of it; the act takes that date."
+            ),
+            blocking=False,
+            strict_disposition="record",
+            quirks_disposition=QuirksDisposition.RECORD,
+            source_id=self.act_source_id,
+            instrument_source_ids=list(self.instrument_source_ids),
+            effective_date=self.effective_date,
+            passed_conjuncts=[str(conjunct) for conjunct in self.passed_conjuncts],
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class NOCommencementWidenedWholeActDateConflictReceipt:
+    """Two READ whole-act texts commencing one act at different dates; both refused."""
+
+    act_source_id: str
+    instrument_source_ids: tuple[str, ...]
+    effective_dates: tuple[str, ...]
+
+    def to_diagnostic_detail(self) -> dict[str, Any]:
+        return diagnostic_detail(
+            rule_id=NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_DATE_CONFLICT,
+            family="temporal_recovery",
+            phase="temporal",
+            reason=(
+                "Norway commencement instruments whose operative texts each commence one "
+                "amendment act as a whole give it contradictory dates; neither date is "
+                "applied."
             ),
             blocking=True,
             strict_disposition="block",
@@ -1075,11 +1287,34 @@ class NOCommencementExecutionAuthorization:
     named_part_list_authorizations: tuple[
         NOCommencementNamedPartListAuthorizationReceipt, ...
     ] = ()
+    widened_whole_act_authorizations: tuple[
+        NOCommencementWidenedWholeActAuthorizationReceipt, ...
+    ] = ()
+    widened_whole_act_conflicts: tuple[
+        NOCommencementWidenedWholeActDateConflictReceipt, ...
+    ] = ()
 
     def authorized_effective_dates(self) -> dict[str, str]:
-        return {
-            receipt.act_source_id: receipt.effective_date for receipt in self.authorizations
+        """act -> date, the act-level dates BOTH whole-act routes granted.
+
+        Both routes grant the same KIND of thing — one date for the act's whole op
+        stream — and every consumer wants one map, exactly as the three part
+        routes share ``part_authorized_effective_dates``. Written widened-first so
+        that if the two ever proposed the same act the older, shape-proved
+        authorization would win; they cannot, because the widened route declines
+        any act the shipped one so much as proposed a date for.
+        """
+        dates = {
+            receipt.act_source_id: receipt.effective_date
+            for receipt in self.widened_whole_act_authorizations
         }
+        dates.update(
+            {
+                receipt.act_source_id: receipt.effective_date
+                for receipt in self.authorizations
+            }
+        )
+        return dates
 
     def part_authorized_effective_dates(self) -> dict[str, dict[str, str]]:
         """act -> {law -> date}, the per-binding dates the part routes granted.
@@ -1173,6 +1408,22 @@ def authorize_no_commencement_instruments(
     is asserted where the act's proposals have already been gathered and
     reconciled, not in :func:`_failed_authorization_conjuncts`, whose signature
     says plainly that it sees one candidate and no act.
+
+    W-53 adds a FIFTH route, and it does not slot into the existing ordering: it
+    is act-level, so it sits between the shipped whole-act route and the three
+    part routes, and it is resolved there. Two consequences worth stating rather
+    than leaving to be inferred from the code:
+
+    * a pair is offered to it and STILL offered to the part routes. The routes
+      claim different things — one date for the act against one date per binding
+      — so a widened claim that is later refuted or contradicted must leave the
+      part grants standing exactly as they were. Nothing consumes the pair.
+    * where it grants, the part routes yield to it per ACT, on exactly the terms
+      they already yield to the shipped whole-act route: the act carries the date
+      those part grants would have given it, so the proposals are dropped without
+      a receipt. Measured, that absorbs most of the part lane, and the retirement
+      is the deliberate, signed-off consequence of the widening rather than a
+      side effect of it.
     """
     offered = frozenset(offered_act_ids)
     part_evidence = dict(act_part_evidence or {})
@@ -1225,6 +1476,7 @@ def authorize_no_commencement_instruments(
     multi_part_spans: dict[tuple[str, str, str], tuple[str, ...]] = {}
     named_part_list_proposals: dict[tuple[str, str, str], dict[str, list[str]]] = {}
     named_part_list_spans: dict[tuple[str, str, str], tuple[str, ...]] = {}
+    widened_proposals: dict[str, dict[str, list[str]]] = {}
     refusals: list[NOCommencementRefusalReceipt] = []
     for parse_status, candidate in parsed_instruments:
         cited_act_ids = tuple(
@@ -1244,6 +1496,18 @@ def authorize_no_commencement_instruments(
         failed_conjuncts = _failed_authorization_conjuncts(parse_status, candidate)
         if failed_conjuncts:
             for act_id in cited_act_ids:
+                # W-53. The widened route proposes first and CONSUMES NOTHING:
+                # its claim is act-level, the part routes' are per-binding, and
+                # an act-level claim that the conflict branch or the refutation
+                # later throws out must leave those part grants exactly as they
+                # would have been. So no ``continue`` here — every pair the
+                # widened route proposes is still offered to all three below.
+                if _widened_whole_act_authorization_scope(
+                    parse_status, candidate, failed_conjuncts
+                ):
+                    widened_proposals.setdefault(act_id, {}).setdefault(
+                        candidate.effective_dates[0], []
+                    ).append(candidate.source_id)
                 part_match = _part_scoped_authorization_scope(
                     parse_status,
                     candidate,
@@ -1365,10 +1629,93 @@ def authorize_no_commencement_instruments(
         )
         authorized_instrument_ids.update(instrument_source_ids)
 
-    # An act the whole-act route already dated is not re-examined per part: the
-    # older, coarser authorization stands, and a part proposal for it is dropped
+    # W-53. The widened whole-act route resolves next, and it yields to the
+    # shipped one on a STRONGER rule than "was it authorized": an act the shipped
+    # route so much as PROPOSED a date for is skipped outright. The two routes
+    # reach the same act-level conclusion, so a shipped proposal that did not
+    # authorize is a decision about this very claim — it either conflicted with
+    # another shape-proved instrument or was refuted by a later sibling — and it
+    # has already written its own receipt. Re-deciding it here on a read text
+    # would in particular resolve a shipped/widened date disagreement silently in
+    # favour of whichever date the shipped route's refutation happened to leave
+    # standing, which is the ordering mistake W-51 found and fixed.
+    whole_act_proposed = frozenset(proposals)
+    widened_whole_act_authorizations: list[
+        NOCommencementWidenedWholeActAuthorizationReceipt
+    ] = []
+    widened_whole_act_conflicts: list[
+        NOCommencementWidenedWholeActDateConflictReceipt
+    ] = []
+    for act_id, instrument_ids_by_date in sorted(widened_proposals.items()):
+        if act_id in whole_act_proposed:
+            continue
+        if len(instrument_ids_by_date) > 1:
+            widened_whole_act_conflicts.append(
+                NOCommencementWidenedWholeActDateConflictReceipt(
+                    act_source_id=act_id,
+                    instrument_source_ids=tuple(
+                        sorted(
+                            source_id
+                            for source_ids in instrument_ids_by_date.values()
+                            for source_id in source_ids
+                        )
+                    ),
+                    effective_dates=tuple(sorted(instrument_ids_by_date)),
+                )
+            )
+            continue
+        effective_date, instrument_source_ids = next(iter(instrument_ids_by_date.items()))
+        # ``ACT_HAS_NO_LATER_INSTRUMENT``, asserted here rather than upstream for
+        # the reason spelled out on the conjunct and on the shipped route's own
+        # copy of it twenty lines up: the conflict branch must get first refusal,
+        # or contradictory dates would be resolved in favour of the later one
+        # instead of blocking.
+        if _act_has_later_commencement_sibling(
+            effective_date,
+            instrument_source_ids,
+            instrument_dates_by_act.get(act_id, ()),
+        ):
+            continue
+        widened_whole_act_authorizations.append(
+            NOCommencementWidenedWholeActAuthorizationReceipt(
+                act_source_id=act_id,
+                instrument_source_ids=tuple(sorted(set(instrument_source_ids))),
+                effective_date=effective_date,
+                passed_conjuncts=tuple(
+                    NOCommencementWidenedWholeActAuthorizationConjunct
+                ),
+            )
+        )
+        authorized_instrument_ids.update(instrument_source_ids)
+
+    # A pair the widened route GRANTED must not also carry the whole-act
+    # route's refusal. The refusal is written up in the loop above, before any
+    # route has resolved, and its own reason says the instrument "stays evidence
+    # and re-dates nothing" — which is false once the act takes its date. The
+    # three part routes avoid this by consuming the pair on match; this route
+    # cannot, because its proposal has to leave the part routes their chance, so
+    # it withdraws the refusal here instead. Only on a GRANT: a widened claim
+    # that the conflict branch or the refutation threw out re-dates nothing, and
+    # the whole-act route's refusal is then exactly the right receipt for it.
+    widened_granted_pairs = {
+        (receipt.act_source_id, instrument_source_id)
+        for receipt in widened_whole_act_authorizations
+        for instrument_source_id in receipt.instrument_source_ids
+    }
+    if widened_granted_pairs:
+        refusals = [
+            refusal
+            for refusal in refusals
+            if (refusal.act_source_id, refusal.instrument_source_id)
+            not in widened_granted_pairs
+        ]
+
+    # An act EITHER act-level route already dated is not re-examined per part:
+    # the coarser authorization stands, and a part proposal for it is dropped
     # without a receipt because the act already carries the date it would grant.
-    whole_act_authorized = {receipt.act_source_id for receipt in authorizations}
+    whole_act_authorized = {
+        receipt.act_source_id for receipt in authorizations
+    } | {receipt.act_source_id for receipt in widened_whole_act_authorizations}
     part_authorizations: list[NOCommencementPartAuthorizationReceipt] = []
     part_conflicts: list[NOCommencementPartDateConflictReceipt] = []
     for (act_id, part_label, law_id), instrument_ids_by_date in sorted(part_proposals.items()):
@@ -1522,6 +1869,8 @@ def authorize_no_commencement_instruments(
         part_conflicts=tuple(part_conflicts),
         multi_part_authorizations=tuple(multi_part_authorizations),
         named_part_list_authorizations=tuple(named_part_list_authorizations),
+        widened_whole_act_authorizations=tuple(widened_whole_act_authorizations),
+        widened_whole_act_conflicts=tuple(widened_whole_act_conflicts),
     )
 
 
@@ -1670,6 +2019,45 @@ def _multi_part_scoped_authorization_scope(
             (parts_by_law[law_id][0], law_id) for law_id in changed
         )
     )
+
+
+def _widened_whole_act_authorization_scope(
+    parse_status: NOCommencementParseStatus,
+    candidate: NOCommencementInstrumentCandidate,
+    failed_whole_act_conjuncts: tuple[NOCommencementAuthorizationConjunct, ...],
+) -> bool:
+    """Does this pair's own evidence support an act-level claim? W-53.
+
+    All-or-nothing, like the three scope functions above it, and returning a bare
+    bool rather than a scope because an act-level claim has nothing to scope: the
+    grant is "this act, every op, this date". Four of the five conjuncts of
+    :class:`NOCommencementWidenedWholeActAuthorizationConjunct` are decided here,
+    one per statement; the fifth is a property of the ACT and is asserted by
+    :func:`authorize_no_commencement_instruments` once the act's proposals have
+    been gathered and the date-conflict branch has had first refusal.
+    """
+    # SINGLE_EFFECTIVE_DATE.
+    if len(candidate.effective_dates) != 1:
+        return False
+    # BLOCKED_ONLY_ON_SCOPE, in the two halves W-39 established: the parse must
+    # have blocked, and it must have blocked for no reason but the missing
+    # whole-act scope proof. Together these are also what keeps this route off
+    # every pair the shipped whole-act route accepted.
+    if parse_status is not NOCommencementParseStatus.BLOCKED_UNRESOLVED:
+        return False
+    if set(failed_whole_act_conjuncts) != {
+        NOCommencementAuthorizationConjunct.PARSE_STATUS_CANDIDATE,
+        NOCommencementAuthorizationConjunct.WHOLE_ACT_SCOPE,
+    }:
+        return False
+    # WHOLE_ACT_OPERATIVE_TEXT — W-47's reader, asserted in its own right so the
+    # route reads as its conjunct set and so a later change to what
+    # ``widened_whole_act_scope`` records cannot quietly drop it.
+    if not candidate.whole_act_operative_text:
+        return False
+    # SINGLE_OPERATIVE_BLOCK, plus W-51's carve-out fence over that block. Both
+    # are parse-time facts about the document, which the gate never sees.
+    return candidate.widened_whole_act_scope
 
 
 def _act_has_later_commencement_sibling(
@@ -2138,6 +2526,16 @@ def parse_no_commencement_instrument(
     # lawvm-regex: owning_parser same reader, W-51's carve-out fence on its tail; refusing only, cannot accept
     tail_carve_out = bool(_WHOLE_ACT_TAIL_HAZARD_RE.search(single_block))
     whole_act = whole_act_shape and not tail_carve_out and len(effective_dates) == 1
+    # W-53. The widened route's scope proof, off the SAME single block and the
+    # SAME fence value the shipped reader just computed — which is the whole
+    # point of reading it here rather than in a reader of its own. The two halves
+    # ``_whole_act_operative_text`` does not cover are the block COUNT (it reads
+    # the blocks joined) and W-51's two extra carve-out phrases (``unntak for``,
+    # ``foreløpig ikke``, which ``_SUBDIVISION_SCOPE_RE`` does not carry).
+    whole_act_operative_text = _whole_act_operative_text(operative_blocks)
+    widened_whole_act_scope = (
+        bool(single_block) and whole_act_operative_text and not tail_carve_out
+    )
     scope_status = (
         NOCommencementScopeStatus.WHOLE_ACT
         if whole_act
@@ -2161,13 +2559,14 @@ def parse_no_commencement_instrument(
         source_excerpt=text[:400],
         changed_law_ids=declared_changes.law_ids,
         commenced_section_labels=_commenced_section_labels(operative_blocks),
-        whole_act_operative_text=_whole_act_operative_text(operative_blocks),
+        whole_act_operative_text=whole_act_operative_text,
         named_part_labels=_named_part_labels(operative_blocks),
         cites_acts_as_hjemmel_only=_cites_acts_as_hjemmel_only(
             operative_blocks,
             declared_change_block_present=declared_changes.block_present,
             declared_law_ids=declared_changes.law_ids,
         ),
+        widened_whole_act_scope=widened_whole_act_scope,
     )
     residuals: tuple[NOCommencementInstrumentResidual, ...] = ()
     parse_status = NOCommencementParseStatus.CANDIDATE

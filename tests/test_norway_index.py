@@ -11,6 +11,9 @@ from lawvm.norway.commencement_instruments import (
     NO_COMMENCEMENT_EXECUTION_AUTHORIZED,
     NO_COMMENCEMENT_EXECUTION_DATE_CONFLICT,
     NO_COMMENCEMENT_EXECUTION_REFUSED,
+    NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED,
+    NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_DATE_CONFLICT,
+    NOCommencementWidenedWholeActAuthorizationConjunct,
 )
 from lawvm.norway.index import (
     NO_ACQUISITION_DUPLICATE_LOGICAL_LOCATOR,
@@ -925,9 +928,9 @@ def test_build_no_amendment_index_never_offers_a_plain_dated_act_to_the_gate(tmp
     assert all(item.replay_authorized is False for item in index.commencement_instruments)
 
 
-# The eight staged acts an official instrument re-dates, with the metadata date
-# their own header stated and the instrument date that supersedes it. Every one
-# moves EARLIER: the header named a planned commencement the instrument then
+# The eight staged acts the SHIPPED whole-act route re-dates, with the metadata
+# date their own header stated and the instrument date that supersedes it. Every
+# one moves EARLIER: the header named a planned commencement the instrument then
 # executed ahead of schedule (or, for 2013-01-11-1, retroactively).
 _STAGED_INSTRUMENT_REDATINGS = {
     "no/lovtid/2013-01-11-1": ("2013-01-11", "2013-01-01"),
@@ -938,6 +941,25 @@ _STAGED_INSTRUMENT_REDATINGS = {
     "no/lovtid/2024-06-21-50": ("2026-07-01", "2024-07-01"),
     "no/lovtid/2024-06-25-53": ("2026-07-01", "2024-07-01"),
     "no/lovtid/2026-06-12-22": ("2028-07-01", "2026-07-01"),
+}
+
+# W-53. The five staged acts the WIDENED whole-act route re-dates, in the same
+# (metadata date, instrument date) shape — and every one of them moves LATER,
+# the opposite direction from all eight above. That asymmetry is worth a
+# separate table rather than a widened one, because the direction is not
+# incidental to the offer gate's argument, it IS the argument: a
+# ``staged_delegated`` act's date is ``min(dates)`` over a field that also says
+# the executive fixes the real commencement, so it is a PLANNED date. The
+# shipped route happens to catch the eight the executive brought forward; the
+# widened route catches five the executive postponed. Both directions are the
+# same claim — an official instrument outranks a metadata guess — and neither
+# needs the other's sign.
+_WIDENED_STAGED_INSTRUMENT_REDATINGS = {
+    "no/lovtid/2008-12-19-106": ("2008-12-19", "2010-03-01"),
+    "no/lovtid/2013-06-21-98": ("2013-06-21", "2013-08-01"),
+    "no/lovtid/2013-06-21-104": ("2013-07-01", "2015-01-01"),
+    "no/lovtid/2017-04-28-22": ("2016-07-01", "2017-04-28"),
+    "no/lovtid/2025-06-20-85": ("2025-06-20", "2025-10-12"),
 }
 
 
@@ -997,7 +1019,8 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
     assert {entry.effective_status for entry in staged} == {"dated", "instrument_authorized"}
     assert all(entry.effective_date for entry in staged)
 
-    # Exactly the eight instrument-proved acts move, each to the pinned date.
+    # Exactly the thirteen instrument-proved acts move, each to the pinned date:
+    # the shipped route's eight and W-53's widened five.
     redated = {
         entry.source_id: entry.effective_date
         for entry in staged
@@ -1005,31 +1028,51 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
     }
     assert redated == {
         act_id: instrument_date
-        for act_id, (_metadata_date, instrument_date) in _STAGED_INSTRUMENT_REDATINGS.items()
+        for act_id, (_metadata_date, instrument_date) in (
+            _STAGED_INSTRUMENT_REDATINGS | _WIDENED_STAGED_INSTRUMENT_REDATINGS
+        ).items()
     }
     # The displaced metadata dates are read back off the staged receipts, which
     # are emitted before authorization runs and so keep the collapsed
-    # ``min(dates)`` value. Both halves of the pinned table are thereby checked
+    # ``min(dates)`` value. Both halves of each pinned table are thereby checked
     # against the corpus (instrument dates via the entries above, metadata dates
-    # here), and the EARLIER claim is asserted over corpus values, not over the
-    # table's own literals.
+    # here), and the direction claims below are asserted over corpus values, not
+    # over the tables' own literals.
     receipt_metadata_dates = {
         receipt["source_id"]: receipt["effective_date"] for receipt in receipts
     }
     assert {act_id: receipt_metadata_dates[act_id] for act_id in redated} == {
         act_id: metadata_date
-        for act_id, (metadata_date, _instrument_date) in _STAGED_INSTRUMENT_REDATINGS.items()
+        for act_id, (metadata_date, _instrument_date) in (
+            _STAGED_INSTRUMENT_REDATINGS | _WIDENED_STAGED_INSTRUMENT_REDATINGS
+        ).items()
     }
+    # The shipped route's eight all move EARLIER; W-53's five all move LATER.
+    # Two clean directions rather than one mixed bag, and asserted as such so a
+    # route ever re-dating a staged act the wrong way for it shows up here.
     assert all(
-        redated[act_id] < receipt_metadata_dates[act_id] for act_id in redated
+        redated[act_id] < receipt_metadata_dates[act_id]
+        for act_id in _STAGED_INSTRUMENT_REDATINGS
+    )
+    assert all(
+        redated[act_id] > receipt_metadata_dates[act_id]
+        for act_id in _WIDENED_STAGED_INSTRUMENT_REDATINGS
     )
     authorized_ids = {
         diagnostic["source_id"]
         for diagnostic in index.diagnostics
         if diagnostic["rule_id"] == NO_COMMENCEMENT_EXECUTION_AUTHORIZED
     }
-    # The eight carry BOTH the staged receipt and the authorization receipt.
-    assert set(redated) <= authorized_ids
+    widened_ids = {
+        diagnostic["source_id"]
+        for diagnostic in index.diagnostics
+        if diagnostic["rule_id"]
+        == NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED
+    }
+    # The thirteen carry BOTH the staged receipt and an authorization receipt,
+    # each from the route that dated it.
+    assert set(_STAGED_INSTRUMENT_REDATINGS) <= authorized_ids
+    assert set(_WIDENED_STAGED_INSTRUMENT_REDATINGS) <= widened_ids
     # 520 acts batch 03 authorized + the 8 this batch adds; no conflicts appear.
     # 528 -> 539 at W-30: eleven of the 64 first-time entries have commencement
     # instruments that authorize them; the offer-gate conjuncts are unchanged,
@@ -1052,11 +1095,41 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
     # which commenced 15 months later) and ``no/lovtid/2020-06-19-77`` (kapittel
     # 7 and 8 a year later). The offering is untouched; what changed is a
     # conjunct. The eight staged re-datings above are unaffected.
+    # W-53 leaves this pin at 540 and that is the point of it being a SEPARATE
+    # rule id: the widened route can only ever be entered by a pair the shipped
+    # route already refused (``BLOCKED_ONLY_ON_SCOPE``), so the shape-proved
+    # population cannot move. Its own 430 grants are counted below.
     assert len(authorized_ids) == 540
+    # W-53: the widened whole-act route. 430 acts whose single operative block
+    # commences them as a whole in wording ``_WHOLE_ACT_RE`` does not match.
+    # Disjoint from the shipped set by construction, and the two together are
+    # exactly the ``instrument_authorized`` histogram bucket below.
+    assert len(widened_ids) == 430
+    assert not (widened_ids & authorized_ids)
+    # FIVE of the 430 are staged acts, so the staged re-dating population grows
+    # 8 -> 13 — the same offer gate, the same "an official instrument outranks a
+    # metadata guess" argument, one more route reaching it. Every one of the five
+    # is re-dated LATER than its metadata date, the opposite direction from the
+    # original eight, because a staged act's metadata guess is a planned date the
+    # instrument then postponed rather than superseded.
+    staged_widened = {
+        entry.source_id
+        for entry in index.entries
+        if entry.source_id in widened_ids
+        and entry.commencement_shape == NOCommencementShape.STAGED_DELEGATED
+    }
+    assert staged_widened == set(_WIDENED_STAGED_INSTRUMENT_REDATINGS)
+    assert not (staged_widened & set(_STAGED_INSTRUMENT_REDATINGS))
+    # Neither act-level route resolves a date conflict silently: both write a
+    # BLOCKING receipt instead, and the corpus produces zero of either.
     assert not [
         diagnostic
         for diagnostic in index.diagnostics
-        if diagnostic["rule_id"] == NO_COMMENCEMENT_EXECUTION_DATE_CONFLICT
+        if diagnostic["rule_id"]
+        in {
+            NO_COMMENCEMENT_EXECUTION_DATE_CONFLICT,
+            NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_DATE_CONFLICT,
+        }
     ]
     assert index.status_counts() == {
         # contingent 914 -> 920 and dated 1021 -> 1028 at W-21: the 13 acts
@@ -1101,7 +1174,17 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # bestemmer" with no date). Exactly conserving: nothing else moves, and
         # in particular no part-scoped grant appears in their place (both acts'
         # ``part_scoped_effective_dates`` stay empty).
-        "contingent": 964,
+        # 964 -> 539, 1052 -> 1047 and 540 -> 970 at W-53, and this is the
+        # largest single move this histogram has ever made. The widened
+        # whole-act route grants 430 acts an ACT-LEVEL date, so unlike W-39,
+        # W-47 and W-49 it DOES move the histogram — that is the difference
+        # between a per-binding claim and a per-act one, not a change of policy.
+        # Exactly conserving: 425 come from ``contingent`` (acts with no date at
+        # all) and 5 from ``dated`` (all five ``staged_delegated``, all five
+        # re-dated LATER than the metadata guess the offer gate exists to
+        # outrank). Nothing else moves, no act is re-dated EARLIER, and the two
+        # acts W-51 demoted stay demoted — measured, neither is a widened grant.
+        "contingent": 539,
         # 1021 -> 1020 at W-15 (multi-part misbinding fix): the sole moved entry
         # is no/lovtid/2018-12-20-119, whose only "op" was its own part II
         # commencement sentence ("Lova tek til å gjelde straks.") swallowed as a
@@ -1115,9 +1198,9 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # 1021 -> 1028 at W-21: see the contingent comment above.
         # 1028 -> 1049 at W-30: see the contingent comment above.
         # 1049 -> 1051 at W-32: see the contingent comment above.
-        "dated": 1052,
+        "dated": 1047,
         "immediate": 1,
-        "instrument_authorized": 540,
+        "instrument_authorized": 970,
         "unknown": 2,
     }
 
@@ -1155,9 +1238,18 @@ def test_corpus_marker_vocabulary_widening_moves_exactly_three_acts() -> None:
     # 2. Bare ``Kongen avgjer``: UNKNOWN (an uninterpretable signal) -> CONTINGENT
     #    (a delegated one). Both are unresolved, so replay is unaffected; what
     #    changes is that the act is now classified for the right reason.
+    #    W-53: and BECAUSE it is now classified contingent it is offered to the
+    #    commencement gate, where the widened whole-act route dates it
+    #    2016-08-26 — the same date its single-part grant already gave its one
+    #    binding, so the act's ops move not at all and only its act-level status
+    #    does. The classification claim this test exists for is asserted on
+    #    ``raw_date_in_force``, which is unchanged; the reclassification's
+    #    downstream reach is recorded here rather than left to the histogram.
     unknown_to_contingent = by_id["no/lovtid/2016-06-17-56"]
     assert unknown_to_contingent.raw_date_in_force == "Kongen avgjer"
-    assert unknown_to_contingent.effective_status == "contingent"
+    assert unknown_to_contingent.effective_status == "instrument_authorized"
+    assert unknown_to_contingent.effective_date == "2016-08-26"
+    assert unknown_to_contingent.part_scoped_effective_dates == ()
 
     # 3. The other bare ``Kongen avgjer`` act was already re-dated by an
     #    instrument, so its final status is unchanged — UNKNOWN and CONTINGENT
@@ -1231,14 +1323,18 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     # route's soundness repair demotes, both ``plain``. The staged eight are
     # untouched, which is the check that the repair did not reach the
     # re-dating population the offer gate exists for.
-    assert len(authorized) == 540
+    # 540 -> 970 (and 532 -> 957 non-staged, 8 -> 13 staged) at W-53: the
+    # widened whole-act route. The offering is again untouched — the entries
+    # counted here are exactly those the SAME offer gate admitted — and what
+    # changed is that a second act-level route now reaches 430 of them.
+    assert len(authorized) == 970
     assert (
         len([
             entry
             for entry in authorized
             if entry.commencement_shape != NOCommencementShape.STAGED_DELEGATED
         ])
-        == 532
+        == 957
     )
     assert all(entry.effective_date for entry in authorized)
     authorization_receipts = [
@@ -1246,13 +1342,36 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
         for diagnostic in index.diagnostics
         if diagnostic["rule_id"] == NO_COMMENCEMENT_EXECUTION_AUTHORIZED
     ]
+    widened_receipts = [
+        diagnostic
+        for diagnostic in index.diagnostics
+        if diagnostic["rule_id"]
+        == NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED
+    ]
     # 542 -> 540 at W-51, in step with the entry count above: one authorization
-    # receipt per authorized act, still.
+    # receipt per authorized act, still — and at W-53 that invariant is what
+    # ties the two routes to the one histogram bucket. 540 + 430 = 970, with no
+    # act receipted twice.
     assert len(authorization_receipts) == 540
+    assert len(widened_receipts) == 430
+    assert {d["source_id"] for d in authorization_receipts + widened_receipts} == {
+        entry.source_id for entry in authorized
+    }
+    # Every widened receipt names its full conjunct set, so a route that ever
+    # grew a sixth conjunct could not keep issuing five-conjunct receipts.
+    assert all(
+        d["passed_conjuncts"]
+        == [str(conjunct) for conjunct in NOCommencementWidenedWholeActAuthorizationConjunct]
+        for d in widened_receipts
+    )
     assert not [
         diagnostic
         for diagnostic in index.diagnostics
-        if diagnostic["rule_id"] == NO_COMMENCEMENT_EXECUTION_DATE_CONFLICT
+        if diagnostic["rule_id"]
+        in {
+            NO_COMMENCEMENT_EXECUTION_DATE_CONFLICT,
+            NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_DATE_CONFLICT,
+        }
     ]
 
     anchor = next(entry for entry in index.entries if entry.source_id == "no/lovtid/2012-01-27-9")
@@ -1338,7 +1457,38 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     #   2024-12-20-96  <- 2026-01-23-1 del VII  (2026-03-13-402  @2026-07-01)
     # The act-level histogram above is untouched, as it was at W-39 and for the
     # same reason: the grant is per binding and never per act.
-    assert len(fully_replayable) == 65
+    # 65 -> 73 at W-53 (the widened whole-act route), and this is the first
+    # landing in the series where the act-level histogram DOES move — see the
+    # status pin above. EIGHT laws enter and ZERO leave, and zero-leaving is not
+    # luck: the lane writes DATES and never ``base_ids``, and binding-status
+    # resolution is monotone in the dates, so a route that only turns unresolved
+    # bindings into dated ones cannot decertify a law. Measured, base_ids and
+    # n_ops are byte-identical for all 2,559 entries across the change.
+    # Each entrant is traced to the widened grant(s) that resolved its last
+    # unresolved binding act — law <- act @date (granting instrument):
+    #   2001-06-15-75  <- 2003-12-19-129 @2004-01-01 (2003-12-19-1792)
+    #                   + 2008-12-19-120 @2009-01-01 (2008-12-19-1483)
+    #   2004-03-26-17  <- 2019-03-15-6   @2020-01-01 (2019-12-06-1656)
+    #   2004-12-17-99  <- 2007-06-29-93  @2007-07-01 (2007-06-29-823)
+    #   2015-05-12-27  <- 2018-06-15-37  @2018-07-01 (2018-06-15-887)
+    #   2016-12-16-92  <- 2019-06-21-52  @2020-01-01 (2019-11-22-1548)
+    #   2017-04-28-23  <- 2024-03-08-9   @2024-08-01 (2024-03-08-407)
+    #   2020-04-17-29  <- 2022-03-04-7   @2023-01-01 (2022-12-16-2252)
+    #   2021-06-18-136 <- 2024-06-21-41  @2025-04-01 (2025-03-21-479)
+    # ``2004-12-17-99`` is klimakvoteloven, the act whose replay W-52 had to fix
+    # before this landing could admit it: it enters CONSISTENT at 0 divergences,
+    # so the scan's error column never opens.
+    assert len(fully_replayable) == 73
+    assert set(fully_replayable) >= {
+        "no/lov/2001-06-15-75",
+        "no/lov/2004-03-26-17",
+        "no/lov/2004-12-17-99",
+        "no/lov/2015-05-12-27",
+        "no/lov/2016-12-16-92",
+        "no/lov/2017-04-28-23",
+        "no/lov/2020-04-17-29",
+        "no/lov/2021-06-18-136",
+    }
 
 
 def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> None:
