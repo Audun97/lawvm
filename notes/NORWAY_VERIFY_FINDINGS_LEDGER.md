@@ -2239,24 +2239,55 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    W-53. Deliberate-decision flag for that landing: `route5`
    retires 346 of the 416 part grants.
 51. **W-51 (the shipped whole-act route is in act-level P1 breach —
-   repair before any widening):** measured at W-50 over today's 542
-   whole-act authorizations: **8 EARLY over 5 acts.** Two genuine:
-   `no/forskrift/2020-05-07-944` — "Loven trer i kraft 1. juli
-   2020, **med unntak av kapittel 6**…" authorizes the whole act
-   @2020-07-01 while `2021-08-26-2589` commences that chapter 15
-   months later (`_WHOLE_ACT_RE`'s `[^§]{0,400}$` tail swallows
-   carve-outs — two sibling instruments are inert only by carrying
-   two dates); and etterretningstjenesteloven `2020-06-19-77`
-   @2021-01-01 vs kap. 7/8 @2022-01-01. Three are probe artefacts:
-   the "later sibling" cites the law as *hjemmel* via `basedOn` —
-   the sibling definition needs sharpening before the repair is
-   priced. The `singlenl` variant (act-level no-later-instrument,
-   global) reaches 0 EARLY over 965 grants at 5 demotions (2
-   repairs, 3 artefacts). Deliverables: sharpen the sibling
-   predicate, fence the carve-out tail, add the act-level
-   refutation conjunct to the shipped route, P1 zero-early over all
-   whole-act grants; expect ~2-5 act demotions (status movement =
-   sign-off).
+   repair before any widening):** DONE (`7a1ffa41e`, 2026-08-09).
+   Three repairs, no fired stop conditions. **(1) Sharpened sibling
+   predicate** `_cites_acts_as_hjemmel_only`: a sibling is
+   commencement-relevant by DEFAULT and excluded only on a
+   two-witness proof of irrelevance (polarity is the safety
+   argument — false exclusion is unsound, false inclusion costs a
+   grant): structural (Endrer block present and naming no law —
+   measured exact, 0 of 2,365 instruments carry a present-but-empty
+   block) ∧ textual (no word-bounded definite act-word
+   `loven|lova|lovens|lovas`). The 8 instruments the textual
+   witness holds back include two that POSTPONE an act while their
+   Endrer names only a kgl.res. — the structural witness alone
+   would drop the most refuting siblings there are (fresh evidence
+   for W-49's "neither witness sound alone"). All three refuting
+   conjuncts now read ONE sibling set. **(2) Carve-out tail fence**
+   `_WHOLE_ACT_TAIL_HAZARD_RE` (own vocabulary, deliberately NOT
+   shared with `_SUBDIVISION_SCOPE_RE` — widening that one could
+   only take W-47 grants); flip set exactly 1 (`2020-05-07-944`;
+   the other two carve-outs W-50 found were already refused on two
+   dates, pinned still-inert). The module's two readers now agree
+   on that sentence. **(3) Act-level
+   `ACT_HAS_NO_LATER_INSTRUMENT`** on the shipped route, same value
+   and same code as W-47's; W-49's textual-disjointness half
+   explicitly does NOT apply (a whole-act claim leaves nothing to
+   prove disjoint — ANY later commencement-relevant sibling
+   refutes); asserted AFTER the date-conflict branch (found by a
+   failing test: upstream it would silently resolve conflicts
+   toward the later date), pinned. Results: **2 demotions, both
+   proven breaches** (bredbåndsutbyggingsloven's act by the fence,
+   etterretningstjenesteloven's by the refutation); parts routes
+   byte-unchanged 123/260/33 (monotone + measured); **0 candidate
+   movement** (65 → 65 identical sets; the three affected laws were
+   blocked or off-universe anyway — honest-exposure clause never
+   engaged); P1 **0 EARLY over all 540** whole-act grants, now a
+   gate property; the lane's single residual P1 row is a
+   dateInForce-comparison artefact on W-39's route (superseded
+   kgl.res. keeps its abandoned date), 0 under a document-date
+   reading — deliberately not adopted (a loosening nothing needs).
+   Pin package signed off 2026-08-09: instrument_authorized 542 →
+   540 (the pin's FIRST backwards move — the item's intent),
+   contingent 962 → 964, coverage 607/1,758; scan byte-identical.
+   Recorded for W-53: its numbers must be RE-MEASURED on top of
+   this patch (expect ~968 not 970 — neither demoted act returns);
+   its route must consume the sharpened sibling set via
+   `_act_has_later_commencement_sibling` (seam in place) and check
+   `unntak for`/`foreløpig ikke` against its reader. Remaining lane
+   asymmetry: W-39's route still has NO later-instrument conjunct
+   (its zero-early is a measurement, not a gate invariant; the
+   act-global rule is the wrong shape per W-49's argument).
 52. **W-52 (klimakvoteloven renumber/observed-write replay defect,
    blocks the first `error` verdict):** `no/lov/2004-12-17-99`
    replays 124 ops from 10 amenders and fails `Failed to apply
@@ -2300,6 +2331,20 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-09 (W-51 applied)** — **The whole-act route's act-level
+  P1 breach is repaired: a sharpened commencement-sibling predicate
+  (two-witness, exclude-only-on-proof), a carve-out tail fence, and
+  the act-level no-later-instrument refutation — two proven-breach
+  demotions, zero candidate movement, and P1 zero-early over all
+  540 whole-act grants as a gate property** (`7a1ffa41e`). The
+  hjemmel artefacts are gone at the source (basedOn alone is not a
+  sibling signal; 234 of 2,365 instruments proven
+  forskrift-commencements), the regex and W-47's reader now agree
+  on the carve-out sentence, and `instrument_authorized` makes its
+  first backwards move 542 → 540 — both losses 12-15-month early
+  applications. W-53 must re-measure on this base. The lane's one
+  remaining asymmetry: W-39's route has no refutation conjunct.
 
 - **2026-08-09 (W-50 sizing: the widening passes its gates but the
   shipped route is already unsound)** — **The whole-act widening is
