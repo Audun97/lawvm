@@ -2289,16 +2289,51 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    (its zero-early is a measurement, not a gate invariant; the
    act-global rule is the wrong shape per W-49's argument).
 52. **W-52 (klimakvoteloven renumber/observed-write replay defect,
-   blocks the first `error` verdict):** `no/lov/2004-12-17-99`
-   replays 124 ops from 10 amenders and fails `Failed to apply
-   ops: Norway observed-write audit violation after renumber
-   (('section','23'),)` — surfaced by W-50's counterfactual (its
-   commencement date is impeccable: sole instrument, no siblings).
-   Today the law is blocked_contingent so the scan never sees it;
-   under any widening it becomes the scoreboard's first non-zero
-   error column. Triage the audit violation (replay-engine defect
-   class, not commencement), fix or type it, and only then let
-   W-53 flip the column.
+   blocks the first `error` verdict):** DONE (`03cea7ec5`,
+   2026-08-09). Triaged to root cause and **FIXED — a
+   receipt-completeness defect, not an engine ordering defect.**
+   The audit fired TRUE against the receipt: the
+   `(RENUMBER, dest_occupied)` totalization cell
+   (`no_replay_renumber_occupied_destination_removed`) destroys the
+   occupant standing at the renumber destination, but
+   `_synthesize_receipt` derived a RENUMBER footprint purely from
+   the (from, to) legs — the occupant's subtree was a real content
+   write under NO declared path. Only CROSS-container occupants
+   tripped the audit (`paths_related` is a prefix relation):
+   klimakvoteloven's `no/lovtid/2012-05-25-29:24` (`Nåværende §§ 23
+   og 24 blir §§ 22 og 23`, § 22 live in chapter 5 because
+   contingent `2007-06-29-93` is rightly skipped) and two ops on
+   `2005-06-10-44`. Same-container occupants passed unseen — the
+   census found **7 silent undeclared removals across 6 laws**
+   (FIRED stop condition, reported and closed by the fix; the
+   writes were never unwitnessed — each carries its typed
+   adjudication — the RECEIPT was silent). Class total: 10 firings
+   / 7 laws; violations exactly 2 laws, both now replay clean. Fix
+   (+514/−0): `MaterializeResult.recovery_removed_paths` with a
+   `__post_init__` guard (declaring collateral REQUIRES a named
+   recovery rule — the channel cannot silence the audit without a
+   catalogued rule standing behind the write), folded into
+   `removed_paths` with already-declared-leg dedup (keeps the 7
+   same-container receipts byte-identical); the grafter's recovery
+   site declares the occupant. Audit verdict moves violation →
+   `qualified` — the status defined for named-rule-explained
+   divergence. Blast radius measured over all 782 base laws
+   (receipts/audits/adjudications/IR/divergence rows, patch vs
+   base): exactly the 2 previously-dying laws moved; **0 of 65
+   candidates; scan byte-identical 25/40/0; totals 1,447 = 1,011 +
+   436**; no other frontend sets the field (0-delta by
+   short-circuit). Pins: 7-law corpus table by id
+   (firings, collateral receipts) summing 10/3 with zero remaining
+   violations; unit pins for cross-container declaration,
+   same-container no-duplication, and the guard. Recovery-POLICY
+   correctness deliberately out of scope → W-54; pre-existing
+   ctsf-gate baseline drift found at base → W-55. For W-53:
+   klimakvoteloven scores `consistent` / 0 divergences under
+   route5 — **the widening's error column stays ZERO** (expected
+   scoreboard 29/44/0, not 28/44/1); `2005-06-10-44` also unblocked
+   as a side effect (still blocked_contingent, not a route5
+   entrant). Artifacts `.tmp/w52/` (census, blast-diff evidence,
+   route5 entrant verdicts).
 53. **W-53 (land the `route5` widening, after W-51 + W-52):** the
    implementation note and expected pin package are in the W-50
    entry's artifacts (`.tmp/w50/`, §6): a fifth route with a closed
@@ -2313,7 +2348,44 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    inert 31 → 4, candidates 65 → 73, scoreboard 28/44/1, totals
    1,485 = 1,011 + 474. Prerequisites: W-51 (else it banks on a
    baseline in breach) and W-52 (else it absorbs an engine defect
-   into a commencement landing).
+   into a commencement landing). Both prerequisites are now DONE;
+   W-52 update to the expectations: klimakvoteloven replays clean
+   and scores `consistent` / 0 divergences under route5, so the
+   expected scoreboard is **29/44/0** (the error column never
+   opens); entrant verdicts measured on the W-52 base are in
+   `.tmp/w52/route5_verdicts.json` (consistent +4, divergent +4,
+   +38 rows all unexplained, ceiling unmoved). Per the W-51
+   record: re-measure everything on the landed base (expect ~968
+   instrument_authorized, not 970), consume the sharpened sibling
+   set via `_act_has_later_commencement_sibling`, and check
+   `unntak for`/`foreløpig ikke` against the route's reader.
+
+54. **W-54 (audit the `(RENUMBER, dest_occupied)` recovery
+   policy):** W-52 fixed the RECEIPT for occupied-destination
+   removals; whether destroying the occupant is the legally right
+   recovery in general remains unaudited. Evidence so far points
+   right: both scan-visible affected laws (`2001-01-05-1` today,
+   `2004-12-17-99` under route5) verify consistent / 0 divergences
+   against the live Lovdata oracle, and in all 10 firings the
+   removed label survives in the current consolidated act (weak
+   indicator, same direction). Audit the 10 firings (7 laws,
+   pinned by id in `tests/test_no_renumber_migration.py`) against
+   their amending-act texts and consolidations. Note:
+   `no_replay_insert_occupied_direct_child_replaced` has 0 corpus
+   firings — a dead cell today. Artifacts:
+   `.tmp/w52/silent_class.json`, `.tmp/w52/census.json`.
+
+55. **W-55 (ctsf-gate baseline drift, pre-existing):** shard
+   `tools_ctsf_gate` fails at base `86fa8ddf3` with `CTSF gate
+   FAIL: new billable (replay_bug/unknown) residual(s) vs
+   baseline: no/lov/2020-05-07-38:replay_bug 0->1` (4 tests red,
+   incl. the data-absent pair). Corpus drift against a frozen
+   baseline, not caused by any landing this session — W-52
+   reproduced the failure byte-identical at clean base and proved
+   its change cannot reach the gate (0 of the 11
+   `REAL_ANCHOR_NO_CORPUS` laws fire the occupied-destination
+   recovery). Triage the `2020-05-07-38` replay_bug residual, fix
+   or re-freeze the baseline.
 
 ## 5. Demo / Inspection Tooling
 
@@ -2331,6 +2403,22 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-09 (W-52 applied)** — **The replay engine's one receipt
+  hole is closed: named-recovery collateral is now declared on
+  write receipts — klimakvoteloven and `2005-06-10-44` replay
+  clean, the census found and closed 7 silent undeclared removals
+  across 6 laws, and W-53's error column never has to open**
+  (`03cea7ec5`). The observed-write audit had fired TRUE against
+  an under-declared RENUMBER receipt (footprint from the (from, to)
+  legs only, while the `(RENUMBER, dest_occupied)` recovery also
+  destroyed the occupant); its detection was partial and accidental
+  — only cross-container occupants left an unrelated observed path.
+  All 10 corpus firings of the recovery are now declared and judged
+  by the audit; blast radius 780/782 byte-identical, 0 of 65
+  candidates moved, scan unchanged 25/40/0 and 1,447 = 1,011 + 436.
+  Recovery-policy audit opened as W-54; pre-existing ctsf-gate
+  baseline drift recorded as W-55.
 
 - **2026-08-09 (W-51 applied)** — **The whole-act route's act-level
   P1 breach is repaired: a sharpened commencement-sibling predicate
