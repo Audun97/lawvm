@@ -2406,19 +2406,59 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    absorption audit, fence witnesses, variant counterfactuals).
 
 54. **W-54 (audit the `(RENUMBER, dest_occupied)` recovery
-   policy):** W-52 fixed the RECEIPT for occupied-destination
-   removals; whether destroying the occupant is the legally right
-   recovery in general remains unaudited. Evidence so far points
-   right: both scan-visible affected laws (`2001-01-05-1` today,
-   `2004-12-17-99` under route5) verify consistent / 0 divergences
-   against the live Lovdata oracle, and in all 10 firings the
-   removed label survives in the current consolidated act (weak
-   indicator, same direction). Audit the 10 firings (7 laws,
-   pinned by id in `tests/test_no_renumber_migration.py`) against
-   their amending-act texts and consolidations. Note:
-   `no_replay_insert_occupied_direct_child_replaced` has 0 corpus
-   firings — a dead cell today. Artifacts:
-   `.tmp/w52/silent_class.json`, `.tmp/w52/census.json`.
+   policy):** DONE (audit, RESEARCH-ONLY, 2026-08-09; artifacts
+   `.tmp/w54/`, no product change). **8 of 10 corpus firings
+   `removal_correct`, 2 `removal_wrong` — the first proven
+   live-law destruction by a landed Norway recovery** (fired stop
+   condition; evidence complete, fixes priced, signed off). Three
+   mechanism classes, not one: **(A) number reuse / supersession
+   (6)** — the legislator recycles the number and the occupant's
+   substance is repealed or re-enacted elsewhere by the SAME act
+   (`"Nåværende § 12 blir § 14"` + a new § 16 carrying old § 14's
+   text; klimakvoteloven's `§ 21 skal lyde` freeing § 22 for old
+   § 23); 4 oracle-confirmed at 0 divergences. **(B) stale tree
+   from a rightly-skipped contingent amender (2)** — the W-52
+   mechanism; true slot vacant, removal converges. **(C)
+   incomplete ledd-shift cascade (2)** — the occupant is IN FORCE
+   at that address and the true timeline moves it one slot down,
+   but the mover op is missing: **tvisteloven § 24-8**
+   (`2024-12-13-78:8`; `"Nåværende tredje og fjerde ledd blir
+   fjerde og nytt femte ledd."` lowers only the 3→4 leg — the
+   same sentence yields both legs in `2024-12-20-87` and
+   `2024-06-14-34`, so a lowering defect) loses the
+   vitneforsikring, `OPS_MISSING …/section:24-8/subsection:5`;
+   **skattebetalingsloven § 8-2** (`2024-12-20-87:2`; both legs
+   lowered correctly, but the tree carries a stale duplicate
+   fourth ledd because no indexed instrument repeals the base
+   act's first ledd — a missing archive artifact) loses the
+   Skattedirektoratet regulation power, `MISMATCH
+   …/section:8-2/subsection:5`. **Structural discriminator: all 4
+   same-parent `dest == src+1` shift-down cascades are the
+   hazardous subclass (2 proven wrong, 2 right only because the
+   section is already stale); all 6 cross-container / number-reuse
+   firings are correct.** Alternatives measured end-to-end behind
+   a reverted env gate (divergence totals over the 7 laws):
+   remove 1,760 < keep-both 1,772 < stash 1,776 < refuse 1,778;
+   remove is the ONLY policy holding both scan-visible laws at 0
+   divergences. `stash` exactly repairs tvisteloven; `refuse`
+   does NOT repair skattebetalingsloven — the follow-on 3→4's
+   destination is inside `renumber_sources`, bypasses the guard,
+   and leaves a duplicate `subsection:4`. Recorded caveat: the
+   divergence metric UNDER-PENALISES destruction (one
+   `OPS_MISSING` row vs `MISMATCH`+`CONSOLIDATED_MISSING`), so
+   the aggregate gap is not a soundness argument. **Verdict: keep
+   the policy; do NOT pin the verdict table** (it would freeze
+   two `removal_wrong` rows as expected behaviour — pin with the
+   fix; right shape when it lands: per-firing `(op_id → verdict,
+   occupant_probe, expected_survival_address)`). Dead cell
+   `no_replay_insert_occupied_direct_child_replaced`: same
+   polarity, dormant by op-scheduling luck only — it fired live
+   under the `refuse` counterfactual, overwriting tvisteloven
+   § 24-8's third ledd; not safe by construction. Follow-ups
+   opened: W-56 (repair class C — two-limb lowering first,
+   cascade-aware polarity priced ~35 lines as fallback), W-57
+   (range-renumber lowering sizing), W-58 (the missing-amender
+   archive gap).
 
 55. **W-55 (ctsf-gate baseline drift, pre-existing):** shard
    `tools_ctsf_gate` fails at base `86fa8ddf3` with `CTSF gate
@@ -2431,6 +2471,50 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    `REAL_ANCHOR_NO_CORPUS` laws fire the occupied-destination
    recovery). Triage the `2020-05-07-38` replay_bug residual, fix
    or re-freeze the baseline.
+
+56. **W-56 (repair the class-C cascade firings — the two
+   `removal_wrong` rows):** from W-54. Preferred: **two-limb
+   ledd-shift lowering** — `"Nåværende tredje og fjerde ledd blir
+   fjerde og nytt femte ledd."` yields 2 renumber legs for
+   `2024-12-20-87` and `2024-06-14-34` but only 1 for
+   `2024-12-13-78`; fixing the drop repairs tvisteloven at the
+   source (the `destination not in renumber_sources` guard then
+   suppresses the firing entirely). Needs a corpus sweep for the
+   drop's frequency and a full blast-radius measurement (parser
+   change ⇒ op streams move — the W-52 byte-identity discipline
+   applies). Fallback priced at W-54: cascade-aware polarity —
+   `stash` the same-parent `dest == src+1` subclass, `remove` the
+   rest (~35 lines in `grafter.py` + receipt `stash` arm so the
+   observed-write audit still judges it + table cell + catalog +
+   tests; measured: live-law destructions 2 → 0 at ~+2 aggregate
+   divergence). Whichever lands, pin the W-54 verdict table with
+   it (per-firing `(op_id → verdict, occupant_probe,
+   expected_survival_address)`). Note skattebetalingsloven's row
+   is only HALF repairable here — its root cause is W-58's
+   archive gap; the polarity fallback preserves the text at a
+   wrong number, the lowering fix does not touch it.
+
+57. **W-57 (range-renumber lowering, sizing pass):** from W-54.
+   `"Nåværende §§ 9-1 til 9-6 blir ny §§ 3-1 til 3-7"` is never
+   lowered — systematic, witnessed at `2015-04-10-17` against
+   forsikringsvirksomhetsloven (only that act's single-section
+   renumbers exist in the op stream). Content-neutral in the W-54
+   case only because the same act re-supplied the text. Size the
+   corpus surface (how many range renumbers, how many acts, what
+   divergence closure) before any implementation; own design pass
+   per the W-41/W-50 discipline.
+
+58. **W-58 (skattebetalingsloven § 8-2 missing amender —
+   index/archive gap):** from W-54. No instrument among the 71
+   indexed amenders of `no/lov/2005-06-17-67` repeals § 8-2
+   første ledd (`"Tilskudd til folketrygden … folketrygdloven
+   § 23-9"`), yet every later ledd-targeted amendment reads on a
+   four-ledd section — the true repeal exists but is not in the
+   index (text-grep of all 71 sources for `§ 8-2` finds only the
+   five ledd-replacement instructions). Find the missing
+   instrument (Lovdata live probe or acquisition sweep), ingest
+   or type it; this is the actual root cause of the
+   skattebetalingsloven `removal_wrong` row.
 
 ## 5. Demo / Inspection Tooling
 
@@ -2448,6 +2532,26 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-09 (W-54 audit: the occupied-destination recovery is
+  right 8 of 10 times, and the 2 misses destroy live law)** —
+  **The `(RENUMBER, dest_occupied)` policy audit adjudicated all
+  10 corpus firings from the amending-act sources: 6 number-reuse
+  (removal is what the statute commands), 2 stale-tree (the W-52
+  mechanism), and 2 incomplete ledd-shift cascades where the
+  occupant is in force and the recovery deletes it — tvisteloven's
+  vitneforsikring (a dropped renumber leg in the lowering) and
+  skattebetalingsloven's regulation power (a missing amender in
+  the archive).** Research only (artifacts `.tmp/w54/`). All four
+  alternative policies measured end-to-end: production `remove` is
+  the convergent choice (best aggregate, only policy holding both
+  scan-visible laws at 0 divergences) — kept, with the verdict
+  table deliberately UNPINNED until a fix lands. The hazardous
+  subclass is exactly the same-parent shift-down cascade; the
+  dormant insert-overwrite cell shares its polarity and fired
+  live under the `refuse` counterfactual. W-56 (repair the
+  cascade class), W-57 (range-renumber sizing), W-58 (the archive
+  gap) opened.
 
 - **2026-08-09 (W-53 applied)** — **The widened whole-act route
   lands: 430 read-text act-level grants, candidates 65 → 73, scan
