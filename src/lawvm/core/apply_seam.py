@@ -455,6 +455,22 @@ class MaterializeResult(Generic[State]):
       from the nominal target (for example ``item:last`` landing at ``item:3``).
     * ``renumbered_paths`` — exact resolved source/destination paths for a
       renumber, avoiding reconstruction from underspecified nominal addresses.
+    * ``recovery_removed_paths`` — paths a NAMED recovery destroyed as
+      COLLATERAL of the primary write, i.e. content the op's own action
+      vocabulary does not account for. The motivating instance is NO's
+      ``(RENUMBER, dest_occupied)`` table cell
+      (``no_renumber_occupied_destination_removed``): the recovery clears the
+      occupant standing at the renumber destination and then proceeds with the
+      relabel. That removal is a real content write, but a RENUMBER receipt's
+      footprint is derived purely from the (from, to) legs, so the occupant's
+      path was written and never declared — the independent
+      ``build_observed_write_audit`` then reads it as an ``undeclared`` escape
+      whenever the occupant did not live under a leg's parent. Declaring the
+      path here closes the receipt, so the audit judges a NAMED recovery
+      (``qualified``) instead of an unexplained mutation (``violation``). It is
+      NOT a licence to declare arbitrary collateral: ``__post_init__`` requires
+      a ``declared_recovery_rule_ids`` owner, so the only writes that may be
+      declared this way are the ones a catalogued recovery rule authored.
     """
 
     new_state: State
@@ -466,6 +482,7 @@ class MaterializeResult(Generic[State]):
     executed_action: Optional[StructuralAction] = None
     landed_primary_path: Optional[TreePath] = None
     renumbered_paths: RenumberedTreePaths = ()
+    recovery_removed_paths: tuple[TreePath, ...] = ()
 
     def __post_init__(self) -> None:
         if self.executed_action is not None and not isinstance(
@@ -477,6 +494,10 @@ class MaterializeResult(Generic[State]):
         if self.executed_action is not None and not self.declared_recovery_rule_ids:
             raise ValueError(
                 "MaterializeResult.executed_action requires a named recovery rule"
+            )
+        if self.recovery_removed_paths and not self.declared_recovery_rule_ids:
+            raise ValueError(
+                "MaterializeResult.recovery_removed_paths requires a named recovery rule"
             )
 
 
@@ -907,6 +928,7 @@ def apply_op(
                 recovery_rule_ids=result.declared_recovery_rule_ids,
                 landed_primary_path=result.landed_primary_path,
                 renumbered_paths=result.renumbered_paths,
+                recovery_removed_paths=result.recovery_removed_paths,
                 provenance=provenance,
             )
         if profile.emit_coverage:
@@ -1373,6 +1395,7 @@ def _synthesize_receipt(
     recovery_rule_ids: tuple[str, ...] = (),
     landed_primary_path: Optional[TreePath] = None,
     renumbered_paths: RenumberedTreePaths = (),
+    recovery_removed_paths: tuple[TreePath, ...] = (),
     provenance: Optional[OperationSource] = None,
 ) -> Optional[WriteReceipt]:
     """Synthesize the per-op :class:`WriteReceipt` from the landed IR diff.
@@ -1473,6 +1496,33 @@ def _synthesize_receipt(
         for from_path, to_path in renumbered_paths
         for path in (from_path, to_path)
     )
+
+    # Collateral destroyed by a NAMED recovery (``recovery_removed_paths``) is
+    # folded into ``removed_paths`` — the receipt category that already means
+    # "this path's content is gone". Only paths the action's own categories do
+    # NOT already declare are added: when the occupant stood exactly at the
+    # renumber's destination leg, that leg already declares the path (the
+    # relabelled node now occupies it), so re-declaring it would add a
+    # duplicate to a set-valued footprint and perturb receipts that are
+    # otherwise unaffected. The materializer's ``__post_init__`` has already
+    # required a named recovery owner, so this can never widen a footprint
+    # without a rule id standing behind it.
+    if recovery_removed_paths:
+        already_declared = {
+            *created_paths,
+            *replaced_paths,
+            *removed_paths,
+            *renumber_legs,
+        }
+        removed_paths = (
+            *removed_paths,
+            *dict.fromkeys(
+                path
+                for path in recovery_removed_paths
+                if path not in already_declared
+            ),
+        )
+
     declared_footprint = tuple(
         dict.fromkeys(
             (

@@ -5938,6 +5938,15 @@ def _apply_no_ops_fold(
     _no_executed_action: StructuralAction | None = None
     _no_landed_primary_path: tree_ops.Path | None = None
     _no_renumbered_paths: RenumberedTreePaths = ()
+    # §2.3 receipt completeness: paths a NAMED recovery destroyed as collateral
+    # of the primary write. Today the sole producer is the
+    # ``(RENUMBER, dest_occupied)`` table cell — it clears the occupant standing
+    # at the renumber destination, a real content write that the RENUMBER
+    # receipt's (from, to) legs do not describe. Threaded to the seam as
+    # ``MaterializeResult.recovery_removed_paths`` so the receipt declares it and
+    # the independent observed-write audit can judge the write as an explained
+    # named recovery instead of an undeclared escape. Reset per op below.
+    _no_recovery_removed_paths: list[tree_ops.Path] = []
 
     def _record_action_family_recovery(
         *,
@@ -6057,6 +6066,7 @@ def _apply_no_ops_fold(
         # prior op never leaks into this op's boundary.
         _no_declared_recovery_paths.clear()
         _no_declared_recovery_rule_ids.clear()
+        _no_recovery_removed_paths.clear()
         _no_executed_action = None
         _no_landed_primary_path = None
         _no_renumbered_paths = ()
@@ -6699,6 +6709,18 @@ def _apply_no_ops_fold(
                         },
                     )
                     body = tree_ops.remove_at(body, destination_path)
+                    # Declare the occupant's removal on the receipt. Without
+                    # this the write receipt described only the (from, to)
+                    # renumber legs, so the occupant's subtree was destroyed
+                    # under no declared path at all. That under-declaration is
+                    # what the independent before/after audit reads as an
+                    # ``undeclared`` escape whenever the occupant did not live
+                    # under a leg's parent (the cross-chapter case); when it did,
+                    # the coarse identity-pruned diff path stayed *related* to a
+                    # leg and the same undeclared removal passed unseen. Both
+                    # arms are now declared, so the audit judges every occupied-
+                    # destination removal against the rule that authored it.
+                    _no_recovery_removed_paths.append(tuple(destination_path))
                 body = tree_ops.remove_at(body, resolved_path)
                 destination_parent = op.destination.parent()
                 if destination_parent is not None:
@@ -6770,6 +6792,7 @@ def _apply_no_ops_fold(
             executed_action=_no_executed_action,
             landed_primary_path=_no_landed_primary_path,
             renumbered_paths=_no_renumbered_paths,
+            recovery_removed_paths=tuple(_no_recovery_removed_paths),
         )
 
     # ── NO apply profile (Wave 1, design §3.1). ──────────────────────────────

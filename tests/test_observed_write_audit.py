@@ -202,6 +202,167 @@ def test_apply_seam_carries_recovery_source_and_observed_write_evidence() -> Non
     )
 
 
+def _chapter(label: str, *children: IRNode) -> IRNode:
+    return IRNode(kind=IRNodeKind.CHAPTER, label=label, children=children)
+
+
+def _cross_container_renumber_profile(
+    materialize,
+) -> ApplyProfile[IRNode]:
+    return ApplyProfile(
+        jurisdiction="test",
+        materializer=materialize,
+        boundary_mode="off",
+        emit_coverage=False,
+        receipt_audit_mode="block",
+        receipt_footprint_mode="observed",
+        renumber_migration_rule_ids=("test_renumber_relabel",),
+    )
+
+
+def test_recovery_removed_paths_declare_collateral_outside_the_renumber_legs() -> None:
+    """A named recovery that clears an occupied renumber destination living in
+    a DIFFERENT container declares that removal on the receipt.
+
+    This is the W-52 corpus defect in miniature (``no/lov/2004-12-17-99``
+    op ``no/lovtid/2012-05-25-29:24``): the occupant of label ``9`` lives under
+    chapter ``A`` while the relabelled node lands under chapter ``B``, so
+    NEITHER renumber leg covers the occupant's path. Without
+    ``recovery_removed_paths`` the receipt declares only the legs, the
+    independent before/after audit reads chapter ``A``'s mutation as an
+    ``undeclared`` escape, and the write audits as ``violation`` even though
+    a catalogued recovery rule authored it.
+    """
+    occupant_path = (("chapter", "A"), ("section", "9"))
+    source_path = (("chapter", "B"), ("section", "2"))
+    landed_path = (("chapter", "B"), ("section", "9"))
+    before = _body(
+        _chapter("A", _section("9", "occupant")),
+        _chapter("B", _section("2", "moving")),
+    )
+    op = LegalOperation(
+        op_id="renumber-into-occupied-other-chapter",
+        sequence=1,
+        action=StructuralAction.RENUMBER,
+        target=LegalAddress(path=source_path),
+        destination=LegalAddress(path=(("section", "9"),)),
+    )
+
+    def materialize(state: IRNode, _op: LegalOperation) -> MaterializeResult[IRNode]:
+        cleared = tree_ops.remove_at(state, occupant_path)
+        lifted = tree_ops.remove_at(cleared, source_path)
+        moved = tree_ops.insert_sorted(
+            lifted,
+            (("chapter", "B"),),
+            _section("9", "moving"),
+            sort_key_fn=lambda label: (0, label or "", 0),
+        )
+        return MaterializeResult(
+            new_state=moved,
+            declared_recovery_rule_ids=("test_renumber_occupied_destination_removed",),
+            landed_primary_path=landed_path,
+            renumbered_paths=((source_path, landed_path),),
+            recovery_removed_paths=(occupant_path,),
+        )
+
+    result = apply_op(
+        before,
+        op,
+        provenance=None,
+        profile=_cross_container_renumber_profile(materialize),
+    )
+
+    assert result.write_receipt is not None
+    receipt = result.write_receipt
+    assert receipt.action == "renumber"
+    assert receipt.renumbered_paths == ((source_path, landed_path),)
+    # The collateral removal is declared under ``removed_paths`` — the receipt
+    # category that already means "this path's content is gone".
+    assert receipt.removed_paths == (occupant_path,)
+    assert occupant_path in receipt.declared_footprint
+    # The occupant's subtree is hashed at the write: present before, absent after.
+    occupant_key = "chapter:A/section:9"
+    assert receipt.pre_hashes[occupant_key] != ""
+    assert receipt.post_hashes[occupant_key] == ""
+
+    assert result.observed_write_audit is not None
+    audit = result.observed_write_audit
+    assert audit.undeclared_paths == ()
+    # Not ``clean``: the observed diff is container-granular while the receipt
+    # declares leaf paths. ``qualified`` is the correct verdict — a named rule
+    # stands behind every declared leg.
+    assert audit.audit_status == "qualified"
+    assert "test_renumber_occupied_destination_removed" in audit.matched_rule_ids
+    assert not any(
+        isinstance(finding, Finding)
+        and finding.kind == WRITE_RECEIPT_AUDIT_VIOLATION_FINDING_CODE
+        for finding in result.findings
+    )
+
+
+def test_recovery_removed_paths_do_not_duplicate_an_already_declared_leg() -> None:
+    """When the occupant stood exactly at the renumber's destination leg, that
+    leg already declares the path, so the receipt is left untouched.
+
+    This is what keeps the change inert for every same-container occupied
+    destination in the corpus (7 of the 10 Norway firings): ``removed_paths``
+    stays empty and the receipt is byte-identical to the pre-change one.
+    """
+    source_path = (("section", "2"),)
+    destination_path = (("section", "9"),)
+    before = _body(_section("2", "moving"), _section("9", "occupant"))
+    op = LegalOperation(
+        op_id="renumber-into-occupied-sibling",
+        sequence=1,
+        action=StructuralAction.RENUMBER,
+        target=LegalAddress(path=source_path),
+        destination=LegalAddress(path=destination_path),
+    )
+
+    def materialize(state: IRNode, _op: LegalOperation) -> MaterializeResult[IRNode]:
+        cleared = tree_ops.remove_at(state, destination_path)
+        lifted = tree_ops.remove_at(cleared, source_path)
+        moved = tree_ops.insert_sorted(
+            lifted,
+            (),
+            _section("9", "moving"),
+            sort_key_fn=lambda label: (0, label or "", 0),
+        )
+        return MaterializeResult(
+            new_state=moved,
+            declared_recovery_rule_ids=("test_renumber_occupied_destination_removed",),
+            landed_primary_path=destination_path,
+            renumbered_paths=((source_path, destination_path),),
+            recovery_removed_paths=(destination_path,),
+        )
+
+    result = apply_op(
+        before,
+        op,
+        provenance=None,
+        profile=_cross_container_renumber_profile(materialize),
+    )
+
+    assert result.write_receipt is not None
+    assert result.write_receipt.removed_paths == ()
+    assert result.write_receipt.declared_footprint == (source_path, destination_path)
+    assert result.observed_write_audit is not None
+    assert result.observed_write_audit.undeclared_paths == ()
+
+
+def test_materialize_result_rejects_unowned_recovery_removed_paths() -> None:
+    """``recovery_removed_paths`` is not a free licence to declare collateral:
+    without a named recovery rule owning the write it is rejected at the
+    carrier boundary, so a producer can never silence the audit by declaring
+    an unexplained removal.
+    """
+    with pytest.raises(ValueError, match="requires a named recovery rule"):
+        MaterializeResult(
+            new_state=IRNode(kind=IRNodeKind.BODY),
+            recovery_removed_paths=((("section", "9"),),),
+        )
+
+
 def test_materialize_result_rejects_unowned_or_untyped_executed_action() -> None:
     with pytest.raises(ValueError, match="requires a named recovery rule"):
         MaterializeResult(

@@ -31,6 +31,9 @@ from __future__ import annotations
 
 import io
 import tarfile
+from pathlib import Path as _Path
+
+import pytest
 
 from lawvm.core.ir import LegalOperation
 from lawvm.core.semantic_types import IRNodeKind, StructuralAction
@@ -493,3 +496,280 @@ def test_apply_no_ops_conserved_emit_receipts_true_emits_renumber_receipt() -> N
     renumber_accepted = _renumber_ops(list(result.applied_ops))
     assert len(renumber_accepted) == 1
     assert renumber_accepted[0].op_id == receipt.op_id
+
+
+# ---- (RENUMBER, dest_occupied): the occupant removal is a DECLARED write ----
+#
+# W-52. The ``(RENUMBER, dest_occupied)`` totalization cell
+# (``no_renumber_occupied_destination_removed``) clears the node standing at the
+# renumber destination and then relabels the source onto it. That clearing is a
+# real content write, but a RENUMBER receipt's footprint is derived purely from
+# the (from, to) legs, so before this pin the occupant's subtree was destroyed
+# under no declared path at all. Two arms, and only one of them was ever
+# visible:
+#
+#   * SAME container — the occupant stood exactly at the destination leg, so the
+#     leg already declared the path and the coarse identity-pruned diff stayed
+#     *related* to it. The undeclared removal passed the independent
+#     before/after audit unseen (7 of the 10 corpus firings).
+#   * DIFFERENT container — the occupant lived under another chapter/part, so
+#     no leg covered it, the audit read the write as an ``undeclared`` escape
+#     and strict replay raised (3 of the 10 corpus firings; it is what blocked
+#     ``no/lov/2004-12-17-99`` and ``no/lov/2005-06-10-44`` from replaying).
+#
+# Both arms now declare the removal via ``MaterializeResult.recovery_removed_
+# paths``, so the audit judges every occupied-destination removal against the
+# rule that authored it instead of against silence.
+
+_OCCUPIED_DESTINATION_RULE_ID = "no_renumber_occupied_destination_removed"
+
+_CROSS_CHAPTER_BASE_XML = """<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <head>
+    <title>Testlov om okkupert renumber-destinasjon</title>
+  </head>
+  <body>
+    <main class="documentBody" data-lovdata-URL="LTI/lov/2025-01-01-1">
+      <section class="section" data-name="kap5" data-lovdata-URL="LTI/lov/2025-01-01-1/KAPITTEL_5">
+        <h2>Kapittel 5. Sanksjoner</h2>
+        <article class="legalArticle" data-name="&#167;21" data-lovdata-URL="LTI/lov/2025-01-01-1/&#167;21">
+          <h3 class="legalArticleHeader">&#167; 21. Straff</h3>
+          <article class="legalP" id="ledd1">Straffebestemmelsen gjelder.</article>
+        </article>
+        <article class="legalArticle" data-name="&#167;22" data-lovdata-URL="LTI/lov/2025-01-01-1/&#167;22">
+          <h3 class="legalArticleHeader">&#167; 22. Inndragning</h3>
+          <article class="legalP" id="ledd1">Inndragning kan skje.</article>
+        </article>
+      </section>
+      <section class="section" data-name="kap6" data-lovdata-URL="LTI/lov/2025-01-01-1/KAPITTEL_6">
+        <h2>Kapittel 6. Avsluttende bestemmelser</h2>
+        <article class="legalArticle" data-name="&#167;23" data-lovdata-URL="LTI/lov/2025-01-01-1/&#167;23">
+          <h3 class="legalArticleHeader">&#167; 23. Ikrafttredelse</h3>
+          <article class="legalP" id="ledd1">Loven trer i kraft straks.</article>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def _cross_chapter_renumber_amendment_xml() -> bytes:
+    """``Nåværende § 23 blir ny § 22.`` — § 22 is live in the PREVIOUS chapter.
+
+    The verbatim shape of ``no/lovtid/2012-05-25-29``'s
+    ``Nåværende §§ 23 og 24 blir §§ 22 og 23.`` against klimakvoteloven.
+    """
+    return """<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="changesToDocuments">
+      <ul><li>lov/2025-01-01-1</li></ul>
+    </dd>
+    <main>
+      <section data-name="kap1">
+        <article class="defaultP">I lov 1. januar 2025 nr. 1 om testlov gj&#248;res f&#248;lgende endringer:</article>
+        <article class="defaultP">N&#229;v&#230;rende &#167; 23 blir ny &#167; 22.</article>
+      </section>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def _same_chapter_renumber_amendment_xml() -> bytes:
+    """``Nåværende § 21 blir ny § 22.`` — § 22 is live in the SAME chapter."""
+    return """<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="changesToDocuments">
+      <ul><li>lov/2025-01-01-1</li></ul>
+    </dd>
+    <main>
+      <section data-name="kap1">
+        <article class="defaultP">I lov 1. januar 2025 nr. 1 om testlov gj&#248;res f&#248;lgende endringer:</article>
+        <article class="defaultP">N&#229;v&#230;rende &#167; 21 blir ny &#167; 22.</article>
+      </section>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def test_no_renumber_across_chapters_declares_the_removed_occupant() -> None:
+    """Cross-chapter occupied destination: the receipt declares the removal and
+    strict apply does NOT raise.
+
+    Before W-52 this exact shape raised
+    ``Norway observed-write audit violation after renumber (('section','23'),)``
+    because the receipt's footprint named only ``chapter:6/section:23`` and
+    ``chapter:6/section:22`` while the write also destroyed
+    ``chapter:5/section:22``.
+    """
+    from lawvm.norway.grafter import parse_no_statute
+
+    base_statute = parse_no_statute(
+        _CROSS_CHAPTER_BASE_XML, statute_id="no/lov/2025-01-01-1"
+    )
+    ops = parse_no_amendment_ops(
+        _cross_chapter_renumber_amendment_xml(), "no/lovtid/2025-02-02-5"
+    )
+    assert len(_renumber_ops(ops)) == 1
+
+    adjudications: list = []
+    # ``strict_invariants`` defaults to True — the production polarity. A
+    # violation would raise out of this call.
+    result = apply_no_ops_conserved(
+        base_statute, ops, adjudications_out=adjudications, emit_receipts=True
+    )
+
+    occupant_path = (("chapter", "5"), ("section", "22"))
+    source_path = (("chapter", "6"), ("section", "23"))
+    landed_path = (("chapter", "6"), ("section", "22"))
+
+    receipts = [r for r in result.write_receipts if r.action == "renumber"]
+    assert len(receipts) == 1, [r.action for r in result.write_receipts]
+    receipt = receipts[0]
+    assert receipt.renumbered_paths == ((source_path, landed_path),)
+    assert receipt.removed_paths == (occupant_path,)
+    assert receipt.recovery_rule_ids == (_OCCUPIED_DESTINATION_RULE_ID,)
+    assert receipt.migration_rule_ids == (_RENUMBER_RULE_ID,)
+    assert receipt.declared_footprint == (occupant_path, source_path, landed_path)
+    # The destroyed occupant is hashed at the write: present before, absent after.
+    assert receipt.pre_hashes["chapter:5/section:22"] != ""
+    assert receipt.post_hashes["chapter:5/section:22"] == ""
+
+    assert len(result.observed_write_audits) == 1
+    audit = result.observed_write_audits[0]
+    assert audit.audit_status == "qualified"
+    assert audit.undeclared_paths == ()
+    assert audit.matched_rule_ids == (_OCCUPIED_DESTINATION_RULE_ID, _RENUMBER_RULE_ID)
+
+    # The recovery still emits its own typed adjudication — the receipt
+    # declaration is ADDITIVE evidence, it does not replace the witness.
+    assert [a.kind for a in adjudications].count(
+        "no_replay_renumber_occupied_destination_removed"
+    ) == 1
+
+    # And the tree really did lose the occupant: chapter 5 keeps only § 21.
+    layout = {
+        chapter.label: [
+            child.label for child in chapter.children if str(child.kind) == "section"
+        ]
+        for chapter in result.statute.body.children
+        if str(chapter.kind) == "chapter"
+    }
+    assert layout == {"5": ["21"], "6": ["22"]}
+
+
+def test_no_renumber_within_chapter_does_not_duplicate_the_destination_leg() -> None:
+    """Same-chapter occupied destination: the destination leg already declares
+    the occupant's path, so ``removed_paths`` stays empty and the receipt is
+    byte-identical to the pre-W-52 one.
+
+    This is the arm that keeps the change inert for the 7 corpus firings that
+    were never blocked.
+    """
+    from lawvm.norway.grafter import parse_no_statute
+
+    base_statute = parse_no_statute(
+        _CROSS_CHAPTER_BASE_XML, statute_id="no/lov/2025-01-01-1"
+    )
+    ops = parse_no_amendment_ops(
+        _same_chapter_renumber_amendment_xml(), "no/lovtid/2025-02-02-5"
+    )
+    adjudications: list = []
+    result = apply_no_ops_conserved(
+        base_statute, ops, adjudications_out=adjudications, emit_receipts=True
+    )
+
+    receipts = [r for r in result.write_receipts if r.action == "renumber"]
+    assert len(receipts) == 1
+    receipt = receipts[0]
+    assert receipt.removed_paths == ()
+    assert receipt.recovery_rule_ids == (_OCCUPIED_DESTINATION_RULE_ID,)
+    assert receipt.declared_footprint == (
+        (("chapter", "5"), ("section", "21")),
+        (("chapter", "5"), ("section", "22")),
+    )
+    assert len(result.observed_write_audits) == 1
+    assert result.observed_write_audits[0].undeclared_paths == ()
+    assert [a.kind for a in adjudications].count(
+        "no_replay_renumber_occupied_destination_removed"
+    ) == 1
+
+
+# ---- corpus pin ------------------------------------------------------------
+
+_REPO_ROOT = _Path(__file__).resolve().parents[1]
+_REAL_ARCHIVE = _REPO_ROOT / "data" / "norway.farchive"
+
+#: Every base law in the Lovdata corpus whose replay fires
+#: ``no_replay_renumber_occupied_destination_removed`` at as-of 2026-07-10,
+#: with (firings, receipts carrying a collateral ``removed_paths`` entry).
+#: Measured over all 782 base laws with an indexed amendment source; 10 firings
+#: in total, of which exactly 3 are cross-container. The two laws with a
+#: cross-container firing are exactly the two whose strict replay failed with
+#: ``Norway observed-write audit violation`` before W-52.
+_NO_OCCUPIED_DESTINATION_LAWS: dict[str, tuple[int, int]] = {
+    "no/lov/2001-01-05-1": (2, 0),
+    "no/lov/2003-07-04-84": (1, 0),
+    "no/lov/2004-12-17-99": (2, 1),
+    "no/lov/2005-06-10-44": (2, 2),
+    "no/lov/2005-06-17-67": (1, 0),
+    "no/lov/2005-06-17-90": (1, 0),
+    "no/lov/2021-06-18-97": (1, 0),
+}
+
+
+@pytest.mark.skipif(
+    not _REAL_ARCHIVE.exists(),
+    reason="requires the local Lovdata archive (data/norway.farchive)",
+)
+def test_no_corpus_occupied_renumber_destinations_are_all_declared() -> None:
+    """Corpus pin (W-52): every occupied-destination removal in the corpus is
+    declared on its receipt, and no replay is blocked by the observed-write
+    audit any more.
+
+    ``no/lov/2004-12-17-99`` (klimakvoteloven) and ``no/lov/2005-06-10-44``
+    were the only two laws in the corpus whose strict replay died with
+    ``Failed to apply ops: Norway observed-write audit violation after
+    renumber``; both now replay to a statute. The other five laws in the table
+    are the same defect class that never tripped the audit because the occupant
+    stood at the destination leg — their receipts are unchanged, which is what
+    the ``0`` collateral count pins.
+    """
+    from lawvm.norway.index import build_no_amendment_index
+
+    data_dir = _REAL_ARCHIVE
+    index = build_no_amendment_index(data_dir)
+
+    observed: dict[str, tuple[int, int]] = {}
+    for base_id in sorted(_NO_OCCUPIED_DESTINATION_LAWS):
+        replay = replay_no_to_pit(
+            base_id, as_of="2026-07-10", data_dir=data_dir, index=index
+        )
+        assert replay.error is None, (base_id, replay.error)
+        assert replay.replayed is not None, base_id
+        firings = sum(
+            1
+            for a in replay.adjudications
+            if a.kind == "no_replay_renumber_occupied_destination_removed"
+        )
+        collateral = [
+            r
+            for r in replay.write_receipts
+            if r.action == "renumber" and r.removed_paths
+        ]
+        observed[base_id] = (firings, len(collateral))
+        # Every collateral declaration is owned by the recovery rule.
+        for r in collateral:
+            assert _OCCUPIED_DESTINATION_RULE_ID in r.recovery_rule_ids, (base_id, r.op_id)
+        # No landed write in these laws escapes its receipt.
+        assert [
+            a.op_id for a in replay.observed_write_audits if a.audit_status == "violation"
+        ] == [], base_id
+
+    assert observed == _NO_OCCUPIED_DESTINATION_LAWS, observed
+    assert sum(f for f, _ in observed.values()) == 10
+    assert sum(c for _, c in observed.values()) == 3
