@@ -44,6 +44,7 @@ consolidation; every class below is evidence to triage, not a repair license.
 | **2026-07-10, after W-35 (56 candidates)** | **22** | **34** | 0 |
 | **2026-07-10, after W-39 (58 candidates; see note)** | **23** | **35** | 0 |
 | **2026-07-10, after W-47 (65 candidates; see note)** | **25** | **40** | 0 |
+| **2026-07-10, after W-53 (73 candidates; see note)** | **29** | **44** | 0 |
 
 W-15 commensurability caveat: the candidate set moved 58 → 56, so the 21/35
 row is not row-for-row comparable with the 18/40 row above. On the 54 laws
@@ -131,6 +132,18 @@ replay_defect), `2018-04-20-7` (14, untouched_drift),
 source_sparse — the F-09 family's next big target). Totals
 `total=1447 (ceiling=1011, unexplained=436)` — the +239 is entirely
 entrant rows, conservation exact, ceiling untouched.
+
+W-53 note: the candidate set grows 65 → 73 — eight entrants via the
+widened whole-act route, 0 repairs, 0 decertifications, all 65
+pre-existing rows byte-identical, `base_ids` changed on 0 of 2,559
+entries. Four entrants arrive CONSISTENT (`2004-12-17-99` at 124 ops
+— the W-52 fix's showcase — `2016-12-16-92`, `2017-04-28-23`,
+`2021-06-18-136`); four divergent: `2001-06-15-75` (15, 0 ceiling),
+`2004-03-26-17` (1), `2015-05-12-27` (7), `2020-04-17-29` (15) —
+buckets replay_defect +3, untouched_drift +1. The error column stays
+ZERO (W-52 cleared the only would-be error before the widening
+landed). Totals `total=1485 (ceiling=1011, unexplained=474)` — the
++38 entirely entrant rows, ceiling untouched, conservation exact.
 
 Batch 03 increased coverage rather than changing an existing verdict: all 20
 old rows stayed byte-identical, and 38 laws that had previously been excluded
@@ -2334,31 +2347,63 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    as a side effect (still blocked_contingent, not a route5
    entrant). Artifacts `.tmp/w52/` (census, blast-diff evidence,
    route5 entrant verdicts).
-53. **W-53 (land the `route5` widening, after W-51 + W-52):** the
-   implementation note and expected pin package are in the W-50
-   entry's artifacts (`.tmp/w50/`, §6): a fifth route with a closed
-   conjunct set (`SINGLE_EFFECTIVE_DATE`, `BLOCKED_ONLY_ON_SCOPE`,
-   `SINGLE_OPERATIVE_BLOCK`, `WHOLE_ACT_OPERATIVE_TEXT`,
-   `ACT_HAS_NO_LATER_INSTRUMENT`), receipt
-   `no_lovtidend_commencement_widened_whole_act_execution_authorized`,
-   parse-time `widened_whole_act_scope` flag — leaves the coverage
-   partition untouched exactly as W-39/47/49 did. Expected: +428
-   receipts, status 962/1,052/542 → 539/1,047/970, part grants
-   123/260/33 → 33/4/33 (the deliberate retirement decision),
-   inert 31 → 4, candidates 65 → 73, scoreboard 28/44/1, totals
-   1,485 = 1,011 + 474. Prerequisites: W-51 (else it banks on a
-   baseline in breach) and W-52 (else it absorbs an engine defect
-   into a commencement landing). Both prerequisites are now DONE;
-   W-52 update to the expectations: klimakvoteloven replays clean
-   and scores `consistent` / 0 divergences under route5, so the
-   expected scoreboard is **29/44/0** (the error column never
-   opens); entrant verdicts measured on the W-52 base are in
-   `.tmp/w52/route5_verdicts.json` (consistent +4, divergent +4,
-   +38 rows all unexplained, ceiling unmoved). Per the W-51
-   record: re-measure everything on the landed base (expect ~968
-   instrument_authorized, not 970), consume the sharpened sibling
-   set via `_act_has_later_commencement_sibling`, and check
-   `unntak for`/`foreløpig ikke` against the route's reader.
+53. **W-53 (land the `route5` widening, after W-51 + W-52):** DONE
+   (`83cdbde72`, 2026-08-09). The gate's FIFTH route, the second
+   act-level one, resolved BETWEEN the shipped whole-act route and
+   the three part routes; conjunct set, receipt id and parse-time
+   `widened_whole_act_scope` flag exactly as specified at W-50.
+   **430 grants, not 428** — the +2 (`2003-12-12-113`,
+   `2011-06-24-39`) is W-51's sibling sharpening, proven by
+   counterfactual (the unsharpened set reproduces W-50's 428 to
+   the unit), so the W-51 entry's "expect ~968" reads **970**.
+   Hard requirements: the refutation conjunct consumes the
+   sharpened set via `_act_has_later_commencement_sibling` (same
+   helper, same once-built map as W-47/W-51); W-51's carve-out
+   fence applied UNCHANGED to the single block (measured flip set
+   0 — all 13 corpus texts carrying `unntak for`/`foreløpig ikke`
+   are already refused on another token; kept for structure,
+   pinned at zero, three unit refusal pins); conflict branch gets
+   first refusal before the refutation (the W-51 ordering lesson,
+   pinned). Two additions beyond the sizing, both deliberate: **(1)
+   the widened route declines any act the shipped route so much as
+   PROPOSED a date for** (not just authorized — re-deciding a
+   shipped refusal on a read text would resolve a cross-route date
+   disagreement silently; fires once, `no/lovtid/2020-06-23-97`,
+   pinned); **(2) the whole-act route's refusal receipt is
+   WITHDRAWN for pairs the widened route grants** (its reason text
+   — "stays evidence and re-dates nothing" — would be false on 274
+   receipts; refusals 1,156 → 882, granted∩refused pinned empty;
+   the lane's first receipt retraction). The proposal consumes
+   nothing — a refuted or conflicted widened claim leaves part
+   grants standing (pinned). **Absorption audit: part grants 416 →
+   70; 346 absorbed — 344 date-identical, 2 LATER-conservative
+   (`2008-12-19-106` part II 2010-02-01→2010-03-01,
+   `2009-04-24-22` part I 2009-12-18→2010-01-01), 0 EARLIER; scope
+   inflation exactly W-50's 2 acts / 4 bindings (`2005-01-07-2`,
+   `2006-06-30-52`); absorption total per act, never partial.**
+   P1 act-level probe: **1,040 grants, 0 EARLY** — hard gate
+   passed. Both W-51-demoted acts stay demoted under all five
+   routes (pinned). Status 539/1,047/970; staged redatings split:
+   new `_WIDENED_STAGED_INSTRUMENT_REDATINGS` table of 5, all
+   moving LATER (the original 8 all move earlier). Pin package:
+   five-route census 540/430/33/4/33; inert 4 (1/1/2); flag
+   nesting `shipped(607) ⊆ widened(1107) ⊆ reader(1127)`; verify
+   73 routed / 29-44-0 / 1,485 = 1,011 + 474 (consistent +4,
+   replay_defect +3, untouched_drift +1); would-be transfer 57 →
+   61 fully_replayable / 33 → 29 blocked_contingent (sum 90
+   unmoved). **New structural asymmetry, pinned: W-49's route
+   loses NOTHING to the absorption (33 grants / 10 acts intact) —
+   it fires exactly where a later sibling exists and is provably
+   about other parts, which is what the widened route's act-global
+   refutation refuses; the two are mutually exclusive by
+   construction** (W-39/W-47 lose 90/256). Deferred: the
+   20-candidate gap `widened_whole_act_scope` → reader is entirely
+   multi-block instruments, unread — a second-block reader is the
+   next widening if one is wanted. Still open from W-51: W-39's
+   route has no later-instrument conjunct. The inert-part-grant
+   cleanup question is now mostly moot (27 of 31 retired with
+   their routes). Artifacts `.tmp/w53/` (movement diff, P1 log,
+   absorption audit, fence witnesses, variant counterfactuals).
 
 54. **W-54 (audit the `(RENUMBER, dest_occupied)` recovery
    policy):** W-52 fixed the RECEIPT for occupied-destination
@@ -2403,6 +2448,24 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-09 (W-53 applied)** — **The widened whole-act route
+  lands: 430 read-text act-level grants, candidates 65 → 73, scan
+  25/40/0 → 29/44/0 with the error column never opening, and the
+  part lane deliberately retired to 70 grants — the biggest scan
+  growth of the programme, with P1 zero-early over all 1,040 grants
+  as a gate property** (`83cdbde72`). The +2 over W-50's sizing is
+  W-51's sibling sharpening, proven by counterfactual. All 65
+  pre-existing rows byte-identical, `base_ids` changed on 0 of
+  2,559 entries — decert exposure zero, structurally. Absorption:
+  344/346 date-identical, 2 later-conservative, 0 earlier. Two
+  deliberate additions: the widened route declines shipped-PROPOSED
+  acts (no silent cross-route date resolution), and the whole-act
+  refusal receipt is withdrawn where the widened route grants
+  (1,156 → 882 — the lane's first receipt retraction). New pinned
+  asymmetry: W-49's named-part-list route is mutually exclusive
+  with the widened route by construction and loses nothing.
+  Totals 1,485 = 1,011 + 474, ceiling untouched.
 
 - **2026-08-09 (W-52 applied)** — **The replay engine's one receipt
   hole is closed: named-recovery collateral is now declared on
