@@ -2552,7 +2552,11 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    `part:5/chapter:24/section:24-8/subsection:5/sentence:1`.
    Tvisteloven's vitneforsikring row was the LAST live-law
    destruction reachable by the lowering; the remaining
-   `removal_wrong` is W-58's archive gap. W-57's surface is
+   `removal_wrong` is W-58's archive gap. **That last clause did
+   not survive contact with W-61: skattebetalingsloven was ALSO
+   reachable by the lowering, and W-61 retired it the same way —
+   `wrong == []`, no adjudicated recovery in the corpus now
+   destroys in-force law. The handoff pin flipped as designed.** W-57's surface is
    unaffected (section-level ranges, no `data-move-part` anchor —
    different production). Honesty note: the completion finding is
    document-scoped (like the malformed-attr finding), so it
@@ -2595,7 +2599,18 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    typed `no_parse_unstructured_lead_unmatched` (one of 14 on
    that instrument). The earlier text-grep false-negatived on the
    run-on form. The W-56 handoff pin flips when W-61's LOWERING
-   fix lands, not an ingestion.
+   fix lands, not an ingestion. **CLOSED at W-61 (2026-08-10) —
+   and the run-on reading above is ALSO wrong.** There is no run-on
+   anywhere in the corpus (0 occurrences of `.<ROMAN>§` in the raw
+   bytes of all 3,089 artifacts; the string was an `itertext()`
+   artifact of reading across a correctly marked-up part boundary).
+   The lead is refused because the unstructured repeal-then-shift
+   production required the literal `Nåværende`. Two successive
+   diagnoses of this one row were wrong before the third held; the
+   lesson W-61 records is that a text-plane grep and a whole-
+   document text rendering are both unsound evidence about a
+   DOM-structured corpus — probe the node the parser actually
+   reads. See item 61.
 
 59. **W-59 (the anchor-less ledd-shift blocks):** from W-56's
    sweep (`.tmp/w56/sweep2.json`). **10 change blocks carry
@@ -2673,23 +2688,114 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    — confirmed twice independently), shallow anchoring closed.
    Burn ~1.05–1.2M of 1.5M budget (estimated, 22 spawns).
 
-61. **W-61 (fix the run-on part-boundary lowering refusal — W-58's
-   real root cause):** from W-60's Rider B; absorbs W-58. Amending
-   acts whose part boundaries run into the following lead sentence
-   without whitespace (`…skatteoppkreverne for kommunene.III§ 8-2
-   første ledd oppheves…`) fail to lower, refused with the typed
-   blocking `no_parse_unstructured_lead_unmatched`. Named witness:
-   `no/lovtid/2008-12-12-100` (14 such refusals on that one
-   instrument; the § 8-2 repeal among them is what left the stale
-   ledd that W-54 adjudicated `removal_wrong`). Sweep the receipt
-   population corpus-wide for the run-on shape's frequency, fix
-   the boundary detection (conservative polarity — a boundary the
-   splitter cannot prove lowers to nothing new), full W-52/W-56
-   blast discipline (op streams move; expect skattebetalingsloven
-   § 8-2 to gain its repeal + shift, the stale-duplicate ledd to
-   vacate, and the W-56 handoff pin `wrong == [...]` to flip —
-   that flip is the designed success criterion). Highest-value
-   item found by the spike; needs no LLM.
+61. **W-61 (the unstructured repeal-then-shift lead — W-58's real
+   root cause):** DONE (`d854e93fe`, 2026-08-10, artifacts
+   `.tmp/w61/`).
+   Absorbs W-58. **The item's own premise was FALSE and the fix is
+   somewhere else.** There is no run-on part boundary: the
+   `.<ROMAN>§` concatenation occurs **ZERO times in the raw bytes
+   of all 3,089 amendment artifacts** and zero times in any single
+   leaf text node (`s5_runon_shape.py`). W-60's
+   `…kommunene.III§ 8-2…` was an `itertext()` rendering of the
+   WHOLE document walking across a `<section data-name="kapIII">`
+   boundary Lovdata marks up correctly; part III of
+   `no/lovtid/2008-12-12-100` is one clean
+   `<article class="defaultP">`. The real blocker: the
+   unstructured production that already lowers this exact family
+   (`§ X <ord> ledd oppheves. Nåværende <ord> ledd blir <ord>
+   ledd.`) **hard-required the literal `Nåværende`**, and the
+   witness says "Annet til femte ledd blir …".
+   **Census (`s1`/`s2`/`s8`): 9,478 `no_parse_unstructured_lead_
+   unmatched` over 1,821 instruments and 645 base acts; 45 carry
+   the "§ S <ord> ledd oppheves. …" head; 24 are this family with
+   the qualifier absent, spelled `Gjeldende`/`Någjeldende`, or
+   repeating the section.** The other 21 are refused BY
+   CONSTRUCTION and stay refused: 19 carry a trailing clause that
+   introduces a PAYLOAD ("… og skal lyde:") the shift does not
+   account for, 2 are not a ledd shift. Of the 24, **23 convert**
+   (14 instruments, 21 base acts, 24 (instrument, base, lead)
+   receipt triples — one lead amends two acts at once); the 24th is
+   the multi-section repeal list the guard declines.
+   **Fix: strictly additive.** The shipped pattern is tried first,
+   character for character; only a lead it cannot match reaches
+   the widened one, whose ordinal phrases go through W-56's
+   `_no_ledd_shift_ordinals` — same `_NORWEGIAN_ORDINALS`
+   vocabulary, same all-or-nothing refusal, but it spans `til`
+   RANGES, which the `skal lyde` round-trip resolved to NO targets
+   (the witness needed the widening twice over). Section class
+   picks up W-32(c)'s `(?:\s+[A-Za-z])?`. Guards: the shift may
+   repeat its `§` only if it EQUALS the repealed section; an
+   out-of-vocabulary ordinal refuses the whole lead, which is also
+   what declines the one multi-section repeal list.
+   **That ordering was forced by measurement, not caution: a first
+   cut that replaced the production outright regressed 14 leads**
+   (7 spell the qualifier before the section, 7 carry
+   `henholdsvis`/`eneste`/`siste`/ordinals past `tiende` on which
+   the shipped round-trip lowers a partial answer) and drove
+   `no_parse_unstructured_renumber_arity_mismatch_skipped` from 8
+   to 0. Final parse-level delta is **exactly −24 refusals and
+   nothing else**; 0 introduced.
+   **Blast (782 laws, W-52/W-56 discipline): 11 laws' replay moved,
+   ALL outside the 73 scan candidates — candidate replay AND verify
+   output byte-identical, 0 moved.** Corpus totals held: 1,485 =
+   1,011 + 474, scoreboard 29/44/0. Three laws' TEXT moved, every
+   move a repair verified against the consolidation: **skatte-
+   betalingsloven § 8-2 (223 → 222, `MISMATCH …/section:8-2/
+   subsection:5` CLOSED)**, utlendingsloven § 107 (842 → 840, two
+   rows closed — the tilsynsråd ledd repealed as `2021-06-11-72`
+   moves it to a new § 107 a) and finansforetaksloven § 7-7.
+   **No divergence row OPENED anywhere.**
+   **The designed success criterion landed, and by SUPPRESSION
+   rather than re-verdict:** `no/lovtid/2024-12-20-87:2` no longer
+   fires at all — § 8-2 becomes the four-ledd section the later
+   amendments have always read on, so the `4 → 5` leg never lands
+   on an occupied node. `_NO_OCCUPIED_DESTINATION_LAWS`
+   `2005-06-17-67` (1,0) → **(0,0)**, firing total 9 → **8**, the
+   verdict row removed and **`wrong == []`** — the W-56 handoff pin
+   flipped consciously. **The corpus now has NO adjudicated
+   recovery that destroys in-force law** (W-54's two
+   `removal_wrong` rows are both retired: tvisteloven at W-56,
+   skattebetalingsloven here). New pin
+   `test_no_skattebetalingsloven_8_2_regulation_power_survives`
+   holds the positive fact.
+   **Bindings (stop condition, adjudicated not assumed): +10
+   (act, law) pairs, 0 removed, 0 REBOUND** — every one an
+   amendment `changesToDocuments` already DECLARED and the index
+   already receipted as unbound, so the declared-target gap falls
+   in exact step (958 → 956 receipts, 2,534 → 2,524 pairs, 10 = 10,
+   the W-34/W-35 conservation). Each verified from source text
+   (`s16`/`s17`): every converted lead sits directly under its own
+   numbered or part law-switch lead. Pins: `n_ops` 26,950 →
+   **27,018**; entries 2,559 → 2,560; bindings 6,466 → 6,476;
+   `instrument_authorized` 970 → **971** and staged-population 540
+   → 541 (ONE act gains its first index entry — `2014-06-20-26`,
+   whose part I carried a single operative lead).
+   **One number FELL, and it is honest exposure:
+   `would_be_candidates` 61 → 60.** Mineralloven
+   (`no/lov/2009-06-19-101`) leaves the counterfactual ceiling
+   because it now binds `2013-01-11-3` — an amender whose own
+   commencement is "Kongen bestemmer" with no date. The amender was
+   always there and always undated; we could not see it only
+   because its two leads did not lower. Real candidate set stays 73.
+   **For W-62:** the post-fix remainder is **9,454 refusals / 8,245
+   distinct leads / 1,820 instruments / 645 base acts**, bucketed in
+   `.tmp/w61/w62_census.json` — 4,613 refusals end with a
+   payload-introducing colon, 1,686 address `bokstav`/`nr.`, 1,143
+   are `Nåværende` renumbers, 608 ledd shifts, 611 repeals, 211
+   `skal lyde`, 438 other. Two adjacent findings priced there and
+   deliberately NOT taken here: **(a) the unstructured grammar has
+   NO ledd-shift family at all** — an anchor-less or even
+   §-anchored "X ledd blir Y ledd." sentence lowers nothing
+   (`s4_anchor_probe.py`), which is why the § 8-2 shift could only
+   be reached through the combined repeal-then-shift production;
+   **(b) multi-sentence leads are refused whole** — 47 leads would
+   half-lower under naive sentence segmentation and only 6 fully,
+   touching 0 scan candidates, and the half-fix is measurably
+   HARMFUL: the counterfactual (`s7`) shows repeal-only at the
+   witness takes § 8-2 from 223 to **224** divergences by opening
+   `OPS_MISSING …/section:8-2/subsection:1`. Segmentation is worth
+   nothing without the shift family; price them together or not
+   at all.
 
 62. **W-62 (the proposer lane as a TRIAGE instrument):** from
    W-60. The measured strength is diagnosis, not translation: the
@@ -2737,6 +2843,26 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-10 (W-61 applied)** — **`wrong == []`: no adjudicated
+  recovery in the corpus destroys in-force law any more. The last
+  `removal_wrong` row fell to a one-word grammar gap — the
+  repeal-then-shift production hard-required `Nåværende` — not to
+  the archive gap (W-58) or run-on boundary (W-60) previously
+  diagnosed; both prior readings were text-plane evidence about a
+  DOM corpus, and the recorded lesson is to probe the node the
+  parser actually reads** (`d854e93fe`). Strictly additive
+  widening, forced by measurement (an outright replacement
+  regressed 14 leads): −24 refusals / 0 introduced, 23 of 24
+  family leads convert, three laws repaired against the
+  consolidation with zero rows opened, all 73 candidates
+  byte-identical. +10 binding pairs, every one previously
+  declared-and-receipted-unbound (exact conservation); n_ops
+  27,018; one new commencement grant (541, P1 zero-early holds);
+  would-be ceiling 61 → 60. W-58 closed; W-62's triage census
+  seeded with the 9,454-refusal remainder and the finding that
+  the unstructured grammar has NO ledd-shift family — priced
+  together with multi-sentence segmentation or not at all.
 
 - **2026-08-10 (W-60 spike: the LLM lane measured — the bottleneck
   is lowering, not translation)** — **The proposer–verifier spike
