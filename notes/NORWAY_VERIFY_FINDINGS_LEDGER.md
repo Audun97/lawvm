@@ -2813,19 +2813,85 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    carry `span_role`-typed evidence, not bare span cites.
 
 63. **W-63 (pin the gate's margin — apply-plane conjuncts are
-   load-bearing):** from W-60's mutant control. Two mutants
-   passed EVERY divergence-based conjunct (one at zero
-   divergences with false law) and were caught only by
-   `replay_tree_invariant_violation` (duplicate label) and
-   `no_replay_insert_occupied_direct_child_replaced` (W-54's
-   dormant cell, now observed live twice). Pin as an explicit
-   gate property: any future acceptance lane (batch, proposer,
-   or human) MUST include the apply-plane typed conjuncts, with
-   the two mutants (`.tmp/w60/proposals/` `D2_m3`, `D4_m3`)
-   reproduced as regression witnesses in a test. Also decide
-   whether the insert-occupied cell should keep its
-   overwrite polarity now that it has fired live twice under
-   counterfactuals (W-54's priced question, sharpened).
+   load-bearing):** DONE (`6b3f789e7`, 2026-08-10, artifacts `.tmp/w63/`).
+   **Both of W-60's mutant readings were re-measured at this base
+   and NEITHER survives as stated — but the gate property does, in
+   a sharper form, and the polarity question resolves cleanly.**
+   **(1) `D2_m3`'s "zero divergences with false law" is a
+   DEGENERATE zero.** The duplicate-label tree invariant raises,
+   `replay.error` is set, and `verify_no_against_current` returns
+   BEFORE it loads or compares any consolidated text — so the
+   mutant's divergence evidence is 0 divergences / 0 rows opened /
+   5 rows closed against a baseline of 5. The divergence plane is
+   not merely blind here, it is **INVERTED: the apply-plane
+   failure MANUFACTURES the number a divergence-only reader treats
+   as success** (`G1_closes`), and only `replay_status` / `error`
+   separates a perfect close from a crash. Counterfactual: downgrade
+   the invariant and the false law LANDS at 1 divergence with 1 row
+   OPENED — i.e. the full conjunct set does see the landed law; the
+   error short-circuit alone produces the perfect score.
+   **(2) `D4_m3` is not false law at all.** Moving its target from
+   `§ 10-9/ledd/4` to `/ledd/5` took it out of the W-60 harness's
+   `(target, action)` supersede key, so the parser's OWN correct op
+   survived and landed; the mutant's op then fired the direct-child
+   cell onto `chapter:10/section:10-9/subsection:4` with
+   **content-identical** text (`replay_noop` fired on the same op)
+   and the replayed statute came out **byte-identical to the
+   accepted control's** (`8240bd16e2d11247` both). The divergence
+   conjuncts accepted it CORRECTLY. What it is instead is the
+   sharp form of the property: **two different op streams, identical
+   divergence evidence, and the difference visible only in the typed
+   receipt** — plus the second live firing of W-54's dormant cell,
+   this time writing to an address the amendment never named.
+   **Pinned** in `tests/test_no_gate_margin.py` (5 tests): the
+   short-circuit against the production `verify_no_against_current`;
+   both mutants rebuilt as self-contained inline op streams (not
+   corpus-gated — the `.tmp/w60/` proposals are gitignored and their
+   coordinates are pinned to an archive snapshot that already moved
+   once under W-55) and scored on the divergence plane with the SAME
+   production comparator verify uses (`ingest_consolidated` +
+   `verify_consistency` under NO's projection/normalizer), each
+   asserting BOTH halves; plus an over-reach guard on the declared
+   sibling cell.
+   **Polarity adjudicated: FLIP the insert-occupied direct-child
+   cell to REFUSAL.** Census at this base over **all 782 base laws
+   with the apply fold run NON-STRICT** (so a firing hidden behind
+   an earlier raise still counts): **ZERO firings** of
+   `no_replay_insert_occupied_direct_child_replaced`; its declared
+   θ sibling `no_replay_insert_occupied_target_replaced` fires
+   **194 times over 73 laws** and keeps its RECOVER polarity
+   untouched. **The discriminator is whether the op's OWN address
+   resolves**: the sibling is the Lovdata "ny § 4 a skal lyde"
+   source-noise policy §2.3 documents; the direct-child lane is
+   reached only when the commanded address does NOT resolve and the
+   payload's `(kind, label)` collides with a direct child of an
+   INFERRED parent — a wrong-slot signature whose write lands where
+   the amendment never pointed while the commanded slot stays empty.
+   No legitimate corpus use exists to weigh against the two
+   counterfactual firings (W-54's `refuse` A/B destroyed tvisteloven
+   § 24-8's third ledd; `D4_m3` overwrote havenergilova § 10-9's
+   fourth ledd invisibly). Now emits
+   `no_replay_insert_occupied_direct_child_refused` /
+   `no_insert_occupied_direct_child_refuse`: blocking, **no write**,
+   occupant preserved, op REJECTED in the conserved partition — it
+   is the only `no_replay_*` member of
+   `_NO_SKIP_ADJUDICATION_KINDS`, forced by the fail-loud "neither a
+   landed write nor a typed rejection" guard. Two catalog entries
+   swapped (the dead `_replaced` / `_replace` keys removed;
+   `test_no_dead_catalog_entries` enforces).
+   **Blast radius measured over all 782 base laws** (statute,
+   adjudications, receipts, observed-write audits, conserved filter
+   partition) and all 73 candidates (including full byte-level
+   divergence-row lists): **0 laws moved, 0 candidate row diffs, 0
+   `base_ids`/binding movement, candidate divergence total
+   1485 = 1485** — byte-identical everywhere, as the zero-firing
+   census predicts. **Standing tripwire:** the census is now a
+   property, not a snapshot — any future firing of the direct-child
+   lane surfaces as a blocking refusal receipt and a rejected op
+   rather than a silent overwrite, so it cannot pass an acceptance
+   lane unadjudicated. W-54's separate advice to pin the
+   `(RENUMBER, dest_occupied)` verdict table only alongside its fix
+   is untouched.
 
 ## 5. Demo / Inspection Tooling
 
@@ -2843,6 +2909,32 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-10 (W-63 applied)** — **The gate's margin is pinned, and
+  re-measuring W-60's two mutants moved both findings: `D2_m3`'s
+  "zero divergences with false law" is a DEGENERATE zero (the tree
+  invariant raises, `verify_no_against_current` returns before
+  comparing, and the apply-plane failure MANUFACTURES `G1_closes`),
+  and `D4_m3` is not false law at all (its mutation escaped the
+  harness's supersede key, the correct parser op landed, and the
+  replayed statute is byte-identical to the accepted control's).
+  What survives is sharper: a divergence count is uninterpretable
+  without `replay_status`, and two op streams can carry identical
+  divergence evidence while differing only in the typed receipt.**
+  (`6b3f789e7`)
+  Five pins in `tests/test_no_gate_margin.py`, both mutants rebuilt
+  as self-contained fixtures scored with the production comparator.
+  **W-54's dormant `(INSERT, occupied direct child)` cell FLIPPED
+  from overwrite to refusal** — 0 firings over all 782 base laws
+  (non-strict census) against 194 firings / 73 laws for its declared
+  θ sibling, which is untouched; the discriminator is whether the
+  op's own address resolves. Now a blocking
+  `no_replay_insert_occupied_direct_child_refused` with no write and
+  a rejected op instead of a silent overwrite at an address the
+  amendment never named. Blast: all 782 laws and all 73 candidates
+  byte-identical (statute / adjudications / receipts / audits /
+  filter partition / divergence rows), 0 `base_ids` movement,
+  candidate divergence total 1485 = 1485.
 
 - **2026-08-10 (W-61 applied)** — **`wrong == []`: no adjudicated
   recovery in the corpus destroys in-force law any more. The last
