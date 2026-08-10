@@ -80,6 +80,14 @@ per ``notes/NORWAY_LAWVM_STATUS.md``. That is Norway's analogue of Finland's
 way: an oracle-suspect anchor's divergences type to
 ``temporal_mismatch_commensurability``, never a replay bug.
 
+Two PER-SECTION rails refine that per-ANCHOR witness for acts that otherwise replay
+fine, each byte-exact gated so neither can mask a real defect:
+``_NO_ORACLE_EDITORIAL_CORRECTIONS`` (a confirmed keeper-side editorial correction at
+one clause) and the oracle-ahead-of-``as_of`` TEMPORAL rail (a section whose whole
+divergence is an amendment replay correctly withheld as future-effective — see
+``_no_future_skip_horizon``). Both are needed because the touch relation keys on the
+WHOLE section, so an incidental touch elsewhere in it would otherwise convict.
+
 REUSED NEUTRAL CORE. The touch relation itself is jurisdiction-neutral: this module
 imports :class:`fi_anchor_manifest.AnchorObservation`, :func:`touch_set`,
 :class:`TouchObservation`, :func:`attribute_divergences`, and the
@@ -383,6 +391,14 @@ _NO_ORACLE_EDITORIAL_CORRECTIONS: dict[
     # the enacted "§ 23"; the divergence is the keeper's editorial correction. Not a
     # missed/mangled op — see the §5 amendments (2021-06-18-112, 2022-01-28-3), neither
     # of which touches this clause.
+    #
+    # SUPERSEDED, kept as a guard (this entry no longer fires). W-18 established the
+    # correction is NOT keeper-silent: Lovtidend published it as a typed Rettelser
+    # erratum inside the act's own artifact, and replay now lowers it as a same-act op
+    # (``no/lovtid/2020-12-18-156:rettelse:1``). §5 therefore reproduces the oracle
+    # byte-for-byte and is no longer penalized, so the reconciliation below is never
+    # consulted. It stays as a typed backstop: were the erratum lowering to regress,
+    # the divergence would resurface as this confirmed non-billable, not as a replay bug.
     (
         "no/lov/2020-12-18-156",
         "section:5",
@@ -435,6 +451,59 @@ def _oracle_editorial_note(base_id: str, section_key: str) -> str:
     return "; ".join(note for _enacted, _corrected, note in corrections)
 
 
+# ---------------------------------------------------------------------------
+# Oracle-ahead-of-as_of (the per-section TEMPORAL rail)
+# ---------------------------------------------------------------------------
+#
+# The NO oracle is the ONE LIVE Lovdata consolidation — it has no effective-date
+# addressing, so it always renders the law as of the moment the archive was crawled,
+# while the anchor window is pinned to ``as_of``. When an amendment takes effect
+# BETWEEN ``as_of`` and the crawl, the oracle already carries it and replay correctly
+# does not: replay withholds it and says so, in a typed temporal receipt
+# (``no_replay_future_effective_skipped``, which also carries the amendment's resolved
+# effective date). The resulting divergence is a COMMENSURABILITY defect of the
+# comparison, not a replay bug — the same thing the per-ANCHOR ``_no_oracle_suspect``
+# witness types for a ceiling ``replay_status``, but arising per SECTION on an act that
+# otherwise replays fine.
+#
+# Left unmodelled it is a FALSE CONVICTION lane that fires on nothing but the passage
+# of time: every corpus refresh that pulls in an act published after the frozen
+# ``as_of`` turns a correct replay red. So the rail types those sections out of the
+# billable lane — and, exactly like the editorial registry above, it is BYTE-EXACT
+# GATED so it cannot mask a real defect: we re-replay the act to the HORIZON (the
+# latest effective date replay itself reported withholding — never an invented date),
+# and a penalized section qualifies ONLY when the horizon replay reproduces the oracle
+# section text BYTE-FOR-BYTE. Any other drift at the section leaves horizon != oracle
+# and the section stays penalized/billable.
+
+# Sentinel for "this section key is absent from the map" — distinguishes a genuinely
+# missing section from an empty one, so an absent-both comparison cannot silently
+# qualify a key.
+_ABSENT_SECTION = object()
+
+
+def _no_future_skip_horizon(result: Any) -> str:
+    """The earliest ``as_of`` at which every FUTURE-withheld amendment is admitted.
+
+    Reads the typed ``no_replay_future_effective_skipped`` temporal receipts replay
+    already emits — each carries the amendment's RESOLVED ``effective_date`` — and
+    returns the maximum. No date is invented and no heuristic is applied: the horizon
+    is replay's own arithmetic read back off its own receipts. Empty string when the
+    replay withheld nothing as future-effective (the rail then never fires).
+    """
+    from lawvm.norway.replay import NO_REPLAY_FUTURE_EFFECTIVE_SKIPPED
+
+    replay = getattr(result, "replay", None)
+    horizon = ""
+    for adj in getattr(replay, "adjudications", None) or []:
+        if getattr(adj, "kind", "") != NO_REPLAY_FUTURE_EFFECTIVE_SKIPPED:
+            continue
+        effective = str((getattr(adj, "detail", None) or {}).get("effective_date") or "")
+        if effective > horizon:
+            horizon = effective
+    return horizon
+
+
 @dataclass(frozen=True)
 class _NOReplayScore:
     """The raw materials of one NO base→current replay comparison."""
@@ -447,6 +516,15 @@ class _NOReplayScore:
     # as replay bugs: the attribution retypes them to ``oracle_suspect_standing_untouched``
     # (family ``oracle_editorial_pathology`` — the non-billable WARN lane).
     oracle_editorial_keys: frozenset[str]
+    # Penalized keys whose ENTIRE section-level divergence is explained by amendment
+    # ops replay deliberately WITHHELD as future-effective (``amendments_skipped_future``
+    # — the oracle is simply ahead of ``as_of``). These are NOT scored as replay bugs:
+    # the attribution retypes them to ``temporal_mismatch_commensurability`` (family
+    # ``temporal_mismatch`` — the non-billable WARN lane). See ``_score_no_replay``.
+    future_temporal_keys: frozenset[str]
+    # Human-readable witness for ``future_temporal_keys`` (the withheld amendment ids
+    # and the horizon they are admitted at); empty when the rail did not fire.
+    future_temporal_note: str
     n_oracle_sections: int
     oracle_suspect: Optional[str]
     status: str
@@ -477,14 +555,32 @@ def _score_no_replay(
     # BEFORE-amendments wording).
     base_raw = load_no_original_lti_bytes(base_id, dd)
     if not base_raw:
-        return _NOReplayScore({}, {}, frozenset(), frozenset(), 0, None, "BASE_ABSENT")
+        return _NOReplayScore(
+            base_text={},
+            replayed_text={},
+            penalized_keys=frozenset(),
+            oracle_editorial_keys=frozenset(),
+            future_temporal_keys=frozenset(),
+            future_temporal_note="",
+            n_oracle_sections=0,
+            oracle_suspect=None,
+            status="BASE_ABSENT",
+        )
     base_statute = parse_no_statute(base_raw, base_id)
     base_text = _no_section_text_map(base_statute.body if base_statute else None)
 
     result = verify_no_against_current(base_id, as_of=as_of, data_dir=dd)
     if result.error:
         return _NOReplayScore(
-            base_text, {}, frozenset(), frozenset(), 0, None, f"ERROR:{result.error}"
+            base_text=base_text,
+            replayed_text={},
+            penalized_keys=frozenset(),
+            oracle_editorial_keys=frozenset(),
+            future_temporal_keys=frozenset(),
+            future_temporal_note="",
+            n_oracle_sections=0,
+            oracle_suspect=None,
+            status=f"ERROR:{result.error}",
         )
 
     replay = result.replay
@@ -504,19 +600,29 @@ def _score_no_replay(
         if key:
             penalized.add(key)
 
+    # The oracle's own per-section wording surface, loaded lazily and at most ONCE:
+    # both per-section rails below reconcile against it byte-for-byte, and most acts
+    # trip neither, so no act pays for it unless a rail is actually in play.
+    oracle_text_cache: dict[str, dict[str, str]] = {}
+
+    def oracle_text_map() -> dict[str, str]:
+        if "map" not in oracle_text_cache:
+            try:
+                oracle_statute = load_no_current_statute(base_id, dd)
+                oracle_text_cache["map"] = _no_section_text_map(oracle_statute.body)
+            except Exception:  # noqa: BLE001 — a missing oracle just leaves keys billable
+                oracle_text_cache["map"] = {}
+        return oracle_text_cache["map"]
+
     # Per-SECTION oracle-suspect rail: of the penalized keys, which are a CONFIRMED
     # oracle-side editorial correction (``_NO_ORACLE_EDITORIAL_CORRECTIONS``)? A key
     # qualifies only when substituting the curated enacted→corrected fragment(s) into
-    # the replayed section text reproduces the ORACLE section text byte-for-byte — so we
-    # need the oracle's own per-section wording surface. This is byte-exact-gated: any
-    # other replay drift at the section keeps it billable (see the registry docstring).
+    # the replayed section text reproduces the ORACLE section text byte-for-byte. This
+    # is byte-exact-gated: any other replay drift at the section keeps it billable
+    # (see the registry docstring).
     oracle_editorial: set[str] = set()
     if any((base_id, key) in _NO_ORACLE_EDITORIAL_CORRECTIONS for key in penalized):
-        try:
-            oracle_statute = load_no_current_statute(base_id, dd)
-            oracle_text = _no_section_text_map(oracle_statute.body)
-        except Exception:  # noqa: BLE001 — a missing oracle just leaves keys billable
-            oracle_text = {}
+        oracle_text = oracle_text_map()
         for key in penalized:
             witness = _oracle_editorial_reconciles(
                 base_id,
@@ -526,6 +632,54 @@ def _score_no_replay(
             )
             if witness:
                 oracle_editorial.add(key)
+
+    # Per-SECTION TEMPORAL rail (oracle ahead of ``as_of``): of the penalized keys,
+    # which diverge ONLY because replay deliberately WITHHELD an amendment whose
+    # effective date is after ``as_of``? Re-replay to the HORIZON replay itself reported
+    # (``_no_future_skip_horizon`` — the max withheld effective date, read off replay's
+    # own typed temporal receipts) and keep a key only when the horizon replay
+    # reproduces the ORACLE section text BYTE-FOR-BYTE while the ``as_of`` replay does
+    # not. That byte-exact gate is what makes this safe: it fires only when the WHOLE
+    # section-level divergence is exactly the withheld future op(s) and nothing else.
+    #
+    # Skipped when the anchor is ALREADY commensurability-suspect (``oracle_suspect``):
+    # the per-ANCHOR rail retypes every one of its divergences anyway, so the second
+    # replay would buy nothing. This keeps the extra replay off every act that does not
+    # need it.
+    oracle_suspect = _no_oracle_suspect(result)
+    future_temporal: set[str] = set()
+    future_temporal_note = ""
+    horizon = _no_future_skip_horizon(result)
+    if penalized and horizon and oracle_suspect is None:
+        try:
+            horizon_result = verify_no_against_current(
+                base_id, as_of=horizon, data_dir=dd
+            )
+            horizon_replay = horizon_result.replay
+            horizon_body = (
+                horizon_replay.replayed.body
+                if horizon_replay is not None and horizon_replay.replayed is not None
+                else None
+            )
+            horizon_text = _no_section_text_map(horizon_body)
+        except Exception:  # noqa: BLE001 — a failed horizon replay just leaves keys billable
+            horizon_text = {}
+        if horizon_text:
+            oracle_text = oracle_text_map()
+            for key in penalized:
+                oracle_section = oracle_text.get(key, _ABSENT_SECTION)
+                if replayed_text.get(key, _ABSENT_SECTION) == oracle_section:
+                    continue
+                if horizon_text.get(key, _ABSENT_SECTION) == oracle_section:
+                    future_temporal.add(key)
+        if future_temporal:
+            withheld = ", ".join(replay.amendments_skipped_future if replay else ())
+            future_temporal_note = (
+                f"oracle ahead of as_of={as_of}: the whole section-level divergence is "
+                f"reproduced byte-for-byte by replaying to horizon={horizon}, which "
+                f"admits the amendment(s) replay withheld as future-effective "
+                f"[{withheld}]"
+            )
 
     # The oracle section denominator is (replay sections ∪ penalized keys): a
     # penalized key not present in the replayed body (CONSOLIDATED_MISSING /
@@ -537,8 +691,10 @@ def _score_no_replay(
         replayed_text=replayed_text,
         penalized_keys=frozenset(penalized),
         oracle_editorial_keys=frozenset(oracle_editorial),
+        future_temporal_keys=frozenset(future_temporal),
+        future_temporal_note=future_temporal_note,
         n_oracle_sections=n_oracle,
-        oracle_suspect=_no_oracle_suspect(result),
+        oracle_suspect=oracle_suspect,
         status="OK",
     )
 
@@ -689,6 +845,16 @@ def attribute_statute(
     ``oracle_suspect_standing_untouched`` (family ``oracle_editorial_pathology``, the
     non-billable WARN lane). This never masks a real defect: the key only qualifies when
     the WHOLE section divergence reconciles to the curated correction byte-for-byte.
+
+    PER-SECTION TEMPORAL RETYPING. The same mis-conviction shape arises from the clock
+    rather than the locus: the NO oracle is the single LIVE consolidation, so once an
+    amendment takes effect between ``as_of`` and the crawl the oracle carries it and a
+    correct replay does not. Any such section is TOUCHED (earlier amendments moved it)
+    and stays diverged, so the neutral calculus convicts it. We retype any observation
+    over a byte-exact-confirmed future-withheld key (``future_temporal_keys``) to
+    ``temporal_mismatch_commensurability`` (family ``temporal_mismatch``, the non-billable
+    WARN lane) — the per-section analogue of the per-anchor ``oracle_suspect`` witness.
+    The editorial rail takes precedence when a key somehow qualifies for both.
     """
     score = _score_no_replay(base_id, as_of, data_dir=data_dir)
     anchors = _anchors_from_score(as_of, score)
@@ -702,7 +868,7 @@ def attribute_statute(
             status="ERROR:fewer-than-2-scorable-anchors",
         )
     observations = list(attribute_divergences(base_id, anchors))
-    if score.oracle_editorial_keys:
+    if score.oracle_editorial_keys or score.future_temporal_keys:
         retyped: list[TouchObservation] = []
         for obs in observations:
             if obs.section_key in score.oracle_editorial_keys:
@@ -717,6 +883,20 @@ def attribute_statute(
                         evidence=(
                             "confirmed oracle-side editorial correction (byte-exact "
                             f"reconciliation): {note}"
+                        ),
+                    )
+                )
+            elif obs.section_key in score.future_temporal_keys:
+                retyped.append(
+                    TouchObservation(
+                        sid=obs.sid,
+                        section_key=obs.section_key,
+                        verdict="temporal_mismatch_commensurability",
+                        window=obs.window,
+                        touching_amendments=(),
+                        evidence=(
+                            "confirmed oracle-ahead-of-as_of temporal mismatch "
+                            f"(byte-exact reconciliation): {score.future_temporal_note}"
                         ),
                     )
                 )
@@ -752,8 +932,8 @@ REAL_ANCHOR_NO_CORPUS: tuple[tuple[str, str], ...] = (
     ("no/lov/2006-08-18-61", "2026-03-29"),   # Beredskapslagringsloven
     ("no/lov/2017-06-16-60", "2026-03-29"),   # Klimaloven (3 amendments applied)
     ("no/lov/2019-06-21-70", "2026-03-29"),   # Havne- og farvannsloven
-    ("no/lov/2020-05-07-38", "2026-03-29"),   # Rekonstruksjonsloven (§10-64 sunset date replays clean)
-    ("no/lov/2020-12-18-156", "2026-03-29"),  # Tilskuddsordning aug 2020 (§5 oracle-editorial: § 23→§ 2-3 WARN lane)
+    ("no/lov/2020-05-07-38", "2026-03-29"),   # Rekonstruksjonsloven (§10-64 sunset: oracle-ahead-of-as_of temporal WARN lane)
+    ("no/lov/2020-12-18-156", "2026-03-29"),  # Tilskuddsordning aug 2020 (§5 rettelse § 23→§ 2-3 replays clean since W-18)
     ("no/lov/2021-05-21-42", "2026-03-29"),   # Språklova
     ("no/lov/2022-05-12-28", "2026-03-29"),   # Advokatloven
     ("no/lov/2023-06-16-62", "2026-03-29"),   # Valgloven
