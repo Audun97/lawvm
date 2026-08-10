@@ -2572,7 +2572,17 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    case only because the same act re-supplied the text. Size the
    corpus surface (how many range renumbers, how many acts, what
    divergence closure) before any implementation; own design pass
-   per the W-41/W-50 discipline.
+   per the W-41/W-50 discipline. **UNFROZEN and RE-SCOPED at W-62
+   (2026-08-10): the second witness exists decisively (98 leads /
+   100 refusals / 59 instruments / 49 base acts of
+   relocation-and-range shapes, 7 high-value) — but the premise
+   is corrected: NO unequal-arity range occurs in any sample (all
+   are equal-cardinality order-preserving bijections; W-57's own
+   6→7 witness is the rare shape, not the family). The
+   load-bearing property is ATOMICITY under overlapping
+   source/destination sets, not range arity. Do not implement as
+   stated — the family is served by W-66 (atomic set-relabel) +
+   W-69 (relocation).**
 
 58. **W-58 (skattebetalingsloven § 8-2 missing amender —
    index/archive gap):** from W-54. No instrument among the 71
@@ -2797,20 +2807,42 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    nothing without the shift family; price them together or not
    at all.
 
-62. **W-62 (the proposer lane as a TRIAGE instrument):** from
-   W-60. The measured strength is diagnosis, not translation: the
-   proposer independently rediscovered W-57's shape from source
-   text, caught a wrong `base_doc` in the W-59 seed, and
-   correctly refused every corrupted input. Run oracle-redacted
-   proposer subagents over the `no_parse_unstructured_lead_
-   unmatched` and `no_parse_malformed_structured_renumber_attr_
-   skipped` refusal populations to CLASSIFY refusals into
-   repairable families with witnesses — no op ever reaches apply
-   (zero soundness surface). Output: a family census that
-   converts refusal receipts into sized, named work items (the
-   W-61 shape, discovered systematically instead of by
-   accident). Requires W-60's receipt-honesty lesson: reports
-   carry `span_role`-typed evidence, not bare span cites.
+62. **W-62 (the proposer lane as a TRIAGE instrument):** DONE
+   (census, RESEARCH-ONLY, 2026-08-10; artifacts `.tmp/w62/`, no
+   product change). **The lowering lane's scoreboard yield is
+   measured, and it is nearly exhausted: only 0.97% of the 9,454
+   refusals touch a scorable law (82 high-value triples over 23
+   of 73 candidates / 38 instruments), and AT MOST 10 of the 474
+   unexplained rows are address-coincident with any refused lead
+   (all 10 `OPS_MISSING` — the right polarity; 306 of 474 sit on
+   laws with NO refused bound lead at all, a hard exclusion).
+   After W-64 + W-67 (~8 of the 10), the remaining 9,000+
+   refusals are receipt-honesty debt on unscorable laws — priced
+   as that, never as scoreboard movement.** Census: full-lead
+   re-harvest (W-61's excerpts were 240-char truncations; its
+   population reproduced exactly, its coarse-six split reconciles
+   as an ordered-cascade partition artifact); 13 families /
+   skeleton+depth clustering over 8,258 distinct leads; the
+   malformed-attr population is 6 blocks over 6 instruments (3
+   NEW since W-56 via the archive refresh; 2 cross-base must
+   never be recovered, incl. a new one: `2026-02-06-2` addressing
+   `lov/2024-06-21-41` under `lov/2022-12-16-91`). Impact
+   ranking inverts size (heading/title replaces carry 15 of 82
+   high-value triples but ZERO possible divergence movement —
+   candidate rows contain no heading/title addresses). Triage: 4
+   of 12 proposer groups returned before budget (97.6% of
+   refusals in a triaged pool; 227 explicitly unadjudicated; 8
+   groups' classification unadjudicated with sizing standing;
+   group J compromised by a harness defect the agent found in
+   ITS OWN sampler — 17% chimeric (instrument, base) pairs —
+   audited, affected findings DISCARDED not propagated).
+   Receipt-honesty note: 267 double-receipted leads matched a
+   production and failed on payload — the generic refusal
+   receipt overstates the grammar gap by that much. Standing
+   questions answered: W-57 second witness YES with corrected
+   premise (see item 57); lane yield ~10 rows / 2.1%. Items
+   opened: W-64–W-71 (all eight, signed off); W-57 unfrozen and
+   re-scoped into W-66 + W-69.
 
 63. **W-63 (pin the gate's margin — apply-plane conjuncts are
    load-bearing):** DONE (`6b3f789e7`, 2026-08-10, artifacts `.tmp/w63/`).
@@ -2893,6 +2925,107 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    `(RENUMBER, dest_occupied)` verdict table only alongside its fix
    is untouched.
 
+64. **W-64 (the `defaultP` heading payload boundary — TOP census
+   item):** from W-62. Lovdata marks a new section's HEADING with
+   class `defaultP`, the same class as amendment leads; the walk's
+   payload rule "stop at the next `defaultP`" stops on the heading
+   and collects ZERO payload. Witness `no/lovtid/2003-12-19-129`
+   `"Ny § 37 a skal lyde:"` (heading `Avgift og gebyr`, six
+   `legalP` ledd stranded; divergence rows exactly
+   `chapter:5/section:37a/subsection:1-6` — 6 of the census's 10
+   traceable rows). Census: 455 pairs / 241 instruments / 1,437
+   stranded body nodes / 11 high-value; **125 pairs are pure
+   plumbing** (a shipped production already accepts the lead —
+   the boundary is the sole blocker). Touches the payload
+   boundary rule only, not the grammar. Four independent
+   confirmations. Full W-52/W-56 blast discipline — this changes
+   payload for already-matching leads and is expected to OPEN
+   text where none existed. Artifacts
+   `.tmp/w62/heading_boundary.json`.
+
+65. **W-65 (recursive address-path grammar for sub-section
+   replace/repeal):** from W-62. ~4,131 replace + 989 repeal
+   refusals; the triaged sample closes 9/14 via a recursive path
+   grammar (`§` token + composable `<ordinal> <level>` qualifiers,
+   any order, any depth); zero of the sampled refusals are a VERB
+   problem. **HARD DEPENDENCY on W-64**: widening the grammar
+   without the boundary fix converts a loud refusal into a silent
+   empty replace — the worse outcome. Remaining sample residue:
+   conjoined address lists, inline payload, intra-node punktum
+   splitting. Pricing note from the census's second synthesis
+   pass: this surface carries only 17 high-value triples and NONE
+   of the 10 traceable rows — large, but scan-inert; take it
+   after W-64 (much of it is payload-blocked anyway) and price it
+   as receipt honesty.
+
+66. **W-66 (atomic sibling set-relabel + address inheritance):**
+   from W-62; absorbs half of the re-scoped W-57. The
+   1,536-refusal renumber-shift family lowers to ONE atomic
+   relabel of a sibling set against the pre-operation snapshot —
+   the load-bearing requirement is atomicity under OVERLAPPING
+   source/destination sets (sequential relabelling writes onto
+   live labels; safe order depends on the shift's sign), NOT
+   range arity (none unequal in any sample). Closes 13/16 of the
+   triaged sample. Two non-optional riders: address inheritance
+   (38% of shift-family occurrences recover their section from a
+   preceding node; only 5% unrecoverable) and intra-part ordering
+   (11/16 destinations are created by a co-located insert/repeal).
+
+67. **W-67 (the two-token widening — CHEAPEST, DO FIRST):** from
+   W-62. The shipped section renumber hard-requires literal
+   `Nåværende` and literal `blir ny §`; relaxing the qualifier to
+   W-61's synonym set and making `ny` optional closes **64
+   refusals, provenance-clean** (100% from
+   `renumber_shift/section:nåværende:single`, 0 stray matches).
+   Witness `Gjeldende § 10-10 blir ny § 10-13.` on bound
+   instrument `2020-12-18-157`, address-coincident with 2 live
+   `OPS_MISSING` rows on candidate `no/lov/2010-06-04-21`. One
+   regex, add-only, exactly W-61's discipline + blast.
+
+68. **W-68 (law-switch failure — correctness-shaped):** from
+   W-62. 188 refusals / 115 instruments / 111 stale bases where
+   the lead OPENS with a law citation yet is bound to a different
+   act — dominated by `I lov <cite> <verb> <address>` (112), the
+   verb-before-address order the embedded-multi-act extractor
+   does not read; upper bound 335 (147 mid-lead citations are
+   addresses, excluded). Only 3 on candidates — priced as
+   CORRECTNESS (the switch is sticky), not coverage. Artifacts
+   `.tmp/w62/switch_fail.json`.
+
+69. **W-69 (RELOCATE — the W-57 successor):** from W-62; absorbs
+   the other half of the re-scoped W-57. Abstract form: source =
+   one node or one contiguous same-level range; destination = a
+   container address or a relative anchor (`before|after|
+   between`); `content_policy ∈ {carry-existing,
+   replace-with-payload}`; must preserve identity and inbound
+   cross-references and DERIVE re-parenting of nodes crossed by a
+   moving heading. Only one corpus lead strictly needs a new op
+   kind (a punktum relocating between ledd with no restated
+   payload); 8 of 9 real moves are reachable as a parse
+   production + delete+insert because the text is restated.
+   **Priced as: production first, op kind only if
+   derived-containment risk is judged unacceptable.** Second
+   cross-container witness on candidate `2019-06-14-21`
+   (`§ 43 annet ledd blir nytt femte ledd i § 42.`, 1 live row).
+
+70. **W-70 (malformed `data-move-part` token normalizer +
+   tripwire):** from W-62. 6 blocks / 6 instruments (3 new since
+   W-56 via the archive refresh); 4 recoverable by token
+   normalisation, **2 cross-base blocks must stay refused**
+   (`2024-06-21-46`; `2026-02-06-2` → `lov/2024-06-21-41`). The
+   population GROWS with the archive — worth a standing tripwire
+   more than a one-shot fix. Artifacts
+   `.tmp/w62/malformed_analysis.json`.
+
+71. **W-71 (tighten the operative predicate — receipt hygiene):**
+   from W-62. Bare `blir` triggers 278 tail refusals, `endres`
+   92, `gjer`/`gjerast` 146 — mostly statutory prose, not
+   amendments. Require the verb to govern a structural address.
+   Reduces noise receipts; closes NO divergence row. Also carry
+   W-62's receipt-honesty note: 267 double-receipted leads
+   (production matched, payload failed) overstate the grammar gap
+   in the generic refusal receipt.
+
 ## 5. Demo / Inspection Tooling
 
 Browser views of any replayable law across its own amendment dates, plus an
@@ -2909,6 +3042,30 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-10 (W-62 census: the lowering lane's yield is
+  measured — ~10 rows, then receipt-honesty debt)** — **The
+  refusal-family census clustered all 9,454 lowering refusals
+  (13 families over 8,258 distinct leads) and measured the number
+  that reframes the lane: only 0.97% touch a scorable law, and at
+  most 10 of the 474 unexplained divergence rows are
+  address-coincident with any refused lead — 6 of them one
+  defect, the `defaultP` heading payload boundary.** Research
+  only (artifacts `.tmp/w62/`). Eight items opened as priced:
+  W-64 (heading boundary, the top yield), W-65 (address-path
+  grammar, hard-dependent on W-64), W-66 (atomic set-relabel),
+  W-67 (two-token widening, cheapest), W-68 (law-switch
+  correctness), W-69 (RELOCATE, production-first), W-70
+  (malformed-token tripwire), W-71 (operative-predicate hygiene).
+  W-57 unfrozen and re-scoped into W-66+W-69 — its second
+  witness exists (98 leads / 49 acts) but its premise was wrong:
+  the load-bearing property is atomicity under overlapping
+  source/destination sets, not range arity. Triage coverage
+  stated honestly: 4 of 12 proposer groups returned; 8 families'
+  classification unadjudicated with sizing standing; the agent
+  found a chimeric-pair defect in its own sampling harness and
+  discarded the affected findings. Heading/title replaces closed
+  as scan-inert (zero candidate rows address a heading).
 
 - **2026-08-10 (W-63 applied)** — **The gate's margin is pinned, and
   re-measuring W-60's two mutants moved both findings: `D2_m3`'s
