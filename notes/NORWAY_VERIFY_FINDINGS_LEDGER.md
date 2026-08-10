@@ -2584,7 +2584,18 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    as the designed handoff: when the missing repeal lands,
    `test_no_corpus_occupied_renumber_destination_verdicts_are_pinned`
    fails on its `wrong == [...]` assertion — flip the row there,
-   consciously.
+   consciously. **RECLASSIFIED at W-60 and ABSORBED INTO W-61:
+   there is no archive gap.** The Lovdata probe found the repeal
+   — `"§ 8-2 første ledd oppheves. Annet til femte ledd blir
+   første til fjerde ledd."` in `no/lovtid/2008-12-12-100` — and
+   that sentence is PRESENT VERBATIM in our archived copy, which
+   is indexed and applied (19 ops). It is not lowered because it
+   sits in a run-on part boundary
+   (`…kommunene.III§ 8-2 første ledd oppheves…`) refused with the
+   typed `no_parse_unstructured_lead_unmatched` (one of 14 on
+   that instrument). The earlier text-grep false-negatived on the
+   run-on form. The W-56 handoff pin flips when W-61's LOWERING
+   fix lands, not an ingestion.
 
 59. **W-59 (the anchor-less ledd-shift blocks):** from W-56's
    sweep (`.tmp/w56/sweep2.json`). **10 change blocks carry
@@ -2602,29 +2613,113 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    for `;;`) — one-character source typos a tolerant token
    normalizer could recover; changes op streams, needs the
    W-52/W-56 blast measurement. Size both surfaces before
-   implementing either.
+   implementing either. **RE-SCOPED at W-60: 7 of the 9
+   anchor-less laws are in the no-original-source population and
+   cannot be replayed, gated, or scored at all; and one of the
+   remaining blocks (`2024-06-21-46` → `2022-05-12-28`) is a SEED
+   ERROR — its `data-move-part` addresses `lov/2010-03-26-9/§65`,
+   caught by W-60's proposer. The reachable surface is 2 blocks
+   (`2016-08-12-77`, `2009-06-19-58`), both of which W-60's
+   proposers converted at the full gate — their ops exist in
+   `.tmp/w60/proposals/` should a landing lane ever open.**
 
 60. **W-60 (proposer–verifier spike — size the LLM lane for
-   NL→ops, plus shallow-anchoring and archive-gap riders):** OPEN
-   (design brief `.tmp/w60/brief.md`, drafted and user-approved
-   2026-08-10). Research-only design pass per the W-41/W-50
-   discipline: ~20-site panel (the W-59 anchor-less ledd shifts
-   as seed, the W-57 range-renumber witness, five
-   small-divergence candidates, 1-2 source_sparse hard cases); a
-   fresh proposer per site receives ONLY frozen, oracle-redacted
-   inputs and returns span-cited ops; the verifier side runs the
-   full gate (closure, zero new rows, all-law byte-identity, no
-   binding movement, per-op correspondence adjudication).
-   Mandatory corrupted-input control (~4 sites, preregistered 0
-   false accepts — one leak kills ADOPT). Preregistered verdicts:
-   ADOPT ≥50% conversion / ESCALATE-to-evolver 10-50% with
-   feedback-helps evidence (fitness = the gate as hard
-   constraints, never raw divergence count — W-54's metric
-   caveat) / REJECT <10% or control leak. Riders: shallow-anchor
-   sizing over ~15 of the 439 no-source laws; archive-gap rate
-   with a bounded ≤5-fetch Lovdata live probe that may answer
-   W-58. Budget ~1.5M subagent tokens. **W-57 / W-59 / W-48 are
-   frozen until this reports.**
+   NL→ops, plus shallow-anchoring and archive-gap riders):** DONE
+   (spike, RESEARCH-ONLY, 2026-08-10; brief `.tmp/w60/brief.md`,
+   artifacts `.tmp/w60/`, no product change). **Verdict:
+   ESCALATE, redirected — no evolver harness.** Panel: 15 live
+   sites (7 of the 9 W-59 seed laws are UNREPLAYABLE —
+   no-original-source population — trim stated, backfilled).
+   **Conversion 7/15 = 47%** at the full gate (fresh oracle-
+   redacted proposer subagent per site, span-cited ops, 3-attempt
+   cap); D2 closed `2011-06-24-39` 5→0, D1 closed `2004-03-26-17`
+   1→0. **Controls: 0 false accepts on both arms** — but arm 1
+   (corrupted inputs) was intercepted by the PROPOSER (3 correct
+   refusals + 1 contingent-blocked) and never exercised the gate;
+   the agent added **arm 2 (15 mutated ops from converting
+   proposals): 0 pass, and the load-bearing finding is that TWO
+   mutants pass every divergence-based conjunct (one at ZERO
+   divergences with false law) and are caught ONLY by the typed
+   apply-plane conjuncts** (`replay_tree_invariant_violation`
+   duplicate-label; `no_replay_insert_occupied_direct_child_
+   replaced` — W-54's dormant cell fired live AGAIN). A
+   divergence-only gate admits ~13% false mutants → W-63.
+   Failure taxonomy (8 non-converts): only ONE is
+   better-proposal-fixable; the rest are a mis-specified W-59
+   seed row (proposer caught our own error), the W-57 op-kind
+   hole (independently rediscovered from source text),
+   a contingent instrument, an upstream lowering defect, an
+   oracle normalization artifact (`§§` vs `§ §` — proposer
+   correctly refused to chase the target), the sparse ceiling,
+   and a "gap" that W-58's answer dissolved. **An evolver would
+   search a space where 7 of 8 failures are outside the search.**
+   Receipt honesty: all 24 converting-proposal spans verbatim,
+   but a third license only half their op (address comes from
+   markup the span does not quote); "span-cited" needs a typed
+   `span_role` that admits what it cannot prove — below the bar
+   as-is. **Rider A (shallow anchoring): CLOSED** — universe
+   corrected 439 → 316; 15/15 sampled consolidations parse; but
+   consolidation-anchored verification is TAUTOLOGICAL (the
+   consolidation IS the oracle); non-vacuous yield = forward
+   replay only: **13 laws / 14 ops corpus-wide**. Not a work
+   item. **Rider B (archive gaps): NOT MATERIAL** — of 1,007
+   apparent gap rows, 998 are the three known
+   sparse-indexed-history laws; **~9 genuine gap rows across 9
+   laws**; and the probe ANSWERED W-58 (see item 58, reclassified
+   — the instrument is in the archive; the blocker is lowering).
+   Queue restructure signed off 2026-08-10: W-61/W-62/W-63
+   opened, W-58 absorbed into W-61, W-59 re-scoped, W-57 stays
+   frozen (needs a cross-container MOVE op kind with range arity
+   — confirmed twice independently), shallow anchoring closed.
+   Burn ~1.05–1.2M of 1.5M budget (estimated, 22 spawns).
+
+61. **W-61 (fix the run-on part-boundary lowering refusal — W-58's
+   real root cause):** from W-60's Rider B; absorbs W-58. Amending
+   acts whose part boundaries run into the following lead sentence
+   without whitespace (`…skatteoppkreverne for kommunene.III§ 8-2
+   første ledd oppheves…`) fail to lower, refused with the typed
+   blocking `no_parse_unstructured_lead_unmatched`. Named witness:
+   `no/lovtid/2008-12-12-100` (14 such refusals on that one
+   instrument; the § 8-2 repeal among them is what left the stale
+   ledd that W-54 adjudicated `removal_wrong`). Sweep the receipt
+   population corpus-wide for the run-on shape's frequency, fix
+   the boundary detection (conservative polarity — a boundary the
+   splitter cannot prove lowers to nothing new), full W-52/W-56
+   blast discipline (op streams move; expect skattebetalingsloven
+   § 8-2 to gain its repeal + shift, the stale-duplicate ledd to
+   vacate, and the W-56 handoff pin `wrong == [...]` to flip —
+   that flip is the designed success criterion). Highest-value
+   item found by the spike; needs no LLM.
+
+62. **W-62 (the proposer lane as a TRIAGE instrument):** from
+   W-60. The measured strength is diagnosis, not translation: the
+   proposer independently rediscovered W-57's shape from source
+   text, caught a wrong `base_doc` in the W-59 seed, and
+   correctly refused every corrupted input. Run oracle-redacted
+   proposer subagents over the `no_parse_unstructured_lead_
+   unmatched` and `no_parse_malformed_structured_renumber_attr_
+   skipped` refusal populations to CLASSIFY refusals into
+   repairable families with witnesses — no op ever reaches apply
+   (zero soundness surface). Output: a family census that
+   converts refusal receipts into sized, named work items (the
+   W-61 shape, discovered systematically instead of by
+   accident). Requires W-60's receipt-honesty lesson: reports
+   carry `span_role`-typed evidence, not bare span cites.
+
+63. **W-63 (pin the gate's margin — apply-plane conjuncts are
+   load-bearing):** from W-60's mutant control. Two mutants
+   passed EVERY divergence-based conjunct (one at zero
+   divergences with false law) and were caught only by
+   `replay_tree_invariant_violation` (duplicate label) and
+   `no_replay_insert_occupied_direct_child_replaced` (W-54's
+   dormant cell, now observed live twice). Pin as an explicit
+   gate property: any future acceptance lane (batch, proposer,
+   or human) MUST include the apply-plane typed conjuncts, with
+   the two mutants (`.tmp/w60/proposals/` `D2_m3`, `D4_m3`)
+   reproduced as regression witnesses in a test. Also decide
+   whether the insert-occupied cell should keep its
+   overwrite polarity now that it has fired live twice under
+   counterfactuals (W-54's priced question, sharpened).
 
 ## 5. Demo / Inspection Tooling
 
@@ -2642,6 +2737,27 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-10 (W-60 spike: the LLM lane measured — the bottleneck
+  is lowering, not translation)** — **The proposer–verifier spike
+  ran 15 sites at 47% full-gate conversion with zero control
+  false-accepts on both arms, and its sharpest findings were not
+  about the proposer at all: W-58's "archive gap" dissolved (the
+  repeal is in our archive, refused by a run-on part-boundary
+  lowering defect → W-61), and the mutant control proved the
+  divergence conjuncts alone would admit false law at zero
+  divergences — the typed apply-plane conjuncts carry the gate's
+  entire margin (→ W-63, with W-54's dormant insert cell observed
+  live a second time).** Research only (brief + artifacts
+  `.tmp/w60/`). Verdict ESCALATE, redirected: no evolver (7 of 8
+  failures live outside the proposal search space); instead the
+  proposer becomes a triage instrument over the refusal
+  populations (→ W-62). Shallow anchoring closed (tautological;
+  13 laws / 14 forward ops); archive gaps not material (~9 rows
+  outside the known sparse ceiling); W-59 re-scoped to 2
+  reachable blocks (7 of 9 seed laws unreplayable, 1 seed error
+  caught by the proposer); W-57 confirmed to need a new op kind,
+  stays frozen. Queue restructure signed off.
 
 - **2026-08-10 (W-55 applied)** — **The CTSF gate is green again,
   and the red was a false conviction: the corpus refresh of
