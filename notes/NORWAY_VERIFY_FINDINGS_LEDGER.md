@@ -2460,17 +2460,47 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    (range-renumber lowering sizing), W-58 (the missing-amender
    archive gap).
 
-55. **W-55 (ctsf-gate baseline drift, pre-existing):** shard
-   `tools_ctsf_gate` fails at base `86fa8ddf3` with `CTSF gate
-   FAIL: new billable (replay_bug/unknown) residual(s) vs
-   baseline: no/lov/2020-05-07-38:replay_bug 0->1` (4 tests red,
-   incl. the data-absent pair). Corpus drift against a frozen
-   baseline, not caused by any landing this session — W-52
-   reproduced the failure byte-identical at clean base and proved
-   its change cannot reach the gate (0 of the 11
-   `REAL_ANCHOR_NO_CORPUS` laws fire the occupied-destination
-   recovery). Triage the `2020-05-07-38` replay_bug residual, fix
-   or re-freeze the baseline.
+55. **W-55 (ctsf-gate baseline drift, pre-existing):** DONE
+   (`ad03ece3a`, 2026-08-10). **Root cause: CORPUS drift, not
+   code — and the honest fix was neither arm as posed but a
+   gate-engine soundness gap.** The archive was refreshed
+   2026-07-31, after the baseline's 2026-07-04 freeze
+   (`714e7d657`), pulling in lov `2026-06-19-48`, which repeals
+   `no/lov/2020-05-07-38` § 64 annet ledd effective 2026-06-19;
+   the live Lovdata oracle has applied it, and replay CORRECTLY
+   withholds it at `as_of=2026-03-29`
+   (`no_replay_future_effective_skipped`) — the oracle is ahead
+   of the anchor window and the gate convicted a correct replay.
+   Dispositive control: the freeze commit's own code re-run on
+   today's archive convicts identically, so no landed W-item is
+   implicated. Byte-exact witness: replaying to horizon
+   2026-06-19 yields 0 divergences act-wide. Since NO's oracle is
+   one live consolidation with no PIT addressing, this was a
+   standing false-conviction lane firing on the passage of time
+   alone. Repaired in the CTSF engine ONLY
+   (`tools/no_anchor_manifest.py`, no `norway/` product change —
+   zero scan exposure structurally): a per-section TEMPORAL rail
+   retypes a penalized section to non-billable
+   `temporal_mismatch_commensurability` iff re-replaying to the
+   horizon read off replay's OWN typed future-skip receipts
+   (never an invented date) reproduces the oracle section
+   byte-for-byte; any other drift stays billable; skipped when
+   the per-anchor `oracle_suspect` rail already covers the act.
+   Baseline re-frozen `1 → 3` residuals, **billable 1 → 0**, all
+   rows attributed: `2020-05-07-38 {} → temporal_mismatch 1`
+   (this rail); `2025-04-25-12 {} → temporal_mismatch 2` (same
+   refresh — three new Innkrevingsloven amendments, one
+   contingent → typed by the PRE-existing per-anchor rail);
+   `2020-12-18-156 oracle_editorial_pathology 1 → {}`
+   (**RESOLVED by W-18 `c8ffa7eb9`** — Lovtidend's typed
+   rettelse now lowers as a same-act op and § 5 replays clean;
+   the editorial-registry entry is superseded and kept inert as
+   a regression backstop). The data-absent test pair was a pure
+   cascade of the NO lane failing inside `run_gate()`/`main()`
+   — no independent defect. 3 tests added, none weakened; shard
+   green (`104 passed, 40 skipped in 803s`). Artifacts
+   `.tmp/w55/` (three-way freeze/base/fixed score control,
+   row-attributed baseline delta).
 
 56. **W-56 (repair the class-C cascade firings — the two
    `removal_wrong` rows):** DONE (`e2589b292`, 2026-08-09).
@@ -2590,6 +2620,20 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-10 (W-55 applied)** — **The CTSF gate is green again,
+  and the red was a false conviction: the corpus refresh of
+  2026-07-31 put the live oracle AHEAD of the frozen anchor
+  window, and the gate billed a correct replay for correctly
+  withholding a future-effective repeal** (`ad03ece3a`). Proven
+  by control (freeze-commit code convicts identically on today's
+  archive) and by a byte-exact horizon replay (0 divergences
+  act-wide at 2026-06-19). Fixed in the CTSF engine only: a
+  per-section temporal rail, byte-exact gated off replay's own
+  future-skip receipts, closes the fires-on-time-alone lane.
+  Baseline re-frozen 1 → 3 residuals with billable 1 → 0, every
+  row attributed — including one residual RESOLVED by W-18's
+  erratum lowering. Main CI returns to all-green-or-known.
 
 - **2026-08-09 (W-56 applied)** — **Tvisteloven's vitneforsikring
   is restored: the dropped renumber leg was Lovdata's own
