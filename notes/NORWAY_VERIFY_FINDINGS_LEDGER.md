@@ -2604,6 +2604,28 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    W-52/W-56 blast measurement. Size both surfaces before
    implementing either.
 
+60. **W-60 (proposer–verifier spike — size the LLM lane for
+   NL→ops, plus shallow-anchoring and archive-gap riders):** OPEN
+   (design brief `.tmp/w60/brief.md`, drafted and user-approved
+   2026-08-10). Research-only design pass per the W-41/W-50
+   discipline: ~20-site panel (the W-59 anchor-less ledd shifts
+   as seed, the W-57 range-renumber witness, five
+   small-divergence candidates, 1-2 source_sparse hard cases); a
+   fresh proposer per site receives ONLY frozen, oracle-redacted
+   inputs and returns span-cited ops; the verifier side runs the
+   full gate (closure, zero new rows, all-law byte-identity, no
+   binding movement, per-op correspondence adjudication).
+   Mandatory corrupted-input control (~4 sites, preregistered 0
+   false accepts — one leak kills ADOPT). Preregistered verdicts:
+   ADOPT ≥50% conversion / ESCALATE-to-evolver 10-50% with
+   feedback-helps evidence (fitness = the gate as hard
+   constraints, never raw divergence count — W-54's metric
+   caveat) / REJECT <10% or control leak. Riders: shallow-anchor
+   sizing over ~15 of the 439 no-source laws; archive-gap rate
+   with a bounded ≤5-fetch Lovdata live probe that may answer
+   W-58. Budget ~1.5M subagent tokens. **W-57 / W-59 / W-48 are
+   frozen until this reports.**
+
 ## 5. Demo / Inspection Tooling
 
 Browser views of any replayable law across its own amendment dates, plus an
