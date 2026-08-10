@@ -864,6 +864,20 @@ def test_corpus_no_consolidation_inventory_counters_and_would_be_ceiling() -> No
     unmoved at 90 and ``None`` is unmoved at 2,552 — which is the check that an
     ACT-level commencement route still writes only dates and never bindings.
     Same +4 as ``test_norway_verify.py``'s ``would_be_candidates``.
+
+    61 -> 60 / 29 -> 30 at W-61 (2026-08-10), and this one runs BACKWARDS: the
+    first time a law has left the counterfactual ceiling. Still a pure TRANSFER
+    — the sum is unmoved at 90 and ``None`` is unmoved at 2,552 — but read the
+    mechanism, because it is the opposite of the three above. W-47 and W-53 are
+    commencement routes: they write DATES and never bindings, so a law moves
+    ``blocked_contingent -> fully_replayable`` when its existing amenders stop
+    being undated. W-61 is a LOWERING widening: it writes BINDINGS, and
+    ``no/lov/2009-06-19-101`` (mineralloven) moves the other way because it
+    gains one — ``no/lovtid/2013-01-11-3``, whose § 66 and § 67 ledd repeals now
+    lower and whose own commencement is "Kongen bestemmer" with no instrument
+    date. Nothing regressed: the amender was always there and always undated,
+    and the ceiling could not see it only because its two leads did not lower.
+    Same -1 as ``test_norway_verify.py``'s ``would_be_candidates``.
     """
     data_dir = _no_corpus_dir()
     if data_dir is None:
@@ -883,5 +897,5 @@ def test_corpus_no_consolidation_inventory_counters_and_would_be_ceiling() -> No
         str(row["would_be_status"]) for row in inventory.no_consolidation_rows
     )
     assert would_be == Counter(
-        {"None": 2552, "fully_replayable": 61, "blocked_contingent": 29}
+        {"None": 2552, "fully_replayable": 60, "blocked_contingent": 30}
     )

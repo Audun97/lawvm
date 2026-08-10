@@ -839,12 +839,24 @@ _REAL_ARCHIVE = _REPO_ROOT / "data" / "norway.farchive"
 #: rather than deleted, so a regression that resurrects the firing (and with it
 #: the destruction of the vitneforsikring) trips this assertion instead of
 #: passing unnoticed under a shorter table.
+#:
+#: W-61 lowers it to **8**, by the same mechanism and for the same reason.
+#: ``no/lov/2005-06-17-67`` (skattebetalingsloven) drops from 1 firing to 0.
+#: W-54 adjudicated that firing ``removal_wrong`` — the corpus's last proven
+#: destruction of in-force law — and traced it to a § 8-2 with a STALE DUPLICATE
+#: fourth ledd, which existed because no lowered instrument repealed the base
+#: act's first ledd. The repeal was in the archive all along, in
+#: ``no/lovtid/2008-12-12-100``, refused by the unstructured-lead grammar; W-61's
+#: widening lowers it together with its four-leg ledd shift, § 8-2 becomes the
+#: four-ledd section the later amendments have always read on, and the
+#: ``4 → 5`` leg of ``no/lovtid/2024-12-20-87`` no longer lands on an occupied
+#: node at all. Kept at ``(0, 0)`` for the same tripwire reason as tvisteloven.
 _NO_OCCUPIED_DESTINATION_LAWS: dict[str, tuple[int, int]] = {
     "no/lov/2001-01-05-1": (2, 0),
     "no/lov/2003-07-04-84": (1, 0),
     "no/lov/2004-12-17-99": (2, 1),
     "no/lov/2005-06-10-44": (2, 2),
-    "no/lov/2005-06-17-67": (1, 0),
+    "no/lov/2005-06-17-67": (0, 0),  # W-61: repaired at the lowering; see above.
     "no/lov/2005-06-17-90": (0, 0),  # W-56: repaired at the lowering; see above.
     "no/lov/2021-06-18-97": (1, 0),
 }
@@ -869,15 +881,27 @@ _NO_OCCUPIED_DESTINATION_LAWS: dict[str, tuple[int, int]] = {
 #: pin):
 #:   * a NEW op_id appearing in the corpus = alarm. The table is compared by
 #:     equality, so an unadjudicated firing cannot land silently.
-#:   * ``no/lovtid/2024-12-20-87:2`` (skattebetalingsloven § 8-2) is pinned as
-#:     ``removal_wrong`` ON PURPOSE. Its root cause is NOT a lowering defect —
-#:     both legs of that instrument lower correctly. Our § 8-2 carries a stale
-#:     duplicate fourth ledd because no indexed instrument repeals the base act's
-#:     first ledd, so the correctly-lowered ``4 → 5`` leg grabs the wrong node.
-#:     That missing archive artifact is W-58's item. Until W-58 lands this row
-#:     MUST stay wrong; when W-58 lands, this test fails and the row is flipped
-#:     CONSCIOUSLY. A green run therefore means "the known defect is still
-#:     exactly one row wide", never "all removals are correct".
+#:   * ``no/lovtid/2024-12-20-87:2`` (skattebetalingsloven § 8-2) WAS pinned here
+#:     as ``removal_wrong`` on purpose — the corpus's last proven destruction of
+#:     in-force law, W-54's finding, held open as W-58's designed handoff. W-61
+#:     REMOVED it, and the removal is the whole point of that item, so read the
+#:     history before re-adding anything to this table. W-58 recorded the root
+#:     cause as a missing archive artifact and W-60 re-read it as a run-on part
+#:     boundary; both were wrong. The repealing sentence ("§ 8-2 første ledd
+#:     oppheves. Annet til femte ledd blir første til fjerde ledd.") was archived,
+#:     indexed and applied all along, in ``no/lovtid/2008-12-12-100``, and simply
+#:     did not LOWER: the unstructured repeal-then-shift production required the
+#:     literal ``Nåværende`` in the shift sentence. With W-61's widening the
+#:     repeal and its four-leg shift both lower, § 8-2's stale duplicate fourth
+#:     ledd vacates, and the ``4 → 5`` leg no longer lands on an occupied node —
+#:     so there is no firing left to adjudicate. The ``(0, 0)`` entry in
+#:     ``_NO_OCCUPIED_DESTINATION_LAWS`` is what keeps a resurrection loud, and
+#:     ``test_no_skattebetalingsloven_8_2_regulation_power_survives`` below pins
+#:     the positive fact the firing used to destroy.
+#:
+#: With that row gone the wrong-list is EMPTY, and the tripwire flips polarity:
+#: a green run now means "no adjudicated removal destroys live law", and ANY
+#: growth of the wrong-list is a new destruction, not a known one.
 _NO_OCCUPIED_DESTINATION_VERDICTS: dict[str, tuple[str, str, str, str, str, tuple[str, ...]]] = {
     "no/lovtid/2009-06-19-85:1": (
         "no/lov/2001-01-05-1",
@@ -937,20 +961,8 @@ _NO_OCCUPIED_DESTINATION_VERDICTS: dict[str, tuple[str, str, str, str, str, tupl
         "bestemmelsene i dette kapittel gjelder for selskaper som yter",
         (),
     ),
-    "no/lovtid/2024-12-20-87:2": (
-        "no/lov/2005-06-17-67",
-        "part:2/chapter:8/section:8-2/subsection:4",
-        "part:2/chapter:8/section:8-2/subsection:5",
-        # KNOWN DEFECT, owned by W-58 (missing archive artifact). The occupant —
-        # § 8-2's Skattedirektoratet regulation power — is live at consolidation
-        # § 8-2 femte ledd and is NOT at that address in the replay. The single
-        # surviving hit below is § 8-3's own identically-worded regulation power,
-        # a different provision: the probe finding it is exactly what proves the
-        # § 8-2 one is gone.
-        "removal_wrong",
-        "skattedirektoratet kan i forskrift gi nærmere regler om gjennomføringen",
-        ("part:2/chapter:8/section:8-3/subsection:3",),
-    ),
+    # ``no/lovtid/2024-12-20-87:2`` stood here, pinned ``removal_wrong``, until
+    # W-61 removed the firing at the lowering. See the note above the table.
     "no/lovtid/2026-06-19-35:18": (
         "no/lov/2021-06-18-97",
         "chapter:10/section:10-17/subsection:4",
@@ -970,6 +982,18 @@ _NO_OCCUPIED_DESTINATION_VERDICTS: dict[str, tuple[str, str, str, str, str, tupl
 #: the ``OPS_MISSING …/section:24-8/subsection:5`` row closes with this fix.
 _TVISTELOVEN_OATH_PROBE = "før forklaring gis skal retten formane vitnet til å"
 _TVISTELOVEN_OATH_ADDRESS = "part:5/chapter:24/section:24-8/subsection:5/sentence:1"
+
+#: W-61's payoff probe. Skattebetalingsloven § 8-2's Skattedirektoratet
+#: regulation power — the provision W-54 proved the ``(RENUMBER, dest_occupied)``
+#: recovery destroyed, and the last such destruction in the corpus.
+#:
+#: § 8-3 carries an identically-worded regulation power of its own, which is why
+#: the pin below is on the ADDRESS SET and not on "the probe finds something":
+#: under the defect the probe still hit, on § 8-3, and that hit was the proof
+#: § 8-2's copy was gone.
+_SKATTEBETALINGSLOVEN_REGULATION_PROBE = "skattedirektoratet kan i forskrift gi nærmere regler om gjennomføringen"
+_SKATTEBETALINGSLOVEN_8_2_ADDRESS = "part:2/chapter:8/section:8-2/subsection:5"
+_SKATTEBETALINGSLOVEN_8_3_ADDRESS = "part:2/chapter:8/section:8-3/subsection:3"
 
 
 def _no_normalise_probe_text(text: str) -> str:
@@ -1059,9 +1083,11 @@ def test_no_corpus_occupied_renumber_destination_verdicts_are_pinned(
         for op_id, (_b, _s, _d, verdict, _p, _sv) in _NO_OCCUPIED_DESTINATION_VERDICTS.items()
         if verdict == "removal_wrong"
     )
-    # W-58's tripwire. If this list SHRINKS, W-58 landed — flip the row
-    # consciously. If it GROWS, a new live-law destruction reached the corpus.
-    assert wrong == ["no/lovtid/2024-12-20-87:2"]
+    # W-58's tripwire, flipped by W-61 (see the note on the table). The list is
+    # EMPTY: no adjudicated ``(RENUMBER, dest_occupied)`` recovery in the corpus
+    # destroys in-force law. Any growth is a NEW destruction — adjudicate it
+    # W-54-style (source text, occupant provenance, verdict) before touching this.
+    assert wrong == []
 
 
 @pytest.mark.skipif(
@@ -1086,6 +1112,39 @@ def test_no_tvisteloven_vitneforsikring_survives_the_two_limb_ledd_shift(
     # And the ledd itself exists — before W-56 the recovery removed the whole
     # node, so there was no ``subsection:5`` under § 24-8 at all.
     assert hits[0].rsplit("/", 1)[0] == "part:5/chapter:24/section:24-8/subsection:5"
+    assert [
+        a.op_id
+        for a in replay.adjudications
+        if a.kind == "no_replay_renumber_occupied_destination_removed"
+    ] == []
+
+
+@pytest.mark.skipif(
+    not _REAL_ARCHIVE.exists(),
+    reason="requires the local Lovdata archive (data/norway.farchive)",
+)
+def test_no_skattebetalingsloven_8_2_regulation_power_survives(
+    _no_occupied_destination_replays,
+) -> None:
+    """W-61's payoff, pinned at the corpus: skattebetalingsloven § 8-2's
+    Skattedirektoratet regulation power is present in the replay, at the address
+    the consolidation puts it, and § 8-2 is the FOUR-ledd section the later
+    ledd-targeted amendments have always read on.
+
+    W-54's firing 10 — the last ``removal_wrong`` in the corpus.
+    ``no/lovtid/2024-12-20-87``'s § 8-2 block lowered both its legs correctly, but
+    our § 8-2 still carried five ledd with a stale duplicate at four, because
+    ``no/lovtid/2008-12-12-100``'s "§ 8-2 første ledd oppheves. Annet til femte
+    ledd blir første til fjerde ledd." never lowered. So the ``4 → 5`` leg landed
+    on the occupant and the recovery removed it
+    (``MISMATCH part:2/chapter:8/section:8-2/subsection:5``).
+    """
+    replay = _no_occupied_destination_replays["no/lov/2005-06-17-67"]
+    assert replay.replayed is not None
+    hits = _no_probe_hits(replay.replayed, _SKATTEBETALINGSLOVEN_REGULATION_PROBE)
+    # Both copies present, § 8-2's restored alongside § 8-3's own. Under the
+    # defect this was ``(§ 8-3's address,)`` alone.
+    assert hits == (_SKATTEBETALINGSLOVEN_8_2_ADDRESS, _SKATTEBETALINGSLOVEN_8_3_ADDRESS)
     assert [
         a.op_id
         for a in replay.adjudications
@@ -1139,7 +1198,10 @@ def test_no_corpus_occupied_renumber_destinations_are_all_declared(
         ] == [], base_id
 
     assert observed == _NO_OCCUPIED_DESTINATION_LAWS, observed
-    assert sum(f for f, _ in observed.values()) == 9
+    # W-52 measured 10 firings, W-56 repaired one (tvisteloven § 24-8) and W-61
+    # one more (skattebetalingsloven § 8-2) — both at the LOWERING, so the
+    # recovery simply has nothing left to fire on there.
+    assert sum(f for f, _ in observed.values()) == 8
     assert sum(c for _, c in observed.values()) == 3
     # The two tables must agree on the firing population, so neither can drift
     # alone: one row per firing, keyed by op_id.

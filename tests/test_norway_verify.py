@@ -2845,6 +2845,17 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # remaining obstacle is the missing consolidation. Total and the family
     # split are again unmoved, which is the check that a commencement route
     # cannot manufacture or destroy a law.
+    # 61 -> 60 at W-61 (2026-08-10), and this is the FIRST time this number has
+    # fallen. It is honest exposure, not a loss. ``no/lov/2009-06-19-101``
+    # (mineralloven) leaves the counterfactual ceiling because the widened
+    # repeal-then-shift lead binds it to ``no/lovtid/2013-01-11-3`` (its § 66 and
+    # § 67 ledd repeals, item 33 of that act's consequential list) — an amender
+    # whose own commencement is "Kongen bestemmer" with no instrument date. The
+    # law's would-be status therefore moves ``fully_replayable`` ->
+    # ``blocked_contingent``: the amender was always there and always undated,
+    # and we could not see it only because its two leads did not lower. Total
+    # and the family split are again unmoved, and the real candidate set stays
+    # at 73 — mineralloven has no stored consolidation either way.
     assert set(report) >= {"partitions", "unverifiable"}
     assert report["unverifiable"]["no_stored_consolidation"] == {
         "total": 2642,
@@ -2854,7 +2865,7 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             "wage_board_act": 25,
             "substantive_act": 63,
         },
-        "would_be_candidates": 61,
+        "would_be_candidates": 60,
         "substantive_unexplained": 13,
     }
 

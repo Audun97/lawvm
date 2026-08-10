@@ -1220,6 +1220,86 @@ def _no_ledd_shift_pairs_from_sentence(sentence: str) -> Optional[tuple[str, lis
     return section_label, list(zip(sources, destinations, strict=True))
 
 
+def _no_unstructured_repeal_renumber_legs(
+    lead: str,
+) -> Optional[tuple[str, list[LegalAddress], list[LegalAddress], list[LegalAddress]]]:
+    """Resolve a repeal-then-shift lead to ``(section, repealed, source, dest)``.
+
+    ``None`` means "this production declines the lead" and the walk falls through
+    to its ordinary refusal. Returning TARGETS rather than ordinals keeps the call
+    site's arity receipt and op minting exactly as they were before W-61.
+
+    Two attempts, in this order and for this reason:
+
+    1. The shipped pattern, resolved exactly as it always was — including the case
+       where ``_infer_same_base_subsection_targets_from_lead`` resolves NOTHING and
+       the production returns empty target lists. That is a silent drop, and an
+       honest receipt would be better, but it is the SHIPPED answer for 14 corpus
+       leads and changing it is not this widening's business.
+    2. Only if the shipped pattern does not match: W-61's widened pattern, whose
+       ordinal phrases go through W-56's ``_no_ledd_shift_ordinals`` — the same
+       ``_NORWEGIAN_ORDINALS`` vocabulary and the same all-or-nothing refusal, but
+       it also spans ``til`` RANGES ("annet til femte"), which the ``skal lyde``
+       round-trip resolves to no targets at all. Reusing that helper is what keeps
+       this from becoming a second ordinal grammar.
+
+    The widened attempt refuses, rather than guesses, two shapes it cannot own:
+    an ordinal phrase outside the vocabulary — which is also what declines the one
+    corpus lead whose repeal side is a MULTI-SECTION list ("§ 4 femte ledd, § 5
+    annet ledd og § 6 annet ledd oppheves."), since the embedded "§ 5 annet ledd"
+    is not an ordinal and so is never silently attributed to § 4 — and a shift
+    sentence that repeats a section OTHER than the repealed one.
+    """
+    # Both patterns stay inline ``re.match`` rather than module-level
+    # ``re.compile``: this is a scanned semantic-plane module (FW-07), and the
+    # two adjacent ``(.+?)`` spans cannot pass the ``compile_classifier_regex``
+    # wrap — the same reason W-32(c) records for the sibling production.
+    #
+    # The shipped pattern, UNCHANGED, character for character.
+    shipped = re.match(
+        r"^§\s*([0-9A-Za-z-]+)\s+(.+?)\s+ledd\s+oppheves\.\s*Nåværende\s+(.+?)\s+ledd\s+blir\s+(.+?)\s+ledd\.?$",
+        lead,
+        re.IGNORECASE,
+    )
+    if shipped is not None:
+        section_label = _normalize_no_section_label(shipped.group(1))
+        shipped_legs = [
+            _infer_same_base_subsection_targets_from_lead(f"§ {section_label} {shipped.group(index)} ledd skal lyde")
+            for index in (2, 3, 4)
+        ]
+        return section_label, shipped_legs[0], shipped_legs[1], shipped_legs[2]
+    # W-61's widened sibling. The qualifier is optional and admits the currency
+    # spellings that carry no address information; the shift sentence may repeat
+    # its own ``§`` (required below to EQUAL the repealed section); the section
+    # class carries W-32(c)'s ``(?:\s+[A-Za-z])?`` suffix so "§ 3 c" and "§ 41 a"
+    # resolve their section instead of cutting it short at the digits.
+    # lawvm-regex: owning_parser this IS the unstructured repeal-then-shift lead parser
+    widened = re.match(
+        r"^§\s*(?P<section>[0-9A-Za-z-]+(?:\s+[A-Za-z])?)\s+"
+        r"(?P<repealed>.+?)\s+ledd\s+oppheves\.\s*"
+        r"(?:§\s*(?P<shift_section>[0-9A-Za-z-]+(?:\s+[A-Za-z])?)\s+)?"
+        r"(?:(?:nåværende|noverande|nåverande|nuværende|någjeldende|nogjeldande"
+        r"|gjeldende|gjeldande)\s+)?"
+        r"(?P<source>.+?)\s+ledd\s+blir\s+(?P<destination>.+?)\s+ledd\.?$",
+        lead,
+        re.IGNORECASE,
+    )
+    if widened is None:
+        return None
+    section_label = _normalize_no_section_label(widened.group("section"))
+    shift_section_label = widened.group("shift_section")
+    if shift_section_label is not None and _normalize_no_section_label(shift_section_label) != section_label:
+        return None
+    phrases = [_no_ledd_shift_ordinals(widened.group(name)) for name in ("repealed", "source", "destination")]
+    if any(ordinals is None for ordinals in phrases):
+        return None
+    widened_legs = [
+        [LegalAddress(path=(("section", section_label), ("subsection", str(ordinal)))) for ordinal in ordinals or ()]
+        for ordinals in phrases
+    ]
+    return section_label, widened_legs[0], widened_legs[1], widened_legs[2]
+
+
 def _no_split_ledd_path(path: str) -> Optional[tuple[str, int]]:
     """``"lov/2005-06-17-90/§24-8/ledd/3"`` → ``("lov/2005-06-17-90/§24-8/ledd/", 3)``."""
     prefix, separator, tail = path.rpartition(_NO_LEDD_PATH_STEP)
@@ -2454,22 +2534,62 @@ def _iter_unstructured_no_change_groups(
                 detail={"target": f"section:{target_label}", "payload_family": "heading_only"},
             )
 
-        repeal_renumber_match = re.match(
-            r"^§\s*([0-9A-Za-z-]+)\s+(.+?)\s+ledd\s+oppheves\.\s*Nåværende\s+(.+?)\s+ledd\s+blir\s+(.+?)\s+ledd\.?$",
-            lead,
-            re.IGNORECASE,
-        )
-        if repeal_renumber_match:
-            section_label = _normalize_no_section_label(repeal_renumber_match.group(1))
-            repeal_targets = _infer_same_base_subsection_targets_from_lead(
-                f"§ {section_label} {repeal_renumber_match.group(2)} ledd skal lyde"
-            )
-            source_targets = _infer_same_base_subsection_targets_from_lead(
-                f"§ {section_label} {repeal_renumber_match.group(3)} ledd skal lyde"
-            )
-            dest_targets = _infer_same_base_subsection_targets_from_lead(
-                f"§ {section_label} {repeal_renumber_match.group(4)} ledd skal lyde"
-            )
+        # W-61. The repeal-then-shift lead, widened off the literal ``Nåværende``.
+        #
+        # W-58 recorded skattebetalingsloven § 8-2's missing first-ledd repeal as
+        # an ARCHIVE gap, and W-60's Rider B re-read it as a run-on part boundary
+        # (``…kommunene.III§ 8-2 første ledd oppheves…``). Both are wrong, and the
+        # second is measurably so: the ``.<ROMAN>§`` concatenation occurs ZERO
+        # times in the raw bytes of all 3,089 amendment artifacts, and zero times
+        # in any single leaf text node. It exists only in an ``itertext()``
+        # rendering of the WHOLE document, which walks straight across the
+        # ``<section data-name="kapIII">`` boundary Lovdata marks up correctly.
+        # The instrument is archived, indexed, applied, and its part III is one
+        # clean ``<article class="defaultP">``.
+        #
+        # What actually refuses it is this production, which already lowers the
+        # exact family ("§ X <ord> ledd oppheves. <ord> ledd blir <ord> ledd") —
+        # but only when the shift sentence opens with the literal ``Nåværende``.
+        # The witness says "Annet til femte ledd blir …", so the whole lead fell
+        # through to ``no_parse_unstructured_lead_unmatched``.
+        #
+        # Measured over the corpus's 9,478 unstructured-lead refusals: 45 carry
+        # the "§ S <ord> ledd oppheves. …" head, and they divide cleanly.
+        #   * 24 are this family with the qualifier absent or spelled otherwise
+        #     (bare, ``Gjeldende``, ``Någjeldende``, or a repeat of the section).
+        #     23 are admitted below, over 14 instruments and 21 base acts (24
+        #     receipt triples — one lead amends two acts at once); the 24th is
+        #     the multi-section repeal list the guard declines;
+        #   * 19 carry a TRAILING clause the shift does not account for
+        #     ("… og skal lyde:", "… Tredje ledd skal lyde:") — every one of them
+        #     introduces a PAYLOAD, so lowering the shift alone would state a
+        #     half-truth. The anchored ``ledd\.?$`` tail refuses all 19 by
+        #     construction, which is the conservative polarity: a lead this
+        #     grammar cannot fully account for lowers nothing.
+        #   * 2 are not a ledd shift at all and stay refused.
+        #
+        # The widening is STRICTLY ADDITIVE, and deliberately so. The first
+        # attempt inside ``_no_unstructured_repeal_renumber_legs`` is the shipped
+        # production, byte-for-byte — same anchored ``Nåværende`` regex, same
+        # ``_infer_same_base_subsection_targets_from_lead`` round-trip, same empty
+        # target lists where that round-trip resolves nothing. Only a lead the
+        # SHIPPED regex does not match at all reaches the widened one, so no lead
+        # that lowers today can change what it lowers.
+        #
+        # That ordering is not defensive dressing; it was forced by measurement.
+        # A first cut replaced the production outright and regressed 14 leads:
+        # 7 spell the qualifier BEFORE the section ("Nåværende § 2 fjerde og femte
+        # ledd blir …") which the widened pattern reads in the other order, and 7
+        # carry vocabulary outside ``_NORWEGIAN_ORDINALS`` ("henholdsvis", "eneste",
+        # "siste", ordinals past "tiende") on which the shipped round-trip returns
+        # an empty list and lowers a partial answer plus an arity receipt. Both
+        # populations belong to whoever revisits this grammar next (W-62), not to a
+        # widening whose whole claim is that it takes nothing away: the corpus-wide
+        # count of ``no_parse_unstructured_renumber_arity_mismatch_skipped`` is a
+        # pin (8), and the first cut drove it to 0.
+        repeal_renumber_legs = _no_unstructured_repeal_renumber_legs(lead)
+        if repeal_renumber_legs is not None:
+            section_label, repeal_targets, source_targets, dest_targets = repeal_renumber_legs
             paired_renumber_count = min(len(source_targets), len(dest_targets))
             if len(source_targets) != len(dest_targets):
                 _append_no_unstructured_parse_adjudication(

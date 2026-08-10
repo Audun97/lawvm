@@ -2770,7 +2770,12 @@ def test_w51_corpus_zero_early_over_every_whole_act_grant() -> None:
         for d in index.diagnostics
         if d.get("rule_id") == NO_COMMENCEMENT_EXECUTION_AUTHORIZED
     ]
-    assert len(grants) == 540
+    # 540 -> 541 at W-61: the ONE act gaining its first index entry when the
+    # unstructured repeal-then-shift lead widens (`no/lovtid/2014-06-20-26`).
+    # Nothing about the gate moved — the OFFERING grew by one act — and the
+    # assertion that carries the information is the P1 one below, which still
+    # reads EMPTY over the larger grant set.
+    assert len(grants) == 541
     early = [
         (d["source_id"], d["effective_date"], sibling_id, sibling_date)
         for d in grants
@@ -2813,8 +2818,11 @@ def test_w51_corpus_totals_and_the_untouched_part_routes() -> None:
             NO_COMMENCEMENT_NAMED_PART_LIST_EXECUTION_AUTHORIZED,
         )
     }
+    # 540 -> 541 at W-61 (one act gains its first index entry); the other four
+    # routes are unmoved, which is the check that a LOWERING widening reaches the
+    # commencement lane only by growing what is offered to it.
     assert counts == {
-        NO_COMMENCEMENT_EXECUTION_AUTHORIZED: 540,
+        NO_COMMENCEMENT_EXECUTION_AUTHORIZED: 541,
         NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED: 430,
         NO_COMMENCEMENT_PART_EXECUTION_AUTHORIZED: 33,
         NO_COMMENCEMENT_MULTI_PART_EXECUTION_AUTHORIZED: 4,

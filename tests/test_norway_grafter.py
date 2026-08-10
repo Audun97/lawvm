@@ -942,6 +942,136 @@ def test_iter_no_document_change_ops_unstructured_records_renumber_arity_mismatc
     assert adjudication.detail["unmatched_destination_targets"] == ()
 
 
+def _no_unstructured_repeal_shift_ops(lead: str) -> list[tuple[object, tuple, tuple | None]]:
+    """Lower ONE unstructured lead against a fixed base act, ops only."""
+    amendment_xml = f"""<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="changesToDocuments">
+      <ul><li>lov/2003-12-12-108</li></ul>
+    </dd>
+    <main>
+      <section data-name="kap16">
+        <article class="defaultP">I lov 12. desember 2003 nr. 108 om kompensasjon av merverdiavgift for kommuner, fylkeskommuner mv. gjøres følgende endringer:</article>
+        <article class="defaultP">{lead}</article>
+      </section>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+    ops = parse_no_amendment_ops(amendment_xml, "no/lovtid/2016-05-27-14")
+    return [(op.action, op.target.path, op.destination.path if op.destination else None) for op in ops]
+
+
+def test_no_unstructured_repeal_shift_lead_admits_the_qualifier_variants() -> None:
+    """W-61. The shipped production required the literal ``Nåværende`` in the
+    shift sentence; 24 corpus leads spell it otherwise or not at all.
+
+    The named witness is the last line: ``no/lovtid/2008-12-12-100``'s § 8-2
+    repeal, which W-58 recorded as a missing archive artifact and W-60 as a
+    run-on part boundary. It was neither — the sentence is archived, indexed and
+    applied, and simply did not lower.
+    """
+    bare = [
+        (StructuralAction.REPEAL, (("section", "6"), ("subsection", "1")), None),
+        (StructuralAction.RENUMBER, (("section", "6"), ("subsection", "2")), (("section", "6"), ("subsection", "1"))),
+    ]
+    # No qualifier at all.
+    assert _no_unstructured_repeal_shift_ops("§ 6 første ledd oppheves. Annet ledd blir første ledd.") == bare
+    # The currency spellings that carry no address information.
+    assert _no_unstructured_repeal_shift_ops(
+        "§ 6 første ledd oppheves. Gjeldende annet ledd blir første ledd."
+    ) == bare
+    assert _no_unstructured_repeal_shift_ops(
+        "§ 6 første ledd oppheves. Någjeldende annet ledd blir nytt første ledd."
+    ) == bare
+    # The shift sentence may repeat its OWN section, as long as it is the same one.
+    assert _no_unstructured_repeal_shift_ops(
+        "§ 6 første ledd oppheves. § 6 nåværende annet ledd blir første ledd."
+    ) == bare
+    # A letter-suffixed section resolves whole (W-32(c)'s class), instead of
+    # cutting off at the digits and absorbing the letter into the ordinal phrase.
+    assert _no_unstructured_repeal_shift_ops("§ 6 a første ledd oppheves. Annet ledd blir første ledd.") == [
+        (StructuralAction.REPEAL, (("section", "6a"), ("subsection", "1")), None),
+        (
+            StructuralAction.RENUMBER,
+            (("section", "6a"), ("subsection", "2")),
+            (("section", "6a"), ("subsection", "1")),
+        ),
+    ]
+    # ``til`` RANGES on either side — the shipped ``skal lyde`` round-trip
+    # resolved these to NO targets at all, which is why the witness needed the
+    # widening twice over.
+    assert _no_unstructured_repeal_shift_ops(
+        "§ 8-2 første ledd oppheves. Annet til femte ledd blir første til fjerde ledd."
+    ) == [
+        (StructuralAction.REPEAL, (("section", "8-2"), ("subsection", "1")), None),
+        *(
+            (
+                StructuralAction.RENUMBER,
+                (("section", "8-2"), ("subsection", str(src))),
+                (("section", "8-2"), ("subsection", str(src - 1))),
+            )
+            for src in (2, 3, 4, 5)
+        ),
+    ]
+
+
+def test_no_unstructured_repeal_shift_lead_refuses_what_it_cannot_account_for() -> None:
+    """W-61's polarity: a lead this production cannot fully own lowers NOTHING.
+
+    Each case below is a real corpus shape, and each stays on
+    ``no_parse_unstructured_lead_unmatched`` rather than lowering a partial or
+    mis-anchored answer.
+    """
+    # A trailing clause the shift does not account for — every one of the 19
+    # corpus leads in this bucket introduces a PAYLOAD, so lowering the shift
+    # alone would state a half-truth.
+    assert _no_unstructured_repeal_shift_ops(
+        "§ 6 første ledd oppheves. Nåværende annet ledd blir første ledd og skal lyde:"
+    ) == []
+    assert _no_unstructured_repeal_shift_ops(
+        "§ 6 første ledd oppheves. Annet ledd blir første ledd. Tredje ledd skal lyde:"
+    ) == []
+    # The shift sentence names a DIFFERENT section than the one repealed: this
+    # production speaks for one section, so it speaks for neither.
+    assert _no_unstructured_repeal_shift_ops(
+        "§ 6 første ledd oppheves. § 7 annet ledd blir første ledd."
+    ) == []
+    # A multi-section repeal list ("§ 4 femte ledd, § 5 annet ledd og § 6 annet
+    # ledd oppheves.") — the embedded citations are not ordinals, so the phrase
+    # is refused rather than silently attributed to the first section.
+    assert _no_unstructured_repeal_shift_ops(
+        "§ 4 femte ledd, § 5 annet ledd og § 6 annet ledd oppheves. § 5 tredje ledd blir nytt annet ledd."
+    ) == []
+    # An ordinal outside ``_NORWEGIAN_ORDINALS`` refuses the whole lead.
+    assert _no_unstructured_repeal_shift_ops(
+        "§ 6 første ledd oppheves. Ellevte ledd blir tiende ledd."
+    ) == []
+
+
+def test_no_unstructured_repeal_shift_widening_leaves_the_shipped_form_alone() -> None:
+    """W-61 is strictly additive: the shipped ``Nåværende`` pattern is tried
+    FIRST and byte-for-byte, so no lead that lowered before lowers differently.
+
+    A first cut that replaced the production outright regressed 14 corpus leads.
+    The two below are that regression's two shapes, and both must keep their
+    SHIPPED answer — a partial lowering — rather than the widened pattern's
+    all-or-nothing refusal.
+    """
+    # Qualifier BEFORE the section. The widened pattern reads the two in the
+    # other order and would refuse; the shipped one lowers.
+    assert _no_unstructured_repeal_shift_ops(
+        "§ 6 første ledd oppheves. Nåværende § 6 annet ledd blir første ledd."
+    ) == [(StructuralAction.REPEAL, (("section", "6"), ("subsection", "1")), None)]
+    # Vocabulary the ordinal map does not carry ("henholdsvis"): the shipped
+    # round-trip resolves an empty destination list and lowers the repeal plus an
+    # arity receipt, which is a pin (8 corpus-wide) this widening must not move.
+    assert _no_unstructured_repeal_shift_ops(
+        "§ 6 første ledd oppheves. Nåværende annet og tredje ledd blir henholdsvis første og annet ledd."
+    ) == [(StructuralAction.REPEAL, (("section", "6"), ("subsection", "1")), None)]
+
+
 def test_apply_no_ops_supports_global_text_replace() -> None:
     statute = parse_no_statute(_STATUTE_XML, "no/lov/2025-01-01-1")
     chapter = statute.body.children[0]
