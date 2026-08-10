@@ -4279,7 +4279,21 @@ def test_apply_no_ops_exact_target_insert_does_not_duplicate_section() -> None:
     ]
 
 
-def test_apply_no_ops_direct_child_insert_replacement_is_adjudicated() -> None:
+def test_apply_no_ops_direct_child_insert_is_refused_not_overwritten() -> None:
+    """W-63 polarity: the direct-child collision REFUSES instead of overwriting.
+
+    Pre-W-63 this lane emitted ``no_replay_insert_occupied_direct_child_replaced``
+    and overwrote ``section:5/subsection:1/item:1`` — an address the op never
+    named (its target was ``section:5/item:9``, which does not resolve) chosen
+    purely by payload ``(kind, label)`` match under an INFERRED parent. The
+    occupant's in-force text was destroyed and the commanded address stayed
+    empty. The cell fired ZERO times over all 782 corpus base laws (W-63
+    census, apply fold run non-strict), so the flip costs nothing today and
+    removes a silent destructive write.
+
+    The occupant must survive byte-identically, nothing may land, and the op
+    must be REJECTED with a typed blocking receipt.
+    """
     statute = IRStatute(
         statute_id="no/lov/2025-01-01-1",
         title="Direct child insert-as-replace test",
@@ -4309,11 +4323,17 @@ def test_apply_no_ops_direct_child_insert_replacement_is_adjudicated() -> None:
 
     updated = apply_no_ops(statute, [op], adjudications_out=adjudications)
 
+    # The occupant survives; the payload lands NOWHERE (not at the commanded
+    # ``section:5/item:9`` either — the op is refused whole).
     item = updated.body.children[0].children[0].children[0]
-    assert item.text == "new item"
-    assert [(item.kind, item.detail["rule_id"]) for item in adjudications] == [
-        ("no_replay_insert_occupied_direct_child_replaced", "no_insert_occupied_direct_child_replace")
+    assert item.text == "old item"
+    assert [child.label for child in updated.body.children[0].children] == ["1"]
+    assert [(entry.kind, entry.detail["rule_id"]) for entry in adjudications] == [
+        ("no_replay_insert_occupied_direct_child_refused", "no_insert_occupied_direct_child_refuse")
     ]
+    assert adjudications[0].blocking is True
+    assert adjudications[0].detail["family"] == "unsupported_or_unresolved_action"
+    assert adjudications[0].detail["executed_action"] == "none"
     assert adjudications[0].detail["target"] == "section:5/item:9"
     assert adjudications[0].detail["occupied_child_path"] == "section:5/subsection:1/item:1"
 

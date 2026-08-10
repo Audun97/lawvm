@@ -521,10 +521,15 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "content payload is contradictory — and the drop is recorded as a non-blocking "
         "adjudication, never silently discarded."
     ),
-    "no_replay_insert_occupied_direct_child_replaced": (
-        "A Norway INSERT landed on an occupied direct child; replay recovers by "
-        "replacing that child, recording the action-family conversion "
-        "(insert→replace) rather than silently overwriting it."
+    "no_replay_insert_occupied_direct_child_refused": (
+        "A Norway INSERT whose own target address did NOT resolve would have "
+        "overwritten an occupied direct child at an inferred parent — an address "
+        "the operation never named, matched only by payload (kind, label). W-63 "
+        "refuses it: no write lands, the occupant survives, and the op is "
+        "rejected with a typed blocking receipt instead of being silently "
+        "converted to a replace. Distinct from the declared θ cell "
+        "no_replay_insert_occupied_target_replaced, which keeps its RECOVER "
+        "polarity for the case where the op's OWN address resolves."
     ),
     "no_replay_insert_occupied_target_replaced": (
         "A Norway INSERT landed on an occupied single target; replay recovers by "
@@ -570,10 +575,12 @@ _NO_RULE_SPECS: Dict[str, str] = {
     # --- Detail rule ids on action_family / migration_or_lineage records ---------
     # These are the detail payload rule ids that name the specific recovery
     # contract paired with their family-level ``kind`` counterparts above.
-    "no_insert_occupied_direct_child_replace": (
-        "Detail rule id on the action_family_recovery record for "
-        "no_replay_insert_occupied_direct_child_replaced — names the specific "
-        "insert→replace recovery contract on the direct child path."
+    "no_insert_occupied_direct_child_refuse": (
+        "Detail rule id on the unsupported_or_unresolved_action refusal record "
+        "for no_replay_insert_occupied_direct_child_refused — names the specific "
+        "W-63 refusal contract: an INSERT whose unresolved target would have "
+        "overwritten a label-matched direct child at an inferred parent lands "
+        "nothing and is rejected."
     ),
     "no_insert_occupied_target_replace": (
         "Detail rule id on the action_family_recovery record for "

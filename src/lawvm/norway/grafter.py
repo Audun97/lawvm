@@ -6973,26 +6973,58 @@ def _apply_no_ops_fold(
                     payload.label,
                 )
                 if direct_existing_path is not None:
-                    _record_action_family_recovery(
-                        kind="no_replay_insert_occupied_direct_child_replaced",
-                        message="Norway replay recovered insert into an occupied direct child by replacing that child.",
+                    # W-63 POLARITY: REFUSE, do not overwrite.
+                    #
+                    # This lane is reached ONLY when the op's own target address
+                    # did NOT resolve (``resolved_path is None``) and the
+                    # payload's ``(kind, label)`` nevertheless collides with a
+                    # direct child of a parent this code INFERRED. The write it
+                    # used to perform therefore landed at an address the
+                    # amendment never named, chosen by label match — destroying
+                    # the occupant's in-force text while the commanded address
+                    # stayed empty. That is not a source-noise recovery; it is a
+                    # wrong-slot signature.
+                    #
+                    # Distinguish it from its declared sibling
+                    # ``no_replay_insert_occupied_target_replaced``
+                    # (θ ``(INSERT, target_occupied)``, 194 firings over 73 laws
+                    # in the 2026-07-10 corpus), which fires when the op's OWN
+                    # address resolves — the Lovdata "ny § 4 a skal lyde" over an
+                    # existing slot that §2.3 documents. That cell keeps its
+                    # RECOVER polarity and is untouched.
+                    #
+                    # Census at W-63's base (all 782 base laws, apply fold run
+                    # NON-STRICT so a firing hidden behind an earlier raise is
+                    # still counted): ZERO firings of this cell. Its only two
+                    # observed firings are counterfactual — W-54's ``refuse``
+                    # policy A/B (overwrote tvisteloven § 24-8's third ledd) and
+                    # W-60's ``D4_m3`` mutant (overwrote havenergilova § 10-9's
+                    # fourth ledd with content-identical text, so the destruction
+                    # was invisible to the divergence plane and visible only in
+                    # this receipt). Refusal costs zero corpus movement today and
+                    # converts a silent destructive write into a typed blocking
+                    # refusal the acceptance lane must adjudicate.
+                    _append_no_replay_adjudication(
+                        adjudications_out,
+                        kind="no_replay_insert_occupied_direct_child_refused",
+                        message=(
+                            "Norway replay refused an insert whose unresolved target would have "
+                            "overwritten an occupied direct child at an address the operation "
+                            "never named."
+                        ),
                         op=op,
                         detail={
-                            "rule_id": "no_insert_occupied_direct_child_replace",
+                            "rule_id": "no_insert_occupied_direct_child_refuse",
+                            "family": "unsupported_or_unresolved_action",
+                            "action": legacy_text_action_value(op),
                             "original_action": "insert",
-                            "executed_action": "replace",
+                            "executed_action": "none",
                             "target": str(op.target),
                             "parent_path": _no_path_label(parent_path),
                             "occupied_child_path": _no_path_label(direct_existing_path),
                             **_no_replay_payload_detail(payload),
                         },
                     )
-                    body = tree_ops.replace_at(
-                        body,
-                        direct_existing_path,
-                        payload,
-                    )
-                    _record_landed_path(direct_existing_path)
                     _assert_no_invariant_violations(op)
                     return
                 body = tree_ops.insert_sorted(
@@ -7430,7 +7462,10 @@ class NOApplyResult:
     etc.), NOT when it is skipped. They are therefore intentionally NOT in
     :data:`_NO_SKIP_ADJUDICATION_KINDS`; only the genuine per-op skip kinds
     (``replay_unsupported_action`` / ``replay_unresolved_target`` /
-    ``replay_noop``) mark an op as rejected. The post-apply
+    ``replay_noop``, plus W-63's typed refusal
+    ``no_replay_insert_occupied_direct_child_refused`` — the one ``no_replay_*``
+    kind that names a REFUSAL rather than a recovery) mark an op as rejected.
+    The post-apply
     ``replay_tree_invariant_violation*`` records are emitted AFTER an op was
     applied (or raised in strict mode before the conserved wrapper returns),
     so they are also NOT in the skip set.
@@ -7467,11 +7502,19 @@ class NOApplyResult:
 # (``replay_tree_invariant_violation*``) are intentionally excluded: those are
 # emitted when an op WAS applied (with a recovery transformation or a
 # downstream-invariant finding) rather than skipped.
+#
+# The single ``no_replay_*`` member is W-63's
+# ``no_replay_insert_occupied_direct_child_refused``: it is Norway-namespaced
+# because it is a NO-specific typed refusal with a cataloged rule id, but it
+# names a REFUSAL (no write lands), so it must be in the skip set — otherwise
+# the op would be counted accepted while landing nothing, which the apply fold
+# rejects fail-loud ("neither a landed write nor a typed rejection").
 _NO_SKIP_ADJUDICATION_KINDS = frozenset(
     {
         "replay_unsupported_action",
         "replay_unresolved_target",
         "replay_noop",
+        "no_replay_insert_occupied_direct_child_refused",
     }
 )
 
@@ -7501,7 +7544,9 @@ def apply_no_ops_conserved(
     ``CompileAdjudication`` per skipped op carrying that op's ``op_id``). An
     op is rejected iff its ``op_id`` appears in a per-op SKIP adjudication
     (``replay_unsupported_action`` / ``replay_unresolved_target`` /
-    ``replay_noop``). Recovery adjudications (``no_replay_*``) and post-apply
+    ``replay_noop`` / W-63's
+    ``no_replay_insert_occupied_direct_child_refused``). Other recovery
+    adjudications (``no_replay_*``) and post-apply
     invariant records (``replay_tree_invariant_violation*``) do NOT mark an op
     as rejected — those are emitted when the op WAS applied (with a recovery or
     downstream violation), not when it was skipped. Empty or duplicate
