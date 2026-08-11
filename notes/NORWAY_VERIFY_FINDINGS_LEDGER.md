@@ -2842,7 +2842,12 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    questions answered: W-57 second witness YES with corrected
    premise (see item 57); lane yield ~10 rows / 2.1%. Items
    opened: W-64–W-71 (all eight, signed off); W-57 unfrozen and
-   re-scoped into W-66 + W-69.
+   re-scoped into W-66 + W-69. (Late corroboration from the same
+   run: of the ~10 traceable rows, one traces to a chapter-scoped
+   insert with trailing locative — `Ny § 39 a i kapittel 6 skal
+   lyde:`, 1 row on `2017-06-16-67`, detail in
+   `.tmp/w62/coincident_detail.json` — small enough to fold into
+   whichever item next touches insert productions.)
 
 63. **W-63 (pin the gate's margin — apply-plane conjuncts are
    load-bearing):** DONE (`6b3f789e7`, 2026-08-10, artifacts `.tmp/w63/`).
@@ -2971,16 +2976,160 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    preceding node; only 5% unrecoverable) and intra-part ordering
    (11/16 destinations are created by a co-located insert/repeal).
 
-67. **W-67 (the two-token widening — CHEAPEST, DO FIRST):** from
-   W-62. The shipped section renumber hard-requires literal
-   `Nåværende` and literal `blir ny §`; relaxing the qualifier to
-   W-61's synonym set and making `ny` optional closes **64
-   refusals, provenance-clean** (100% from
-   `renumber_shift/section:nåværende:single`, 0 stray matches).
-   Witness `Gjeldende § 10-10 blir ny § 10-13.` on bound
-   instrument `2020-12-18-157`, address-coincident with 2 live
-   `OPS_MISSING` rows on candidate `no/lov/2010-06-04-21`. One
-   regex, add-only, exactly W-61's discipline + blast.
+67. **W-67 (the two-token widening):** BLOCKED on an adjudicated
+   regression (records-only landing, 2026-08-10; product patch ARCHIVED, not landed: `.tmp/w67/w67.patch` sha256 029fba7a…, artifacts `.tmp/w67/`).
+   **Do NOT land this as-is.** The widening is built, measured and
+   provenance-clean; the blast then found a `removal_wrong` it
+   creates, and W-54's rule is that a proven destruction of
+   in-force law is never traded for coverage.
+   **What was built.** The shipped section renumber required two
+   tokens that carry no address information: the literal
+   `Nåværende` and the literal `ny` in `blir ny §`. Both relaxed —
+   qualifier to W-61's measured set (hoisted to a shared
+   `_NO_CURRENCY_QUALIFIER_ALTERNATION`, byte-identical to W-61's
+   inline copy, so neither production can drift alone), `ny`
+   optional in the masculine singular only. **Strictly additive in
+   W-61's shape:** `_no_unstructured_section_renumber_labels`
+   tries the shipped regex first, character for character, and
+   returns WHICH pattern matched so the ordering is a test's fact
+   rather than a comment's claim.
+   **Measurement (census over all 3,089 artifacts, `s1`/`s3`/`s5`).**
+   Refusals **9,454 → 9,390, exactly −64 and nothing else**; 0
+   introduced. The withdrawn set EQUALS the frozen target set,
+   element for element: 64 occurrences, 62 distinct leads, 44
+   instruments, 44 base acts, **100% `renumber_shift/
+   section:nåværende:single` and ZERO stray matches** — the first
+   stop condition, checked and clear. Split by token: 20 need only
+   the qualifier, 36 only the optional `ny`, 8 both. Every other
+   adjudication kind is unmoved, including the W-61 pin
+   `no_parse_unstructured_renumber_arity_mismatch_skipped` at 8.
+   Ops 27,018 → **27,082**, semantically 0 lost / 0 rebound (the
+   op-identity diff is keyed on CONTENT, not `op_id` — `op_id` is a
+   per-document sequence, so 709 ids over 37 instruments remap as
+   pure ordinal churn and a key-on-`op_id` diff reports that as
+   709 false regressions).
+   **A shipped post-pass wakes up, by design.** 11 of the 64 have a
+   companion `§ X skal lyde:` in the same part, so
+   `_promote_no_replace_with_following_renumber_insert` now sees
+   the renumber it always looked for and promotes those REPLACEs to
+   INSERTs. That is the promotion's documented purpose: the act
+   inserts new content at X and MOVES the old X, and before this
+   change the old X was silently overwritten instead.
+   **Blast (782 laws, W-52 discipline).** 764 byte-identical; 18
+   move. **13 are outside the 44-law expected-change set and their
+   movement is fully attributed and inert** (`s8`): a withdrawn
+   refusal receipt belonging to a CO-AMENDED base act — parse
+   adjudications are collected per INSTRUMENT and replay attaches
+   the whole list to every law that instrument amends — plus
+   `op_id` ordinal shift. Normalising both away leaves **residue 0
+   on all 13**, and no `statute_sha` among them moves. Candidate
+   divergence total **1,485 → 1,483**, and the two rows that close
+   are both UNEXPLAINED (1,011 + 474 → 1,011 + **472**; the ceiling
+   is untouched), which is the class the lane exists to reduce.
+   Scoreboard 29/44/0 held (29 consistent, 44 inconsistent, 0
+   errored, both sides). **The designed payoff landed exactly**:
+   `no/lov/2010-06-04-21`
+   3 → 1 divergences, both `OPS_MISSING` rows
+   (`chapter:10/section:10-13/subsection:1` and `:2`) CLOSED, 0
+   opened, on the ledger's own witness
+   `Gjeldende § 10-10 blir ny § 10-13.` — verified at the DOM as a
+   leaf `<article class="defaultP">` in part `kapV` of
+   `2020-12-18-157`, not a text-plane artefact.
+   **Why it is blocked.** THREE laws' text moves and each fires the
+   occupied-destination recovery for the first time, corpus firings
+   **8 → 11**. Adjudicated W-54-style (`s9`/`s10`/`s11`):
+   * `no/lovtid/2022-03-11-8:25`, merverdiavgiftsloven § 7-9 → 7-8
+     — **`removal_correct`**. The occupant is the § 7-8 the SAME
+     act repeals ("Nåværende § 7-8 oppheves."), absent from the
+     consolidation. Divergences 256 → **254**.
+   * `no/lovtid/2019-06-21-41:2`, verdipapirhandelloven § 4-3 → 4-2
+     — **`removal_correct`**. The removed flagging text is still at
+     § 4-2 in the fixed replay and matches the consolidation;
+     nothing destroyed, divergences unmoved at 1,564.
+   * `no/lovtid/2017-06-21-96:4`, husbankloven § 10 → § 13 —
+     **`removal_wrong`. STOP CONDITION.** The recovery destroys
+     § 13 "Ikraftsetjing o.a", which IS in the published
+     consolidation and survives NOWHERE in the fixed replay.
+     Divergences **3 → 6** (three new `MISMATCH` rows at
+     `section:13/subsection:1..3`).
+   **The root cause is not the widening.** The instrument is
+   correctly bound and genuinely says "Noverande § 10 blir ny
+   § 13."; what is wrong is the BASE it lands on.
+   `no/lovtid/2012-08-24-64` (bustøttelova) is SCANNED but NOT
+   APPLIED, so the replay base is still the 2009 original in which
+   "Noverande § 10" denotes the bustønad section rather than what
+   actually stood at § 10 in 2017. The law is
+   `blocked_contingent` — the system already knows the base is
+   incomplete — and lowers a destructive write into it anyway. A
+   correct op applied to an incomplete base is how coverage turns
+   into destruction, and no guard belongs in this production:
+   suppressing the renumber when its destination is occupied would
+   change the SHIPPED pattern's behaviour too.
+   **The tripwire did not catch this, and that is its own finding
+   (→ W-72).** `_NO_OCCUPIED_DESTINATION_LAWS` is a hardcoded
+   seven-law list, so
+   `test_no_corpus_occupied_renumber_destination_verdicts_are_pinned`
+   sweeps 7 of 782 laws while its docstring claims "every
+   `(RENUMBER, dest_occupied)` firing in the corpus". None of the
+   three new firings is on a listed law, so **`wrong == []` still
+   passes and the whole ladder is GREEN with a destruction in the
+   corpus.** The verdict tables were deliberately NOT extended
+   here: adding the `removal_wrong` row would freeze a known defect
+   as expected behaviour, which is exactly what W-54's note
+   forbids.
+   **Pins moved** (all in the archived patch, none in the tree): `n_ops` 27,018 → 27,082;
+   entries 2,560 → 2,561; bindings 6,476 → **6,477**
+   (one new (act, law) pair, `2004-09-24-72` → plan- og
+   bygningsloven 1985, whose only operative lead is
+   "Nåværende § 16 blir § 16-1."); declared-target gap 956 → 955
+   receipts and 2,524 → 2,523 pairs, the W-34/W-35 conservation
+   holding at 1 = 1; `instrument_authorized` 971 → 972 (958 → 959
+   non-staged, staged 13 unmoved) and the widened whole-act route
+   430 → 431 in all four places it is pinned (`test_norway_index`
+   twice, `test_norway_commencement_instruments` twice — the W-51
+   five-route census and the W-53 zero-early sweep, whose property
+   holds over the grown set). Scan pins: divergence totals
+   1,485/1,011/474 → **1,483/1,011/472**, and
+   `no/lov/2010-06-04-21` moves partition bucket `replay_defect` →
+   `untouched_drift` (21 → 20 and 18 → 19) — with no `OPS_MISSING`
+   row left it is not a replay defect any more, the W-23 predicate
+   doing what it was built for. `scanned_count` 73 and summary
+   29/44/0 unmoved.
+   **To unblock:** repair husbankloven's missing
+   `2012-08-24-64` application (that is a base-completeness item,
+   not a lowering one), then re-run `.tmp/w67/s6`/`s9`/`s11` and
+   confirm firing 1 either vanishes or re-adjudicates
+   `removal_correct`. Everything else in this item is measured and
+   ready.
+
+72. **W-72 (the occupied-destination tripwire sweeps 7 of 782):**
+   from W-67. `_NO_OCCUPIED_DESTINATION_LAWS` is a hardcoded
+   seven-law list and the corpus pin replays only those, while its
+   docstring asserts a corpus-wide property. W-67 added three
+   firings on unlisted laws — one of them a `removal_wrong` — with
+   the pin still green. Either derive the law list from a corpus
+   sweep (slow: 782 replays) or add a cheap cached sweep whose
+   staleness is itself receipted. Until then, no
+   `(RENUMBER, dest_occupied)` claim in this ledger should be read
+   as corpus-wide.
+
+73. **W-73 (husbankloven base-completeness — apply
+   `2012-08-24-64`, unblocks W-67):** from W-67. Bustøttelova
+   (`no/lovtid/2012-08-24-64`) is SCANNED but NOT APPLIED to
+   husbankloven, so the replay base is still the 2009 original and
+   the law sits `blocked_contingent` — yet later destructive
+   writes still lower into it. That is what turned W-67's
+   textually correct renumber op (`2017-06-21-96`:
+   "Noverande § 10 blir ny § 13.") into a `removal_wrong`
+   destroying § 13 "Ikraftsetjing o.a" (3 → 6 divergences in the
+   archived blast). Deliverables: (a) diagnose WHY the
+   application is missing (commencement gap, refusal, or binding
+   defect) and repair it; (b) re-run `.tmp/w67/s6`/`s9`/`s11`
+   against W-67's archived patch and confirm firing 1 vanishes or
+   re-adjudicates `removal_correct` — that is W-67's unblock
+   condition; (c) carry the general hazard to W-72's sweep: count
+   how many other `blocked_contingent` bases are accepting
+   destructive writes.
 
 68. **W-68 (law-switch failure — correctness-shaped):** from
    W-62. 188 refusals / 115 instruments / 111 stale bases where
@@ -3042,6 +3191,31 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-10 (W-67 measured, and BLOCKED on the regression it
+  found)** — **The two-token widening closes exactly the 64
+  refusals W-62 priced, provenance-clean and with the designed
+  payoff landing (`no/lov/2010-06-04-21` 3 → 1 divergences, both
+  `OPS_MISSING` rows closed) — and then destroys husbankloven
+  § 13.** Product patch ARCHIVED (`.tmp/w67/w67.patch`, sha256 029fba7a…), NOT landed; records-only. Artifacts `.tmp/w67/`. Refusals
+  9,454 → 9,390 (−64, withdrawn set EQUALS the frozen target set,
+  0 stray, 0 introduced); ops 27,018 → 27,082, 0 semantically lost
+  or rebound. Blast: 764 of 782 laws byte-identical; the 13 movers
+  outside the expected-change set are fully attributed to
+  co-amended refusal receipts plus `op_id` ordinal churn, residue
+  0; candidate divergences 1,485 → 1,483, both closed rows
+  UNEXPLAINED (474 → 472), scoreboard 29/44/0 held. Three laws'
+  text moves, three new occupied-destination
+  firings (corpus 8 → 11), adjudicated W-54-style as two
+  `removal_correct` and one **`removal_wrong`**:
+  `no/lovtid/2017-06-21-96:4` removes husbankloven's
+  "Ikraftsetjing o.a", which is in the published consolidation and
+  survives nowhere in the replay (3 → 6 divergences). Root cause is
+  a base-completeness gap (`2012-08-24-64` scanned, not applied),
+  not the widening — but the destruction is real, so the item does
+  not land. Second finding, opened as W-72: the occupied-
+  destination tripwire replays a hardcoded 7 of 782 laws, so all
+  three new firings passed it green.
 
 - **2026-08-10 (W-62 census: the lowering lane's yield is
   measured — ~10 rows, then receipt-honesty debt)** — **The
