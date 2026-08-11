@@ -45,6 +45,7 @@ consolidation; every class below is evidence to triage, not a repair license.
 | **2026-07-10, after W-39 (58 candidates; see note)** | **23** | **35** | 0 |
 | **2026-07-10, after W-47 (65 candidates; see note)** | **25** | **40** | 0 |
 | **2026-07-10, after W-53 (73 candidates; see note)** | **29** | **44** | 0 |
+| **2026-08-11, after W-73 (76 candidates; see note)** | **29** | **47** | 0 |
 
 W-15 commensurability caveat: the candidate set moved 58 → 56, so the 21/35
 row is not row-for-row comparable with the 18/40 row above. On the 54 laws
@@ -144,6 +145,17 @@ buckets replay_defect +3, untouched_drift +1. The error column stays
 ZERO (W-52 cleared the only would-be error before the widening
 landed). Totals `total=1485 (ceiling=1011, unexplained=474)` — the
 +38 entirely entrant rows, ceiling untouched, conservation exact.
+
+W-73 note (row added at the W-74 records commit — the table had gone
+two landings stale): the candidate set grows 73 → 76 via the
+title-cited commencement reader (`ff202148c`) — three entrants, none
+leaves, all 73 pre-existing rows byte-identical. All three enter
+divergent (buckets replay_defect +2, untouched_drift +1), totals
+`total=1512 (ceiling=1011, unexplained=501)` — the +27 entirely
+entrant rows, honest exposure, ceiling untouched. Between this row
+and the table's next reader: the W-67/W-74 composed landing
+(`cf751dd2b`) closed 11 rows corpus-wide, 2 of them candidate rows
+(`total=1510, unexplained=499`), verdicts unmoved at 29/47/0.
 
 Batch 03 increased coverage rather than changing an existing verdict: all 20
 old rows stayed byte-identical, and 38 laws that had previously been excluded
@@ -2976,12 +2988,14 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    preceding node; only 5% unrecoverable) and intra-part ordering
    (11/16 destinations are created by a co-located insert/repeal).
 
-67. **W-67 (the two-token widening):** BLOCKED on an adjudicated
-   regression (records-only landing, 2026-08-10; product patch ARCHIVED, not landed: `.tmp/w67/w67.patch` sha256 029fba7a…, artifacts `.tmp/w67/`).
-   **Do NOT land this as-is.** The widening is built, measured and
-   provenance-clean; the blast then found a `removal_wrong` it
-   creates, and W-54's rule is that a proven destruction of
-   in-force law is never traded for coverage.
+67. **W-67 (the two-token widening):** DONE (`cf751dd2b`,
+   2026-08-11; landed TOGETHER with W-74, artifacts `.tmp/w74/`).
+   It was BLOCKED for a day on an adjudicated regression, and the
+   record of that block is kept below in full because it is the
+   reason the item took the shape it did. See the **2026-08-11
+   UNBLOCK ADDENDUM** at the end of this entry for what the composed
+   landing measured; everything between here and there is the
+   2026-08-10 blocked-state reading, preserved as written.
    **What was built.** The shipped section renumber required two
    tokens that carry no address information: the literal
    `Nåværende` and the literal `ny` in `blir ny §`. Both relaxed —
@@ -3118,9 +3132,77 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    unblock condition is now W-74, not W-73**; everything else in
    this item remains measured and ready, and it must not land
    before W-74 does.
+   **2026-08-11 UNBLOCK ADDENDUM — the condition is MET and the item
+   is landed (`cf751dd2b`, with W-74, artifacts `.tmp/w74/`).** The
+   unblock path is the two items above it in the queue, in order:
+   W-73 made `no/lovtid/2012-08-24-64` commence, and W-74 made its
+   third change block LOWER. With both, §§ 10–12 are repealed and
+   § 13 → § 10 applied in 2012, so this item's 2017 renumber
+   § 10 → § 13 lands on a FREE destination.
+   **The husbankloven firing does not re-adjudicate — it VANISHES.**
+   Corpus firings 8 → 10 (swept over all 782 laws, not the
+   tripwire's seven), and husbankloven is not among them. W-54's
+   survival test passes on it: § 13 "Ikraftsetjing o.a" is in the
+   replay at `section:13/subsection:1` and `:2` and matches the
+   consolidation, all 13 sections align, and its divergence rows are
+   **byte-identical to base at 2 → 2** — the three
+   `section:13/subsection:1..3` MISMATCH rows this item used to open
+   never open. The repair is at the LOWERING, which is what W-67's
+   own blocked-state reading argued for ("no guard belongs in this
+   production"); the recovery is untouched and simply has nothing to
+   fire on.
+   **The other two firings re-adjudicate exactly as measured here:**
+   merverdiavgiftsloven `no/lovtid/2022-03-11-8:25`
+   **`removal_correct`** (256 → 254 divergences) and
+   verdipapirhandelloven `no/lovtid/2019-06-21-41:2`
+   **`removal_correct`** (unmoved at 1,564). Both are now pinned in
+   `_NO_OCCUPIED_DESTINATION_VERDICTS` with their occupant probes and
+   observed survival sets; `wrong == []` holds over a table of 10.
+   **One measurement note, because it changed a verdict's EVIDENCE
+   and nearly its reading.** The pin's survival check matches a probe
+   against each node's OWN text, not against its descendants
+   concatenated, and the first cut of both rows used descendant text
+   — a probe that helper can never find, which failed the pin loudly
+   rather than passing a false one. Re-derived from single nodes, the
+   verdipapirhandelloven occupant is unambiguous: all FIVE ledd of
+   § 4-2 are at their own addresses in the replay and match the
+   consolidation. Merverdiavgiftsloven needed more care. Its § 7-8
+   first ledd opens with boilerplate ("Departementet kan gi forskrift
+   om at det ikke skal beregnes merverdiavgift ved …") that § 7-6
+   carries VERBATIM, so a ledd probe hits § 7-6 on both sides and
+   discriminates nothing — the same trap the skattebetalingsloven pin
+   records for § 8-3. The pinned probe is therefore the § 7-8 HEADING
+   ("varer av utdannende, vitenskapelig og kulturell art"), which
+   names what the section was about and is absent from the replay AND
+   from the consolidation. The verdict is unchanged; the evidence
+   behind it now actually supports it.
+   **Everything else in this entry re-measured TRUE at the composed
+   base**, which is the check the archived patch owed after two later
+   landings: refusals −64, 0 introduced, with the withdrawn set still
+   EQUAL to the frozen 64-element target set element for element (so
+   the "100% `renumber_shift/section:nåværende:single`, 0 strays"
+   claim carries over with the SET, rather than being re-derived from
+   the family census); 11 REPLACE → INSERT promotions, every one
+   attributed to a target lead; the 13 outside-set movers unchanged
+   with residue 0; and the designed payoff landing —
+   `no/lov/2010-06-04-21` 3 → 1, both `OPS_MISSING` rows closed.
+   **The "Pins moved" paragraph earlier in this entry is STALE and
+   its numbers were re-derived rather than replayed**: W-61 and W-73
+   moved the base under them between the measurement and the landing.
+   The landed numbers are ops 27,018 → 27,100 (this item's +64
+   plus W-74's +18), entries 2,560 → 2,561, bindings 6,476 → 6,477,
+   declared-target gap 956 → 955 / 2,524 → 2,523,
+   `instrument_authorized` **976 → 977**, widened whole-act route
+   **435 → 436**, and scan totals **1,512/1,011/501 →
+   1,510/1,011/499** with candidates unmoved at 76 and the scoreboard
+   unmoved at 29/47/0. The partition move is the one this entry
+   predicted, at its new numbers: `replay_defect` → `untouched_drift`,
+   23 → 22 and 19 → 20.
 
 74. **W-74 (the SECTION-level repeal-then-shift run-on — the real
-   W-67 unblock condition):** from W-73, which measured it and did
+   W-67 unblock condition):** DONE (`cf751dd2b`, 2026-08-11; landed
+   TOGETHER with W-67, artifacts `.tmp/w74/`). Originally from W-73,
+   which measured it and did
    not fix it (the lane is lowering-grammar, not the commencement
    lane W-73 was scoped to, and it edits the exact grafter region
    W-67's archived patch also edits — a composition hazard worth
@@ -3163,6 +3245,80 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    firing from `removal_wrong` into a non-firing: with §§ 10–12
    repealed and § 13 → § 10 applied in 2012, the 2017 renumber
    § 10 → § 13 lands on a FREE destination.
+   **THE LANDING (2026-08-11).** The sizing above held on every
+   axis; what follows is what was measured rather than predicted.
+   **The shape, as built.** One anchored production —
+   `_no_unstructured_section_repeal_renumber_labels` — placed LAST in
+   the unstructured walk, immediately before the refusal, so it is
+   reachable only on a lead every shipped pattern has already
+   declined. It is the ledd-level sibling's analogue member for
+   member: its own combined regex over both sentences, its own
+   optional currency qualifier taken from the shared
+   `_NO_CURRENCY_QUALIFIER_ALTERNATION` (W-67 hoisted it; no second
+   copy exists), W-67's optional `ny` on the shift half, and
+   W-32(c)'s `(?:\s+[A-Za-z])?` label suffix so "§ 3 i" resolves its
+   section. Three details are load-bearing and each is pinned by a
+   test rather than asserted in a comment: the repeal list is
+   captured by a bounded character class with `§` and `.` OUTSIDE it,
+   which is what refuses the four corpus leads that put the shift
+   sentence FIRST — by construction, not by a guard; the label class
+   is DIGIT-INITIAL, unlike the shipped `[0-9A-Za-z-]+`, so a bare
+   word like "siste" cannot enter the repeal set and then satisfy the
+   destination conjunct against itself; and the list parser is
+   all-or-nothing, refusing the whole lead on one member it cannot
+   read rather than repealing the members it happens to understand.
+   Op ORDER is load-bearing too: every REPEAL is minted before the
+   RENUMBER, at a lower sequence in the same group, so the
+   destination is provably free by the time the shift applies.
+   **The population, re-measured at the landing base: 10 leads, 7
+   instruments, 7 base laws.** The sizing said 8 instruments; the
+   corpus says 7 — `no/lovtid/2015-04-10-17` carries four of the ten
+   by itself, which is where the extra instrument came from. 7
+   accept, 3 refuse, exactly the split and exactly the members the
+   sizing named. Five NEIGHBOURING corpus leads carry both verbs and
+   are not this family — four with the shift sentence first, one with
+   a trailing payload ("… blir ny § 27 og skal lyde:") — and all five
+   are refused; lowering a shift whose lead also announces a payload
+   would state a half-truth, which is the ledd sibling's own
+   conservative polarity.
+   **Measured.** Refusals −7 on top of W-67's −64 (composed 9,454 →
+   9,383, 0 introduced, and the two halves partition the withdrawn
+   set exactly). Ops +18: 11 REPEALs and 7 RENUMBERs. **Zero strays**
+   — every withdrawn refusal is one of the 7 named leads, and the 3
+   cross-chapter leads keep their receipt.
+   **Blast: W-74 adds no outside-set mover at all.** The 13
+   outside-the-expected-set movers in the composed blast are exactly
+   W-67's 13, residue 0. W-74's own payoff is on
+   `no/lov/2005-06-10-44`: 612 → **607 divergences, 5 rows closed, 0
+   opened**, at the § 1-2 / § 1-7 / § 1-8 addresses its accepted lead
+   names. Its other six accepted leads move no divergence row —
+   three of their base laws have no current bytes at all (the
+   sparse-source class, F-09) and the rest are `blocked_contingent`
+   for unrelated reasons — so the coverage is real but only one law
+   is in a position to show it today.
+   **The reason the item exists, delivered.** Husbankloven's firing
+   vanishes, § 13 survives, and `removal_wrong` is empty corpus-wide;
+   the full firing census is in the W-67 unblock addendum above. A
+   new corpus pin,
+   `test_no_husbankloven_13_commencement_provision_survives`, holds
+   the positive fact the way W-56 and W-61 hold theirs — both § 13
+   probes must hit at their consolidation addresses AND the firing
+   list must be empty, so a regression in either direction is loud.
+   **Report-only findings, not fixed here.** (a) A `til` RANGE over
+   HYPHENATED labels ("§§ 1-2 til 1-7") resolves to its two
+   ENDPOINTS, because `_expand_no_section_range_labels` only expands
+   pure-digit ranges. That is the SHIPPED standalone range-repeal's
+   behaviour, reused verbatim rather than forked, and it
+   under-repeals (§§ 1-3 to 1-6 are left standing). Under-repealing
+   is the safe direction, and the destination conjunct is evaluated
+   against the same set the REPEAL ops are minted from, so the two
+   can never disagree. Widening it needs a label-sequence oracle,
+   which is W-66 territory. (b) The three refused cross-chapter
+   shifts are a genuine coverage gap rather than noise:
+   `no/lovtid/2015-04-10-17` moves §§ 7-2/7-7/7-10 into chapter 2
+   slots the lead does not vacate, and proving those destinations
+   free needs the co-located repeals elsewhere in the same act — the
+   intra-part ordering rider W-66 already carries.
 
 72. **W-72 (the occupied-destination tripwire sweeps 7 of 782):**
    from W-67. `_NO_OCCUPIED_DESTINATION_LAWS` is a hardcoded
@@ -3367,6 +3523,112 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-11 (W-67 + W-74 applied together)** — **The two-token
+  widening lands, with the destruction it caused repaired at the
+  lowering rather than guarded against in the recovery.**
+  (`cf751dd2b`, artifacts `.tmp/w74/`.) W-67 was blocked for a day
+  on one adjudicated `removal_wrong`: its textually correct 2017
+  renumber (husbankloven § 10 → § 13) landed on a § 13 that no
+  applied op had vacated, and destroyed "Ikraftsetjing o.a". W-73
+  made the 2012 act commence and did not help, because commencing an
+  act is not applying its ops. W-74 is the op — a SECTION-level
+  repeal-then-shift run-on (`§§ 10, 11 og 12 blir oppheva. Noverande
+  § 13 blir ny § 10.`), the section-level analogue of a ledd-level
+  production that has shipped since W-61, read as ONE combined
+  pattern rather than by splitting sentences. **The restriction that
+  makes it landable is a hard conjunct, not a heuristic: the shift's
+  destination must be a label the SAME lead repeals.** The
+  production is then structurally incapable of writing into occupied
+  law — the only slot it writes into is one it has already emitted a
+  REPEAL for, at a lower sequence in the same group. 10 leads
+  corpus-wide, **7 accept and 3 refuse**; the 3 are all
+  `no/lovtid/2015-04-10-17` cross-chapter shifts whose destination
+  the lead does not vacate, and they keep their refusal receipt.
+  **Parse plane, fully attributed.** Refusals 9,454 → **9,383,
+  exactly −71 and nothing else**, 0 introduced: −64 whose withdrawn
+  set EQUALS W-67's frozen target set element for element at this
+  later base, −7 the W-74 leads named above. Ops 27,018 → **27,100**
+  (+64 renumbers, +11 repeals, +7 renumbers), **0 semantically lost,
+  0 rebound**; the only other movement is 11 REPLACE → INSERT
+  promotions, every one attributed to a W-67 target lead, which is
+  `_promote_no_replace_with_following_renumber_insert` doing its
+  documented job.
+  **The stop condition is CLEARED, and by the mechanism the item
+  predicted.** Corpus-wide `(RENUMBER, dest_occupied)` firings
+  8 → **10**, swept over all 782 laws rather than the tripwire's
+  seven. **The husbankloven firing VANISHES** — §§ 10–12 are
+  repealed and § 13 → § 10 applied in 2012, so the 2017 renumber
+  lands on a FREE destination and there is nothing to recover. W-54's
+  survival test now passes on it: § 13 "Ikraftsetjing o.a" is in the
+  replay at `section:13/subsection:1` and `:2`, matches the
+  consolidation, and husbankloven's 13 sections align with the
+  consolidation one for one. Its divergences are **2 → 2,
+  byte-identical rows** — W-67's three `section:13/subsection:1..3`
+  MISMATCH rows never open. The two firings that DO appear are
+  W-67's other two, both re-adjudicated `removal_correct` on their
+  own evidence: verdipapirhandelloven § 4-3 → 4-2 (the occupant is
+  back at § 4-2 in the replay and matches the consolidation;
+  divergences unmoved at 1,564) and merverdiavgiftsloven § 7-9 → 7-8
+  (the occupant is the § 7-8 the SAME act repeals, absent from the
+  consolidation; 256 → **254**). **`removal_wrong` is empty
+  corpus-wide.**
+  **Blast (782 laws, W-52 discipline).** 762 byte-identical; 20
+  move. **7 are inside the 49-law expected-change set; the 13
+  outside it are exactly W-67's 13, and their residue is 0** —
+  withdrawn refusal receipts belonging to CO-AMENDED base acts
+  (adjudications are collected per INSTRUMENT and replay attaches
+  the whole list to every law that instrument amends) plus `op_id`
+  ordinal churn, and normalising both away leaves the two sides
+  equal on every one. **W-74 adds no outside-set mover at all.**
+  Four laws' text moves. Divergence rows: **11 CLOSED, 0 OPENED**,
+  no law worsened anywhere — `2010-06-04-21` 3 → 1 (both
+  `OPS_MISSING` rows, W-67's designed payoff, on its own witness
+  `Gjeldende § 10-10 blir ny § 10-13.`), `2005-06-10-44` 612 → 607
+  (W-74's own accepted lead, § 1-2/§ 1-7/§ 1-8), merverdiavgiftsloven
+  256 → 254.
+  **Scan.** The first landing in this series that moves the
+  scoreboard by CLOSING rows instead of admitting laws. Candidates
+  **76, unmoved element for element**; scoreboard **29/47/0
+  unmoved**; totals 1,512 → **1,510**, ceiling **1,011 unmoved for
+  the ninth landing running**, unexplained 501 → **499**. Exactly
+  ONE candidate row moves and the other 75 are byte-identical.
+  Partition: `no/lov/2010-06-04-21` moves `replay_defect` →
+  `untouched_drift` (23 → 22, 19 → 20) — with no `OPS_MISSING` row
+  left it is not a replay defect any more, the W-23 predicate doing
+  what it was built for.
+  **Pins moved:** ops 27,018 → 27,100; entries 2,560 → 2,561;
+  bindings 6,476 → **6,477** (one new (act, law) pair,
+  `2004-09-24-72` → plan- og bygningsloven 1985, its only operative
+  lead "Nåværende § 16 blir § 16-1."); declared-target
+  gap 956 → 955 receipts and 2,524 → 2,523 pairs, the W-34/W-35
+  conservation holding at 1 = 1; `instrument_authorized` 976 → 977 in
+  all THREE places it is pinned — the route-count assertion, its
+  non-staged sub-count (963 → **964**, the new act measured `plain`
+  so the staged 13 do not move), and the `status_counts()` histogram.
+  Two of the three were caught by the ladder rather than by the
+  re-derivation, one per run; the third round re-derived the whole
+  commencement pin family in one build (`.tmp/w74/s20`) and swept the
+  three test files for every superseded literal, which is the step
+  that should have come first. **Decert exposure is structurally
+  zero, and measured so rather than argued: NO pre-existing entry's
+  `base_ids` changes at all, and no entry's `effective_status`
+  changes**, so the histogram's +1 is exactly conserving — a new
+  entry, not a re-status. The only per-entry movement is `n_ops` on 49 entries
+  (the +82 ops) plus the one new entry with its one binding; `instrument_authorized` 976 → 977
+  and the widened whole-act route 435 → **436** in all four places
+  it is pinned; scan totals 1,512/1,011/501 → **1,510/1,011/499**.
+  `contingent` 534, the shipped route's 541 grants, and the part
+  (31), multi-part (2) and named-part-list (10) grant SETS are
+  unmoved element for element, as are readers (1,127), widened scope
+  (1,115) and shipped scope (607). `_NO_OCCUPIED_DESTINATION_LAWS`
+  gains the two proven `removal_correct` laws and husbankloven is
+  deliberately absent (a law with no firing has no row); the two
+  `2015-04-10-17` verdict rows are re-keyed `:27`/`:106` →
+  `:30`/`:109`, pure per-document ordinal churn from W-74's three ops
+  ahead of them in the same instrument. The W-58 tripwire row
+  `no/lovtid/2024-12-20-87:2` stays removed, and `wrong == []` now
+  holds over a table of 10.
 
 - **2026-08-11 (W-73 applied)** — **Husbankloven's base-completeness
   gap was a commencement-instrument PARSE gap, it is repaired, and
