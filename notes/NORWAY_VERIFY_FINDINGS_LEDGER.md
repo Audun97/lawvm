@@ -3101,6 +3101,68 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    confirm firing 1 either vanishes or re-adjudicates
    `removal_correct`. Everything else in this item is measured and
    ready.
+   **W-73 UPDATE (2026-08-11): the unblock condition is NOT yet
+   met, and the premise above was half right.** W-73 repaired the
+   commencement gap — `2012-08-24-64` is now
+   `instrument_authorized` at 2013-01-01 and APPLIED to
+   husbankloven — and re-ran the verification with both patches
+   together (they compose cleanly). The firing did not vanish and
+   did not re-adjudicate: § 13 "Ikraftsetjing o.a" is still
+   destroyed, still absent from the replay, still present in the
+   consolidation. Husbankloven 6 → 5 divergences, corpus firings
+   still 11 with no new ones. The reason is a SECOND gap W-67's
+   root-cause reading did not see: applying the act is not the same
+   as applying its ops, and the one op that vacates § 13
+   (`§§ 10, 11 og 12 blir oppheva. Noverande § 13 blir ny § 10.`)
+   is a two-sentence run-on the unstructured grammar refuses. **The
+   unblock condition is now W-74, not W-73**; everything else in
+   this item remains measured and ready, and it must not land
+   before W-74 does.
+
+74. **W-74 (the SECTION-level repeal-then-shift run-on — the real
+   W-67 unblock condition):** from W-73, which measured it and did
+   not fix it (the lane is lowering-grammar, not the commencement
+   lane W-73 was scoped to, and it edits the exact grafter region
+   W-67's archived patch also edits — a composition hazard worth
+   sequencing rather than racing).
+   **The shape.** One lead, two sentences: a section-list repeal
+   followed by a section shift into a slot the repeal just vacated.
+   `no/lovtid/2012-08-24-64`'s
+   `§§ 10, 11 og 12 blir oppheva. Noverande § 13 blir ny § 10.`
+   is the witness, and it is refused outright
+   (`no_parse_unstructured_lead_unmatched`) because every shipped
+   section-repeal pattern is anchored `oppheves\.?$` and every
+   shipped renumber pattern is anchored `^Nåværende`.
+   **It is precedented, which is what makes it cheap.** The LEDD
+   -level sibling of exactly this family already ships and W-61
+   already widened it:
+   `^§ X <ord> ledd oppheves\. <qualifier>? <ord> ledd blir <ord> ledd$`
+   is read as ONE combined pattern rather than by splitting
+   sentences. This item is that production's section-level analogue,
+   so no general sentence-splitter is needed.
+   **Measured population: 10 leads corpus-wide** over the 9,454
+   unmatched (8 instruments, 7 base laws), enumerated in
+   `.tmp/w73/lead_census.json`.
+   **The safety restriction, and it is what makes the item
+   landable:** accept only where the shift's DESTINATION is a label
+   the SAME lead repeals. That makes the production self-proving —
+   it can never write into occupied law, which is precisely W-54's
+   concern and precisely what went wrong on husbankloven. Under it
+   **7 of the 10 accept** (`2003-12-12-105`, `2012-08-24-64`,
+   `2013-06-14-40`, `2015-04-10-17`×1, `2016-04-22-5`,
+   `2020-05-20-42`, `2022-06-17-47`) and **3 refuse** — all three
+   `2015-04-10-17` cross-chapter shifts (`§ 7-1 oppheves. Nåværende
+   § 7-2 blir ny § 2-2.` and siblings), whose destination the lead
+   does not vacate and which therefore keep their existing refusal
+   receipt honestly.
+   **Dependency and sequencing.** The shift sentence needs W-61's
+   currency-qualifier set and W-67's optional `ny`, so this item
+   should land WITH or AFTER W-67 and reuse
+   `_NO_CURRENCY_QUALIFIER_ALTERNATION` rather than minting a
+   second copy. Landing W-74 is what turns W-67's husbankloven
+   firing from `removal_wrong` into a non-firing: with §§ 10–12
+   repealed and § 13 → § 10 applied in 2012, the 2017 renumber
+   § 10 → § 13 lands on a FREE destination.
 
 72. **W-72 (the occupied-destination tripwire sweeps 7 of 782):**
    from W-67. `_NO_OCCUPIED_DESTINATION_LAWS` is a hardcoded
@@ -3113,23 +3175,137 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    `(RENUMBER, dest_occupied)` claim in this ledger should be read
    as corpus-wide.
 
-73. **W-73 (husbankloven base-completeness — apply
-   `2012-08-24-64`, unblocks W-67):** from W-67. Bustøttelova
-   (`no/lovtid/2012-08-24-64`) is SCANNED but NOT APPLIED to
-   husbankloven, so the replay base is still the 2009 original and
-   the law sits `blocked_contingent` — yet later destructive
-   writes still lower into it. That is what turned W-67's
-   textually correct renumber op (`2017-06-21-96`:
-   "Noverande § 10 blir ny § 13.") into a `removal_wrong`
-   destroying § 13 "Ikraftsetjing o.a" (3 → 6 divergences in the
-   archived blast). Deliverables: (a) diagnose WHY the
-   application is missing (commencement gap, refusal, or binding
-   defect) and repair it; (b) re-run `.tmp/w67/s6`/`s9`/`s11`
-   against W-67's archived patch and confirm firing 1 vanishes or
-   re-adjudicates `removal_correct` — that is W-67's unblock
-   condition; (c) carry the general hazard to W-72's sweep: count
-   how many other `blocked_contingent` bases are accepting
-   destructive writes.
+73. **W-73 (husbankloven base-completeness — the title-cited
+   commencement subject):** DONE (`ff202148c`, 2026-08-11;
+   artifacts `.tmp/w73/`). The base-completeness gap is repaired
+   and measured; **W-67 stays BLOCKED**, and the honest headline of
+   this item is WHY.
+   **The diagnosis, and it is a commencement-instrument PARSE gap,
+   not a binding or lowering one.** `no/forskrift/2012-08-24-826`
+   — the kgl.res. that commenced bustøttelova — IS in the corpus,
+   parses as a commencement instrument, declares exactly one
+   effective date (2013-01-01) and cites exactly one act. Its whole
+   operative text is **"Lov om bustøtte skal gjelde frå 1. januar
+   2013."**, and that sentence fails every whole-act subject shape
+   the module has: `_WHOLE_ACT_RE` wants `(denne) lova trer i
+   kraft`; `_WHOLE_ACT_SUBJECT_RE` wants a DEFINITE act-word
+   adjacent to the verb and the subject here is the act's TITLE in
+   the indefinite; `_CITED_ACT_SUBJECT_RE` wants `om endring`, and
+   a NEW act amends nothing in its own title. Scope stayed
+   `UNRESOLVED`, the parse blocked, all five routes declined, the
+   act stayed `contingent`, and replay skipped it.
+   **The instrument genuinely commenced — the branch the brief
+   flagged is CLOSED against the corpus, not assumed.**
+   Husbankloven's own published consolidation carries, on § 13,
+   "Endra ved lover 24 aug 2012 nr. 64 (ikr. 1 jan 2013 iflg. res.
+   24 aug 2012 nr. 826, tidlegare § 13, samstundes vart tidlegare
+   § 10, § 11 og § 12 oppheva)". The 2012 act's § 9 replacement is
+   in the consolidation verbatim. Applying it is sound; no gate was
+   bent to reach that conclusion.
+   **The repair — a THIRD reader of one existing conjunct, feeding
+   one existing route.** `_title_cited_whole_act_subject` proves
+   W-53's `WHOLE_ACT_OPERATIVE_TEXT` the one way W-47's two readers
+   cannot: the subject is the cited act named by title. It is the
+   loosest subject shape in the module, so it carries four
+   conjuncts of its own — exactly ONE cited act, exactly ONE `lov
+   om` subject in the text, the subject SENTENCE-INITIAL and
+   adjacent to the verb, and TITLE AGREEMENT (the subject's title
+   phrase must appear in the instrument's own declared title) —
+   plus `_SUBDIVISION_SCOPE_RE`, reused verbatim. Every conjunct can
+   only REFUSE. Strictly additive: it is OR-ed into
+   `widened_whole_act_scope` and NEVER into
+   `whole_act_operative_text`, so W-47's multi-part route reads
+   exactly what it read before (its reader population is unmoved at
+   1,127), and the shipped route cannot move at all because the
+   widened route is only reachable by a pair the shipped route
+   already refused. Which reader carried a grant is recorded per
+   candidate (`title_cited_whole_act_scope`).
+   **Measurement.** Corpus-wide, 30 of the 2,365 parsed instruments
+   carry the title-cited proof; 8 of those are blocked only on
+   scope and gain `widened_whole_act_scope` (1,107 → **1,115**); 5
+   of THOSE cite an offered amendment act and become grants. The
+   five acts are `2009-01-09-2` (markedsføringsloven),
+   `2010-06-04-21` (havenergilova), `2012-08-24-64` (bustøttelova),
+   `2017-06-16-67` (statsansatteloven) and `2024-12-13-76`
+   (ekomloven), each dated by its own kgl.res., all five `plain`
+   rather than staged. The one corpus instrument citing two acts
+   (`2009-03-06-266`) is REFUSED rather than guessed at.
+   **Blast (782 laws, W-52 discipline).** **772 byte-identical; 10
+   move, all 10 inside the 17-law expected-change set, 0 outside —
+   no unattributed residue anywhere.** 8 laws' replayed text moves.
+   Divergences over the expected-change set **1,687 → 1,680**:
+   **7 rows CLOSED, 0 OPENED**, no law worsened. Husbankloven
+   **3 → 2** (the closed row is `section:1/subsection:2`, exactly
+   the "§ 1 andre ledd skal lyde:" the 2012 act makes);
+   `2015-06-19-70` 21 → 17; `2020-05-07-40` 2 → 1;
+   `2020-06-19-77` 4 → 3. Three laws move partition
+   `blocked_contingent` → `replayed` (`2015-02-13-9`,
+   `2015-06-19-70`, `2020-06-19-77`) — the base-completeness repair
+   doing exactly what it is for.
+   **Scan (the pins DO move, and in the shape the series has moved
+   three times before).** Those same three laws become
+   `fully_replayable` (73 → **76**) and ENTER the candidate set;
+   none leaves. Candidates 73 → **76**, scoreboard 29/44/0 →
+   **29/47/0**, totals **1,485 → 1,512**, ceiling **1,011 unmoved
+   for the eighth landing running**, unexplained 474 → **501**.
+   Total and unexplained move by the SAME +27, so this item explains
+   nothing away — it admits 27 previously unreachable rows
+   (`2015-06-19-70` 17, `2015-02-13-9` 7, `2020-06-19-77` 3), the
+   honest cost of new coverage exactly as at W-39/W-47/W-53. **All
+   73 pre-existing candidate rows are byte-identical across the
+   change** (`divergence_rows_sha` equal on every one), so no
+   existing law's measurement moved. Partition: `replay_defect`
+   21 → 23, `untouched_drift` 18 → 19, other buckets unmoved.
+   **`(RENUMBER, dest_occupied)` firings: 8 → 8.** The corpus
+   count is unmoved by this item, so `wrong == []` holds for the
+   reason it held before rather than by luck; the
+   `_NO_OCCUPIED_DESTINATION_VERDICTS` pin is untouched.
+   **Pins moved:** widened whole-act grants 430 → **435** (all four
+   places), `instrument_authorized` 971 → **976** (958 → 963
+   non-staged, staged 13 unmoved), `contingent` 539 → **534**,
+   widened-scope candidates 1,107 → **1,115**, whole-act REFUSAL
+   pairs 882 → **877** (falling by exactly the five grants added —
+   the withdraw-on-grant conservation holding), `fully_replayable`
+   73 → **76**, and the scan pins above. Entries 2,560, ops 27,018,
+   bindings 6,476, instrument coverage 607/33,590/1,758 and the
+   shipped route's 541 grants ALL unmoved; so are the part (31),
+   multi-part (2) and named-part-list (10) grant SETS, element for
+   element, not merely their counts. `test_w53_corpus_the_two_scope_proofs_are_nested_not_overlapping`
+   loses its `widened <= reader` containment by design and now pins
+   the 8-candidate difference explicitly.
+   **(c) THE UNBLOCK VERDICT — NOT MET.** With W-73 + W-67's
+   archived product patch applied together (they compose cleanly;
+   `git apply --exclude='notes/*'` succeeds), the husbankloven
+   firing **does NOT vanish and does NOT re-adjudicate
+   `removal_correct`**. W-54's survival test still fails: "Lova
+   gjeld frå den tida Kongen fastset" and "Frå same tid vert lov
+   1946 nr. 3 … oppheva" are both in the consolidation and survive
+   NOWHERE in the replay. Husbankloven divergences 6 → **5** with
+   W-73 added (the three `section:13/subsection:1..3` MISMATCH rows
+   remain), corpus firings **11, exactly W-67's set — the
+   combination introduces no new firing and withdraws none**.
+   **Why, and it is a SECOND gap this item found and did not
+   fix.** Commencing the act is necessary but NOT sufficient: only
+   2 of the 2012 act's 3 change blocks lower. The third,
+   `§§ 10, 11 og 12 blir oppheva. Noverande § 13 blir ny § 10.`, is
+   a two-sentence SECTION-level repeal-then-shift run-on that the
+   unstructured grammar refuses outright
+   (`no_parse_unstructured_lead_unmatched`). Without it § 13 is
+   never vacated, so W-67's textually correct 2017 renumber still
+   lands on an occupied § 13. **Opened as W-74 with the sizing
+   done** — see below.
+   **Rider (d).** Corpus-wide, **163 of 782 base laws take
+   destructive writes into a base the system already knows is
+   incomplete** (201 laws are known-incomplete, 264 take
+   destructive writes, the intersection is 163), totalling **3,737
+   destructive writes, of which 159 actually REMOVE content**, spread
+   over **64 laws** — the sharpest class, and the one husbankloven is
+   in. All 163 are `contingent`, 1 also `unknown_effective`, 0
+   `missing_source`. Per-law list at
+   `.tmp/w73/blocked_contingent_writes.json`. Research only; the
+   diagnosis did NOT point at a guard, because the fix here was to
+   complete the base rather than to refuse writes into it. Carried
+   to W-72.
 
 68. **W-68 (law-switch failure — correctness-shaped):** from
    W-62. 188 refusals / 115 instruments / 111 stale bases where
@@ -3191,6 +3367,49 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-11 (W-73 applied)** — **Husbankloven's base-completeness
+  gap was a commencement-instrument PARSE gap, it is repaired, and
+  W-67 is still blocked — by a second gap the repair exposed.**
+  (`ff202148c`, artifacts `.tmp/w73/`.) `no/forskrift/2012-08-24-826`
+  commenced bustøttelova on 2013-01-01 and says so in one sentence —
+  "Lov om bustøtte skal gjelde frå 1. januar 2013." — that no
+  whole-act subject reader could take, because a NEW act is named by
+  its TITLE and both shipped readers want either a definite act-word
+  or `om endring`. Verified against the published consolidation
+  before touching anything: husbankloven § 13 carries "ikr. 1 jan
+  2013 iflg. res. 24 aug 2012 nr. 826", so the act genuinely
+  commenced and applying it is sound. The fix is a third reader of
+  W-53's existing text conjunct, carrying four conjuncts of its own
+  (one cited act, one title subject, sentence-initial subject, and
+  title agreement between the subject and the instrument's own
+  declared title) plus the shared subdivision fence; OR-ed into
+  `widened_whole_act_scope` and never into
+  `whole_act_operative_text`, so W-47's route is provably untouched.
+  Five acts move `contingent` → `instrument_authorized`; widened
+  grants 430 → 435, `instrument_authorized` 971 → 976, entries/ops/
+  bindings/coverage unmoved. Blast: **772 of 782 laws byte-identical,
+  10 move, all 10 inside the expected-change set, 0 outside**;
+  divergences over that set 1,687 → 1,680 with **7 rows closed and 0
+  opened**, husbankloven 3 → 2, three laws moving
+  `blocked_contingent` → `replayed` — which carries those three into
+  the scan candidate set: candidates 73 → 76, scoreboard 29/44/0 →
+  29/47/0, totals 1,485 → 1,512 with ceiling unmoved at 1,011 and
+  unexplained rising by the same +27 (new coverage, nothing explained
+  away), and all 73 pre-existing candidate rows byte-identical.
+  Occupied-destination firings 8 → 8. **The W-67 unblock verification FAILED, cleanly and with
+  evidence**: with both patches applied the husbankloven firing
+  neither vanishes nor re-adjudicates, § 13 "Ikraftsetjing o.a" is
+  still destroyed (6 → 5 divergences, corpus firings 11, none new),
+  because commencing the act is not the same as applying its ops —
+  the one op that vacates § 13 is a two-sentence repeal-then-shift
+  run-on the grammar refuses. Opened as **W-74** with the sizing
+  done: 10 leads corpus-wide, 7 accepted under a self-proving
+  "destination must be a slot this lead vacates" restriction, and
+  the ledd-level analogue already shipped. Rider: **163 of 782 base
+  laws take destructive writes into a known-incomplete base** (3,737
+  writes; 159 of them REMOVE content, over 64 laws) — carried to
+  W-72.
 
 - **2026-08-10 (W-67 measured, and BLOCKED on the regression it
   found)** — **The two-token widening closes exactly the 64
