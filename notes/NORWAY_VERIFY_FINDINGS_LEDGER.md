@@ -2943,22 +2943,132 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    is untouched.
 
 64. **W-64 (the `defaultP` heading payload boundary — TOP census
-   item):** from W-62. Lovdata marks a new section's HEADING with
-   class `defaultP`, the same class as amendment leads; the walk's
-   payload rule "stop at the next `defaultP`" stops on the heading
-   and collects ZERO payload. Witness `no/lovtid/2003-12-19-129`
-   `"Ny § 37 a skal lyde:"` (heading `Avgift og gebyr`, six
-   `legalP` ledd stranded; divergence rows exactly
-   `chapter:5/section:37a/subsection:1-6` — 6 of the census's 10
-   traceable rows). Census: 455 pairs / 241 instruments / 1,437
-   stranded body nodes / 11 high-value; **125 pairs are pure
-   plumbing** (a shipped production already accepts the lead —
-   the boundary is the sole blocker). Touches the payload
-   boundary rule only, not the grammar. Four independent
-   confirmations. Full W-52/W-56 blast discipline — this changes
-   payload for already-matching leads and is expected to OPEN
-   text where none existed. Artifacts
-   `.tmp/w62/heading_boundary.json`.
+   item):** DONE (`81d318af2`, 2026-08-11; artifacts
+   `.tmp/w64/`). From W-62. Lovdata marks a new section's HEADING
+   with class `defaultP`, the same class as amendment leads; the
+   walk's payload rule "stop at the next `defaultP`" stops on the
+   heading and collects ZERO payload. Witness
+   `no/lovtid/2003-12-19-129` `"Ny § 37 a skal lyde:"` (heading
+   `Avgift og gebyr`, six `legalP` ledd stranded; divergence rows
+   exactly `chapter:5/section:37a/subsection:1-6` — 6 of the
+   census's 10 traceable rows). Touches the payload boundary rule
+   only, not the grammar.
+   **The discriminator, and why its polarity is safe.** Six
+   conjuncts, all measured rather than assumed: the lead must END in
+   `lyde:`; the candidate must carry no operative verb, no `§`, no
+   sentence-final punctuation, and at most 80 characters; and the
+   node it introduces must actually be there — either a body node
+   (`legalP`/`numberedLegalP`/`listArticle`) immediately after it, or
+   a lead whose shipped production wants the heading and nothing else
+   (`§ X overskriften skal lyde:`). **The cardinal risk is the
+   opposite polarity**: absorbing a genuine lead into a payload
+   silently DELETES an op. Over all 3,089 unstructured artifacts
+   there are 23,716 (lead, next-`defaultP`) pairs; 569 sit behind a
+   lead ending in `lyde:`, and exactly **21** of those successors
+   parse as a lead today. **All 21 are excluded by THREE independent
+   conjuncts at once** (operative verb AND `§` AND terminal `:`/`.`),
+   so no single conjunct is load-bearing for the safety property, and
+   the admitted set contains zero nodes that produce an op at base.
+   Only the FIRST node after a lead is ever tested, so at most ONE
+   `defaultP` per lead can be absorbed and the boundary still closes
+   on the next one — which is what bounds the blast radius.
+   **The census's 455 re-derived under the discriminator**: 84
+   admitted, 198 refused because nothing the boundary can use follows
+   the heading (185 of them chapter-level inserts whose body is
+   itself a run of `defaultP` sections — W-65's surface, not this
+   boundary), 63 on terminal punctuation, 54 on the lead gate, 29 on
+   length, 27 on the `§`. Admitting 98 whole-section pairs plus 23
+   heading-only pairs.
+   **Measured, composed corpus, base `4d9dde247`.** Ops **27,100 →
+   27,206** (+106: 84 REPLACE, 22 INSERT, over 45 instruments), with
+   **0 lost, 0 re-addressed, 0 changed kind** — op-identity diff keyed
+   on (base act, action, target, destination, payload digest, lead
+   text), never `op_id`, which is a per-document sequence that churns
+   ordinally. Entries 2,561 → 2,563, bindings 6,477 → 6,489,
+   declared-target gap 955 → 951 / 2,523 → 2,511 (the W-34/W-35
+   conservation holds exactly: pair drop == binding gain, 12 = 12,
+   with zero targets newly unbound and nothing rebound).
+   `instrument_authorized` unmoved at 977, widened whole-act route
+   unmoved at 436. One base act receives its first op ever
+   (verdipapirsentralloven `1985-06-14-62`), so the amended-law
+   population goes 782 → 783.
+   **Refusals moved, and the movement is fully attributed: −224, 0
+   introduced.** The queue's expectation of "unchanged" was wrong
+   about the mechanism, not about the risk: `lead_unmatched` is
+   emitted at the END of the dispatch chain, so a lead that gains
+   payload short-circuits before reaching it. 106 leads withdraw a
+   `payload_unresolved` (82 `future_section`, 24 `heading_only`) AND
+   its paired `lead_unmatched`; the remaining 12 `lead_unmatched` are
+   statutory BODY prose that was stranded behind the boundary,
+   re-read as leads, and tripped the operative-verb heuristic on the
+   word `blir` ("Blir innskrevet reisegods skadd, …"). Those 12 were
+   always false refusals and are now payload.
+   **Blast (W-52/W-56 discipline).** Every one of the 45 moved base
+   acts replayed at base and at the patch, flattened to
+   address → text: **0 addresses lost non-empty text**, 14 added, 6
+   changed in place. 33 of the 45 carry a byte-identical pre-existing
+   replay error ("no original-act source available", plus
+   `2005-06-17-62`'s pre-existing invariant violation); 6 replay
+   unchanged because the new op is outside the applied window at
+   as-of (`replay_op_count` identical); 6 move. Of those 6, four are
+   heading-only replacements that change a `heading` node and nothing
+   else — the section BODY survives every one, which is the property
+   that mattered, since a heading-only REPLACE that truncated its
+   section would have destroyed in-force law. The two statutory-text
+   moves are `2003-12-12-108` §§ 14/17 `Fylkesskattekontoret` →
+   `Skattekontoret`, which is exactly what `no/lovtid/2007-06-29-64`
+   commands; both sit on `CONSOLIDATED_MISSING` rows that were open
+   at base and stay open with the same type (the consolidation prints
+   nothing at those addresses), so no row opens or closes.
+   **Scan.** Candidates unmoved at 76, scoreboard unmoved at
+   **29/47/0**, totals **1,510 = 1,011 + 499 → 1,504 = 1,011 + 493**.
+   **Exactly one law's rows move and exactly zero rows OPEN**: the
+   witness `no/lov/2001-06-15-75` 15 → 9, all six
+   `chapter:5/section:37a/subsection:1-6` `OPS_MISSING` rows CLOSED,
+   which means the landed ledd match the consolidation under the
+   compare lane rather than replacing one row type with another. The
+   heading lands as the section's HEADING and not as its first ledd —
+   `_parse_future_section` reads `defaultP` children as ledd, so
+   appending it verbatim would have shifted every real ledd's label
+   by one and turned six closures into six mismatches. Partition
+   buckets unmoved: the witness stays `replay_defect` (touched 4
+   unmoved, untouched 11 → 5), and the only other in-scan mover
+   (`2012-01-27-9`, one heading-only op) stays `untouched_drift`.
+   **Only 2 of the 45 moved base acts are in the 76-law candidate
+   set**, which is why 104 of the 106 new ops are scan-invisible —
+   honest yield, recorded as such rather than dressed up.
+   **Occupied-destination census re-run over all 783 base acts:**
+   `renumber_occupied_destination_removed` **10, unchanged element
+   for element**, `wrong == []`; no new-section insert lands on an
+   occupied node. `insert_occupied_target_replaced` holds at 182 with
+   one op_id churning ordinally (`2009-06-19-103:23` → `:24`) on the
+   same law and the same paths — the `op_id` caveat, observed.
+   **W-63's `insert_occupied_direct_child_refused` cell fires zero
+   times at base and zero times after**: landing payload for `Ny § X`
+   leads does not reach it.
+   **The one ratchet the change moves is a tightening**: the un-waived
+   semantic-regex count for `grafter.py` falls 45 → 44 (the inline
+   heading-only pattern becomes a waived, shared owning-parser
+   helper), so `tests/data/regex_ratchet_baseline.json` is
+   re-committed one lower. Nothing is waived that was not.
+   **Left for W-65, deliberately:** the 185 chapter-level inserts
+   (`Nytt kapittel 5A skal lyde:`) whose body is a run of `defaultP`
+   sections, and the 121 heading leads outside the shipped
+   `§ X overskriften` surface (`Lovens tittel skal lyde:`,
+   `Overskriften til kapittel N skal lyde:`, …). Both are grammar.
+   `no/lovtid/2017-06-16-67`'s chapter-scoped insert word-order lead —
+   the census's 10th traceable row — gains **0 ops** here, confirming
+   it is grammar and untouched.
+   **Landing note (main ladder, ladder-procedure knowledge):** the
+   `regex_ratchet_baseline.json` change routes shard
+   `core_ir_contracts` into the affected set, and in main that shard
+   halts on pre-existing Finland stub-archive reds. Known-good
+   signature with the first two deselected: **6 failed + 1 error, all
+   `test_fi_*`** (`ci_main_coreir.log` in `.tmp/w64/`); none of the
+   failing files reference the ratchet baseline or any norway module
+   (grepped). Same class as the tools_cli_debug triple — deselect and
+   move on, never chase. The norway shard was then run explicitly
+   (`--shard norway`, passed).
 
 65. **W-65 (recursive address-path grammar for sub-section
    replace/repeal):** from W-62. ~4,131 replace + 989 repeal
@@ -3523,6 +3633,51 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-11 (W-64 applied)** — **The `defaultP` heading stops
+  being a payload boundary, and 106 leads a shipped production had
+  always accepted finally get the text they announce.**
+  (`81d318af2`, artifacts `.tmp/w64/`.) Lovdata marks a new
+  section's heading with the same class it marks amendment leads
+  with, so the payload cursor stopped ON the heading and collected
+  nothing; the lead then refused for having no payload and the
+  section body was stranded. Probed at the DOM nodes the walk reads,
+  not at a text-plane rendering: `no/lovtid/2003-12-19-129` repeats
+  the shape four times across three parts.
+  **The discriminator is refusing by construction and measured, not
+  argued.** Of the 569 corpus pairs behind a `lyde:` lead, the 21
+  whose successor really is a lead are each excluded three times
+  over, so the failure mode that would have silently deleted an
+  operation cannot reach a single one of them; only the first node
+  after a lead is ever tested, so a run of `defaultP` nodes can never
+  be swallowed wholesale. **Ops 27,100 → 27,206 with zero lost, zero
+  re-addressed, zero changed kind** on an identity diff keyed on
+  content rather than `op_id`. Refusals fall 224 with none
+  introduced, every one attributed: 106 leads that now land (with
+  their paired `payload_unresolved`), plus 12 statutory body
+  paragraphs that had been re-read as leads and tripped the
+  operative-verb heuristic on the word `blir`.
+  **The blast is where the honesty is.** All 45 moved base acts were
+  replayed on both sides and flattened to address → text: **not one
+  address lost non-empty text**. That is the check the change owed,
+  because four of the six laws that move do so through a heading-only
+  REPLACE — an op shape that would have truncated its section if the
+  payload had been read as a whole-section replacement. The witness
+  closes exactly as predicted: `no/lov/2001-06-15-75` 15 → 9, all six
+  `section:37a/subsection:1-6` rows CLOSED and **zero rows opened**
+  anywhere in the scan, so the landed ledd match the consolidation
+  rather than trading one row type for another. Candidates hold at
+  76, scoreboard at 29/47/0, totals 1,510 → 1,504 with the ceiling
+  untouched at 1,011, partition buckets unmoved. **Only 2 of the 45
+  moved base acts are scan candidates at all**, so 104 of the 106 new
+  ops are invisible to the scoreboard — real corpus repair that the
+  headline numbers cannot show, recorded here rather than inflated.
+  The occupied-destination census re-ran over all 783 base acts and
+  is unchanged element for element (10 firings, `wrong == []`), and
+  W-63's insert-occupied refusal cell stays at zero. Left to W-65:
+  the 185 chapter-level inserts whose body is a run of `defaultP`
+  sections, and the 121 heading leads outside the shipped
+  `§ X overskriften` surface — both grammar, not boundary.
 
 - **2026-08-11 (W-67 + W-74 applied together)** — **The two-token
   widening lands, with the destruction it caused repaired at the
