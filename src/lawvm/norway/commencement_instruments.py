@@ -290,6 +290,44 @@ _COMMENCEMENT_VERB_RE = compile_classifier_regex(
     re.IGNORECASE,
     classifier_id="no.lovtidend.commencement_verb",
 )
+# W-73. The third whole-act subject shape, and the one neither reader above can
+# take: an instrument commencing a NEW act names it the only way a new act can
+# be named — by its TITLE, in the indefinite ("Lov om bustøtte skal gjelde frå
+# 1. januar 2013."). ``_WHOLE_ACT_SUBJECT_RE`` wants a definite act-word
+# adjacent to the verb and there is none; ``_CITED_ACT_SUBJECT_RE`` wants
+# ``om endring`` and a new act amends nothing in its own title.
+#
+# Read alone this shape is far too loose — "lov" opens a great many sentences —
+# so it is never read alone. :func:`_title_cited_whole_act_subject` pairs it
+# with a TITLE-AGREEMENT witness (the subject's own title phrase must appear in
+# the instrument's declared title) and with an unambiguity witness (exactly one
+# cited act, exactly one such subject in the text), and those three together are
+# what carry the claim. The bound on the title phrase is the same shape
+# ``_CITED_ACT_SUBJECT_RE`` uses — lazy, ``§``-excluding, and length-capped — so
+# a runaway subject cannot swallow a following sentence.
+#
+# Spelled with single ``\s`` separators rather than ``\s+``, and with the lazy
+# span running straight into the verb with no separator of its own: a variable
+# repeat adjacent to another whose starts overlap is what the classifier-safety
+# lint refuses, and ``[^§]`` overlaps ``\s``. The operative blocks arrive
+# whitespace-collapsed from ``_operative_blocks``, so a single ``\s`` is the
+# whole vocabulary there is to match. This is character-for-character the shape
+# ``_CITED_ACT_SUBJECT_RE`` already passes the lint with.
+_TITLE_CITED_ACT_SUBJECT_RE = compile_classifier_regex(
+    r"^lov\s(?P<title_phrase>om\s[^§]{1,300}?)" + _COMMENCEMENT_VERB,
+    re.IGNORECASE,
+    classifier_id="no.lovtidend.title_cited_act_commencement_subject",
+)
+# The unambiguity witness's counter. Word-bounded ``lov om`` is how an act is
+# cited by title, and a text carrying two of them is commencing two acts in one
+# sentence (``no/forskrift/2009-03-06-266``, "Lov om Statens finansfond og lov om
+# Statens obligasjonsfond trer i kraft straks") — a claim this reader refuses
+# rather than attributes to whichever act it happens to be paired with.
+_INDEFINITE_ACT_TITLE_SUBJECT_RE = compile_classifier_regex(
+    r"\blov\s+om\s+",
+    re.IGNORECASE,
+    classifier_id="no.lovtidend.indefinite_act_title_subject",
+)
 # W-49. The named-part-list reader's refusing guard: ``_SUBDIVISION_SCOPE_RE``
 # with the PART vocabulary taken out (this reader's whole job is to read those
 # words) and the sub-part qualifiers W-47 never needed put in. Every token here
@@ -722,6 +760,18 @@ class NOCommencementWidenedWholeActAuthorizationConjunct(StrEnum):
     commencement clause is the act itself rather than one of the laws it amends
     (``_WHOLE_ACT_SUBJECT_RE`` / ``_CITED_ACT_SUBJECT_RE``).
 
+    W-73 gives the subject half a THIRD reader, :func:`_title_cited_whole_act_subject`,
+    and this route accepts either. Neither of W-47's two can read an instrument
+    commencing a NEW act, because a new act has no definite act-word in its
+    commencement sentence and nothing to call an ``om endring``: it is named by
+    its title ("Lov om bustøtte skal gjelde frå 1. januar 2013"). That reader
+    carries four conjuncts of its own — one cited act, one title subject, the
+    subject sentence-initial and adjacent to the verb, and the subject's title
+    phrase present in the instrument's declared title — because a title-cited
+    subject is the loosest shape in the module and the surrounding proof is what
+    makes it safe. Which reader carried a grant is recorded per candidate
+    (``title_cited_whole_act_scope``), so the evidence plane can say why.
+
     W-47 could route that reading to PARTS only, and said so in as many words:
     "this flag deliberately feeds ONLY the multi-part route, never the whole-act
     one, so a looser reading can never re-date an act wholesale". This route is
@@ -817,6 +867,16 @@ class NOCommencementInstrumentCandidate:
     # remains separately readable beside it, so the route can still assert its
     # text conjunct in its own right.
     widened_whole_act_scope: bool = False
+    # W-73. The widened route's text conjunct, proven the third way: the
+    # operative clause's subject is the cited act named by TITLE. Kept as its own
+    # field beside ``whole_act_operative_text`` rather than folded into it,
+    # because the two readers do not serve the same routes — W-47's multi-part
+    # route asserts ``whole_act_operative_text`` and must keep reading exactly
+    # what it read before, while W-53's act-level route accepts either proof.
+    # Recording which one carried a grant is also the honest receipt: a lane
+    # whose evidence plane cannot say WHY it authorized is a lane that cannot be
+    # audited.
+    title_cited_whole_act_scope: bool = False
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -837,6 +897,7 @@ class NOCommencementInstrumentCandidate:
             "named_part_labels": list(self.named_part_labels),
             "cites_acts_as_hjemmel_only": self.cites_acts_as_hjemmel_only,
             "widened_whole_act_scope": self.widened_whole_act_scope,
+            "title_cited_whole_act_scope": self.title_cited_whole_act_scope,
         }
 
     @classmethod
@@ -877,6 +938,9 @@ class NOCommencementInstrumentCandidate:
             whole_act_operative_text=bool(data.get("whole_act_operative_text", False)),
             cites_acts_as_hjemmel_only=bool(data.get("cites_acts_as_hjemmel_only", False)),
             widened_whole_act_scope=bool(data.get("widened_whole_act_scope", False)),
+            title_cited_whole_act_scope=bool(
+                data.get("title_cited_whole_act_scope", False)
+            ),
         )
 
 
@@ -2053,7 +2117,18 @@ def _widened_whole_act_authorization_scope(
     # WHOLE_ACT_OPERATIVE_TEXT — W-47's reader, asserted in its own right so the
     # route reads as its conjunct set and so a later change to what
     # ``widened_whole_act_scope`` records cannot quietly drop it.
-    if not candidate.whole_act_operative_text:
+    #
+    # W-73 adds the second reader of the SAME conjunct, spelled as an explicit
+    # disjunction here rather than hidden inside either flag. The conjunct's
+    # claim is "the operative text commences the act as a whole"; W-47's reader
+    # proves it from a generic act-word or an ``om endring`` citation, W-73's
+    # from the act's own title plus a title-agreement witness. Both are proofs of
+    # one proposition, so the route asserts the proposition and names both
+    # witnesses — and W-47's own multi-part route, which reads
+    # ``whole_act_operative_text`` alone, is untouched by the addition.
+    if not (
+        candidate.whole_act_operative_text or candidate.title_cited_whole_act_scope
+    ):
         return False
     # SINGLE_OPERATIVE_BLOCK, plus W-51's carve-out fence over that block. Both
     # are parse-time facts about the document, which the gate never sees.
@@ -2270,6 +2345,72 @@ def _whole_act_operative_text(operative_blocks: Sequence[str]) -> bool:
         return True
     # lawvm-regex: owning_parser same reader, the act's own citation as the clause subject
     return bool(_CITED_ACT_SUBJECT_RE.search(text))
+
+
+def _title_cited_whole_act_subject(
+    operative_blocks: Sequence[str],
+    *,
+    title: str,
+    cited_law_ids: Sequence[str],
+) -> bool:
+    """Is the operative clause's subject the cited act, named by its TITLE? W-73.
+
+    The third whole-act subject shape, and it exists because a NEW act cannot be
+    named the way the other two require. An instrument commencing an amending act
+    writes "Loven trer i kraft" or "Lov 24. juni 2011 nr. 29 om endringer i …
+    trer i kraft"; an instrument commencing a new act writes the act's title in
+    the indefinite — "Lov om bustøtte skal gjelde frå 1. januar 2013",
+    "Lov om dyrevelferd trer i kraft 1. januar 2010". Measured over all 35,955
+    Lovtidend forskrift artifacts, that shape reaches 8 instruments no route
+    reads today, and this function accepts 7 of them.
+
+    It is the loosest subject shape in the module and so it carries the most
+    proof. FOUR conjuncts, all required, none of which can accept on its own:
+
+    * ONE CITED ACT. The grant this feeds is act-level, and the gate applies it
+      per (instrument, cited act) pair; with two cited acts a single title
+      subject would be attributed to whichever act the pair loop reached. The one
+      corpus instrument that cites two (``no/forskrift/2009-03-06-266``) is
+      refused here rather than guessed at.
+    * ONE TITLE SUBJECT. Its mirror on the text side: two ``lov om`` subjects in
+      one text is two acts being commenced, whatever the citation count says.
+    * SENTENCE-INITIAL SUBJECT ADJACENT TO THE VERB (``_TITLE_CITED_ACT_SUBJECT_RE``
+      anchored with ``match``). "Endringene i lov om dyrevelferd trer i kraft"
+      is a law-scoped narrowing, not an act-level claim, and the anchor is what
+      refuses it — exactly the adjacency argument ``_WHOLE_ACT_SUBJECT_RE``
+      records for its own subject.
+    * TITLE AGREEMENT. The subject's title phrase must appear in the
+      instrument's own declared title. This is the conjunct that ties a loose
+      textual shape to the document's identity: the instrument is titled
+      "Ikraftsetjing av lov 24. august 2012 nr. 64 om bustøtte (bustøttelova)"
+      and its subject is "Lov om bustøtte", so the phrase "om bustøtte" is the
+      instrument saying twice, in two fields, which act it commences. A stray
+      "Lov om …" sentence about some other statute agrees with no title and is
+      refused.
+
+    Plus ``_SUBDIVISION_SCOPE_RE``, the same purely-refusing fence
+    :func:`_whole_act_operative_text` applies, so a title-cited subject cannot
+    carry a text that names a chapter or an exception.
+
+    The polarity is the safety argument, as everywhere in this gate:
+    over-authorization is the danger, so every conjunct here can only ever
+    REFUSE, and the function returns True on all four together or not at all.
+    """
+    if len(cited_law_ids) != 1:
+        return False
+    text = " ".join(operative_blocks)
+    # lawvm-regex: owning_parser the shared refusing fence, reused verbatim; cannot accept
+    if _SUBDIVISION_SCOPE_RE.search(text):
+        return False
+    # lawvm-regex: owning_parser this reader's unambiguity witness; a counter, refusing only
+    if len(_INDEFINITE_ACT_TITLE_SUBJECT_RE.findall(text)) != 1:
+        return False
+    # lawvm-regex: owning_parser this IS the title-cited subject reader; anchored at the block start
+    match = _TITLE_CITED_ACT_SUBJECT_RE.match(text)
+    if match is None:
+        return False
+    phrase = _WS_RE.sub(" ", match.group("title_phrase")).strip().casefold()
+    return bool(phrase) and phrase in _WS_RE.sub(" ", title).strip().casefold()
 
 
 def _cites_acts_as_hjemmel_only(
@@ -2533,8 +2674,19 @@ def parse_no_commencement_instrument(
     # the blocks joined) and W-51's two extra carve-out phrases (``unntak for``,
     # ``foreløpig ikke``, which ``_SUBDIVISION_SCOPE_RE`` does not carry).
     whole_act_operative_text = _whole_act_operative_text(operative_blocks)
+    # W-73. The third proof of the same text conjunct, computed off the same
+    # blocks and joined into ``widened_whole_act_scope`` by OR — never into
+    # ``whole_act_operative_text``, which W-47's multi-part route reads and which
+    # this item does not touch. The block count and W-51's fence still gate it,
+    # so a title-cited subject buys the pair nothing the other reader would not
+    # have had to buy too.
+    title_cited_whole_act_scope = _title_cited_whole_act_subject(
+        operative_blocks, title=title, cited_law_ids=affected_law_ids
+    )
     widened_whole_act_scope = (
-        bool(single_block) and whole_act_operative_text and not tail_carve_out
+        bool(single_block)
+        and (whole_act_operative_text or title_cited_whole_act_scope)
+        and not tail_carve_out
     )
     scope_status = (
         NOCommencementScopeStatus.WHOLE_ACT
@@ -2567,6 +2719,7 @@ def parse_no_commencement_instrument(
             declared_law_ids=declared_changes.law_ids,
         ),
         widened_whole_act_scope=widened_whole_act_scope,
+        title_cited_whole_act_scope=title_cited_whole_act_scope,
     )
     residuals: tuple[NOCommencementInstrumentResidual, ...] = ()
     parse_status = NOCommencementParseStatus.CANDIDATE

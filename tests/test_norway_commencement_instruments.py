@@ -609,6 +609,16 @@ def _no_farchive_path() -> Path | None:
 
 _NO_FARCHIVE_PATH = _no_farchive_path()
 
+# W-73. The title-cited subject reader's corpus population, over CANDIDATES
+# rather than grants. 30 of the 2,365 parsed instruments name their act by title
+# in a single operative block that agrees with their own declared title; 8 of
+# those are blocked only on scope and so gain ``widened_whole_act_scope``, and 5
+# of THOSE cite an offered amendment act and become grants. The three counts are
+# pinned separately because they answer different questions — how many
+# instruments the reader reads, how many that changes the scope proof for, and
+# how many acts actually move.
+_W73_TITLE_CITED_CANDIDATE_COUNT = 30
+
 
 def _part_evidence(
     *,
@@ -2823,7 +2833,7 @@ def test_w51_corpus_totals_and_the_untouched_part_routes() -> None:
     # commencement lane only by growing what is offered to it.
     assert counts == {
         NO_COMMENCEMENT_EXECUTION_AUTHORIZED: 541,
-        NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED: 430,
+        NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED: 435,
         NO_COMMENCEMENT_PART_EXECUTION_AUTHORIZED: 33,
         NO_COMMENCEMENT_MULTI_PART_EXECUTION_AUTHORIZED: 4,
         NO_COMMENCEMENT_NAMED_PART_LIST_EXECUTION_AUTHORIZED: 33,
@@ -2845,6 +2855,10 @@ def test_w51_corpus_totals_and_the_untouched_part_routes() -> None:
     # had just been re-dated. (1,156 -> 882 refusals; the difference is smaller
     # than the 430 grants because 156 of those pairs had been consumed by a part
     # route at base and never carried a refusal in the first place.)
+    # 882 -> 877 at W-73, exactly conserving against its five new grants: each of
+    # the five title-cited pairs had carried a whole-act refusal at base and the
+    # widened route withdraws it where it grants, so the refusal set falls by
+    # exactly the number of grants added and no pair is ever both.
     granted_pairs = {
         (d["source_id"], instrument_id)
         for d in index.diagnostics
@@ -2861,7 +2875,7 @@ def test_w51_corpus_totals_and_the_untouched_part_routes() -> None:
         if d.get("rule_id") == NO_COMMENCEMENT_EXECUTION_REFUSED
     }
     assert not (granted_pairs & refused_pairs)
-    assert len(refused_pairs) == 882
+    assert len(refused_pairs) == 877
 
     # The inert part-grant population, 31 -> 4 at W-53 with the absorption.
     inert = [
@@ -3497,7 +3511,7 @@ def test_w53_corpus_zero_early_over_every_widened_grant() -> None:
         for d in index.diagnostics
         if d.get("rule_id") == NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED
     ]
-    assert len(grants) == 430
+    assert len(grants) == 435
     early = [
         (d["source_id"], d["effective_date"], sibling_id, sibling_date)
         for d in grants
@@ -3590,21 +3604,222 @@ def test_w53_corpus_the_two_scope_proofs_are_nested_not_overlapping() -> None:
     widened proof against 1,127 whose text the reader accepts; the 20-candidate
     gap is the block count, and none of it is the carve-out fence (its flip set
     here is 0 — see the unit test above).
+
+    W-73 BREAKS the plain ``widened <= reader`` nesting, deliberately and in one
+    direction only. ``widened_whole_act_scope`` is now the disjunction of two
+    text readers, so 8 candidates carry it without carrying
+    ``whole_act_operative_text`` — every one of them a title-cited subject W-47's
+    reader cannot take. The containment that still has to hold is the one the
+    route's disjointness rests on (``shipped <= widened``), and the reader's own
+    population is unmoved at 1,127, which is the check that W-47's multi-part
+    route saw nothing change.
     """
     index = build_no_amendment_index(_NO_FARCHIVE_PATH)
     candidates = index.commencement_instruments
     assert len(candidates) == 2365
     reader = {c.source_id for c in candidates if c.whole_act_operative_text}
     widened = {c.source_id for c in candidates if c.widened_whole_act_scope}
+    title_cited = {c.source_id for c in candidates if c.title_cited_whole_act_scope}
     shipped = {
         c.source_id
         for c in candidates
         if c.scope_status is NOCommencementScopeStatus.WHOLE_ACT
     }
+    # 1,127 at W-53 and unmoved at W-73: the item added a second reader beside
+    # this one, never inside it.
     assert len(reader) == 1127
-    assert len(widened) == 1107
+    # 1,107 -> 1,115 at W-73.
+    assert len(widened) == 1115
     assert len(shipped) == 607
-    # Nesting, in both directions that matter.
-    assert widened <= reader
+    assert len(title_cited) == _W73_TITLE_CITED_CANDIDATE_COUNT
+    # Nesting, in the directions that still hold.
     assert shipped <= widened
     assert len(reader - widened) == 20
+    # Every one of the 8 that break the old containment carries the title-cited
+    # proof: no OTHER reader can put a candidate into ``widened`` without putting
+    # it into ``reader`` too, which is the property that keeps this item's blast
+    # attributable to one named reader.
+    #
+    # The inclusion is one-way on purpose, and the gap is the point:
+    # ``widened_whole_act_scope`` is the title-cited proof AND the single-block
+    # count AND W-51's carve-out fence, so a candidate can read as title-cited
+    # and still not widen. Measured, exactly one does — ``2010-06-25-942`` — and
+    # it is the witness that those two extra conjuncts are still load-bearing
+    # over this reader rather than only over W-47's.
+    title_cited_only = {
+        c.source_id
+        for c in candidates
+        if c.title_cited_whole_act_scope and not c.whole_act_operative_text
+    }
+    assert widened - reader <= title_cited_only
+    assert len(widened - reader) == 8
+    assert title_cited_only - (widened - reader) == {"no/forskrift/2010-06-25-942"}
+
+
+def _title_cited_instrument_xml(
+    *,
+    title: str,
+    operative: str,
+    law_ids: tuple[str, ...] = ("lov/2012-08-24-64",),
+    date_in_force: str = "2013-01-01",
+) -> bytes:
+    """A minimal Lovtidend commencement instrument with ONE operative block."""
+    based_on = "".join(f"<li>{law_id}/§14</li>" for law_id in law_ids)
+    return (
+        "<html><head><title>"
+        + title
+        + '</title></head><body><header class="documentHeader"><dl>'
+        + f'<dt class="title">Tittel</dt><dd class="title">{title}</dd>'
+        + f'<dt class="dateInForce">I kraft fra</dt><dd class="dateInForce">{date_in_force}</dd>'
+        + f'<dt class="basedOn">Hjemmel</dt><dd class="basedOn"><ul>{based_on}</ul></dd>'
+        + '</dl></header><main class="documentBody">'
+        + f'<article class="legalP" id="ledd-1">{operative}</article>'
+        + "</main></body></html>"
+    ).encode("utf-8")
+
+
+def _parse_title_cited(
+    *,
+    title: str,
+    operative: str,
+    law_ids: tuple[str, ...] = ("lov/2012-08-24-64",),
+) -> NOCommencementInstrumentCandidate:
+    result = parse_no_commencement_instrument(
+        _title_cited_instrument_xml(title=title, operative=operative, law_ids=law_ids),
+        source_id="no/forskrift/test-1",
+        locator="no://forskrift/test-1/instrument.xml",
+        archive="test",
+        member_name="instrument.xml",
+    )
+    assert result.candidate is not None
+    return result.candidate
+
+
+def test_w73_title_cited_whole_act_subject_accepts_the_bustottelova_witness() -> None:
+    """W-73's witness, at the shape that carries it.
+
+    ``no/forskrift/2012-08-24-826`` commenced bustøttelova on 2013-01-01 and its
+    whole operative text is "Lov om bustøtte skal gjelde frå 1. januar 2013." —
+    a NEW act named by its title, which is the one way neither W-47 reader can
+    read. The candidate must carry the new proof and NOT the old one: the two
+    readers stay separately visible so W-47's multi-part route, which reads
+    ``whole_act_operative_text`` alone, cannot be moved by this item.
+    """
+    candidate = _parse_title_cited(
+        title="Ikraftsetjing av lov 24. august 2012 nr. 64 om bustøtte (bustøttelova)",
+        operative="Lov om bustøtte skal gjelde frå 1. januar 2013.",
+    )
+
+    assert candidate.title_cited_whole_act_scope is True
+    assert candidate.whole_act_operative_text is False
+    assert candidate.widened_whole_act_scope is True
+    # The SHIPPED route is untouched: its shape reader still refuses, so the pair
+    # can only ever reach the widened route.
+    assert candidate.scope_status is NOCommencementScopeStatus.UNRESOLVED
+
+
+def test_w73_title_cited_whole_act_subject_refuses_each_missing_conjunct() -> None:
+    """Each of the four conjuncts, refused on its own.
+
+    The reader is the loosest subject shape in the module, so what makes it safe
+    is that every conjunct can only REFUSE. Each case below flips exactly one and
+    the answer must go to False; none of them is carried by the others.
+    """
+    # TWO CITED ACTS — the corpus case, ``no/forskrift/2009-03-06-266``. A single
+    # act-level grant cannot be attributed to whichever of two the loop reaches.
+    assert (
+        _parse_title_cited(
+            title=(
+                "Ikraftsetting av lov 6. mars 2009 nr. 12 om Statens finansfond "
+                "og lov 6. mars 2009 nr. 13 om Statens obligasjonsfond"
+            ),
+            operative=(
+                "Lov om Statens finansfond og lov om Statens obligasjonsfond "
+                "trer i kraft straks."
+            ),
+            law_ids=("lov/2009-03-06-12", "lov/2009-03-06-13"),
+        ).title_cited_whole_act_scope
+        is False
+    )
+    # TITLE DISAGREEMENT — the subject names an act the instrument's own title
+    # does not. This is the conjunct that ties a loose textual shape to the
+    # document's identity.
+    assert (
+        _parse_title_cited(
+            title="Ikraftsetjing av lov 24. august 2012 nr. 64 om bustøtte (bustøttelova)",
+            operative="Lov om dyrevelferd skal gjelde frå 1. januar 2013.",
+        ).title_cited_whole_act_scope
+        is False
+    )
+    # SUBJECT NOT SENTENCE-INITIAL — a law-scoped narrowing, not an act-level
+    # claim. The same adjacency argument ``_WHOLE_ACT_SUBJECT_RE`` records.
+    assert (
+        _parse_title_cited(
+            title="Ikraftsetjing av lov 24. august 2012 nr. 64 om bustøtte (bustøttelova)",
+            operative="Endringane i lov om bustøtte skal gjelde frå 1. januar 2013.",
+        ).title_cited_whole_act_scope
+        is False
+    )
+    # SUBDIVISION NAMED — the shared refusing fence, reused verbatim. A
+    # title-cited subject may not carry a text that scopes to part of the act.
+    assert (
+        _parse_title_cited(
+            title="Ikraftsetjing av lov 24. august 2012 nr. 64 om bustøtte (bustøttelova)",
+            operative="Lov om bustøtte kapittel 2 skal gjelde frå 1. januar 2013.",
+        ).title_cited_whole_act_scope
+        is False
+    )
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_w73_corpus_title_cited_route_dates_exactly_five_acts() -> None:
+    """The whole measured effect of W-73's widening on the index, pinned.
+
+    Five acts move ``contingent`` -> ``instrument_authorized``, each on the date
+    its OWN kongelig resolusjon sets, and every one of the five is a NEW act
+    whose consequential-amendment part binds a base law. Nothing else moves: the
+    shipped whole-act route's 541 grants are untouched (the widened route can
+    only be entered by a pair the shipped route already refused), no act is
+    re-dated, and no grant is withdrawn.
+    """
+    index = build_no_amendment_index(_NO_FARCHIVE_PATH)
+    entries = {entry.source_id: entry for entry in index.entries}
+
+    # The five, with the instrument that dates each and the date it sets.
+    for act_id, instrument_id, date in (
+        ("no/lovtid/2009-01-09-2", "no/forskrift/2009-01-09-7", "2009-06-01"),
+        ("no/lovtid/2010-06-04-21", "no/forskrift/2010-06-04-760", "2010-07-01"),
+        ("no/lovtid/2012-08-24-64", "no/forskrift/2012-08-24-826", "2013-01-01"),
+        ("no/lovtid/2017-06-16-67", "no/forskrift/2017-06-16-763", "2017-07-01"),
+        ("no/lovtid/2024-12-13-76", "no/forskrift/2024-12-13-3095", "2025-01-01"),
+    ):
+        entry = entries[act_id]
+        assert entry.effective_status == "instrument_authorized"
+        assert entry.effective_date == date
+        grant = next(
+            d
+            for d in index.diagnostics
+            if d.get("rule_id") == NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED
+            and d["source_id"] == act_id
+        )
+        assert instrument_id in grant["instrument_source_ids"]
+
+    # The shipped route is unmoved, which is what ``BLOCKED_ONLY_ON_SCOPE``
+    # guarantees structurally rather than by measurement.
+    shipped = {
+        d["source_id"]
+        for d in index.diagnostics
+        if d.get("rule_id") == NO_COMMENCEMENT_EXECUTION_AUTHORIZED
+    }
+    assert len(shipped) == 541
+
+    # The reader's own corpus population, over the candidates rather than the
+    # grants: 15 instruments carry the title-cited proof, and the five above are
+    # the ones whose cited act is an offered amendment act blocked only on scope.
+    title_cited = {
+        c.source_id for c in index.commencement_instruments if c.title_cited_whole_act_scope
+    }
+    assert len(title_cited) == _W73_TITLE_CITED_CANDIDATE_COUNT

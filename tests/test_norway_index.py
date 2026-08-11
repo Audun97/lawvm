@@ -1112,7 +1112,15 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
     # commences them as a whole in wording ``_WHOLE_ACT_RE`` does not match.
     # Disjoint from the shipped set by construction, and the two together are
     # exactly the ``instrument_authorized`` histogram bucket below.
-    assert len(widened_ids) == 430
+    # 430 -> 435 at W-73, and the offer gate and every conjunct are again
+    # untouched — what grew is the route's TEXT conjunct, which now has a second
+    # reader for the one subject shape the first two cannot take: a NEW act named
+    # by its title ("Lov om bustøtte skal gjelde frå 1. januar 2013"). The five
+    # are ``no/lovtid/2009-01-09-2``, ``2010-06-04-21``, ``2012-08-24-64``,
+    # ``2017-06-16-67`` and ``2024-12-13-76``, each dated by its own kongelig
+    # resolusjon, all five ``plain`` rather than staged (so the staged pin below
+    # does not move), and all five previously ``contingent``.
+    assert len(widened_ids) == 435
     assert not (widened_ids & authorized_ids)
     # FIVE of the 430 are staged acts, so the staged re-dating population grows
     # 8 -> 13 — the same offer gate, the same "an official instrument outranks a
@@ -1199,7 +1207,11 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # grammar refused. Its commencement is an instrument date (2014-07-01,
         # ``plain``), so it lands ``instrument_authorized``. No existing entry's
         # status moved.
-        "contingent": 539,
+        # 539 -> 534 at W-73: the five new acts whose kongelig resolusjon names
+        # them by title. Exactly conserving into ``instrument_authorized``
+        # (971 -> 976); no other bucket moves, and no act is re-dated EARLIER
+        # than a sibling instrument (the route's fifth conjunct, measured).
+        "contingent": 534,
         # 1021 -> 1020 at W-15 (multi-part misbinding fix): the sole moved entry
         # is no/lovtid/2018-12-20-119, whose only "op" was its own part II
         # commencement sentence ("Lova tek til å gjelde straks.") swallowed as a
@@ -1215,7 +1227,7 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # 1049 -> 1051 at W-32: see the contingent comment above.
         "dated": 1047,
         "immediate": 1,
-        "instrument_authorized": 971,
+        "instrument_authorized": 976,
         "unknown": 2,
     }
 
@@ -1345,14 +1357,18 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     # 970 -> 971 (and 957 -> 958 non-staged, 13 staged unmoved) at W-61: the one
     # first-time entry the widening creates, ``no/lovtid/2014-06-20-26``, whose
     # authorizing instrument is ``plain``. See the note on ``authorized_ids``.
-    assert len(authorized) == 971
+    # 971 -> 976 (and 958 -> 963 non-staged, 13 staged unmoved) at W-73: the five
+    # NEW acts the title-cited subject reader dates, all five ``plain``. No
+    # existing entry is re-dated and none is withdrawn — the bucket grows by
+    # exactly the five acts that move out of ``contingent``.
+    assert len(authorized) == 976
     assert (
         len([
             entry
             for entry in authorized
             if entry.commencement_shape != NOCommencementShape.STAGED_DELEGATED
         ])
-        == 958
+        == 963
     )
     assert all(entry.effective_date for entry in authorized)
     authorization_receipts = [
@@ -1373,8 +1389,10 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     # 540 -> 541 at W-61, and 541 + 430 = 971: the one act gaining its first
     # index entry (``no/lovtid/2014-06-20-26``) is authorized by the SHIPPED
     # route, so the shipped receipt count moves and the widened one does not.
+    # 541 + 435 = 976 at W-73, the mirror case: the five acts are all authorized
+    # by the WIDENED route, so this time the widened receipt count moves alone.
     assert len(authorization_receipts) == 541
-    assert len(widened_receipts) == 430
+    assert len(widened_receipts) == 435
     assert {d["source_id"] for d in authorization_receipts + widened_receipts} == {
         entry.source_id for entry in authorized
     }
@@ -1499,7 +1517,16 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     # ``2004-12-17-99`` is klimakvoteloven, the act whose replay W-52 had to fix
     # before this landing could admit it: it enters CONSISTENT at 0 divergences,
     # so the scan's error column never opens.
-    assert len(fully_replayable) == 73
+    # 73 -> 76 at W-73, the same mechanism a fourth time and again ZERO leaving:
+    # three laws' LAST unresolved binding act is one of the five the title-cited
+    # subject reader dates, so they become fully replayable —
+    #   2015-02-13-9  <- 2017-06-16-67 @2017-07-01 (2017-06-16-763)
+    #   2015-06-19-70 <- 2017-06-16-67 @2017-07-01 (2017-06-16-763)
+    #   2020-06-19-77 <- 2024-12-13-76 @2025-01-01 (2024-12-13-3095)
+    # and each enters the scan candidate set with it. The other 14 laws the five
+    # acts bind still carry some OTHER contingent amendment and stay blocked;
+    # husbankloven is one of them (`2025-04-25-12` is still `Kongen bestemmer`).
+    assert len(fully_replayable) == 76
     assert set(fully_replayable) >= {
         "no/lov/2001-06-15-75",
         "no/lov/2004-03-26-17",

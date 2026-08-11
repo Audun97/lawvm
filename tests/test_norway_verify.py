@@ -2638,9 +2638,23 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # unexplained both move by the same +38, so W-53 explains nothing away — it
     # admits 38 rows on four laws that were previously unreachable. The honest
     # cost of new coverage, exactly as at W-39 and W-47.
-    assert report["scanned_count"] == 73
-    assert report["summary"] == {"consistent": 29, "divergent": 44, "error": 0}
-    assert report["divergence_totals"] == {"total": 1485, "ceiling": 1011, "unexplained": 474}
+    # W-73 (2026-08-11). 73 -> 76 candidates and 29/44 -> 29/47, the fourth
+    # landing bought by a commencement route and the same shape as the three
+    # before it: THREE laws enter, none leaves, and no pre-existing row moves at
+    # all — the 73 base rows are byte-identical across the change. Each entrant's
+    # last unresolved binding act is one of the five the title-cited subject
+    # reader dates (see ``tests/test_norway_index.py``'s candidate pin):
+    #   * 2015-06-19-70 at 17 and 2015-02-13-9 at 7, both divergent, both
+    #     `replay_defect`; both unblocked by 2017-06-16-67 @2017-07-01.
+    #   * 2020-06-19-77 at 3, divergent, `untouched_drift`; unblocked by
+    #     2024-12-13-76 @2025-01-01.
+    # Ceiling is untouched at 1,011 for the eighth landing running; total and
+    # unexplained both move by the same +27, so W-73 explains nothing away — it
+    # admits 27 rows on three laws that were previously unreachable. The honest
+    # cost of new coverage, exactly as at W-39, W-47 and W-53.
+    assert report["scanned_count"] == 76
+    assert report["summary"] == {"consistent": 29, "divergent": 47, "error": 0}
+    assert report["divergence_totals"] == {"total": 1512, "ceiling": 1011, "unexplained": 501}
     # 3 -> 2 at W-34: no/lov/2001-01-05-1 gains 4 bound ops from
     # no/lovtid/2015-06-19-65 item 178, so its indexed history is no longer
     # sparse. Its 83 divergences do not move; only the bucket does.
@@ -2671,7 +2685,12 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             "no/lov/2011-06-24-39",
             "no/lov/2012-11-30-70",
             "no/lov/2014-08-15-59",
+            # W-73: two of the three entrants land here, both unblocked by
+            # 2017-06-16-67 @2017-07-01 (statsansatteloven's own kgl.res.).
+            # 21 -> 23.
+            "no/lov/2015-02-13-9",
             "no/lov/2015-05-22-33",
+            "no/lov/2015-06-19-70",
             "no/lov/2016-06-17-29",
             "no/lov/2016-06-17-46",
             "no/lov/2017-05-22-29",
@@ -2700,6 +2719,9 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             # W-47: enters the candidate set at 14 rows, none of them a ceiling
             # row and none of them traceable to a replay defect. 16 -> 17.
             "no/lov/2018-04-20-7",
+            # W-73: the third entrant, at 3 rows, unblocked by 2024-12-13-76
+            # @2025-01-01 (ekomloven's own kgl.res.). 18 -> 19.
+            "no/lov/2020-06-19-77",
             "no/lov/2020-12-04-136",
             "no/lov/2021-04-16-18",
             "no/lov/2021-06-18-121",
@@ -2797,8 +2819,8 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # Complete and disjoint, asserted directly rather than inferred from the
     # per-bucket lists.
     routed = [item["base_id"] for bucket in partitions.values() for item in bucket]
-    assert len(routed) == 73
-    assert len(set(routed)) == 73
+    assert len(routed) == 76
+    assert len(set(routed)) == 76
 
     # Every member of the ceiling bucket is ceiling-DOMINATED, and the margin
     # to the routing boundary is enormous in both directions: the smallest
