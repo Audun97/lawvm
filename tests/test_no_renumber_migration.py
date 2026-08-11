@@ -851,6 +851,20 @@ _REAL_ARCHIVE = _REPO_ROOT / "data" / "norway.farchive"
 #: four-ledd section the later amendments have always read on, and the
 #: ``4 → 5`` leg of ``no/lovtid/2024-12-20-87`` no longer lands on an occupied
 #: node at all. Kept at ``(0, 0)`` for the same tripwire reason as tvisteloven.
+#: W-67 + W-74 raise it to **10**, and this is the first growth in the series.
+#: The two-token section-renumber widening lowers 64 previously-refused leads, and
+#: three of them move text into a slot that is already occupied. Two are entered
+#: here, both adjudicated ``removal_correct`` on their own evidence (see the
+#: verdict table). The THIRD — husbankloven ``no/lov/2009-05-29-30``, the 2017
+#: renumber § 10 -> § 13 — was W-67's stop condition: it destroyed § 13
+#: "Ikraftsetjing o.a", proven present in the consolidation and nowhere in the
+#: replay. It is absent from this table because it does not fire any more. W-74
+#: lowers the 2012 act's ``§§ 10, 11 og 12 blir oppheva. Noverande § 13 blir ny
+#: § 10.``, so § 13 is VACATED before the 2017 renumber runs and the destination
+#: is free. Repaired at the lowering, exactly as W-56 and W-61 repaired theirs;
+#: husbankloven is deliberately NOT listed, because a law with no firing has no
+#: row to pin, and its positive fact is held by
+#: ``test_no_husbankloven_13_commencement_provision_survives`` below.
 _NO_OCCUPIED_DESTINATION_LAWS: dict[str, tuple[int, int]] = {
     "no/lov/2001-01-05-1": (2, 0),
     "no/lov/2003-07-04-84": (1, 0),
@@ -858,6 +872,8 @@ _NO_OCCUPIED_DESTINATION_LAWS: dict[str, tuple[int, int]] = {
     "no/lov/2005-06-10-44": (2, 2),
     "no/lov/2005-06-17-67": (0, 0),  # W-61: repaired at the lowering; see above.
     "no/lov/2005-06-17-90": (0, 0),  # W-56: repaired at the lowering; see above.
+    "no/lov/2007-06-29-75": (1, 0),  # W-67: verdipapirhandelloven § 4-3 -> § 4-2.
+    "no/lov/2009-06-19-58": (1, 0),  # W-67: merverdiavgiftsloven § 7-9 -> § 7-8.
     "no/lov/2021-06-18-97": (1, 0),
 }
 
@@ -945,7 +961,13 @@ _NO_OCCUPIED_DESTINATION_VERDICTS: dict[str, tuple[str, str, str, str, str, tupl
         "",
         (),
     ),
-    "no/lovtid/2015-04-10-17:27": (
+    # ``:27`` -> ``:30`` and ``:106`` -> ``:109`` at W-74. The op_id is
+    # ``f"{source_id}:{sequence}"`` over a per-document counter, and W-74's
+    # accepted lead in this SAME instrument ("§§ 1-2 til 1-7 oppheves. Nåværende
+    # § 1-8 blir ny § 1-2.") mints three ops ahead of both — two REPEALs and one
+    # RENUMBER. Pure ordinal churn: same law, same source, same destination, same
+    # occupant, same verdict.
+    "no/lovtid/2015-04-10-17:30": (
         "no/lov/2005-06-10-44",
         "part:3/chapter:7/section:7-8",
         "part:2/chapter:2/section:2-4",
@@ -953,7 +975,7 @@ _NO_OCCUPIED_DESTINATION_VERDICTS: dict[str, tuple[str, str, str, str, str, tupl
         "utenlandsk forsikringsselskap kan gis konsesjon til å drive virksomhet",
         (),
     ),
-    "no/lovtid/2015-04-10-17:106": (
+    "no/lovtid/2015-04-10-17:109": (
         "no/lov/2005-06-10-44",
         "part:6/chapter:16/section:16-1",
         "part:4/chapter:9/section:9-1",
@@ -969,6 +991,47 @@ _NO_OCCUPIED_DESTINATION_VERDICTS: dict[str, tuple[str, str, str, str, str, tupl
         "chapter:10/section:10-17/subsection:5",
         "removal_correct",
         "avgjørelser om godkjenning kan påklages til sentralt nivå i",
+        (),
+    ),
+    # W-67's two new firings, both adjudicated on their own evidence rather than
+    # entered because they are convenient. Both are ``removal_correct``, and they
+    # are correct for DIFFERENT reasons, which is why the survival tuple differs.
+    #
+    # Verdipapirhandelloven: the occupant is not destroyed at all. Every one of
+    # § 4-2's five ledd is still at its own address in the replay after the
+    # renumber lands, and every one matches the published consolidation. The probe
+    # is § 4-2 first ledd's OWN text and the survival tuple is the observed
+    # address, so this row asserts the provision is in place rather than that some
+    # string exists somewhere.
+    "no/lovtid/2019-06-21-41:2": (
+        "no/lov/2007-06-29-75",
+        "part:2/chapter:4/section:4-3",
+        "part:2/chapter:4/section:4-2",
+        "removal_correct",
+        "hvis en aksjeeiers andel av aksjer med tilknyttet stemmerett når overstiger eller",
+        ("part:2/chapter:4/section:4-2/subsection:1",),
+    ),
+    # Merverdiavgiftsloven: the occupant IS destroyed, and destroying it is what
+    # the act commands. ``no/lovtid/2022-03-11-8`` repeals § 7-8 in the same act
+    # ("Nåværende § 7-8 oppheves."), and the removed text is absent from the
+    # published consolidation too, so nothing in force is lost. Two divergence
+    # rows CLOSE on this law with the change (256 -> 254).
+    #
+    # The probe is the § 7-8 HEADING, and the choice matters for the same reason
+    # the skattebetalingsloven pin below is on an address SET. § 7-8's first ledd
+    # opens "Departementet kan gi forskrift om at det ikke skal beregnes
+    # merverdiavgift ved …", and § 7-6 carries that identical boilerplate — a
+    # probe taken from the ledd hits § 7-6 in the replay AND in the consolidation
+    # and so proves nothing either way. The heading names what § 7-8 was actually
+    # about ("varer av utdannende, vitenskapelig og kulturell art") and is absent
+    # from both sides, which is the discriminating measurement. The empty survival
+    # tuple is the honest answer, not a missing one.
+    "no/lovtid/2022-03-11-8:25": (
+        "no/lov/2009-06-19-58",
+        "chapter:7/section:7-9",
+        "chapter:7/section:7-8",
+        "removal_correct",
+        "varer av utdannende vitenskapelig og kulturell art",
         (),
     ),
 }
@@ -994,6 +1057,26 @@ _TVISTELOVEN_OATH_ADDRESS = "part:5/chapter:24/section:24-8/subsection:5/sentenc
 _SKATTEBETALINGSLOVEN_REGULATION_PROBE = "skattedirektoratet kan i forskrift gi nærmere regler om gjennomføringen"
 _SKATTEBETALINGSLOVEN_8_2_ADDRESS = "part:2/chapter:8/section:8-2/subsection:5"
 _SKATTEBETALINGSLOVEN_8_3_ADDRESS = "part:2/chapter:8/section:8-3/subsection:3"
+
+#: W-74's payoff probe, and the reason W-67 could finally land.
+#:
+#: Husbankloven § 13 "Ikraftsetjing o.a" is the provision W-67's widening
+#: destroyed. Its 2017 renumber (§ 10 -> § 13) is textually correct, but the slot
+#: it writes into was occupied because the op that vacates it —
+#: ``no/lovtid/2012-08-24-64``'s "§§ 10, 11 og 12 blir oppheva. Noverande § 13
+#: blir ny § 10." — is a section-level repeal-then-shift run-on the unstructured
+#: grammar refused. W-73 made the 2012 act commence; W-74 makes that block lower.
+#: With both, § 13 is vacated in 2012, the 2017 renumber lands on a FREE
+#: destination, and the firing does not happen at all.
+#:
+#: Pinned on the ADDRESS SET rather than on "the probe finds something", for the
+#: same reason as the skattebetalingsloven pin above: what matters is that both
+#: ledd of § 13 are where the consolidation puts them.
+_HUSBANKLOVEN = "no/lov/2009-05-29-30"
+_HUSBANKLOVEN_13_COMMENCEMENT_PROBE = "lova gjeld frå den tida kongen fastset"
+_HUSBANKLOVEN_13_REPEAL_PROBE = "frå same tid vert lov"
+_HUSBANKLOVEN_13_COMMENCEMENT_ADDRESS = "section:13/subsection:1"
+_HUSBANKLOVEN_13_REPEAL_ADDRESS = "section:13/subsection:2"
 
 
 def _no_normalise_probe_text(text: str) -> str:
@@ -1156,6 +1239,45 @@ def test_no_skattebetalingsloven_8_2_regulation_power_survives(
     not _REAL_ARCHIVE.exists(),
     reason="requires the local Lovdata archive (data/norway.farchive)",
 )
+def test_no_husbankloven_13_commencement_provision_survives() -> None:
+    """W-74's payoff, pinned at the corpus: husbankloven § 13 "Ikraftsetjing o.a"
+    survives the replay, at the addresses the consolidation puts it, and NO
+    occupied-destination recovery fires on this law at all.
+
+    This is the positive fact behind the missing row in
+    ``_NO_OCCUPIED_DESTINATION_LAWS``. W-67 measured a ``removal_wrong`` here and
+    was held back for it; the repair is at the LOWERING, not in the recovery, so
+    the assertion that matters is that the recovery has nothing to fire on.
+
+    Both probes must hit, and the firing list must be empty. A regression in
+    either direction — the provision vanishing, or the recovery waking up — fails
+    here rather than silently passing a shorter table.
+    """
+    from lawvm.norway.index import build_no_amendment_index
+
+    index = build_no_amendment_index(_REAL_ARCHIVE)
+    replay = replay_no_to_pit(
+        _HUSBANKLOVEN, as_of="2026-07-10", data_dir=_REAL_ARCHIVE, index=index
+    )
+    assert replay.error is None
+    assert replay.replayed is not None
+    assert _no_probe_hits(replay.replayed, _HUSBANKLOVEN_13_COMMENCEMENT_PROBE) == (
+        _HUSBANKLOVEN_13_COMMENCEMENT_ADDRESS,
+    )
+    assert _no_probe_hits(replay.replayed, _HUSBANKLOVEN_13_REPEAL_PROBE) == (
+        _HUSBANKLOVEN_13_REPEAL_ADDRESS,
+    )
+    assert [
+        a.op_id
+        for a in replay.adjudications
+        if a.kind == "no_replay_renumber_occupied_destination_removed"
+    ] == []
+
+
+@pytest.mark.skipif(
+    not _REAL_ARCHIVE.exists(),
+    reason="requires the local Lovdata archive (data/norway.farchive)",
+)
 def test_no_corpus_occupied_renumber_destinations_are_all_declared(
     _no_occupied_destination_replays,
 ) -> None:
@@ -1201,7 +1323,10 @@ def test_no_corpus_occupied_renumber_destinations_are_all_declared(
     # W-52 measured 10 firings, W-56 repaired one (tvisteloven § 24-8) and W-61
     # one more (skattebetalingsloven § 8-2) — both at the LOWERING, so the
     # recovery simply has nothing left to fire on there.
-    assert sum(f for f, _ in observed.values()) == 8
+    # W-67 raises the firing total 8 -> 10 (two new laws enter the table above,
+    # both ``removal_correct``); the collateral count is unmoved at 3, because
+    # neither new firing removes anything the receipt does not already declare.
+    assert sum(f for f, _ in observed.values()) == 10
     assert sum(c for _, c in observed.values()) == 3
     # The two tables must agree on the firing population, so neither can drift
     # alone: one row per firing, keyed by op_id.

@@ -1120,7 +1120,12 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
     # ``2017-06-16-67`` and ``2024-12-13-76``, each dated by its own kongelig
     # resolusjon, all five ``plain`` rather than staged (so the staged pin below
     # does not move), and all five previously ``contingent``.
-    assert len(widened_ids) == 435
+    # 435 -> 436 at W-67, by the mechanism W-61 recorded and not a new one:
+    # ``no/lovtid/2004-09-24-72`` gains its FIRST index entry off the two-token
+    # section-renumber widening (its only operative lead is "Nåværende § 16 blir
+    # § 16-1."), and the act it commences reaches the widened route. One act, one
+    # entry, ``plain`` rather than staged.
+    assert len(widened_ids) == 436
     assert not (widened_ids & authorized_ids)
     # FIVE of the 430 are staged acts, so the staged re-dating population grows
     # 8 -> 13 — the same offer gate, the same "an official instrument outranks a
@@ -1227,7 +1232,22 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # 1049 -> 1051 at W-32: see the contingent comment above.
         "dated": 1047,
         "immediate": 1,
-        "instrument_authorized": 976,
+        # 976 -> 977 at W-67, and the whole of this landing's effect on the
+        # act-level histogram is ONE act gaining its FIRST index entry — the same
+        # mechanism W-61 recorded two paragraphs up, not a new one.
+        # ``no/lovtid/2004-09-24-72``'s only operative lead is "Nåværende § 16
+        # blir § 16-1.", which the shipped section-renumber production refused for
+        # want of the literal ``ny``; with the two-token widening it lowers, so
+        # the act binds plan- og bygningsloven 1985 for the first time and can be
+        # offered at all. Its commencement is an instrument date, ``plain`` rather
+        # than staged, so it lands ``instrument_authorized`` and the staged pin
+        # above does not move.
+        # Measured, not inferred: the entry is NEW (2,560 -> 2,561) and no
+        # PRE-EXISTING entry's ``effective_status`` changes, so every other bucket
+        # holds and the +1 is exactly conserving. W-74 adds no act to this
+        # histogram at all — all seven of its leads are in acts that already had
+        # an index entry.
+        "instrument_authorized": 977,
         "unknown": 2,
     }
 
@@ -1361,14 +1381,18 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     # NEW acts the title-cited subject reader dates, all five ``plain``. No
     # existing entry is re-dated and none is withdrawn — the bucket grows by
     # exactly the five acts that move out of ``contingent``.
-    assert len(authorized) == 976
+    # 976 -> 977 (and 963 -> 964 non-staged, 13 staged unmoved) at W-67: the
+    # single new act ``no/lovtid/2004-09-24-72``, authorized by the WIDENED route
+    # and measured ``plain`` rather than staged — which is why the whole of the
+    # move lands in the non-staged half and the staged pin does not budge.
+    assert len(authorized) == 977
     assert (
         len([
             entry
             for entry in authorized
             if entry.commencement_shape != NOCommencementShape.STAGED_DELEGATED
         ])
-        == 963
+        == 964
     )
     assert all(entry.effective_date for entry in authorized)
     authorization_receipts = [
@@ -1391,8 +1415,10 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     # route, so the shipped receipt count moves and the widened one does not.
     # 541 + 435 = 976 at W-73, the mirror case: the five acts are all authorized
     # by the WIDENED route, so this time the widened receipt count moves alone.
+    # 541 + 436 = 977 at W-67, the same mirror case as W-73: the one new act is
+    # authorized by the WIDENED route, so the widened receipt count moves alone.
     assert len(authorization_receipts) == 541
-    assert len(widened_receipts) == 435
+    assert len(widened_receipts) == 436
     assert {d["source_id"] for d in authorization_receipts + widened_receipts} == {
         entry.source_id for entry in authorized
     }
@@ -1631,9 +1657,12 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # two lose their gap ENTIRELY, which is why the receipt count falls by 2 while
     # the pair count falls by 10. Every target bound was already a declared target
     # on the receipt, and the widening un-declares none.
-    assert len(unbound) == 956
-    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2524
-    assert len({diagnostic["source_id"] for diagnostic in unbound}) == 956
+    # 956 -> 955 receipts and 2,524 -> 2,523 pairs at W-67. The widening binds
+    # ``no/lovtid/2004-09-24-72`` to plan- og bygningsloven 1985, so one declared
+    # target stops being unbound; the W-34/W-35 conservation holds at 1 = 1.
+    assert len(unbound) == 955
+    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2523
+    assert len({diagnostic["source_id"] for diagnostic in unbound}) == 955
 
     # 64 acts gain their FIRST index entry: they announced every one of their
     # parts with an unlisted tail, so they had bound no law at all.
@@ -1675,7 +1704,8 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # fjerde ledd.") that the unstructured repeal-then-shift production refused
     # for spelling its qualifier `Gjeldende` rather than `Nåværende`. It enters
     # `instrument_authorized`.
-    assert len(index.entries) == 2560
+    # 2,560 -> 2,561 at W-67: ``no/lovtid/2004-09-24-72`` gains its first entry.
+    assert len(index.entries) == 2561
     bindings = {
         (entry.source_id, base_id) for entry in index.entries for base_id in entry.base_ids
     }
@@ -1688,7 +1718,9 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # receipted as unbound (the receipt census above falls by exactly 10 in
     # step). Nothing is rebound and nothing is removed — the widening only ever
     # adds ops to a lead that previously lowered none.
-    assert len(bindings) == 6476
+    # 6,476 -> 6,477 at W-67: one new (act, law) pair, ``2004-09-24-72`` ->
+    # plan- og bygningsloven 1985.
+    assert len(bindings) == 6477
     # 26,218 at W-30; +2 at W-24, both reconciled to a named erratum and neither
     # touching this test's own subject. W-24 lowered two Del-scoped Rettelser
     # corrections into the law each part amends — ``2019-12-20-110`` Del I into
@@ -1772,7 +1804,10 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # ``tests/test_no_renumber_migration.py``), utlendingsloven § 107 (842 -> 840,
     # the tilsynsråd ledd repealed as ``no/lovtid/2021-06-11-72`` moves it to a
     # new § 107 a) and finansforetaksloven § 7-7.
-    assert sum(entry.n_ops for entry in index.entries) == 27018
+    # 27,018 -> 27,100 at the W-67 + W-74 landing: +64 section RENUMBERs from the
+    # two-token widening and +18 from the section-level repeal-then-shift run-on
+    # (11 REPEALs and 7 RENUMBERs over its 7 accepting leads). 0 lost, 0 rebound.
+    assert sum(entry.n_ops for entry in index.entries) == 27100
 
 
 def test_no_amendment_index_staleness_report_detects_archive_change(tmp_path) -> None:

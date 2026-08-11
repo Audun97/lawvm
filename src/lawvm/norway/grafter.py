@@ -1220,6 +1220,23 @@ def _no_ledd_shift_pairs_from_sentence(sentence: str) -> Optional[tuple[str, lis
     return section_label, list(zip(sources, destinations, strict=True))
 
 
+#: The currency qualifiers a Lovtidend drafter may put in front of an address to
+#: mean "the one that is there BEFORE this act lands" — bokmål and nynorsk, plus
+#: the older ``nuværende`` spelling. Every member carries the same information:
+#: none. They do not narrow, widen or relocate the address they precede, which is
+#: why a production may admit the whole set wherever it admits one of them.
+#:
+#: W-61 established the set (measured on the repeal-then-shift lead, where 24 of
+#: 45 corpus leads spell the qualifier as something other than ``Nåværende`` or
+#: omit it); W-67 reuses it verbatim for the section-renumber lead rather than
+#: minting a second, drifting copy. The alternation is spelled here WITHOUT its
+#: surrounding group so each use site can choose whether the qualifier is
+#: optional — it is on the repeal-then-shift lead, required on the renumber lead.
+_NO_CURRENCY_QUALIFIER_ALTERNATION = (
+    r"nåværende|noverande|nåverande|nuværende|någjeldende|nogjeldande|gjeldende|gjeldande"
+)
+
+
 def _no_unstructured_repeal_renumber_legs(
     lead: str,
 ) -> Optional[tuple[str, list[LegalAddress], list[LegalAddress], list[LegalAddress]]]:
@@ -1278,8 +1295,7 @@ def _no_unstructured_repeal_renumber_legs(
         r"^§\s*(?P<section>[0-9A-Za-z-]+(?:\s+[A-Za-z])?)\s+"
         r"(?P<repealed>.+?)\s+ledd\s+oppheves\.\s*"
         r"(?:§\s*(?P<shift_section>[0-9A-Za-z-]+(?:\s+[A-Za-z])?)\s+)?"
-        r"(?:(?:nåværende|noverande|nåverande|nuværende|någjeldende|nogjeldande"
-        r"|gjeldende|gjeldande)\s+)?"
+        r"(?:(?:" + _NO_CURRENCY_QUALIFIER_ALTERNATION + r")\s+)?"
         r"(?P<source>.+?)\s+ledd\s+blir\s+(?P<destination>.+?)\s+ledd\.?$",
         lead,
         re.IGNORECASE,
@@ -1298,6 +1314,223 @@ def _no_unstructured_repeal_renumber_legs(
         for ordinals in phrases
     ]
     return section_label, widened_legs[0], widened_legs[1], widened_legs[2]
+
+
+# W-67. The section-renumber lead, widened off two literal tokens.
+#
+# The shipped production reads exactly ``Nåværende § X blir ny § Y.``. Two tokens
+# in it carry no address information and yet decide whether the act lowers at all:
+#
+#   * the literal ``Nåværende`` — the currency qualifier, which drafters spell
+#     eight ways (``_NO_CURRENCY_QUALIFIER_ALTERNATION``, W-61's measured set);
+#   * the literal ``ny`` in ``blir ny §`` — a purely stylistic marker. The
+#     collective re-enactment production at ``_NO_COLLECTIVE_RENUMBER_RE`` already
+#     records that both spellings occur inside ONE part of one act ("Nåværende
+#     § 12 blir § 14." beside "Nåværende § 16 blir ny § 20."), and deliberately
+#     left this production alone because it had not measured it. W-62 measured it.
+#
+# The census over all 9,454 corpus ``no_parse_unstructured_lead_unmatched``
+# refusals: relaxing BOTH tokens admits 64 refusal occurrences — 62 distinct
+# leads, 44 instruments, 44 base acts — and every single one is classified by
+# W-62's family census as ``renumber_shift/section:nåværende:single``, the family
+# this production exists to lower. Zero matches fall outside it. Split by token:
+# 20 need only the qualifier, 36 need only the optional ``ny``, 8 need both.
+# Witness: ``Gjeldende § 10-10 blir ny § 10-13.``, a leaf
+# ``<article class="defaultP">`` in part ``kapV`` of ``no/lovtid/2020-12-18-157``,
+# address-coincident with two live ``OPS_MISSING`` divergence rows on scan
+# candidate ``no/lov/2010-06-04-21``.
+#
+# STRICTLY ADDITIVE, in W-61's shape and for W-61's reason: the shipped pattern
+# is attempted FIRST, character for character, and only a lead it does not match
+# at all reaches the widened one. W-61's first cut replaced its production
+# outright and regressed 14 leads; nothing here can, because nothing that lowers
+# today takes a different path.
+#
+# The widened pattern keeps the shipped label class ``[0-9A-Za-z-]+`` rather than
+# borrowing W-32(c)'s ``(?:\s+[A-Za-z])?`` suffix. That suffix would admit leads
+# the census never priced ("§ 3 c"), and a widening whose claim is a measured
+# population must not quietly exceed it. ``ny`` is admitted only in the masculine
+# singular: ``§`` is a masculine noun, so ``nytt``/``nye`` before it would not be
+# this sentence, and neither spelling occurs in the corpus refusals.
+_NO_UNSTRUCTURED_SECTION_RENUMBER_WIDENED_RE = compile_classifier_regex(
+    r"^(?:" + _NO_CURRENCY_QUALIFIER_ALTERNATION + r") §\s*([0-9A-Za-z-]+)"
+    r"\s+blir (?:ny )?§\s*([0-9A-Za-z-]+)\.?$",
+    re.IGNORECASE,
+    classifier_id="no.lovtidend.unstructured_section_renumber_widened",
+)
+
+
+def _no_unstructured_section_renumber_labels(lead: str) -> Optional[tuple[str, str, str]]:
+    """``Nåværende § X blir ny § Y.`` → ``(source_label, destination_label, pattern)``.
+
+    ``pattern`` is ``"shipped"`` or ``"widened"`` — returned, rather than kept
+    private, so the additive ordering is a fact a test can assert instead of a
+    claim a comment makes. See the block above for the measurement.
+    """
+    # The shipped pattern, UNCHANGED, character for character, and tried first.
+    # It stays an inline ``re.match`` for the reason W-32(c) records for its
+    # siblings: this is a scanned semantic-plane module (FW-07), and moving a
+    # shipped production to a module-level compile is not this widening's
+    # business.
+    # lawvm-regex: owning_parser this IS the unstructured section-renumber lead parser
+    shipped = re.match(
+        r"^Nåværende §\s*([0-9A-Za-z-]+)\s+blir ny §\s*([0-9A-Za-z-]+)\.?$",
+        lead,
+        re.IGNORECASE,
+    )
+    match = shipped if shipped is not None else _NO_UNSTRUCTURED_SECTION_RENUMBER_WIDENED_RE.match(lead)
+    if match is None:
+        return None
+    return (
+        _normalize_label(match.group(1)),
+        _normalize_label(match.group(2)),
+        "shipped" if shipped is not None else "widened",
+    )
+
+
+# W-74. The SECTION-level repeal-then-shift run-on, and its self-proving guard.
+#
+# One lead, two sentences: a section-list repeal followed by a section shift into
+# a slot the repeal just vacated. The witness is
+# ``§§ 10, 11 og 12 blir oppheva. Noverande § 13 blir ny § 10.``
+# (``no/lovtid/2012-08-24-64``, bustøttelova), and before this production every
+# lead of the shape was refused outright — every shipped section-repeal pattern is
+# anchored ``oppheves\.?$`` and every shipped renumber pattern is anchored
+# ``^Nåværende``, so a lead carrying both sentences matches neither.
+#
+# THE PRECEDENT, which is why this is one pattern and not a sentence splitter.
+# The LEDD-level sibling of exactly this family already ships as
+# ``_no_unstructured_repeal_renumber_legs`` ("§ X <ord> ledd oppheves. <ord> ledd
+# blir <ord> ledd"), W-61 widened it, and it reads its two sentences as ONE
+# combined pattern. This production is that one's section-level analogue, member
+# for member: its own combined regex, its own optional currency qualifier drawn
+# from ``_NO_CURRENCY_QUALIFIER_ALTERNATION``, and W-32(c)'s ``(?:\s+[A-Za-z])?``
+# label suffix so "§ 3 i" resolves its section instead of stopping at the digit.
+# No general sentence splitter is introduced, and none is needed.
+#
+# MEASURED POPULATION: 10 leads corpus-wide over the 9,454
+# ``no_parse_unstructured_lead_unmatched`` refusals, on 7 instruments and 7 base
+# laws. Every one is a genuine repeal-then-shift; the five neighbouring leads that
+# carry both verbs in the OTHER order ("Nåværende § 18-11 blir ny § 18-10.
+# Paragrafens bokstav d og e oppheves.") or with a trailing payload ("… blir ny
+# § 27 og skal lyde:") are refused by construction — the first because ``§`` and
+# ``.`` are outside the repeal list's character class, the second because the
+# shift tail is anchored at the destination label.
+#
+# THE SAFETY RESTRICTION, and it is a hard conjunct rather than a heuristic: the
+# shift's DESTINATION must be a label THIS SAME LEAD repeals. That makes the
+# production self-proving. It cannot write into occupied law, because the only
+# slot it will ever write into is one it has already emitted a REPEAL for, in the
+# same op group and at a lower sequence number. This is precisely W-54's concern,
+# and precisely what went wrong on husbankloven when W-67's textually correct 2017
+# renumber landed on a § 13 that no applied op had vacated.
+#
+# Under the restriction 7 of the 10 accept and 3 refuse. The three refusals are
+# all ``no/lovtid/2015-04-10-17`` CROSS-CHAPTER shifts ("§ 7-1 oppheves. Nåværende
+# § 7-2 blir ny § 2-2." and two siblings): the lead vacates a chapter 7 label and
+# writes into a chapter 2 one, so nothing here proves § 2-2 is free and the lead
+# keeps its existing refusal receipt. That is the conservative polarity the ledd
+# sibling already uses for its 19 trailing-clause leads — a lead this grammar
+# cannot fully account for lowers nothing.
+
+# The label class, and it is DIGIT-INITIAL on purpose. The shipped section
+# productions spell theirs ``[0-9A-Za-z-]+``, which also admits a bare word — and
+# a bare word reaching the repeal list is not harmless here, because the list is
+# both the set the REPEAL ops are minted from and the set the destination conjunct
+# is checked against ("… og siste" would repeal a § siste and could satisfy the
+# conjunct against itself). Every label in the measured population is
+# digit-initial (10, 7-3, 1-2, 41, 3 i), so requiring it costs the production
+# nothing and closes that shape by construction rather than by a guard.
+_NO_SECTION_LABEL_WITH_LETTER_SUFFIX = r"[0-9][0-9A-Za-z-]*(?:\s+[A-Za-z])?"
+
+# The repeal head and the shift tail, as one anchored pattern. The repeal list is
+# captured as a bounded character class rather than ``.+?`` — ``§`` and ``.`` are
+# deliberately OUTSIDE it, which is what stops the pattern from reading across a
+# sentence boundary and taking a shift sentence for a repeal list. The span is
+# then parsed by ``_no_section_repeal_list_labels``, which refuses anything that
+# is not a closed set of section labels.
+#
+# It stays an inline ``re.match`` in the function below rather than a
+# ``compile_classifier_regex`` constant, for the reason the ledd-level sibling
+# already records: the letter-suffixed label class is an adjacent variable repeat
+# with overlapping starts and the classifier-safety gate refuses the wrap. Checked,
+# not assumed — the gate rejects this exact pattern with "adjacent variable
+# backtracking repeats … have overlapping starts".
+#
+# ``opphev(?:es|a)`` is the two spellings the measured population uses (``oppheves``
+# on nine leads, the nynorsk periphrastic ``blir oppheva`` on the witness). Other
+# nynorsk forms the module recognises elsewhere are deliberately NOT admitted here:
+# a widening whose claim is a measured population must not quietly exceed it.
+_NO_UNSTRUCTURED_SECTION_REPEAL_RENUMBER_PATTERN = (
+    r"^(?:(?:" + _NO_CURRENCY_QUALIFIER_ALTERNATION + r")\s+)?"
+    r"§{1,2}\s*(?P<repealed>[0-9][0-9A-Za-z,\s-]*?)\s+(?:blir\s+)?opphev(?:es|a)\.\s+"
+    r"(?:(?:" + _NO_CURRENCY_QUALIFIER_ALTERNATION + r")\s+)?"
+    r"§\s*(?P<source>" + _NO_SECTION_LABEL_WITH_LETTER_SUFFIX + r")\s+blir\s+(?:ny\s+)?"
+    r"§\s*(?P<destination>" + _NO_SECTION_LABEL_WITH_LETTER_SUFFIX + r")\.?$"
+)
+
+
+def _no_section_repeal_list_labels(text: str) -> Optional[list[str]]:
+    """``"10, 11 og 12"`` → ``["10", "11", "12"]``; ``"1-2 til 1-7"`` → the range.
+
+    ``None`` means the span is not a closed set of section labels, and the caller
+    must refuse the whole lead rather than repeal a guess.
+
+    The ``til`` range goes through ``_expand_no_section_range_labels``, the same
+    helper the shipped standalone ``§§ X til Y oppheves.`` production uses — so a
+    range over hyphenated labels resolves to its two ENDPOINTS here exactly as it
+    does there. That under-repeals a chapter-numbered range, it is the shipped
+    behaviour rather than something this item introduces, and under-repealing is
+    the safe direction. The destination conjunct is evaluated against the same set
+    the REPEAL ops are minted from, so the two can never disagree.
+    """
+    # lawvm-regex: owning_parser this IS the section-list parser for the
+    # repeal-then-shift lead, and it runs on a span the anchored production above
+    # already captured
+    range_match = re.fullmatch(
+        r"(?P<start>" + _NO_SECTION_LABEL_WITH_LETTER_SUFFIX + r")\s+til\s+"
+        r"(?P<end>" + _NO_SECTION_LABEL_WITH_LETTER_SUFFIX + r")",
+        text,
+        re.IGNORECASE,
+    )
+    if range_match is not None:
+        return _expand_no_section_range_labels(range_match.group("start"), range_match.group("end"))
+    labels: list[str] = []
+    # lawvm-regex: owning_parser splits the captured list on its separators; every
+    # member is validated below and one invalid member refuses the whole lead
+    for part in re.split(r",\s*|\s+og\s+", text, flags=re.IGNORECASE):
+        part = part.strip()
+        # lawvm-regex: owning_parser validates one member of the captured list
+        if re.fullmatch(_NO_SECTION_LABEL_WITH_LETTER_SUFFIX, part) is None:
+            return None
+        labels.append(_normalize_no_section_label(part))
+    return labels or None
+
+
+def _no_unstructured_section_repeal_renumber_labels(
+    lead: str,
+) -> Optional[tuple[list[str], str, str]]:
+    """``§§ 10, 11 og 12 blir oppheva. Noverande § 13 blir ny § 10.`` → ``(repealed, src, dst)``.
+
+    ``None`` means this production declines the lead and the walk falls through to
+    its ordinary refusal. The destination-vacated conjunct is enforced here, so a
+    caller holding a tuple may mint the repeals and the shift without re-checking
+    anything: ``dst`` is guaranteed to be a member of ``repealed``.
+    """
+    # lawvm-regex: owning_parser this IS the unstructured section-level repeal-then-shift lead parser
+    match = re.match(_NO_UNSTRUCTURED_SECTION_REPEAL_RENUMBER_PATTERN, lead, re.IGNORECASE)
+    if match is None:
+        return None
+    repealed = _no_section_repeal_list_labels(match.group("repealed"))
+    if repealed is None:
+        return None
+    source_label = _normalize_no_section_label(match.group("source"))
+    destination_label = _normalize_no_section_label(match.group("destination"))
+    # THE hard conjunct. Not a heuristic and not a preference: without it this
+    # production is a way to write into law it has not proven is vacant.
+    if destination_label not in repealed:
+        return None
+    return repealed, source_label, destination_label
 
 
 def _no_split_ledd_path(path: str) -> Optional[tuple[str, int]]:
@@ -2932,14 +3165,9 @@ def _iter_unstructured_no_change_groups(
             idx = cursor
             continue
 
-        renumber_match = re.match(
-            r"^Nåværende §\s*([0-9A-Za-z-]+)\s+blir ny §\s*([0-9A-Za-z-]+)\.?$",
-            lead,
-            re.IGNORECASE,
-        )
-        if renumber_match:
-            src_label = _normalize_label(renumber_match.group(1))
-            dst_label = _normalize_label(renumber_match.group(2))
+        renumber_labels = _no_unstructured_section_renumber_labels(lead)
+        if renumber_labels is not None:
+            src_label, dst_label, _renumber_pattern = renumber_labels
             doc_ops.append(
                 LegalOperation(
                     op_id=f"{source_id}:{sequence}",
@@ -2982,6 +3210,54 @@ def _iter_unstructured_no_change_groups(
                     )
                 )
                 sequence += 1
+            idx = cursor
+            continue
+
+        # W-74, and it sits HERE — last, immediately before the refusal — on
+        # purpose. Every shipped production above has already declined the lead,
+        # so this one is reachable only on a lead that lowers nothing today and
+        # cannot change what any shipped pattern does. That is the same additive
+        # ordering W-61 and W-67 use inside their own functions, expressed as
+        # position in the walk because this production has no shipped ancestor to
+        # try first. See the block comment on
+        # ``_NO_UNSTRUCTURED_SECTION_REPEAL_RENUMBER_RE`` for the measurement and
+        # for the destination-vacated conjunct.
+        #
+        # The op ORDER is load-bearing: every REPEAL is minted before the RENUMBER,
+        # at a lower sequence in the same group. The destination is a label this
+        # lead repeals, so by the time the shift applies its slot is provably free
+        # — which is exactly why the occupied-destination recovery must not fire on
+        # anything this production emits.
+        section_repeal_renumber = _no_unstructured_section_repeal_renumber_labels(lead)
+        if section_repeal_renumber is not None:
+            repealed_labels, shift_source, shift_destination = section_repeal_renumber
+            for label in repealed_labels:
+                doc_ops.append(
+                    LegalOperation(
+                        op_id=f"{source_id}:{sequence}",
+                        sequence=sequence,
+                        action=StructuralAction.REPEAL,
+                        target=LegalAddress(path=(("section", label),)),
+                        source=OperationSource(statute_id=source_id, raw_text=lead, title=lead_base_id),
+                        provenance_tags=(f"base_act:{lead_base_id}", "fallback:unstructured"),
+                        group_id=f"{source_id}:{lead_base_id}:{sequence}",
+                    )
+                )
+                sequence += 1
+            doc_ops.append(
+                LegalOperation(
+                    op_id=f"{source_id}:{sequence}",
+                    sequence=sequence,
+                    action=StructuralAction.RENUMBER,
+                    target=LegalAddress(path=(("section", shift_source),)),
+                    destination=LegalAddress(path=(("section", shift_destination),)),
+                    source=OperationSource(statute_id=source_id, raw_text=lead, title=lead_base_id),
+                    provenance_tags=(f"base_act:{lead_base_id}", "fallback:unstructured"),
+                    group_id=f"{source_id}:{lead_base_id}:{sequence}",
+                    witness_rule_id="no_section_renumber_relabel",
+                )
+            )
+            sequence += 1
             idx = cursor
             continue
 

@@ -2654,7 +2654,17 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # cost of new coverage, exactly as at W-39, W-47 and W-53.
     assert report["scanned_count"] == 76
     assert report["summary"] == {"consistent": 29, "divergent": 47, "error": 0}
-    assert report["divergence_totals"] == {"total": 1512, "ceiling": 1011, "unexplained": 501}
+    # W-67 + W-74 (2026-08-11). The first landing in this series that moves the
+    # scoreboard by CLOSING rows rather than by admitting laws: the candidate set
+    # is unmoved at 76 element for element, the summary is unmoved at 29/47/0, and
+    # exactly ONE candidate row changes — ``no/lov/2010-06-04-21`` 3 -> 1, both
+    # ``OPS_MISSING`` rows at ``chapter:10/section:10-13/subsection:1`` and ``:2``
+    # closing off the two-token section-renumber widening's own witness
+    # ("Gjeldende § 10-10 blir ny § 10-13."). The other 75 candidate rows are
+    # byte-identical across the change. Total and unexplained both fall by the
+    # same 2 and the ceiling is untouched at 1,011 for the NINTH landing running,
+    # so this item explains two rows away rather than admitting any.
+    assert report["divergence_totals"] == {"total": 1510, "ceiling": 1011, "unexplained": 499}
     # 3 -> 2 at W-34: no/lov/2001-01-05-1 gains 4 bound ops from
     # no/lovtid/2015-06-19-65 item 178, so its indexed history is no longer
     # sparse. Its 83 divergences do not move; only the bucket does.
@@ -2680,7 +2690,10 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             "no/lov/2004-03-26-17",
             "no/lov/2004-05-28-29",
             "no/lov/2004-12-17-101",
-            "no/lov/2010-06-04-21",
+            # W-67 + W-74: ``no/lov/2010-06-04-21`` LEAVES for `untouched_drift`.
+            # With its two ``OPS_MISSING`` rows closed it has no replay-defect row
+            # left, so the W-23 predicate re-buckets it — the predicate doing what
+            # it was built for, not a membership drift. 23 -> 22.
             "no/lov/2010-06-25-28",
             "no/lov/2011-06-24-39",
             "no/lov/2012-11-30-70",
@@ -2706,6 +2719,10 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             "no/lov/2003-06-27-57",
             "no/lov/2007-06-29-89",
             "no/lov/2009-03-06-12",
+            # W-67 + W-74: arrives from `replay_defect` with its two OPS_MISSING
+            # rows closed; the one MISMATCH row it keeps is untouched drift.
+            # 19 -> 20.
+            "no/lov/2010-06-04-21",
             "no/lov/2012-01-27-9",
             # W-34: enters the candidate set with its first indexed amendment.
             "no/lov/2013-06-21-75",

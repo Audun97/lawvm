@@ -40,6 +40,9 @@ from lawvm.norway.grafter import (
     _normalize_no_chapter_scoped_section_lead,
     _no_element_lead_text,
     _no_unstructured_law_switch_lead_base_id,
+    _no_section_repeal_list_labels,
+    _no_unstructured_section_renumber_labels,
+    _no_unstructured_section_repeal_renumber_labels,
     _split_no_run_on_lead_node,
     _split_no_trapped_payload_leads,
     _no_unstructured_lead_looks_operative,
@@ -7411,3 +7414,240 @@ def test_no_w39_part_law_map_resolves_the_witness_act() -> None:
         "I": "no/lov/2001-01-05-1",
         "III": "no/lov/1997-06-13-55",
     }
+
+
+def test_no_w67_section_renumber_shipped_form_still_routes_through_the_shipped_pattern() -> None:
+    """W-67: the widening is additive, and the helper says so out loud.
+
+    ``_no_unstructured_section_renumber_labels`` returns which of its two
+    patterns matched precisely so that this ordering is a fact a test can assert
+    rather than a claim a comment makes. Every lead the SHIPPED pattern accepts
+    must still be answered by the shipped pattern — that is the whole safety
+    argument for the change, and W-61's regressed first cut is why it is pinned.
+    """
+    assert _no_unstructured_section_renumber_labels("Nåværende § 9 blir ny § 10.") == ("9", "10", "shipped")
+    assert _no_unstructured_section_renumber_labels("nåværende §9 blir ny §10") == ("9", "10", "shipped")
+    assert _no_unstructured_section_renumber_labels("Nåværende § 24-8 blir ny § 24-9.") == (
+        "24-8",
+        "24-9",
+        "shipped",
+    )
+
+
+def test_no_w67_section_renumber_widening_admits_both_relaxed_tokens() -> None:
+    """W-67: the two tokens the shipped production hard-required.
+
+    64 corpus refusals divide 20 / 36 / 8 across "qualifier only", "optional
+    ``ny`` only" and "both", so all three splits are witnessed here with a
+    corpus lead. Nynorsk and the older ``nuværende`` spelling come from W-61's
+    measured qualifier set, which this production now shares.
+    """
+    # qualifier only — no/lovtid/2001-06-15-62 → straffeloven 1902
+    assert _no_unstructured_section_renumber_labels("Gjeldende § 235 blir ny § 241.") == ("235", "241", "widened")
+    # optional ``ny`` only — no/lovtid/2001-06-15-93 → no/lov/1999-07-02-61
+    assert _no_unstructured_section_renumber_labels("Nåværende § 6-7 blir § 5-3.") == ("6-7", "5-3", "widened")
+    # both — no/lovtid/2020-12-18-157 → no/lov/2010-06-04-21
+    assert _no_unstructured_section_renumber_labels("Gjeldende § 10-10 blir ny § 10-13.") == (
+        "10-10",
+        "10-13",
+        "widened",
+    )
+    # nynorsk, from W-61's shared set — no/lovtid/2002-06-21-46
+    assert _no_unstructured_section_renumber_labels("Noverande § 5 blir ny § 7.") == ("5", "7", "widened")
+
+
+def test_no_w67_section_renumber_widening_refuses_what_it_did_not_measure() -> None:
+    """W-67: the widening stops exactly where its measurement stopped.
+
+    ``§`` is a masculine noun, so ``nytt``/``nye`` before it is not this
+    sentence and neither spelling occurs in the corpus refusals; a qualifier
+    outside W-61's measured set carries meaning this production cannot read; and
+    a lead with a trailing clause is a lead this grammar cannot fully account
+    for, which lowers nothing rather than half of something.
+    """
+    assert _no_unstructured_section_renumber_labels("Nåværende § 9 blir nytt § 10.") is None
+    assert _no_unstructured_section_renumber_labels("Nåværende § 9 blir nye § 10.") is None
+    assert _no_unstructured_section_renumber_labels("Tidligere § 9 blir ny § 10.") is None
+    assert _no_unstructured_section_renumber_labels("Gjeldende § 9 blir ny § 10 og skal lyde:") is None
+    assert _no_unstructured_section_renumber_labels("Gjeldende §§ 9 og 10 blir §§ 11 og 12.") is None
+    assert _no_unstructured_section_renumber_labels("§ 8-2 første ledd oppheves.") is None
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w67_gjeldende_section_renumber_lowers_on_the_witness_instrument() -> None:
+    """W-67 corpus witness: ``no/lovtid/2020-12-18-157`` part ``kapV``.
+
+    The lead is one leaf ``<article class="defaultP">`` whose whole text is
+    ``Gjeldende § 10-10 blir ny § 10-13.`` — not a text-plane artefact of an
+    ``itertext()`` walk across a part boundary (the mistake W-58 was
+    mis-diagnosed with twice). It commands exactly the operation the shipped
+    production emits and was refused whole with
+    ``no_parse_unstructured_lead_unmatched`` because the qualifier is spelled
+    ``Gjeldende``. The base act is scan candidate ``no/lov/2010-06-04-21``.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2020-12-18-157", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    adjudications: list[CompileAdjudication] = []
+    grouped = dict(
+        iter_no_document_change_ops(
+            html_bytes,
+            "no/lovtid/2020-12-18-157",
+            adjudications_out=adjudications,
+        )
+    )
+
+    renumbers = [
+        op
+        for op in grouped["no/lov/2010-06-04-21"]
+        if op.action is StructuralAction.RENUMBER
+        and op.destination is not None
+        and op.source is not None
+    ]
+    assert [
+        (op.target.path, cast(LegalAddress, op.destination).path, cast(OperationSource, op.source).raw_text)
+        for op in renumbers
+    ] == [
+        ((("section", "10-10"),), (("section", "10-13"),), "Gjeldende § 10-10 blir ny § 10-13."),
+    ]
+    assert renumbers[0].witness_rule_id == "no_section_renumber_relabel"
+    assert "Gjeldende § 10-10 blir ny § 10-13." not in {
+        (item.detail or {}).get("source_excerpt")
+        for item in adjudications
+        if item.kind == "no_parse_unstructured_lead_unmatched"
+    }
+
+
+def test_no_w74_section_repeal_renumber_accepts_the_measured_population() -> None:
+    """W-74: the 7 corpus leads whose destination the same lead vacates.
+
+    All seven are here with their own text, because the production's claim is a
+    measured population and a population is a list, not an adjective. Between them
+    they witness every axis the pattern relaxes: ``§`` and ``§§``; a comma list, an
+    ``og`` list, a ``til`` range and a singleton; ``oppheves`` and the nynorsk
+    periphrastic ``blir oppheva``; a leading currency qualifier on the REPEAL
+    sentence, a bokmål/nynorsk/``Gjeldende`` qualifier on the SHIFT sentence and no
+    qualifier at all; ``blir § Y`` and ``blir ny § Y``; and W-32(c)'s
+    letter-suffixed label ("§ 3 i").
+    """
+    # no/lovtid/2003-12-12-105 → no/lov/1980-06-13-24. ``og`` list, no ``ny``.
+    assert _no_unstructured_section_repeal_renumber_labels(
+        "§§ 7-3 og 7-4 oppheves. Nåværende § 7-5 blir § 7-3."
+    ) == (["7-3", "7-4"], "7-5", "7-3")
+    # no/lovtid/2012-08-24-64 → husbankloven. THE witness: comma list, nynorsk
+    # ``blir oppheva``, nynorsk qualifier ``Noverande``, and ``blir ny``.
+    assert _no_unstructured_section_repeal_renumber_labels(
+        "§§ 10, 11 og 12 blir oppheva. Noverande § 13 blir ny § 10."
+    ) == (["10", "11", "12"], "13", "10")
+    # no/lovtid/2013-06-14-40 → no/lov/1997-06-13-44. A qualifier on BOTH
+    # sentences, and a singleton repeal.
+    assert _no_unstructured_section_repeal_renumber_labels(
+        "Nåværende § 5-8 oppheves. Nåværende § 5-7 blir ny § 5-8."
+    ) == (["5-8"], "5-7", "5-8")
+    # no/lovtid/2015-04-10-17 → no/lov/2005-06-10-44. A ``til`` RANGE, resolved by
+    # the shipped ``_expand_no_section_range_labels`` and therefore to its two
+    # endpoints for a hyphenated label — see the note on the list parser.
+    assert _no_unstructured_section_repeal_renumber_labels(
+        "§§ 1-2 til 1-7 oppheves. Nåværende § 1-8 blir ny § 1-2."
+    ) == (["1-2", "1-7"], "1-8", "1-2")
+    # no/lovtid/2016-04-22-5 → no/lov/2005-04-01-15.
+    assert _no_unstructured_section_repeal_renumber_labels(
+        "§ 10-4 oppheves. Nåværende § 10-5 blir § 10-4."
+    ) == (["10-4"], "10-5", "10-4")
+    # no/lovtid/2020-05-20-42 → markedsføringsloven. ``Gjeldende`` on both.
+    assert _no_unstructured_section_repeal_renumber_labels(
+        "Gjeldende § 41 oppheves. Gjeldende § 42 blir § 41."
+    ) == (["41"], "42", "41")
+    # no/lovtid/2022-06-17-47 → no/lov/1975-06-13-35. NO qualifier anywhere, and
+    # letter-suffixed labels on every leg.
+    assert _no_unstructured_section_repeal_renumber_labels(
+        "§ 3 i oppheves. § 3 j blir § 3 i."
+    ) == (["3i"], "3j", "3i")
+
+
+def test_no_w74_section_repeal_renumber_refuses_an_unvacated_destination() -> None:
+    """W-74: the safety restriction, on the three corpus leads it refuses.
+
+    All three are ``no/lovtid/2015-04-10-17`` cross-chapter shifts. Each vacates a
+    chapter 7 label and writes into a chapter 2 one, so the lead itself proves
+    nothing about whether the destination is free — and this production's entire
+    licence to write is that proof. They keep their existing refusal receipt,
+    which is the honest outcome and not a gap.
+
+    The last case is the restriction stated as a property rather than as a corpus
+    row: take the witness and change ONLY the destination, and the production must
+    decline.
+    """
+    assert _no_unstructured_section_repeal_renumber_labels(
+        "§ 7-1 oppheves. Nåværende § 7-2 blir ny § 2-2."
+    ) is None
+    assert _no_unstructured_section_repeal_renumber_labels(
+        "§§ 7-3 til 7-6 oppheves. Nåværende § 7-7 blir ny § 2-3."
+    ) is None
+    assert _no_unstructured_section_repeal_renumber_labels(
+        "§ 7-9 oppheves. Nåværende § 7-10 blir ny § 2-6."
+    ) is None
+    # The witness, with the destination moved off the repealed set by one label.
+    assert _no_unstructured_section_repeal_renumber_labels(
+        "§§ 10, 11 og 12 blir oppheva. Noverande § 13 blir ny § 9."
+    ) is None
+
+
+def test_no_w74_section_repeal_renumber_declines_the_neighbouring_shapes() -> None:
+    """W-74: the five corpus leads that carry both verbs but are not this family.
+
+    Four put the SHIFT sentence first, which this production must not read as a
+    repeal-then-shift with the legs swapped; the fifth carries a trailing payload
+    ("… blir ny § 27 og skal lyde:"), where lowering the shift alone would state a
+    half-truth. All five are refused by construction rather than by a guard: ``§``
+    and ``.`` are outside the repeal list's character class, and the shift tail is
+    anchored at the destination label.
+    """
+    for lead in (
+        "Nåværende § 27 oppheves. Nåværende § 27 a blir ny § 27 og skal lyde:",
+        "Gjeldende § 7 blir § 8. Bestemmelsens annet ledd siste punktum oppheves.",
+        "Endringen «Nåværende § 12-16 blir ny § 12-19 og skal lyde:» oppheves.",
+        "Nåværende § 18-11 blir ny § 18-10. Paragrafens bokstav d og e oppheves.",
+        "Nåværende § 2-1 a blir ny § 2-1. § 2-1 b oppheves.",
+    ):
+        assert _no_unstructured_section_repeal_renumber_labels(lead) is None, lead
+
+
+def test_no_w74_section_repeal_renumber_leaves_the_shipped_single_sentence_families_alone() -> None:
+    """W-74 is additive: it declines every lead a shipped production owns.
+
+    It also sits LAST in the unstructured walk, after every shipped pattern has
+    declined — but position is not the argument, disjointness is, and this pins
+    it. The ledd-level sibling's own two-sentence lead is included because the two
+    productions are neighbours in the same grammar and must not overlap.
+    """
+    for lead in (
+        "§ 7-1 oppheves.",
+        "§§ 7-3 og 7-4 oppheves.",
+        "§§ 1-2 til 1-7 oppheves.",
+        "Nåværende § 10 blir ny § 13.",
+        "Gjeldende § 10-10 blir ny § 10-13.",
+        "§ 5 annet ledd oppheves. Nåværende tredje ledd blir annet ledd.",
+    ):
+        assert _no_unstructured_section_repeal_renumber_labels(lead) is None, lead
+
+
+def test_no_w74_section_repeal_list_refuses_a_member_it_cannot_read() -> None:
+    """W-74: the list parser is all-or-nothing.
+
+    A repeal list is the SET the destination conjunct is checked against and the
+    set the REPEAL ops are minted from. One member it cannot resolve makes both
+    wrong, so it refuses the whole lead rather than repealing the members it
+    happens to understand.
+    """
+    assert _no_section_repeal_list_labels("10, 11 og 12") == ["10", "11", "12"]
+    assert _no_section_repeal_list_labels("3 i") == ["3i"]
+    assert _no_section_repeal_list_labels("1-2 til 1-7") == ["1-2", "1-7"]
+    # Pure-digit ranges expand, which is the shipped helper's behaviour.
+    assert _no_section_repeal_list_labels("10 til 13") == ["10", "11", "12", "13"]
+    # A member with prose in it is not a label.
+    assert _no_section_repeal_list_labels("10, 11 og siste") is None
+    assert _no_section_repeal_list_labels("10, 11 og 12 andre ledd") is None
