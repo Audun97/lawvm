@@ -1230,7 +1230,15 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # 1021 -> 1028 at W-21: see the contingent comment above.
         # 1028 -> 1049 at W-30: see the contingent comment above.
         # 1049 -> 1051 at W-32: see the contingent comment above.
-        "dated": 1047,
+        # 1047 -> 1049 at W-64, and this is the WHOLE of the heading-boundary
+        # landing's effect on the act-level histogram: two acts gain their first
+        # index entry because every lead they carry was a whole-section
+        # replacement whose payload the boundary threw away
+        # (``no/lovtid/2001-01-19-4``, ``no/lovtid/2006-12-15-79``). Both
+        # commence on a plain date, so both land here. No existing entry's status
+        # moved, and no other bucket moves — in particular
+        # ``instrument_authorized`` stays at exactly 977.
+        "dated": 1049,
         "immediate": 1,
         # 976 -> 977 at W-67, and the whole of this landing's effect on the
         # act-level histogram is ONE act gaining its FIRST index entry — the same
@@ -1660,9 +1668,16 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # 956 -> 955 receipts and 2,524 -> 2,523 pairs at W-67. The widening binds
     # ``no/lovtid/2004-09-24-72`` to plan- og bygningsloven 1985, so one declared
     # target stops being unbound; the W-34/W-35 conservation holds at 1 = 1.
-    assert len(unbound) == 955
-    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2523
-    assert len({diagnostic["source_id"] for diagnostic in unbound}) == 955
+    # 955 -> 951 receipts and 2,523 -> 2,511 pairs at W-64, with the W-34/W-35
+    # conservation holding exactly again: the pair drop equals the binding gain
+    # (12 = 12), ZERO targets newly unbound and nothing rebound. The heading
+    # boundary hands twelve leads the payload they always announced, over eight
+    # acts; four of the eight lose their gap ENTIRELY (`2001-01-19-4`,
+    # `2003-12-19-129`, `2005-06-10-40`, `2006-12-15-79`), which is why the
+    # receipt count falls by 4 while the pair count falls by 12.
+    assert len(unbound) == 951
+    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2511
+    assert len({diagnostic["source_id"] for diagnostic in unbound}) == 951
 
     # 64 acts gain their FIRST index entry: they announced every one of their
     # parts with an unlisted tail, so they had bound no law at all.
@@ -1705,7 +1720,13 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # for spelling its qualifier `Gjeldende` rather than `Nåværende`. It enters
     # `instrument_authorized`.
     # 2,560 -> 2,561 at W-67: ``no/lovtid/2004-09-24-72`` gains its first entry.
-    assert len(index.entries) == 2561
+    # 2,561 -> 2,563 at W-64: two acts gain their first entry, both because
+    # EVERY lead they carry was a whole-section replacement whose payload the
+    # heading boundary threw away — ``no/lovtid/2001-01-19-4`` (sjøloven's
+    # "Virkeområdet for avsnitt II og avsnitt III") and ``no/lovtid/2006-12-15-79``
+    # (folkeregisterloven). Both enter ``dated``, so the status histogram moves by
+    # those two acts and nothing else.
+    assert len(index.entries) == 2563
     bindings = {
         (entry.source_id, base_id) for entry in index.entries for base_id in entry.base_ids
     }
@@ -1720,7 +1741,15 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # adds ops to a lead that previously lowered none.
     # 6,476 -> 6,477 at W-67: one new (act, law) pair, ``2004-09-24-72`` ->
     # plan- og bygningsloven 1985.
-    assert len(bindings) == 6477
+    # 6,477 -> 6,489 at W-64: twelve new (act, law) pairs, every one of them a
+    # target the ``changesToDocuments`` list already DECLARED and the index
+    # already receipted as unbound (the receipt census above falls by exactly 12
+    # in step). Nothing is rebound and nothing is removed — the boundary fix only
+    # ever adds ops to a lead that previously lowered none. One of the twelve,
+    # ``2002-08-30-67`` -> verdipapirsentralloven ``1985-06-14-62``, is the only
+    # base act in the corpus to receive its FIRST op ever, taking the amended-law
+    # population from 782 to 783.
+    assert len(bindings) == 6489
     # 26,218 at W-30; +2 at W-24, both reconciled to a named erratum and neither
     # touching this test's own subject. W-24 lowered two Del-scoped Rettelser
     # corrections into the law each part amends — ``2019-12-20-110`` Del I into
@@ -1807,7 +1836,14 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # 27,018 -> 27,100 at the W-67 + W-74 landing: +64 section RENUMBERs from the
     # two-token widening and +18 from the section-level repeal-then-shift run-on
     # (11 REPEALs and 7 RENUMBERs over its 7 accepting leads). 0 lost, 0 rebound.
-    assert sum(entry.n_ops for entry in index.entries) == 27100
+    # 27,100 -> 27,206 at W-64: +106 from the ``defaultP`` heading boundary (84
+    # REPLACEs and 22 INSERTs over 45 instruments), every one of them a lead a
+    # shipped production ALREADY accepted and whose payload the boundary threw
+    # away. 0 lost, 0 re-addressed, 0 changed kind — the op-identity diff is keyed
+    # on (base act, action, target, destination, payload digest, lead text)
+    # because ``op_id`` is a per-document sequence that churns ordinally when a
+    # document gains an op.
+    assert sum(entry.n_ops for entry in index.entries) == 27206
 
 
 def test_no_amendment_index_staleness_report_detects_archive_change(tmp_path) -> None:

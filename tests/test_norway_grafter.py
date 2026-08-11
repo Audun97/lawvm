@@ -5099,6 +5099,16 @@ def test_no_gjer_ein_folgjande_witness_enters_the_index_at_all() -> None:
     index entry: every one of its parts announces its law with a tail outside
     the tuple, so the act resolved no base at all and its 22 ops were dropped
     whole. Nothing about it is exotic — it is simply written in Nynorsk.
+
+    ``2005-06-17-58`` moves 1 -> 3 at W-64. Its two other leads ("I kapittel I
+    skal ny § 4 a lyde:", "I kapittel II skal ny § 8 a lyde:") were accepted all
+    along and refused for having no payload: each is followed by a ``defaultP``
+    heading, and the payload boundary stopped on it. The same two sections are
+    where two of that landing's twelve false ``lead_unmatched`` receipts came
+    from — the stranded body prose ("Kommunane kan vedta å opprette felles råd
+    …") was re-read as a lead and tripped the operative-verb heuristic on
+    ``blir``. This act's OTHER three laws are unmoved, which is the property
+    worth holding: the boundary reaches only the leads that announce payload.
     """
     html_bytes = load_no_amendment_bytes("no/lovtid/2007-06-15-21", _NO_FARCHIVE_PATH)
     assert html_bytes is not None
@@ -5108,9 +5118,17 @@ def test_no_gjer_ein_folgjande_witness_enters_the_index_at_all() -> None:
     assert {base_id: len(ops) for base_id, ops in grouped.items()} == {
         "no/lov/1991-11-08-76": 3,
         "no/lov/1997-02-28-19": 13,
-        "no/lov/2005-06-17-58": 1,
+        "no/lov/2005-06-17-58": 3,
         "no/lov/2005-06-17-62": 5,
     }
+    assert [
+        (op.action, op.target.path)
+        for op in grouped["no/lov/2005-06-17-58"]
+    ] == [
+        (StructuralAction.REPLACE, (("section", "10"),)),
+        (StructuralAction.INSERT, (("section", "4a"),)),
+        (StructuralAction.INSERT, (("section", "8a"),)),
+    ]
 
 
 @pytest.mark.skipif(
@@ -7651,3 +7669,190 @@ def test_no_w74_section_repeal_list_refuses_a_member_it_cannot_read() -> None:
     # A member with prose in it is not a label.
     assert _no_section_repeal_list_labels("10, 11 og siste") is None
     assert _no_section_repeal_list_labels("10, 11 og 12 andre ledd") is None
+
+
+def _no_heading_boundary_ops(
+    *nodes: str,
+) -> list[tuple[StructuralAction | str, tuple[tuple[str, str], ...], IRNode | None]]:
+    """Lower a run of unstructured nodes against a fixed base act.
+
+    W-64's harness. The nodes are given as raw ``<article>`` markup so each test
+    controls the CLASS of every node — this production's whole subject is that
+    Lovdata marks a section heading and an amendment lead with the same
+    ``defaultP`` class, so a helper that chose the classes would beg the question.
+    """
+    body = "\n".join(f"        {node}" for node in nodes)
+    amendment_xml = f"""<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="changesToDocuments">
+      <ul><li>lov/2003-12-12-108</li></ul>
+    </dd>
+    <main>
+      <section data-name="kapI">
+        <article class="defaultP">I lov 12. desember 2003 nr. 108 om kompensasjon av merverdiavgift for kommuner, fylkeskommuner mv. gjøres følgende endringer:</article>
+{body}
+      </section>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+    ops = parse_no_amendment_ops(amendment_xml, "no/lovtid/2016-05-27-14")
+    return [(op.action, op.target.path, op.payload) for op in ops]
+
+
+def _no_payload_shape(payload: IRNode | None) -> list[tuple[str, str | None, str]]:
+    if payload is None:
+        return []
+    return [
+        (str(getattr(child.kind, "value", child.kind)), child.label, (child.text or "")[:60])
+        for child in payload.children
+    ]
+
+
+def test_no_w64_section_heading_defaultp_is_payload_not_a_boundary() -> None:
+    """W-64, the witness shape: ``no/lovtid/2003-12-19-129`` part II.
+
+    Probed at the DOM nodes the walk reads: ``Ny § 37 a skal lyde:`` is a
+    ``defaultP``, the section's heading ``Avgift og gebyr`` is ANOTHER
+    ``defaultP``, and six ``legalP`` ledd follow it. The shipped boundary stopped
+    on the heading and collected zero payload, so the insert refused and all six
+    ledd were stranded (divergence rows ``chapter:5/section:37a/subsection:1-6``
+    on veterinærloven).
+
+    The heading must land as the section's HEADING, not as its first ledd: it is
+    a ``defaultP``, and ``_parse_future_section`` reads ``defaultP`` children as
+    ledd, so appending it verbatim would shift every real ledd's label by one.
+    """
+    ops = _no_heading_boundary_ops(
+        '<article class="defaultP">Ny § 37 a skal lyde:</article>',
+        '<article class="defaultP">Avgift og gebyr</article>',
+        '<article class="legalP">Kongen kan i forskrifter pålegge enhver å betale gebyr.</article>',
+        '<article class="legalP">Avgifter og gebyrer er tvangsgrunnlag for utlegg.</article>',
+    )
+    assert [(action, path) for action, path, _payload in ops] == [
+        (StructuralAction.INSERT, (("section", "37a"),)),
+    ]
+    assert _no_payload_shape(ops[0][2]) == [
+        ("heading", None, "Avgift og gebyr"),
+        ("subsection", "1", "Kongen kan i forskrifter pålegge enhver å betale gebyr."),
+        ("subsection", "2", "Avgifter og gebyrer er tvangsgrunnlag for utlegg."),
+    ]
+
+
+def test_no_w64_heading_boundary_never_swallows_a_genuine_lead() -> None:
+    """W-64's cardinal risk, pinned: absorbing a lead would DELETE an operation.
+
+    Over all 3,089 unstructured artifacts, 569 (lead, next-``defaultP``) pairs sit
+    behind a lead ending in ``lyde:``; exactly 21 of those successors parse as a
+    lead today. Every one of the 21 is refused by three independent clauses at
+    once, so no single clause is load-bearing. The cases below are those three
+    clauses in isolation, each with the other two satisfied — the successor keeps
+    its own op in all of them.
+    """
+    # Operative verb only (no ``§``, no terminal punctuation): a section-level
+    # repeal spelled without its section sign is still an ACTION, not a heading.
+    ops = _no_heading_boundary_ops(
+        '<article class="defaultP">§ 4 skal lyde:</article>',
+        '<article class="defaultP">Bestemmelsen oppheves</article>',
+        '<article class="legalP">Kommunen dekker driftsutgiftene.</article>',
+    )
+    assert [(action, path) for action, path, _p in ops] == []
+    # ``§`` only: the successor is an address, and an address is never a heading.
+    ops = _no_heading_boundary_ops(
+        '<article class="defaultP">§ 4 skal lyde:</article>',
+        '<article class="defaultP">§ 5 skal lyde:</article>',
+        '<article class="legalP">Kommunen dekker driftsutgiftene.</article>',
+    )
+    assert [(action, path) for action, path, _p in ops] == [
+        (StructuralAction.REPLACE, (("section", "5"),)),
+    ]
+    # Terminal punctuation only: a heading is a bare noun phrase, a lead is a
+    # sentence or a colon-command.
+    ops = _no_heading_boundary_ops(
+        '<article class="defaultP">§ 4 skal lyde:</article>',
+        '<article class="defaultP">Avgift og gebyr.</article>',
+        '<article class="legalP">Kommunen dekker driftsutgiftene.</article>',
+    )
+    assert [(action, path) for action, path, _p in ops] == []
+
+
+def test_no_w64_heading_boundary_absorbs_at_most_one_defaultp() -> None:
+    """W-64: the boundary still closes, one node later.
+
+    Only the FIRST node after the lead is ever tested, so a second ``defaultP``
+    ends the payload exactly as it always has. This is what bounds the blast
+    radius: a run of ``defaultP`` nodes can never be swallowed wholesale, and the
+    next lead in the run is always still read as a lead.
+    """
+    ops = _no_heading_boundary_ops(
+        '<article class="defaultP">Ny § 6 a skal lyde:</article>',
+        '<article class="defaultP">Avgift og gebyr</article>',
+        '<article class="legalP">Kongen kan i forskrifter pålegge enhver å betale gebyr.</article>',
+        '<article class="defaultP">Ny § 6 b skal lyde:</article>',
+        '<article class="defaultP">Klage</article>',
+        '<article class="legalP">Vedtak kan påklages til departementet.</article>',
+    )
+    assert [(action, path) for action, path, _p in ops] == [
+        (StructuralAction.INSERT, (("section", "6a"),)),
+        (StructuralAction.INSERT, (("section", "6b"),)),
+    ]
+    assert _no_payload_shape(ops[0][2]) == [
+        ("heading", None, "Avgift og gebyr"),
+        ("subsection", "1", "Kongen kan i forskrifter pålegge enhver å betale gebyr."),
+    ]
+    assert _no_payload_shape(ops[1][2]) == [
+        ("heading", None, "Klage"),
+        ("subsection", "1", "Vedtak kan påklages til departementet."),
+    ]
+
+
+def test_no_w64_heading_boundary_requires_a_payload_announcing_lead() -> None:
+    """W-64: a lead that announces no payload can never gain one here.
+
+    The first clause of the discriminator is that the lead ENDS in ``lyde:``. A
+    repeal, a renumber or a bare law switch keeps its shipped answer, and so does
+    a lead carrying INLINE payload after the colon — that is a different family
+    and the boundary leaves it exactly where it was.
+    """
+    # A repeal lead: the following ``defaultP`` stays a boundary, so the heading
+    # is read as its own (unmatched) node rather than becoming the repeal's text.
+    ops = _no_heading_boundary_ops(
+        '<article class="defaultP">§ 4 oppheves.</article>',
+        '<article class="defaultP">Avgift og gebyr</article>',
+        '<article class="legalP">Kongen kan i forskrifter pålegge enhver å betale gebyr.</article>',
+    )
+    assert [(action, path) for action, path, _p in ops] == [
+        (StructuralAction.REPEAL, (("section", "4"),)),
+    ]
+    # An inline-payload lead: its text is already in the lead, and the next
+    # ``defaultP`` is the next lead.
+    ops = _no_heading_boundary_ops(
+        '<article class="defaultP">§ 4 skal lyde: Kongen kan gi forskrift.</article>',
+        '<article class="defaultP">Avgift og gebyr</article>',
+        '<article class="legalP">Kongen kan i forskrifter pålegge enhver å betale gebyr.</article>',
+    )
+    assert [(action, path) for action, path, _p in ops] == [
+        (StructuralAction.REPLACE, (("section", "4"),)),
+    ]
+    assert _no_payload_shape(ops[0][2]) == [("subsection", "1", "Kongen kan gi forskrift.")]
+
+
+def test_no_w64_heading_only_lead_reaches_its_title() -> None:
+    """W-64: the shipped heading-only production, whose sole blocker was the boundary.
+
+    ``§ X overskriften skal lyde:`` puts the new heading in a ``defaultP`` with
+    NOTHING after it, so clause 6's "a body node follows" is false and the second
+    arm carries it: a lead whose shipped production wants the heading and nothing
+    else says so in its own words. 23 corpus pairs over 18 instruments.
+    """
+    ops = _no_heading_boundary_ops(
+        '<article class="defaultP">§ 26 overskriften skal lyde:</article>',
+        '<article class="defaultP">Gebyr og avgift</article>',
+        '<article class="defaultP">§ 27 oppheves.</article>',
+    )
+    assert [(action, path) for action, path, _p in ops] == [
+        (StructuralAction.REPLACE, (("section", "26"),)),
+        (StructuralAction.REPEAL, (("section", "27"),)),
+    ]
+    assert _no_payload_shape(ops[0][2]) == [("heading", None, "Gebyr og avgift")]

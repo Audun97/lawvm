@@ -2128,6 +2128,97 @@ def _heading_only_unstructured_section_payload(
     )
 
 
+def _no_heading_only_section_lead_label(lead: str) -> Optional[str]:
+    """The section a heading-only lead addresses ("§ 26 overskriften skal lyde:").
+
+    Lifted out of the unstructured walk so the payload BOUNDARY and the
+    production that consumes the payload recognize ONE surface rather than two:
+    the boundary hands the heading over precisely when this production is the one
+    that will want it. Widening the surface is grammar (W-65), not boundary, and
+    is deliberately not done here.
+    """
+    # lawvm-regex: owning_parser this IS the heading-only section lead parser
+    match = re.match(r"^§\s*([0-9A-Za-z-]+)\s+overskriften\s+skal\s+lyde:?$", lead, re.IGNORECASE)
+    return _normalize_no_section_label(match.group(1)) if match is not None else None
+
+
+# W-64. Lovdata marks a NEW SECTION'S HEADING with ``class="defaultP"`` -- the
+# same class it uses for amendment leads -- so the payload cursor's "stop at the
+# next ``defaultP``" boundary stops ON the heading and collects ZERO payload
+# nodes. The section body behind it is stranded and the lead refuses.
+#
+# Witness, probed at the DOM nodes the walk actually reads (``no/lovtid/
+# 2003-12-19-129`` part II, veterinaerloven): ``<article class="defaultP">Ny §
+# 37 a skal lyde:</article>`` is followed by ``<article class="defaultP">Avgift
+# og gebyr</article>`` and then SIX ``<article class="legalP">`` ledd. The same
+# instrument repeats the shape three more times (parts I and III, and again at §
+# 3 / § 18), so it is markup convention, not a one-off.
+#
+# The cardinal risk is the opposite polarity: absorbing a genuine amendment lead
+# into some other lead's payload silently DELETES an operation. So the
+# discriminator is built to refuse when uncertain, and every clause below is a
+# measured separation rather than a plausible one. Over all 3,089 unstructured
+# artifacts there are 23,716 (lead, next-node-is-``defaultP``) pairs; 569 of them
+# sit behind a lead that ends in ``lyde:``, and of those 569 exactly 21 have a
+# successor that DOES parse as a lead today (it produces an op at base). All 21
+# are excluded by THREE independent clauses at once -- every one of them carries
+# an operative verb, carries a ``§``, and ends in ``:`` or ``.`` -- so no single
+# clause is load-bearing for the safety property. The admitted set contains zero
+# nodes that produce an op at base.
+#
+#   1. the lead must END in ``lyde:``. A lead that announces no payload (a
+#      repeal, a renumber, a bare law switch) can never gain one here; a lead
+#      that carries INLINE payload after the colon is a different family and is
+#      left where it is.
+#   2. no operative verb (``skal ... lyde``, ``oppheves``, ``endres``, ...). A
+#      heading is a noun phrase; a lead states an action.
+#   3. no ``§``. Norwegian amendment leads address by section sign; headings in
+#      the census's admitted set carry none.
+#   4. no sentence-final punctuation (``.``, ``:``, ``;``, ``,``). A lead is a
+#      sentence or a colon-command; a heading is a bare phrase.
+#   5. at most 80 characters. Measured: the admitted headings run 3-79
+#      characters, so this refuses only prose that no clause above caught.
+#   6. the node the heading introduces must be there -- either a body node
+#      (``legalP``/``numberedLegalP``/``listArticle``) immediately after it, or a
+#      lead whose SHIPPED production wants the heading and nothing else
+#      (``§ X overskriften skal lyde:``). Absorbing a ``defaultP`` that
+#      introduces nothing buys no payload and only spends risk.
+#
+# Only the FIRST node after the lead is ever tested (the caller's ``cursor ==
+# idx + 1`` guard), so at most ONE ``defaultP`` per lead can be absorbed and the
+# walk still stops at the next one. Chapter-level inserts whose body is itself a
+# run of ``defaultP`` sections ("Nytt kapittel 5A skal lyde:", 185 pairs) fail
+# clause 6 by construction and keep their present receipts -- that surface is
+# W-65's address grammar, not this boundary.
+_NO_PAYLOAD_HEADING_MAX_LEN = 80
+_NO_PAYLOAD_BODY_CLASSES = frozenset({"legalP", "numberedLegalP", "listArticle"})
+
+
+def _no_unstructured_payload_heading_node(
+    lead: str,
+    node: etree._Element,
+    following: Optional[etree._Element],
+) -> bool:
+    """Is this boundary ``defaultP`` a section heading rather than the next lead?"""
+    # lawvm-regex: owning_parser this IS the payload-announcing lead tail test
+    if not re.search(r"\blyde\s*:\s*$", lead, re.IGNORECASE):
+        return False
+    text = _repair_no_mojibake(_normalize_space(" ".join(str(_t) for _t in node.itertext())))
+    if not text or len(text) > _NO_PAYLOAD_HEADING_MAX_LEN:
+        return False
+    if "§" in text or text[-1] in ".:;,":
+        return False
+    if _no_unstructured_lead_looks_operative(text):
+        return False
+    if _no_heading_only_section_lead_label(lead) is not None:
+        return True
+    return (
+        following is not None
+        and _local_name(following) == "article"
+        and bool(_NO_PAYLOAD_BODY_CLASSES & _classes(following))
+    )
+
+
 _NO_WHOLE_SECTION_LEAD_RE = re.compile(
     r"^(?P<insert>Ny\s+)?§\s*(?P<label>[0-9]+(?:-[0-9]+)*(?:\s*[A-Za-z])?)\s+skal\s+lyde:\s*(?P<inline>.*)$",
     re.IGNORECASE | re.DOTALL,
@@ -2207,7 +2298,24 @@ def _build_no_unstructured_section_payload(
     for node in payload_nodes:
         if _local_name(node) != "article":
             continue
-        if not ({"legalP", "numberedLegalP", "listArticle"} & _classes(node)):
+        classes = _classes(node)
+        if "defaultP" in classes and not (_NO_PAYLOAD_BODY_CLASSES & classes):
+            # W-64: the section HEADING the boundary now hands over. It has to
+            # become the synthetic section's header span, not a body article:
+            # ``_parse_future_section`` reads ``defaultP`` children as ledd, so
+            # appending it verbatim would make the heading subsection 1 and shift
+            # every real ledd's label by one -- the witness's six ledd would land
+            # at ``subsection:2..7`` against a consolidation that prints 1..6.
+            # Only the first such node is taken, and only when the lead's inline
+            # tail did not already build a header.
+            if len(synthetic) == 0:
+                heading = _normalize_space(" ".join(str(_t) for _t in node.itertext()))
+                if heading:
+                    header_span = etree.SubElement(synthetic, "span")
+                    header_span.set("class", "futureLegalArticleHeader")
+                    header_span.text = f"§ {label}. {heading}"
+            continue
+        if not (_NO_PAYLOAD_BODY_CLASSES & classes):
             continue
         synthetic.append(copy.deepcopy(node))
 
@@ -2645,6 +2753,19 @@ def _iter_unstructured_no_change_groups(
             if _part_index(cursor) != child_part_index:
                 break
             if _local_name(nxt) == "article" and "defaultP" in _classes(nxt):
+                # W-64: unless it is the section's HEADING, which Lovdata marks
+                # with the same class. Only the first node after the lead is
+                # tested, so the boundary still closes on the next ``defaultP``.
+                if cursor == idx + 1 and _no_unstructured_payload_heading_node(
+                    lead,
+                    nxt,
+                    children[cursor + 1]
+                    if cursor + 1 < len(children) and _part_index(cursor + 1) == child_part_index
+                    else None,
+                ):
+                    payload_nodes.append(nxt)
+                    cursor += 1
+                    continue
                 break
             # W-34: the same boundary one level down. Inside a part, a numbered
             # enumeration item that opens with its own law-switch ("59. I lov 16.
@@ -2733,13 +2854,9 @@ def _iter_unstructured_no_change_groups(
             continue
         doc_ops = doc_ops_by_base.setdefault(lead_base_id, [])
 
-        heading_only_match = re.match(
-            r"^§\s*([0-9A-Za-z-]+)\s+overskriften\s+skal\s+lyde:?$",
-            lead,
-            re.IGNORECASE,
-        )
-        if heading_only_match:
-            target_label = _normalize_no_section_label(heading_only_match.group(1))
+        heading_only_label = _no_heading_only_section_lead_label(lead)
+        if heading_only_label is not None:
+            target_label = heading_only_label
             payload = _heading_only_unstructured_section_payload(target_label, payload_nodes)
             if payload is not None:
                 doc_ops.append(

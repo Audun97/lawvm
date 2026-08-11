@@ -2664,7 +2664,19 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # byte-identical across the change. Total and unexplained both fall by the
     # same 2 and the ceiling is untouched at 1,011 for the NINTH landing running,
     # so this item explains two rows away rather than admitting any.
-    assert report["divergence_totals"] == {"total": 1510, "ceiling": 1011, "unexplained": 499}
+    # W-64 (2026-08-11). The same shape again, six rows wide: candidates unmoved
+    # at 76, summary unmoved at 29/47/0, and exactly ONE candidate row changes —
+    # ``no/lov/2001-06-15-75`` 15 -> 9, all six ``OPS_MISSING`` rows at
+    # ``chapter:5/section:37a/subsection:1`` through ``:6`` closing off the
+    # ``defaultP`` heading-boundary fix's own witness ("Ny § 37 a skal lyde:",
+    # whose six ledd were stranded behind the heading ``Avgift og gebyr``). The
+    # other 75 candidate rows are byte-identical and ZERO rows open anywhere,
+    # which is what says the landed ledd match the consolidation rather than
+    # trading one row type for another. Total and unexplained both fall by the
+    # same 6, ceiling untouched at 1,011 for the TENTH landing running. Only 2 of
+    # the 45 base acts whose ops moved are candidates at all, so the scoreboard
+    # sees 2 of the 106 new ops; the other 104 are real and off-scan.
+    assert report["divergence_totals"] == {"total": 1504, "ceiling": 1011, "unexplained": 493}
     # 3 -> 2 at W-34: no/lov/2001-01-05-1 gains 4 bound ops from
     # no/lovtid/2015-06-19-65 item 178, so its indexed history is no longer
     # sparse. Its 83 divergences do not move; only the bucket does.
