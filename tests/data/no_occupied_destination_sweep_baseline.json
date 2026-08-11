@@ -1,0 +1,1938 @@
+{
+ "_doc": "Corpus-wide (RENUMBER, dest_occupied) firing sweep + the known-incomplete-base destructive-write census, over EVERY Norway base law. Cached because the sweep is ~10 CPU-minutes and the norway shard is not. `corpus` and `code` are the staleness receipt: tests/test_no_renumber_migration.py recomputes both and FAILS when either moved, rather than passing on a stale measurement. Regenerate with `uv run python scripts/inventory_no_occupied_destination_sweep.py --update-baseline`. NOTE: this file is a RECEIPT of what the corpus does, never a statement of what it should do -- a new firing row here is an unadjudicated firing, and it must be adjudicated W-54 style before the verdict table in the test is extended.",
+ "as_of": "2026-07-10",
+ "code": {
+  "digest": "7f375015ecd6e8cc5dafede7e583bc572f43836d6dd2d1a38f0544821748020c",
+  "files": [
+   {
+    "digest": "e3c727b378ae497fa2fc65a174f837dff2a8417dd458378ac22af35d4bf339fb",
+    "module": "lawvm"
+   },
+   {
+    "digest": "732c032384600526f5a1c00b9bb127e67602b8d59d895d51eecd746e8789e571",
+    "module": "lawvm.contracts"
+   },
+   {
+    "digest": "5fd78265f59ac0db1c8a51ccfd56bc93bb7d2e0cc985f443ac8c47db2391b016",
+    "module": "lawvm.core"
+   },
+   {
+    "digest": "1ed10875a7a4c299f557fe842ab304aa38991b65acc5b619216b04d51d39b393",
+    "module": "lawvm.core.apply_seam"
+   },
+   {
+    "digest": "a168340b0a79be3a856bf59a622775e503e8e43b73180e91d8d587a5c02c1eac",
+    "module": "lawvm.core.archive_safety"
+   },
+   {
+    "digest": "f4649f97090bdb62db8e0b96bf5acc827bed6d9eee9360f75fa8a9dd4e392c90",
+    "module": "lawvm.core.branch_authority"
+   },
+   {
+    "digest": "e31979af3f23cb831f15594ac4bebac7269dbe3f43fca6a6b9b4444ca4b48657",
+    "module": "lawvm.core.commencement_totality_audit"
+   },
+   {
+    "digest": "d8ba1be3bcf2655a46522cda94d8a21226004102a2c498353fe37afcbc33f3ae",
+    "module": "lawvm.core.compile_result"
+   },
+   {
+    "digest": "07f88b6f23e600522843f6cc2afd97072bae3ed36a5994289fb53bdc4b22db17",
+    "module": "lawvm.core.coverage"
+   },
+   {
+    "digest": "300d2edca3f3a890bac0b147699042dada19f393b59f9093a593e9f65637f598",
+    "module": "lawvm.core.cross_act_same_moment"
+   },
+   {
+    "digest": "d196fb03f57e34a333d9b6f9fde2d21020d7f345a6597e30e702e80e36dae276",
+    "module": "lawvm.core.diagnostic_records"
+   },
+   {
+    "digest": "9ed53f065829de784b82db1bace63d66d452231377833a694cdca6db2adcffbb",
+    "module": "lawvm.core.duplicate_child_classification"
+   },
+   {
+    "digest": "271e20c20731c7ef2856e31226f31c4a4de6cd6fe8d29f38f46306bfa68d8180",
+    "module": "lawvm.core.effect_lifecycle"
+   },
+   {
+    "digest": "1293d80d698b46e25638466046671a25585a2c007f02b9c74e94ebd643fda793",
+    "module": "lawvm.core.event_summaries"
+   },
+   {
+    "digest": "c18fbdcab1815f1279cbbbd793bf1902fc27886b67959a8fd8e2f802e0532ad5",
+    "module": "lawvm.core.evidence_kernel"
+   },
+   {
+    "digest": "6c55af873153214c88b7928c69ebe1e2c8edbbbe101ccc70884b7c0cb456795e",
+    "module": "lawvm.core.evidence_policy"
+   },
+   {
+    "digest": "a89b56c6fd9e1ef103dc69c73db42e4325e0bcbb3bb1fb9184ff0119af5660dc",
+    "module": "lawvm.core.evidence_surface_report"
+   },
+   {
+    "digest": "1a673946a8b22f2ced144baf34c7582f8482484ffd977b532bfb895d3487f388",
+    "module": "lawvm.core.execution_authorization"
+   },
+   {
+    "digest": "e56622693ac8286d282bee7fb3de6142598c65ad2b548b0e6d7e343df8f542b5",
+    "module": "lawvm.core.filter_result"
+   },
+   {
+    "digest": "52615c25f3bed583661bd519c557015d618fd6265b5413a0bc5b910cfd2240e1",
+    "module": "lawvm.core.frozen_values"
+   },
+   {
+    "digest": "13b3abe6147b1cda18e279ad92401b8c506d4667fe546de7b8a975550fef5371",
+    "module": "lawvm.core.invariant_profiles"
+   },
+   {
+    "digest": "984aaa62e228109c7b5ebe7f8949171dd53e88a6229249f327540d72fba797be",
+    "module": "lawvm.core.ir"
+   },
+   {
+    "digest": "b63edb3360074a934a0604801b958fb896981588361115388213419d1fa7932c",
+    "module": "lawvm.core.ir_helpers"
+   },
+   {
+    "digest": "5dc4c8c7158dc90e261429a754a135bcdf3c37c69b093ad1f60c72aece32cda6",
+    "module": "lawvm.core.mutation_accounting"
+   },
+   {
+    "digest": "7d93786272bb1344919b6b5124f47b549e05cbb1aa91aa60af08a737dea84fb7",
+    "module": "lawvm.core.mutation_boundary"
+   },
+   {
+    "digest": "45289e8abf7e0dbfc694d8c27540b3970f81d25605f7e80f846496828a47ba8c",
+    "module": "lawvm.core.mutation_boundary_proof"
+   },
+   {
+    "digest": "39f81dfa5ec73b4e9dc905296d765884a5a5285dafe097b2ad029ffa1eb070b0",
+    "module": "lawvm.core.mutation_events"
+   },
+   {
+    "digest": "70c65fad2ad8c56ed75d903cdc6bf4569c0c6c2ae9b097e0118f83c3167c141f",
+    "module": "lawvm.core.observation_registry"
+   },
+   {
+    "digest": "4e308f711183ccb02219367ce7b0873daf81352bdedee82d1514762acf4ccf30",
+    "module": "lawvm.core.observed_write_audit"
+   },
+   {
+    "digest": "bcdb0a9cfe21973402fd73d2940f4de359668360a2b489fa922c2f1be9594017",
+    "module": "lawvm.core.occupancy"
+   },
+   {
+    "digest": "fbe0ec831c46dd569cf16f2bd9f5d42c3362f84d64797ab45455e75abf104bf2",
+    "module": "lawvm.core.op_ordering"
+   },
+   {
+    "digest": "90ef2795fe855610176de772c7d13645708f03648c6cc26a886a525102ff7b44",
+    "module": "lawvm.core.overlay_default_replay_authorized_false_audit"
+   },
+   {
+    "digest": "09efe6cd6c8fcec75908fc31d43ff1b067069ec1bc290d5b485dee45079ee4a0",
+    "module": "lawvm.core.phase_result"
+   },
+   {
+    "digest": "158130d363eca665ccfed2adecec61dc1e914475415a0a762e2fa7a1d7666c66",
+    "module": "lawvm.core.probe_adjudication"
+   },
+   {
+    "digest": "d1e911834aa4c06a4b9cb40b718f120e36dc38b8617750480c2955c065620b99",
+    "module": "lawvm.core.provenance"
+   },
+   {
+    "digest": "1ede8232b8ada13b0e0e195fc991e935c97237dabc064d426d67b1c73ce60f8d",
+    "module": "lawvm.core.provenance_graph"
+   },
+   {
+    "digest": "71e556b10a1216bb3ef807984626d38e2a96b22198d8a5cb010f6b18ea880780",
+    "module": "lawvm.core.quirks_disposition"
+   },
+   {
+    "digest": "d461925fc44c7e1d5adfb292387ed3bb53eeb17c0c4cb009d15f04ba408fdaf1",
+    "module": "lawvm.core.receipt_totality"
+   },
+   {
+    "digest": "6acf96c38edd457a1ea949005e690c3dc1e67961b4b466acf3f1d50d6482a294",
+    "module": "lawvm.core.regex_safety"
+   },
+   {
+    "digest": "28cc2d60744451f3b3a18e5a01c9db033898ab5541e786e072636958bd850d3c",
+    "module": "lawvm.core.scope_confidence"
+   },
+   {
+    "digest": "ecc5f68981538fa4c626cfabb7557742deb64c386552bb0ec7084a2794074dad",
+    "module": "lawvm.core.semantic_types"
+   },
+   {
+    "digest": "9a0413f957d663fe3cd756bdae355712a2a78c9e659b99b3fa01718437b901fa",
+    "module": "lawvm.core.source_acquisition"
+   },
+   {
+    "digest": "9d6a9f76a5c1e2ef0cf8fb62cda5761ba26fe0f421f5a68ddee21801656b8d44",
+    "module": "lawvm.core.source_lane"
+   },
+   {
+    "digest": "a620c420337b744ac9435ebce7c864b775620e817d592952481a98ec79fd4cc6",
+    "module": "lawvm.core.source_witness"
+   },
+   {
+    "digest": "855e794b154642954b91529e3e7bb1120708c8d972b9c7249151d04ea582c426",
+    "module": "lawvm.core.stage_result"
+   },
+   {
+    "digest": "793255aeebce70f877abc3c7b9c69a33ba06ffa56fa5c482ebfada392454e462",
+    "module": "lawvm.core.statute_facets"
+   },
+   {
+    "digest": "3e5e7c1f2a12a657a81ace533a54d78c70f9a94f0e15017840bef223f9e397cc",
+    "module": "lawvm.core.statute_validity"
+   },
+   {
+    "digest": "fa4a7a036732670b58644b0899cb3fd35ce6975fa7833e6a459c257a4620ecbc",
+    "module": "lawvm.core.target_resolution"
+   },
+   {
+    "digest": "acf3a6af0838d6f5ebd831e8411a7c4d6352af6f262c56165d4e0ab45e49a0b6",
+    "module": "lawvm.core.target_scope"
+   },
+   {
+    "digest": "64e9fc8ee3e2739326e7c63b856465436fee2c7b54b8175b03ade50138be242e",
+    "module": "lawvm.core.temporal"
+   },
+   {
+    "digest": "70e9a024475d31fd44d2f9aad982ad9d73cf56d28e8afc6a80e9ec98fefed591",
+    "module": "lawvm.core.temporal_resolution"
+   },
+   {
+    "digest": "b3807359d5a812c18de94b8534f34f573e5d7ba4a00fe2fb30483e72f8a42819",
+    "module": "lawvm.core.timeline"
+   },
+   {
+    "digest": "0ed864a2ca2b10ce67fb66ae2ebaf94879485fe099f0fd55763ba601568a4f83",
+    "module": "lawvm.core.timeline_addresses"
+   },
+   {
+    "digest": "7e82dba40390298bc7b1c0ca8b0f4cd8dc9f03fb24f41ec46385abbec695798b",
+    "module": "lawvm.core.timeline_consistency"
+   },
+   {
+    "digest": "013627a2fcbd3efa210b92d3c97bca8ccb3accfd0a7f91d20038adc8d5660f05",
+    "module": "lawvm.core.timeline_lineage"
+   },
+   {
+    "digest": "9236c48de421247ebc7289d750113d284e6d18439344f7b44f89b53fc3ab76df",
+    "module": "lawvm.core.timeline_materialization"
+   },
+   {
+    "digest": "e305e78ab6eb1e4c8dbee17887e9472801010a4e2988ca491ecddb5a9a47ef67",
+    "module": "lawvm.core.timeline_results"
+   },
+   {
+    "digest": "71116696a852da35b9e0b1d7d9d5dfccf9c847041a68f32e85faf84481c6f324",
+    "module": "lawvm.core.timeline_selection"
+   },
+   {
+    "digest": "4b673c6b5d823095cad3b9583d0b758d6503db24bd755623eef0a218ddbf7648",
+    "module": "lawvm.core.timeline_temporal_events"
+   },
+   {
+    "digest": "f8014535dde29cd472e3fa61d5ce1e61cec81bf6ba46d6b1f2ff9c37b6f21e4e",
+    "module": "lawvm.core.totalization"
+   },
+   {
+    "digest": "2de58fc040f410cba0cd3ef6e5a466685deb5644f692a28f4084e8014d4679cf",
+    "module": "lawvm.core.tree_ops"
+   },
+   {
+    "digest": "c6ef55b25b9f30db4f0ea1c49572d14d3cccddac4498203eb31b26174ce4d393",
+    "module": "lawvm.core.write_receipt"
+   },
+   {
+    "digest": "804af3305ae3d043923bab9cf6a537cdfb99cb5c7b0c45f1bbe41ad541eba7ae",
+    "module": "lawvm.core.xml_parse"
+   },
+   {
+    "digest": "0dd45d5dbe30f9c09300065b3472bf4ba979018465e9a7976c3307738ae5f572",
+    "module": "lawvm.norway"
+   },
+   {
+    "digest": "e47edd670cdb6e17e5191daef90bcbe6b7f592000e17ada298a76bf7cb80455a",
+    "module": "lawvm.norway.commencement"
+   },
+   {
+    "digest": "c38f04f8ab868ef5d5d794e8ce5dc0c76fc37c524133c11b4e6af7b68e895e6b",
+    "module": "lawvm.norway.commencement_instruments"
+   },
+   {
+    "digest": "0c65bed13fab6dd51da722747fa9c746999b8ba8252a3acf7c6e502b4eb779ff",
+    "module": "lawvm.norway.grafter"
+   },
+   {
+    "digest": "ad7611b513b602365f9504108f8a8973e4c267112cca5443a8b12d7b0086ab00",
+    "module": "lawvm.norway.index"
+   },
+   {
+    "digest": "a2ae6db2a07b2761076911bd47cc9bc36efc2e86ab08d8399646dcc6349edd51",
+    "module": "lawvm.norway.inventory"
+   },
+   {
+    "digest": "40a23ced39f48416d4c5eb999fa303c8be03f0959c6a0d00bd59db2713ee5cd2",
+    "module": "lawvm.norway.mutation_boundary_per_op_probe"
+   },
+   {
+    "digest": "ae2fc5323b82191b788ac31de1934cfc8013f0841f19dccfaf6e66272d6a9603",
+    "module": "lawvm.norway.replay"
+   },
+   {
+    "digest": "bb64bc08babc81452fcb0cd38cd2bfbbe3a8e0445ed682724edbe5e203f62a61",
+    "module": "lawvm.norway.scope_confidence"
+   },
+   {
+    "digest": "580ccd348f87b6cb6cf56ff837205f692640319d92820ad5714d1438c438d08a",
+    "module": "lawvm.norway.sources"
+   },
+   {
+    "digest": "700a8962a6db7ed55c28b491aa610d02df5f9afb2564d210ded8924aed13a452",
+    "module": "lawvm.norway.statsrad"
+   },
+   {
+    "digest": "9471d9b02d87f91a781f75267b62ee498610bdad1fd80650cb74979159d6b8bf",
+    "module": "lawvm.norway.totalization_table"
+   },
+   {
+    "digest": "1191a2b4f6575538c4f47f2bcfe95f33ad0adc8b178ed4b3a605130ae8a0d45e",
+    "module": "lawvm.replay_adjudication"
+   },
+   {
+    "digest": "88517d00795b120879bb3abfacce8dc8553369cc72823f067d3e6075763770f7",
+    "module": "lawvm.roman"
+   },
+   {
+    "digest": "047bfb587f93c17211cbbfe6c8c54392257ae6fb21c1fa5d39ee4779bb7823a4",
+    "module": "lawvm.tools"
+   },
+   {
+    "digest": "77198696db044221fc408c9587cd736cbc4dc371c3ee3a5c707ac512ac18c266",
+    "module": "lawvm.tools.no_commencement_candidates"
+   }
+  ],
+  "modules": 79,
+  "roots": [
+   "lawvm.norway.replay",
+   "lawvm.norway.index",
+   "lawvm.norway.inventory"
+  ]
+ },
+ "corpus": {
+  "digest": "0df2654e6222103fccac3888e745c0382cb22f7884012335b2718fabc26710cb",
+  "planes": [
+   {
+    "artifacts": 3089,
+    "digest": "85121a299df0b4e5606a2d31cfdade98f0081b988bfa97e0b2399229764aa173",
+    "plane": "original_lti"
+   },
+   {
+    "artifacts": 3089,
+    "digest": "8bcdf6aff5157234485cfdbf0be71c1e455a07063cf7af9d9fe577e9ae04c6d8",
+    "plane": "amendment"
+   },
+   {
+    "artifacts": 35955,
+    "digest": "ebd61e0fd3dc5b4eed34d9fe8925af5d7ae1aac727f041f8da30c5b16930a39b",
+    "plane": "forskrift"
+   },
+   {
+    "artifacts": 763,
+    "digest": "cd281a30faf3463b38532dcaf0a0a28a7a223af2bcd2d95587c363c73b93de3e",
+    "plane": "current"
+   }
+  ]
+ },
+ "firing_laws": {
+  "no/lov/2001-01-05-1": [
+   2,
+   0
+  ],
+  "no/lov/2003-07-04-84": [
+   1,
+   0
+  ],
+  "no/lov/2004-12-17-99": [
+   2,
+   1
+  ],
+  "no/lov/2005-06-10-44": [
+   2,
+   2
+  ],
+  "no/lov/2007-06-29-75": [
+   1,
+   0
+  ],
+  "no/lov/2009-06-19-58": [
+   1,
+   0
+  ],
+  "no/lov/2021-06-18-97": [
+   1,
+   0
+  ]
+ },
+ "firings": [
+  {
+   "base_id": "no/lov/2001-01-05-1",
+   "destination_path": "section:14",
+   "op_id": "no/lovtid/2009-06-19-85:1",
+   "source_path": "section:12"
+  },
+  {
+   "base_id": "no/lov/2001-01-05-1",
+   "destination_path": "section:15",
+   "op_id": "no/lovtid/2009-06-19-85:2",
+   "source_path": "section:13"
+  },
+  {
+   "base_id": "no/lov/2003-07-04-84",
+   "destination_path": "chapter:2/section:2-2/subsection:5",
+   "op_id": "no/lovtid/2024-06-14-34:3",
+   "source_path": "chapter:2/section:2-2/subsection:4"
+  },
+  {
+   "base_id": "no/lov/2004-12-17-99",
+   "destination_path": "chapter:5/section:20",
+   "op_id": "no/lovtid/2012-05-25-29:22",
+   "source_path": "chapter:5/section:21a"
+  },
+  {
+   "base_id": "no/lov/2004-12-17-99",
+   "destination_path": "chapter:5/section:22",
+   "op_id": "no/lovtid/2012-05-25-29:24",
+   "source_path": "chapter:6/section:23"
+  },
+  {
+   "base_id": "no/lov/2005-06-10-44",
+   "destination_path": "part:4/chapter:9/section:9-1",
+   "op_id": "no/lovtid/2015-04-10-17:109",
+   "source_path": "part:6/chapter:16/section:16-1"
+  },
+  {
+   "base_id": "no/lov/2005-06-10-44",
+   "destination_path": "part:2/chapter:2/section:2-4",
+   "op_id": "no/lovtid/2015-04-10-17:30",
+   "source_path": "part:3/chapter:7/section:7-8"
+  },
+  {
+   "base_id": "no/lov/2007-06-29-75",
+   "destination_path": "part:2/chapter:4/section:4-2",
+   "op_id": "no/lovtid/2019-06-21-41:2",
+   "source_path": "part:2/chapter:4/section:4-3"
+  },
+  {
+   "base_id": "no/lov/2009-06-19-58",
+   "destination_path": "chapter:7/section:7-8",
+   "op_id": "no/lovtid/2022-03-11-8:25",
+   "source_path": "chapter:7/section:7-9"
+  },
+  {
+   "base_id": "no/lov/2021-06-18-97",
+   "destination_path": "chapter:10/section:10-17/subsection:5",
+   "op_id": "no/lovtid/2026-06-19-35:18",
+   "source_path": "chapter:10/section:10-17/subsection:4"
+  }
+ ],
+ "incomplete_base_hazard": {
+  "_doc": "W-73's rider, re-measured every sweep. A base is known-incomplete when its replay receipted a SKIPPED amendment; a write is destructive when it removes, replaces or renumbers existing content. The intersection is the posture that destroyed husbankloven \u00a7 13. Pinned so the number cannot drift silently -- NOT because the hazard is acceptable.",
+  "bases_with_destructive_writes": 265,
+  "hazard_bases": 161,
+  "hazard_bases_removing_content": 65,
+  "hazard_by_skip_kind": {
+   "contingent": 161,
+   "missing_source": 0,
+   "unknown_effective": 1
+  },
+  "hazard_content_removing_writes": 167,
+  "hazard_destructive_writes": 3713,
+  "incomplete_bases": 198,
+  "laws": {
+   "no/lov/2001-04-20-13": [
+    21,
+    1
+   ],
+   "no/lov/2001-05-18-21": [
+    56,
+    1
+   ],
+   "no/lov/2001-05-18-24": [
+    30,
+    1
+   ],
+   "no/lov/2001-06-15-53": [
+    22,
+    1
+   ],
+   "no/lov/2001-06-15-59": [
+    11,
+    0
+   ],
+   "no/lov/2001-06-15-70": [
+    25,
+    0
+   ],
+   "no/lov/2001-06-15-79": [
+    47,
+    2
+   ],
+   "no/lov/2001-06-15-81": [
+    5,
+    1
+   ],
+   "no/lov/2001-06-15-93": [
+    29,
+    0
+   ],
+   "no/lov/2001-12-14-95": [
+    2,
+    0
+   ],
+   "no/lov/2002-03-08-4": [
+    8,
+    0
+   ],
+   "no/lov/2002-04-26-12": [
+    2,
+    0
+   ],
+   "no/lov/2002-05-03-13": [
+    1,
+    1
+   ],
+   "no/lov/2002-06-07-19": [
+    3,
+    0
+   ],
+   "no/lov/2002-06-14-20": [
+    11,
+    1
+   ],
+   "no/lov/2002-06-21-34": [
+    26,
+    1
+   ],
+   "no/lov/2002-06-21-45": [
+    66,
+    2
+   ],
+   "no/lov/2002-06-28-57": [
+    58,
+    0
+   ],
+   "no/lov/2002-06-28-61": [
+    3,
+    0
+   ],
+   "no/lov/2002-07-05-64": [
+    8,
+    0
+   ],
+   "no/lov/2002-12-06-72": [
+    3,
+    0
+   ],
+   "no/lov/2003-02-21-12": [
+    2,
+    1
+   ],
+   "no/lov/2003-03-14-15": [
+    16,
+    1
+   ],
+   "no/lov/2003-05-23-35": [
+    5,
+    0
+   ],
+   "no/lov/2003-06-06-38": [
+    31,
+    0
+   ],
+   "no/lov/2003-06-06-39": [
+    30,
+    0
+   ],
+   "no/lov/2003-06-20-41": [
+    6,
+    0
+   ],
+   "no/lov/2003-06-20-56": [
+    5,
+    0
+   ],
+   "no/lov/2003-06-27-64": [
+    4,
+    0
+   ],
+   "no/lov/2003-07-04-80": [
+    31,
+    0
+   ],
+   "no/lov/2003-07-04-83": [
+    58,
+    3
+   ],
+   "no/lov/2003-07-04-84": [
+    79,
+    1
+   ],
+   "no/lov/2003-11-28-98": [
+    6,
+    0
+   ],
+   "no/lov/2003-12-05-100": [
+    41,
+    3
+   ],
+   "no/lov/2003-12-12-108": [
+    24,
+    0
+   ],
+   "no/lov/2003-12-19-124": [
+    13,
+    0
+   ],
+   "no/lov/2003-12-19-130": [
+    42,
+    1
+   ],
+   "no/lov/2004-03-05-12": [
+    33,
+    1
+   ],
+   "no/lov/2004-05-07-21": [
+    6,
+    0
+   ],
+   "no/lov/2004-07-02-59": [
+    17,
+    2
+   ],
+   "no/lov/2004-07-02-64": [
+    28,
+    0
+   ],
+   "no/lov/2004-11-19-73": [
+    5,
+    0
+   ],
+   "no/lov/2004-12-10-76": [
+    16,
+    2
+   ],
+   "no/lov/2004-12-10-82": [
+    5,
+    0
+   ],
+   "no/lov/2005-04-01-14": [
+    2,
+    0
+   ],
+   "no/lov/2005-04-01-15": [
+    86,
+    5
+   ],
+   "no/lov/2005-04-29-20": [
+    16,
+    2
+   ],
+   "no/lov/2005-04-29-21": [
+    32,
+    0
+   ],
+   "no/lov/2005-05-20-28": [
+    125,
+    2
+   ],
+   "no/lov/2005-05-27-31": [
+    7,
+    0
+   ],
+   "no/lov/2005-06-03-37": [
+    6,
+    0
+   ],
+   "no/lov/2005-06-10-41": [
+    2,
+    1
+   ],
+   "no/lov/2005-06-10-44": [
+    84,
+    10
+   ],
+   "no/lov/2005-06-10-51": [
+    45,
+    4
+   ],
+   "no/lov/2005-06-17-101": [
+    13,
+    1
+   ],
+   "no/lov/2005-06-17-102": [
+    3,
+    0
+   ],
+   "no/lov/2005-06-17-64": [
+    28,
+    1
+   ],
+   "no/lov/2005-06-17-67": [
+    306,
+    11
+   ],
+   "no/lov/2005-06-17-79": [
+    11,
+    2
+   ],
+   "no/lov/2005-06-17-85": [
+    16,
+    0
+   ],
+   "no/lov/2005-06-17-90": [
+    49,
+    0
+   ],
+   "no/lov/2005-12-21-123": [
+    5,
+    0
+   ],
+   "no/lov/2005-12-21-124": [
+    14,
+    0
+   ],
+   "no/lov/2006-05-19-16": [
+    11,
+    0
+   ],
+   "no/lov/2006-06-16-20": [
+    18,
+    2
+   ],
+   "no/lov/2007-02-16-9": [
+    14,
+    0
+   ],
+   "no/lov/2007-06-15-40": [
+    53,
+    5
+   ],
+   "no/lov/2007-06-29-44": [
+    10,
+    0
+   ],
+   "no/lov/2007-06-29-73": [
+    22,
+    2
+   ],
+   "no/lov/2007-06-29-74": [
+    9,
+    2
+   ],
+   "no/lov/2007-06-29-75": [
+    70,
+    4
+   ],
+   "no/lov/2007-06-29-81": [
+    14,
+    0
+   ],
+   "no/lov/2007-12-14-116": [
+    13,
+    0
+   ],
+   "no/lov/2007-12-21-119": [
+    49,
+    4
+   ],
+   "no/lov/2008-05-15-35": [
+    251,
+    8
+   ],
+   "no/lov/2008-06-06-37": [
+    20,
+    1
+   ],
+   "no/lov/2008-06-20-44": [
+    11,
+    0
+   ],
+   "no/lov/2008-06-27-62": [
+    20,
+    0
+   ],
+   "no/lov/2008-06-27-71": [
+    73,
+    2
+   ],
+   "no/lov/2009-01-09-2": [
+    55,
+    6
+   ],
+   "no/lov/2009-03-06-11": [
+    17,
+    0
+   ],
+   "no/lov/2009-04-17-19": [
+    4,
+    0
+   ],
+   "no/lov/2009-05-29-30": [
+    8,
+    3
+   ],
+   "no/lov/2009-06-05-35": [
+    18,
+    1
+   ],
+   "no/lov/2009-06-19-100": [
+    29,
+    0
+   ],
+   "no/lov/2009-06-19-101": [
+    18,
+    0
+   ],
+   "no/lov/2009-06-19-103": [
+    3,
+    0
+   ],
+   "no/lov/2009-06-19-58": [
+    188,
+    18
+   ],
+   "no/lov/2009-06-19-95": [
+    7,
+    1
+   ],
+   "no/lov/2009-06-19-97": [
+    5,
+    0
+   ],
+   "no/lov/2009-12-18-131": [
+    27,
+    1
+   ],
+   "no/lov/2010-02-12-4": [
+    2,
+    0
+   ],
+   "no/lov/2010-02-19-5": [
+    12,
+    0
+   ],
+   "no/lov/2010-03-26-8": [
+    46,
+    0
+   ],
+   "no/lov/2010-03-26-9": [
+    39,
+    0
+   ],
+   "no/lov/2010-05-28-16": [
+    15,
+    0
+   ],
+   "no/lov/2010-06-25-45": [
+    21,
+    1
+   ],
+   "no/lov/2011-06-24-29": [
+    9,
+    0
+   ],
+   "no/lov/2011-06-24-30": [
+    34,
+    4
+   ],
+   "no/lov/2011-11-25-44": [
+    18,
+    3
+   ],
+   "no/lov/2011-12-16-60": [
+    20,
+    1
+   ],
+   "no/lov/2011-12-16-65": [
+    4,
+    0
+   ],
+   "no/lov/2012-01-20-4": [
+    5,
+    0
+   ],
+   "no/lov/2012-06-22-43": [
+    17,
+    0
+   ],
+   "no/lov/2012-08-24-64": [
+    6,
+    0
+   ],
+   "no/lov/2013-01-11-3": [
+    7,
+    0
+   ],
+   "no/lov/2013-06-21-100": [
+    14,
+    1
+   ],
+   "no/lov/2013-06-21-102": [
+    11,
+    3
+   ],
+   "no/lov/2013-06-21-60": [
+    1,
+    0
+   ],
+   "no/lov/2013-12-13-106": [
+    6,
+    1
+   ],
+   "no/lov/2014-06-06-19": [
+    2,
+    0
+   ],
+   "no/lov/2014-06-20-27": [
+    12,
+    0
+   ],
+   "no/lov/2014-06-20-28": [
+    12,
+    2
+   ],
+   "no/lov/2014-06-20-30": [
+    1,
+    0
+   ],
+   "no/lov/2014-06-20-42": [
+    15,
+    1
+   ],
+   "no/lov/2014-06-20-43": [
+    9,
+    1
+   ],
+   "no/lov/2014-06-20-49": [
+    22,
+    1
+   ],
+   "no/lov/2015-02-06-7": [
+    2,
+    0
+   ],
+   "no/lov/2015-05-07-25": [
+    4,
+    0
+   ],
+   "no/lov/2015-05-07-26": [
+    1,
+    0
+   ],
+   "no/lov/2015-06-05-39": [
+    2,
+    0
+   ],
+   "no/lov/2015-09-04-91": [
+    17,
+    2
+   ],
+   "no/lov/2015-12-04-95": [
+    1,
+    0
+   ],
+   "no/lov/2016-05-27-14": [
+    136,
+    5
+   ],
+   "no/lov/2016-06-17-30": [
+    2,
+    0
+   ],
+   "no/lov/2016-06-17-64": [
+    1,
+    0
+   ],
+   "no/lov/2016-06-17-73": [
+    8,
+    3
+   ],
+   "no/lov/2016-08-12-77": [
+    31,
+    2
+   ],
+   "no/lov/2016-12-09-88": [
+    9,
+    0
+   ],
+   "no/lov/2017-06-16-47": [
+    3,
+    0
+   ],
+   "no/lov/2017-06-16-50": [
+    22,
+    0
+   ],
+   "no/lov/2017-12-15-107": [
+    5,
+    0
+   ],
+   "no/lov/2018-03-23-3": [
+    2,
+    0
+   ],
+   "no/lov/2018-04-20-8": [
+    16,
+    0
+   ],
+   "no/lov/2018-06-01-23": [
+    18,
+    0
+   ],
+   "no/lov/2018-06-08-28": [
+    19,
+    1
+   ],
+   "no/lov/2018-06-15-32": [
+    4,
+    2
+   ],
+   "no/lov/2018-06-15-40": [
+    11,
+    2
+   ],
+   "no/lov/2018-06-22-83": [
+    26,
+    1
+   ],
+   "no/lov/2019-03-01-3": [
+    1,
+    0
+   ],
+   "no/lov/2019-03-15-6": [
+    2,
+    0
+   ],
+   "no/lov/2019-03-22-7": [
+    2,
+    0
+   ],
+   "no/lov/2019-06-21-31": [
+    16,
+    0
+   ],
+   "no/lov/2020-05-07-37": [
+    6,
+    0
+   ],
+   "no/lov/2020-05-07-40": [
+    1,
+    0
+   ],
+   "no/lov/2020-06-19-83": [
+    10,
+    0
+   ],
+   "no/lov/2020-06-23-99": [
+    10,
+    0
+   ],
+   "no/lov/2020-11-06-127": [
+    27,
+    0
+   ],
+   "no/lov/2020-11-20-128": [
+    1,
+    0
+   ],
+   "no/lov/2020-12-18-146": [
+    11,
+    0
+   ],
+   "no/lov/2021-06-18-97": [
+    32,
+    0
+   ],
+   "no/lov/2021-12-22-163": [
+    3,
+    0
+   ],
+   "no/lov/2022-01-28-2": [
+    1,
+    0
+   ],
+   "no/lov/2022-03-04-7": [
+    2,
+    0
+   ],
+   "no/lov/2022-03-11-8": [
+    9,
+    0
+   ],
+   "no/lov/2022-06-17-57": [
+    1,
+    0
+   ],
+   "no/lov/2022-12-16-90": [
+    2,
+    1
+   ],
+   "no/lov/2023-06-09-30": [
+    20,
+    0
+   ],
+   "no/lov/2024-03-08-9": [
+    20,
+    3
+   ],
+   "no/lov/2024-06-21-41": [
+    1,
+    0
+   ],
+   "no/lov/2025-04-25-12": [
+    8,
+    0
+   ]
+  },
+  "laws_digest": "d6ed024705e42da480efca7b002cf148a50668babd314bce65775f66d77f5b8c"
+ },
+ "rule_id": "no_replay_renumber_occupied_destination_removed",
+ "runtime": {
+  "distributions": {
+   "farchive": "3.1.1",
+   "icontract": "2.7.3",
+   "lawvm": "0.1.0",
+   "lxml": "6.1.1",
+   "typing_extensions": "4.15.0"
+  },
+  "python": "3.14"
+ },
+ "swept": {
+  "base_law_ids": [
+   "no/lov/1751-10-02-0",
+   "no/lov/1891-06-06-2",
+   "no/lov/1893-07-20-2",
+   "no/lov/1897-08-03-2",
+   "no/lov/1898-11-28-0",
+   "no/lov/1898-12-19-3",
+   "no/lov/1902-05-22-10",
+   "no/lov/1902-05-22-13",
+   "no/lov/1903-06-09-7",
+   "no/lov/1910-07-02-7",
+   "no/lov/1912-06-14-1",
+   "no/lov/1914-07-03-5",
+   "no/lov/1915-06-24-5",
+   "no/lov/1915-08-13-5",
+   "no/lov/1915-08-13-6",
+   "no/lov/1916-03-17-0",
+   "no/lov/1916-06-30-1",
+   "no/lov/1916-07-21-2",
+   "no/lov/1917-06-01-1",
+   "no/lov/1917-12-14-16",
+   "no/lov/1917-12-14-17",
+   "no/lov/1918-05-31-4",
+   "no/lov/1918-08-14-2",
+   "no/lov/1918-08-14-3",
+   "no/lov/1923-07-09-1",
+   "no/lov/1924-06-13-4",
+   "no/lov/1925-07-17-11",
+   "no/lov/1925-07-17-2",
+   "no/lov/1926-06-25-2",
+   "no/lov/1927-04-22-3",
+   "no/lov/1927-05-05-1",
+   "no/lov/1927-07-01-1",
+   "no/lov/1927-07-01-3",
+   "no/lov/1928-05-29-7",
+   "no/lov/1929-05-24-4",
+   "no/lov/1930-02-21-0",
+   "no/lov/1930-02-27-2",
+   "no/lov/1930-02-27-3",
+   "no/lov/1930-03-14",
+   "no/lov/1930-03-14-0",
+   "no/lov/1931-06-12-1",
+   "no/lov/1931-06-19-18",
+   "no/lov/1932-02-05-1",
+   "no/lov/1932-02-05-2",
+   "no/lov/1932-05-27-2",
+   "no/lov/1932-05-27-3",
+   "no/lov/1932-06-17-6",
+   "no/lov/1933-05-19-11",
+   "no/lov/1933-05-19-3",
+   "no/lov/1933-06-29-2",
+   "no/lov/1935-06-07-2",
+   "no/lov/1936-07-10-6",
+   "no/lov/1936-07-16-2",
+   "no/lov/1939-02-17-1",
+   "no/lov/1940-03-07-1",
+   "no/lov/1946-03-01-3",
+   "no/lov/1946-10-31-2",
+   "no/lov/1946-12-13-14",
+   "no/lov/1946-12-13-21",
+   "no/lov/1946-12-13-22",
+   "no/lov/1947-04-26-1",
+   "no/lov/1947-05-02-1",
+   "no/lov/1947-06-19-5",
+   "no/lov/1947-06-27-9",
+   "no/lov/1947-12-05-1",
+   "no/lov/1948-11-04-1",
+   "no/lov/1948-12-03-7",
+   "no/lov/1948-12-13-5",
+   "no/lov/1949-03-31-3",
+   "no/lov/1949-06-17-3",
+   "no/lov/1949-07-08-13",
+   "no/lov/1949-07-28-26",
+   "no/lov/1950-07-14-10",
+   "no/lov/1950-07-14-2",
+   "no/lov/1950-12-08-3",
+   "no/lov/1950-12-15-4",
+   "no/lov/1950-12-15-7",
+   "no/lov/1951-06-29-19",
+   "no/lov/1951-12-03-2",
+   "no/lov/1951-12-14-11",
+   "no/lov/1951-12-14-3",
+   "no/lov/1952-03-21-1",
+   "no/lov/1952-11-21-2",
+   "no/lov/1952-11-21-3",
+   "no/lov/1952-12-19-2",
+   "no/lov/1952-12-19-7",
+   "no/lov/1953-05-29-1",
+   "no/lov/1953-05-29-3",
+   "no/lov/1953-06-26-11",
+   "no/lov/1953-06-26-8",
+   "no/lov/1953-07-03-2",
+   "no/lov/1953-07-17-2",
+   "no/lov/1953-07-17-28",
+   "no/lov/1953-07-17-29",
+   "no/lov/1953-07-17-9",
+   "no/lov/1954-06-04-2",
+   "no/lov/1954-11-26-3",
+   "no/lov/1955-06-30-20",
+   "no/lov/1955-12-09-5",
+   "no/lov/1956-11-09-1",
+   "no/lov/1956-12-07-1",
+   "no/lov/1956-12-14-4",
+   "no/lov/1956-12-14-7",
+   "no/lov/1956-12-21-1",
+   "no/lov/1957-03-22-4",
+   "no/lov/1957-05-03",
+   "no/lov/1957-05-03-0",
+   "no/lov/1957-06-28-12",
+   "no/lov/1957-06-28-16",
+   "no/lov/1957-07-06-26",
+   "no/lov/1958-03-28-4",
+   "no/lov/1958-07-18-2",
+   "no/lov/1958-12-12-10",
+   "no/lov/1959-05-28-12",
+   "no/lov/1959-06-19-2",
+   "no/lov/1959-10-23-3",
+   "no/lov/1959-12-18-1",
+   "no/lov/1960-02-04-1",
+   "no/lov/1960-02-04-2",
+   "no/lov/1961-02-03",
+   "no/lov/1961-02-03-0",
+   "no/lov/1961-03-03-1",
+   "no/lov/1961-03-03-4",
+   "no/lov/1961-03-23-1",
+   "no/lov/1961-05-05",
+   "no/lov/1961-05-05-0",
+   "no/lov/1961-05-12-2",
+   "no/lov/1961-05-24-1",
+   "no/lov/1961-05-24-2",
+   "no/lov/1961-06-09-1",
+   "no/lov/1961-06-16-12",
+   "no/lov/1961-06-16-15",
+   "no/lov/1962-06-22-12",
+   "no/lov/1962-06-22-8",
+   "no/lov/1963-06-21-12",
+   "no/lov/1963-06-21-23",
+   "no/lov/1963-11-15",
+   "no/lov/1963-11-15-0",
+   "no/lov/1964-06-19-14",
+   "no/lov/1964-12-04-1",
+   "no/lov/1965-03-19-3",
+   "no/lov/1965-04-09-1",
+   "no/lov/1965-05-21-0",
+   "no/lov/1965-06-18-4",
+   "no/lov/1965-06-18-6",
+   "no/lov/1965-06-25-1",
+   "no/lov/1965-06-25-2",
+   "no/lov/1966-05-06",
+   "no/lov/1966-05-06-0",
+   "no/lov/1966-06-10-3",
+   "no/lov/1966-06-10-5",
+   "no/lov/1966-06-17-19",
+   "no/lov/1966-06-17-2",
+   "no/lov/1966-12-09-1",
+   "no/lov/1966-12-16-9",
+   "no/lov/1967-02-10",
+   "no/lov/1967-02-10-0",
+   "no/lov/1967-06-08-3",
+   "no/lov/1967-06-16-3",
+   "no/lov/1967-07-07-1",
+   "no/lov/1967-07-07-13",
+   "no/lov/1967-12-15-9",
+   "no/lov/1968-03-22-2",
+   "no/lov/1968-06-07-4",
+   "no/lov/1968-11-29-0",
+   "no/lov/1969-06-13-25",
+   "no/lov/1969-06-13-26",
+   "no/lov/1969-06-19-66",
+   "no/lov/1969-06-19-67",
+   "no/lov/1970-01-16-1",
+   "no/lov/1970-03-06-5",
+   "no/lov/1970-04-17-21",
+   "no/lov/1970-06-05-35",
+   "no/lov/1970-06-19-63",
+   "no/lov/1970-06-19-69",
+   "no/lov/1971-05-21-47",
+   "no/lov/1971-06-11-52",
+   "no/lov/1972-03-03-5",
+   "no/lov/1972-05-12-28",
+   "no/lov/1972-06-09-31",
+   "no/lov/1972-06-16-43",
+   "no/lov/1972-06-16-47",
+   "no/lov/1972-06-30-70",
+   "no/lov/1973-02-09-6",
+   "no/lov/1973-02-23-11",
+   "no/lov/1973-03-09-14",
+   "no/lov/1973-12-14-61",
+   "no/lov/1974-05-31-17",
+   "no/lov/1974-05-31-19",
+   "no/lov/1974-06-07-22",
+   "no/lov/1974-06-14-39",
+   "no/lov/1974-06-28-58",
+   "no/lov/1974-12-20-68",
+   "no/lov/1974-12-20-73",
+   "no/lov/1975-03-21-9",
+   "no/lov/1975-05-30-18",
+   "no/lov/1975-06-06-29",
+   "no/lov/1975-06-06-31",
+   "no/lov/1975-06-13-35",
+   "no/lov/1975-06-13-39",
+   "no/lov/1975-06-13-50",
+   "no/lov/1975-12-12-59",
+   "no/lov/1976-05-28-35",
+   "no/lov/1976-06-11-79",
+   "no/lov/1976-12-17-100",
+   "no/lov/1976-12-17-91",
+   "no/lov/1977-02-04-4",
+   "no/lov/1977-04-29-34",
+   "no/lov/1977-06-03-50",
+   "no/lov/1977-06-03-57",
+   "no/lov/1977-06-10-73",
+   "no/lov/1977-06-10-82",
+   "no/lov/1978-04-28-18",
+   "no/lov/1978-06-02-37",
+   "no/lov/1978-06-02-38",
+   "no/lov/1978-06-09-45",
+   "no/lov/1978-06-09-49",
+   "no/lov/1978-06-09-50",
+   "no/lov/1978-06-23-70",
+   "no/lov/1979-05-18-18",
+   "no/lov/1979-12-21-77",
+   "no/lov/1980-02-08-2",
+   "no/lov/1980-06-06-18",
+   "no/lov/1980-06-13-24",
+   "no/lov/1980-06-13-35",
+   "no/lov/1981-03-06-5",
+   "no/lov/1981-03-13-6",
+   "no/lov/1981-04-08-7",
+   "no/lov/1981-05-22-25",
+   "no/lov/1981-05-29-38",
+   "no/lov/1981-06-05-45",
+   "no/lov/1981-06-12-52",
+   "no/lov/1981-06-12-61",
+   "no/lov/1981-06-12-64",
+   "no/lov/1981-06-12-68",
+   "no/lov/1981-12-18-90",
+   "no/lov/1982-05-21-25",
+   "no/lov/1982-11-19-66",
+   "no/lov/1982-12-17-84",
+   "no/lov/1982-12-17-86",
+   "no/lov/1983-03-04-3",
+   "no/lov/1983-06-03-40",
+   "no/lov/1983-06-03-54",
+   "no/lov/1984-03-30-15",
+   "no/lov/1984-06-08-51",
+   "no/lov/1984-06-08-55",
+   "no/lov/1984-06-08-58",
+   "no/lov/1984-06-08-59",
+   "no/lov/1984-06-15-74",
+   "no/lov/1984-12-21-101",
+   "no/lov/1985-03-01-3",
+   "no/lov/1985-04-26-21",
+   "no/lov/1985-05-24-28",
+   "no/lov/1985-06-14-62",
+   "no/lov/1985-06-14-68",
+   "no/lov/1985-06-14-73",
+   "no/lov/1985-06-14-77",
+   "no/lov/1985-06-21-78",
+   "no/lov/1985-06-21-79",
+   "no/lov/1985-06-21-80",
+   "no/lov/1985-06-21-82",
+   "no/lov/1985-06-21-83",
+   "no/lov/1985-12-20-108",
+   "no/lov/1986-02-28-8",
+   "no/lov/1986-04-25-11",
+   "no/lov/1986-06-20-35",
+   "no/lov/1986-07-11-53",
+   "no/lov/1987-05-15-21",
+   "no/lov/1987-05-29-23",
+   "no/lov/1987-06-12-48",
+   "no/lov/1987-06-12-56",
+   "no/lov/1987-06-12-57",
+   "no/lov/1987-12-18-93",
+   "no/lov/1988-04-29-21",
+   "no/lov/1988-05-06-22",
+   "no/lov/1988-05-13-26",
+   "no/lov/1988-05-13-27",
+   "no/lov/1988-05-20-32",
+   "no/lov/1988-05-20-33",
+   "no/lov/1988-06-10-39",
+   "no/lov/1988-06-10-40",
+   "no/lov/1988-06-24-64",
+   "no/lov/1988-07-08-72",
+   "no/lov/1988-12-23-104",
+   "no/lov/1988-12-23-110",
+   "no/lov/1989-02-17-2",
+   "no/lov/1989-06-02-27",
+   "no/lov/1989-06-09-32",
+   "no/lov/1989-06-16-53",
+   "no/lov/1989-06-16-54",
+   "no/lov/1989-06-16-59",
+   "no/lov/1989-06-16-63",
+   "no/lov/1989-06-16-65",
+   "no/lov/1989-06-16-69",
+   "no/lov/1989-06-16-70",
+   "no/lov/1990-04-27-9",
+   "no/lov/1990-05-18-11",
+   "no/lov/1990-06-15-27",
+   "no/lov/1990-06-22-36",
+   "no/lov/1990-06-29-50",
+   "no/lov/1990-12-21-72",
+   "no/lov/1991-03-15-3",
+   "no/lov/1991-06-07-24",
+   "no/lov/1991-07-04-45",
+   "no/lov/1991-07-04-47",
+   "no/lov/1991-07-20-67",
+   "no/lov/1991-08-30-71",
+   "no/lov/1991-11-08-76",
+   "no/lov/1991-12-13-81",
+   "no/lov/1992-05-15-47",
+   "no/lov/1992-06-19-56",
+   "no/lov/1992-06-19-59",
+   "no/lov/1992-06-19-60",
+   "no/lov/1992-06-26-86",
+   "no/lov/1992-06-26-87",
+   "no/lov/1992-07-03-93",
+   "no/lov/1992-07-03-97",
+   "no/lov/1992-07-17-100",
+   "no/lov/1992-07-17-99",
+   "no/lov/1992-08-28-103",
+   "no/lov/1992-09-25-107",
+   "no/lov/1992-11-27-109",
+   "no/lov/1992-11-27-112",
+   "no/lov/1992-11-27-117",
+   "no/lov/1992-12-04-126",
+   "no/lov/1992-12-04-127",
+   "no/lov/1992-12-04-130",
+   "no/lov/1992-12-04-132",
+   "no/lov/1993-03-12-32",
+   "no/lov/1993-04-02-38",
+   "no/lov/1993-04-30-40",
+   "no/lov/1993-05-28-52",
+   "no/lov/1993-06-04-58",
+   "no/lov/1993-06-11-100",
+   "no/lov/1993-06-11-101",
+   "no/lov/1993-06-11-64",
+   "no/lov/1993-06-11-65",
+   "no/lov/1993-06-11-66",
+   "no/lov/1993-06-11-73",
+   "no/lov/1993-06-18-109",
+   "no/lov/1994-03-25-6",
+   "no/lov/1994-03-25-7",
+   "no/lov/1994-05-06-10",
+   "no/lov/1994-06-03-15",
+   "no/lov/1994-06-24-34",
+   "no/lov/1994-06-24-38",
+   "no/lov/1994-06-24-39",
+   "no/lov/1994-07-01-49",
+   "no/lov/1994-08-05-55",
+   "no/lov/1994-08-05-56",
+   "no/lov/1994-12-09-64",
+   "no/lov/1995-01-12-6",
+   "no/lov/1995-02-03-7",
+   "no/lov/1995-02-24-11",
+   "no/lov/1995-02-24-12",
+   "no/lov/1995-05-05-19",
+   "no/lov/1995-05-12-22",
+   "no/lov/1995-05-12-23",
+   "no/lov/1995-05-26-25",
+   "no/lov/1995-06-23-39",
+   "no/lov/1995-08-04-53",
+   "no/lov/1995-08-25-57",
+   "no/lov/1995-12-15-74",
+   "no/lov/1995-12-22-85",
+   "no/lov/1996-02-23-9",
+   "no/lov/1996-03-22-16",
+   "no/lov/1996-06-07-31",
+   "no/lov/1996-06-07-32",
+   "no/lov/1996-06-07-33",
+   "no/lov/1996-06-21-38",
+   "no/lov/1996-06-28-54",
+   "no/lov/1996-08-23-63",
+   "no/lov/1996-11-22-65",
+   "no/lov/1996-11-29-68",
+   "no/lov/1996-11-29-69",
+   "no/lov/1996-11-29-72",
+   "no/lov/1996-11-29-73",
+   "no/lov/1996-12-06-75",
+   "no/lov/1996-12-13-87",
+   "no/lov/1996-12-20-106",
+   "no/lov/1997-01-17-11",
+   "no/lov/1997-02-28-19",
+   "no/lov/1997-05-09-26",
+   "no/lov/1997-05-23-31",
+   "no/lov/1997-06-06-32",
+   "no/lov/1997-06-06-35",
+   "no/lov/1997-06-13-37",
+   "no/lov/1997-06-13-42",
+   "no/lov/1997-06-13-43",
+   "no/lov/1997-06-13-44",
+   "no/lov/1997-06-13-45",
+   "no/lov/1997-06-13-47",
+   "no/lov/1997-06-13-53",
+   "no/lov/1997-06-13-55",
+   "no/lov/1997-06-19-62",
+   "no/lov/1997-06-19-79",
+   "no/lov/1997-06-19-82",
+   "no/lov/1998-03-20-10",
+   "no/lov/1998-06-26-41",
+   "no/lov/1998-06-26-47",
+   "no/lov/1998-07-17-56",
+   "no/lov/1998-07-17-61",
+   "no/lov/1998-08-21-65",
+   "no/lov/1999-01-15-1",
+   "no/lov/1999-01-15-2",
+   "no/lov/1999-01-29-6",
+   "no/lov/1999-03-26-14",
+   "no/lov/1999-03-26-15",
+   "no/lov/1999-03-26-17",
+   "no/lov/1999-04-30-22",
+   "no/lov/1999-05-21-30",
+   "no/lov/1999-06-05-37",
+   "no/lov/1999-06-18-40",
+   "no/lov/1999-06-25-46",
+   "no/lov/1999-07-02-61",
+   "no/lov/1999-07-02-62",
+   "no/lov/1999-07-02-63",
+   "no/lov/1999-07-02-64",
+   "no/lov/1999-07-16-66",
+   "no/lov/1999-07-16-69",
+   "no/lov/1999-09-17-73",
+   "no/lov/1999-12-17-95",
+   "no/lov/1999-12-22-105",
+   "no/lov/2000-01-21-7",
+   "no/lov/2000-03-24-16",
+   "no/lov/2000-04-14-31",
+   "no/lov/2000-05-12-36",
+   "no/lov/2000-06-02-39",
+   "no/lov/2000-06-16-42",
+   "no/lov/2000-06-23-54",
+   "no/lov/2000-06-23-55",
+   "no/lov/2000-06-23-56",
+   "no/lov/2000-06-30-57",
+   "no/lov/2000-07-07-68",
+   "no/lov/2000-11-17-80",
+   "no/lov/2000-11-24-81",
+   "no/lov/2000-11-24-82",
+   "no/lov/2000-11-24-84",
+   "no/lov/2000-12-21-105",
+   "no/lov/2000-12-21-113",
+   "no/lov/2001-01-05-1",
+   "no/lov/2001-04-20-13",
+   "no/lov/2001-04-27-14",
+   "no/lov/2001-05-18-21",
+   "no/lov/2001-05-18-24",
+   "no/lov/2001-06-15-48",
+   "no/lov/2001-06-15-53",
+   "no/lov/2001-06-15-59",
+   "no/lov/2001-06-15-62",
+   "no/lov/2001-06-15-63",
+   "no/lov/2001-06-15-65",
+   "no/lov/2001-06-15-70",
+   "no/lov/2001-06-15-75",
+   "no/lov/2001-06-15-79",
+   "no/lov/2001-06-15-81",
+   "no/lov/2001-06-15-93",
+   "no/lov/2001-12-14-95",
+   "no/lov/2002-03-08-4",
+   "no/lov/2002-04-26-12",
+   "no/lov/2002-05-03-13",
+   "no/lov/2002-06-07-19",
+   "no/lov/2002-06-14-20",
+   "no/lov/2002-06-21-34",
+   "no/lov/2002-06-21-44",
+   "no/lov/2002-06-21-45",
+   "no/lov/2002-06-28-57",
+   "no/lov/2002-06-28-61",
+   "no/lov/2002-07-05-64",
+   "no/lov/2002-12-06-72",
+   "no/lov/2002-12-13-74",
+   "no/lov/2002-12-13-86",
+   "no/lov/2003-02-21-12",
+   "no/lov/2003-03-14-15",
+   "no/lov/2003-04-11-20",
+   "no/lov/2003-05-09-31",
+   "no/lov/2003-05-23-35",
+   "no/lov/2003-06-06-38",
+   "no/lov/2003-06-06-39",
+   "no/lov/2003-06-20-41",
+   "no/lov/2003-06-20-56",
+   "no/lov/2003-06-27-57",
+   "no/lov/2003-06-27-58",
+   "no/lov/2003-06-27-64",
+   "no/lov/2003-07-04-74",
+   "no/lov/2003-07-04-80",
+   "no/lov/2003-07-04-83",
+   "no/lov/2003-07-04-84",
+   "no/lov/2003-09-12-94",
+   "no/lov/2003-11-28-98",
+   "no/lov/2003-12-05-100",
+   "no/lov/2003-12-12-108",
+   "no/lov/2003-12-12-109",
+   "no/lov/2003-12-19-124",
+   "no/lov/2003-12-19-130",
+   "no/lov/2004-03-05-11",
+   "no/lov/2004-03-05-12",
+   "no/lov/2004-03-26-17",
+   "no/lov/2004-05-07-21",
+   "no/lov/2004-05-14-25",
+   "no/lov/2004-05-28-29",
+   "no/lov/2004-07-02-59",
+   "no/lov/2004-07-02-64",
+   "no/lov/2004-11-19-73",
+   "no/lov/2004-12-10-76",
+   "no/lov/2004-12-10-82",
+   "no/lov/2004-12-17-101",
+   "no/lov/2004-12-17-99",
+   "no/lov/2005-01-07-2",
+   "no/lov/2005-04-01-14",
+   "no/lov/2005-04-01-15",
+   "no/lov/2005-04-15-17",
+   "no/lov/2005-04-29-20",
+   "no/lov/2005-04-29-21",
+   "no/lov/2005-05-20-28",
+   "no/lov/2005-05-27-31",
+   "no/lov/2005-06-03-33",
+   "no/lov/2005-06-03-34",
+   "no/lov/2005-06-03-37",
+   "no/lov/2005-06-10-40",
+   "no/lov/2005-06-10-41",
+   "no/lov/2005-06-10-44",
+   "no/lov/2005-06-10-51",
+   "no/lov/2005-06-17-101",
+   "no/lov/2005-06-17-102",
+   "no/lov/2005-06-17-58",
+   "no/lov/2005-06-17-62",
+   "no/lov/2005-06-17-64",
+   "no/lov/2005-06-17-65",
+   "no/lov/2005-06-17-67",
+   "no/lov/2005-06-17-79",
+   "no/lov/2005-06-17-85",
+   "no/lov/2005-06-17-90",
+   "no/lov/2005-12-21-123",
+   "no/lov/2005-12-21-124",
+   "no/lov/2005-12-21-126",
+   "no/lov/2006-04-21-10",
+   "no/lov/2006-05-19-16",
+   "no/lov/2006-06-16-20",
+   "no/lov/2006-06-30-50",
+   "no/lov/2006-08-18-61",
+   "no/lov/2006-12-15-72",
+   "no/lov/2006-12-15-73",
+   "no/lov/2006-12-15-85",
+   "no/lov/2007-02-16-9",
+   "no/lov/2007-06-15-40",
+   "no/lov/2007-06-29-42",
+   "no/lov/2007-06-29-44",
+   "no/lov/2007-06-29-73",
+   "no/lov/2007-06-29-74",
+   "no/lov/2007-06-29-75",
+   "no/lov/2007-06-29-78",
+   "no/lov/2007-06-29-81",
+   "no/lov/2007-06-29-88",
+   "no/lov/2007-06-29-89",
+   "no/lov/2007-12-14-116",
+   "no/lov/2007-12-21-119",
+   "no/lov/2008-05-15-35",
+   "no/lov/2008-06-06-37",
+   "no/lov/2008-06-20-42",
+   "no/lov/2008-06-20-44",
+   "no/lov/2008-06-27-62",
+   "no/lov/2008-06-27-71",
+   "no/lov/2008-12-19-106",
+   "no/lov/2009-01-09-2",
+   "no/lov/2009-03-06-11",
+   "no/lov/2009-03-06-12",
+   "no/lov/2009-04-17-19",
+   "no/lov/2009-05-29-30",
+   "no/lov/2009-06-05-32",
+   "no/lov/2009-06-05-35",
+   "no/lov/2009-06-19-100",
+   "no/lov/2009-06-19-101",
+   "no/lov/2009-06-19-103",
+   "no/lov/2009-06-19-44",
+   "no/lov/2009-06-19-49",
+   "no/lov/2009-06-19-58",
+   "no/lov/2009-06-19-95",
+   "no/lov/2009-06-19-97",
+   "no/lov/2009-12-11-112",
+   "no/lov/2009-12-18-131",
+   "no/lov/2010-02-12-4",
+   "no/lov/2010-02-19-5",
+   "no/lov/2010-03-26-8",
+   "no/lov/2010-03-26-9",
+   "no/lov/2010-05-28-16",
+   "no/lov/2010-06-04-21",
+   "no/lov/2010-06-25-28",
+   "no/lov/2010-06-25-45",
+   "no/lov/2010-12-10-71",
+   "no/lov/2010-12-17-91",
+   "no/lov/2011-04-15-11",
+   "no/lov/2011-06-24-29",
+   "no/lov/2011-06-24-30",
+   "no/lov/2011-06-24-39",
+   "no/lov/2011-11-25-44",
+   "no/lov/2011-12-16-59",
+   "no/lov/2011-12-16-60",
+   "no/lov/2011-12-16-61",
+   "no/lov/2011-12-16-65",
+   "no/lov/2012-01-20-4",
+   "no/lov/2012-01-20-6",
+   "no/lov/2012-01-27-10",
+   "no/lov/2012-01-27-9",
+   "no/lov/2012-03-16-12",
+   "no/lov/2012-04-27-22",
+   "no/lov/2012-06-22-37",
+   "no/lov/2012-06-22-41",
+   "no/lov/2012-06-22-43",
+   "no/lov/2012-06-22-44",
+   "no/lov/2012-06-22-57",
+   "no/lov/2012-06-22-58",
+   "no/lov/2012-08-24-64",
+   "no/lov/2012-11-30-70",
+   "no/lov/2012-12-14-81",
+   "no/lov/2012-12-14-89",
+   "no/lov/2013-01-11-3",
+   "no/lov/2013-04-12-13",
+   "no/lov/2013-04-26-16",
+   "no/lov/2013-06-07-31",
+   "no/lov/2013-06-21-100",
+   "no/lov/2013-06-21-102",
+   "no/lov/2013-06-21-60",
+   "no/lov/2013-06-21-75",
+   "no/lov/2013-12-13-106",
+   "no/lov/2014-06-06-19",
+   "no/lov/2014-06-20-24",
+   "no/lov/2014-06-20-27",
+   "no/lov/2014-06-20-28",
+   "no/lov/2014-06-20-30",
+   "no/lov/2014-06-20-42",
+   "no/lov/2014-06-20-43",
+   "no/lov/2014-06-20-49",
+   "no/lov/2014-08-15-59",
+   "no/lov/2015-02-06-7",
+   "no/lov/2015-02-13-9",
+   "no/lov/2015-04-10-17",
+   "no/lov/2015-04-24-20",
+   "no/lov/2015-05-07-25",
+   "no/lov/2015-05-07-26",
+   "no/lov/2015-05-12-27",
+   "no/lov/2015-05-12-30",
+   "no/lov/2015-05-22-33",
+   "no/lov/2015-06-05-39",
+   "no/lov/2015-06-19-70",
+   "no/lov/2015-09-04-85",
+   "no/lov/2015-09-04-91",
+   "no/lov/2015-12-04-95",
+   "no/lov/2016-05-27-14",
+   "no/lov/2016-06-17-29",
+   "no/lov/2016-06-17-30",
+   "no/lov/2016-06-17-46",
+   "no/lov/2016-06-17-64",
+   "no/lov/2016-06-17-73",
+   "no/lov/2016-08-12-77",
+   "no/lov/2016-12-09-88",
+   "no/lov/2016-12-16-92",
+   "no/lov/2016-12-20-106",
+   "no/lov/2016-12-20-111",
+   "no/lov/2017-02-10-5",
+   "no/lov/2017-04-05-15",
+   "no/lov/2017-04-28-23",
+   "no/lov/2017-05-22-28",
+   "no/lov/2017-05-22-29",
+   "no/lov/2017-05-22-30",
+   "no/lov/2017-06-16-46",
+   "no/lov/2017-06-16-47",
+   "no/lov/2017-06-16-48",
+   "no/lov/2017-06-16-50",
+   "no/lov/2017-06-16-51",
+   "no/lov/2017-06-16-56",
+   "no/lov/2017-06-16-60",
+   "no/lov/2017-06-16-65",
+   "no/lov/2017-06-16-67",
+   "no/lov/2017-06-16-69",
+   "no/lov/2017-06-21-93",
+   "no/lov/2017-12-15-107",
+   "no/lov/2017-12-15-112",
+   "no/lov/2018-03-23-3",
+   "no/lov/2018-04-20-7",
+   "no/lov/2018-04-20-8",
+   "no/lov/2018-06-01-23",
+   "no/lov/2018-06-01-24",
+   "no/lov/2018-06-08-28",
+   "no/lov/2018-06-15-32",
+   "no/lov/2018-06-15-38",
+   "no/lov/2018-06-15-40",
+   "no/lov/2018-06-15-44",
+   "no/lov/2018-06-22-76",
+   "no/lov/2018-06-22-77",
+   "no/lov/2018-06-22-83",
+   "no/lov/2018-12-20-107",
+   "no/lov/2018-12-20-108",
+   "no/lov/2019-03-01-2",
+   "no/lov/2019-03-01-3",
+   "no/lov/2019-03-15-6",
+   "no/lov/2019-03-22-7",
+   "no/lov/2019-06-14-21",
+   "no/lov/2019-06-21-31",
+   "no/lov/2019-06-21-63",
+   "no/lov/2019-06-21-70",
+   "no/lov/2019-12-20-109",
+   "no/lov/2019-12-20-84",
+   "no/lov/2020-03-27-17",
+   "no/lov/2020-04-17-29",
+   "no/lov/2020-04-24-31",
+   "no/lov/2020-04-29-36",
+   "no/lov/2020-05-07-37",
+   "no/lov/2020-05-07-38",
+   "no/lov/2020-05-07-40",
+   "no/lov/2020-05-26-44",
+   "no/lov/2020-05-26-47",
+   "no/lov/2020-05-26-52",
+   "no/lov/2020-05-26-53",
+   "no/lov/2020-05-26-54",
+   "no/lov/2020-05-26-55",
+   "no/lov/2020-06-12-62",
+   "no/lov/2020-06-19-77",
+   "no/lov/2020-06-19-80",
+   "no/lov/2020-06-19-83",
+   "no/lov/2020-06-19-91",
+   "no/lov/2020-06-19-95",
+   "no/lov/2020-06-23-98",
+   "no/lov/2020-06-23-99",
+   "no/lov/2020-11-06-127",
+   "no/lov/2020-11-20-128",
+   "no/lov/2020-11-27-131",
+   "no/lov/2020-12-04-136",
+   "no/lov/2020-12-18-139",
+   "no/lov/2020-12-18-146",
+   "no/lov/2020-12-18-153",
+   "no/lov/2020-12-18-154",
+   "no/lov/2020-12-18-156",
+   "no/lov/2020-12-21-164",
+   "no/lov/2021-04-16-18",
+   "no/lov/2021-05-21-42",
+   "no/lov/2021-06-11-63",
+   "no/lov/2021-06-11-78",
+   "no/lov/2021-06-11-79",
+   "no/lov/2021-06-18-115",
+   "no/lov/2021-06-18-121",
+   "no/lov/2021-06-18-136",
+   "no/lov/2021-06-18-97",
+   "no/lov/2021-06-18-99",
+   "no/lov/2021-11-12-141",
+   "no/lov/2021-12-17-148",
+   "no/lov/2021-12-22-163",
+   "no/lov/2021-12-22-170",
+   "no/lov/2022-01-28-2",
+   "no/lov/2022-02-18-5",
+   "no/lov/2022-03-04-7",
+   "no/lov/2022-03-11-8",
+   "no/lov/2022-03-11-9",
+   "no/lov/2022-03-18-10",
+   "no/lov/2022-03-18-12",
+   "no/lov/2022-03-25-13",
+   "no/lov/2022-05-12-28",
+   "no/lov/2022-06-17-49",
+   "no/lov/2022-06-17-56",
+   "no/lov/2022-06-17-57",
+   "no/lov/2022-12-16-90",
+   "no/lov/2022-12-16-91",
+   "no/lov/2022-12-20-118",
+   "no/lov/2022-12-20-97",
+   "no/lov/2023-06-09-30",
+   "no/lov/2023-06-16-62",
+   "no/lov/2023-11-24-85",
+   "no/lov/2023-12-20-98",
+   "no/lov/2024-01-12-1",
+   "no/lov/2024-03-08-9",
+   "no/lov/2024-06-21-40",
+   "no/lov/2024-06-21-41",
+   "no/lov/2024-06-25-69",
+   "no/lov/2024-12-13-76",
+   "no/lov/2024-12-13-77",
+   "no/lov/2024-12-20-96",
+   "no/lov/2025-04-25-12",
+   "no/lov/2025-05-27-18",
+   "no/lov/2025-05-27-20",
+   "no/lov/2025-06-10-31",
+   "no/lov/2025-06-20-102",
+   "no/lov/2025-06-20-107",
+   "no/lov/2025-12-22-116",
+   "no/lov/2026-02-06-2"
+  ],
+  "base_laws": 783,
+  "errored_before_any_op": 440,
+  "errored_with_ops_applied": [
+   "no/lov/2003-07-04-74",
+   "no/lov/2005-06-17-62",
+   "no/lov/2009-06-19-44",
+   "no/lov/2015-04-10-17"
+  ],
+  "errored_with_ops_applied_detail": [
+   {
+    "base_id": "no/lov/2003-07-04-74",
+    "error": "Failed to apply ops: Norway replay invariant violation after replace (('section', '22'), ('subsection', '3')) from no/lovtid/2009-06-19-74: body/chapter:9/section:31/subsection:5: item out of order: 6 > 3",
+    "n_ops": 14
+   },
+   {
+    "base_id": "no/lov/2005-06-17-62",
+    "error": "Failed to apply ops: Norway replay invariant violation after repeal (('section', '14-2'), ('subsection', '9')) from no/lovtid/2005-12-21-121: body/chapter:8: section out of order: 8-20 > 8-3",
+    "n_ops": 245
+   },
+   {
+    "base_id": "no/lov/2009-06-19-44",
+    "error": "Failed to apply ops: Norway replay invariant violation after renumber (('section', '2'), ('subsection', '3')) from no/lovtid/2025-06-20-42: body/section:2: duplicate subsection:4 (2 times)",
+    "n_ops": 16
+   },
+   {
+    "base_id": "no/lov/2015-04-10-17",
+    "error": "Failed to apply ops: Norway replay invariant violation after replace (('section', '21-7'),) from no/lovtid/2018-03-23-2: body/chapter:2/chapter:II: section out of order: 21-7 > 2-18",
+    "n_ops": 120
+   }
+  ],
+  "fatals": []
+ }
+}

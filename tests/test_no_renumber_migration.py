@@ -523,6 +523,13 @@ def test_apply_no_ops_conserved_emit_receipts_true_emits_renumber_receipt() -> N
 
 _OCCUPIED_DESTINATION_RULE_ID = "no_renumber_occupied_destination_removed"
 
+#: The ADJUDICATION kind the recovery emits, which is not the same string as the
+#: recovery rule id above (that one names the rule on the write receipt). Hoisted
+#: at W-72 because the corpus sweep and these pins have to count the same events,
+#: and two near-identical literals a hundred lines apart is how they would come to
+#: count different ones.
+_OCCUPIED_DESTINATION_ADJUDICATION_KIND = "no_replay_renumber_occupied_destination_removed"
+
 _CROSS_CHAPTER_BASE_XML = """<?xml version="1.0" encoding="utf-8"?>
 <html lang="nb">
   <head>
@@ -766,7 +773,7 @@ def test_no_renumber_across_chapters_declares_the_removed_occupant() -> None:
     # The recovery still emits its own typed adjudication — the receipt
     # declaration is ADDITIVE evidence, it does not replace the witness.
     assert [a.kind for a in adjudications].count(
-        "no_replay_renumber_occupied_destination_removed"
+        _OCCUPIED_DESTINATION_ADJUDICATION_KIND
     ) == 1
 
     # And the tree really did lose the occupant: chapter 5 keeps only § 21.
@@ -813,7 +820,7 @@ def test_no_renumber_within_chapter_does_not_duplicate_the_destination_leg() -> 
     assert len(result.observed_write_audits) == 1
     assert result.observed_write_audits[0].undeclared_paths == ()
     assert [a.kind for a in adjudications].count(
-        "no_replay_renumber_occupied_destination_removed"
+        _OCCUPIED_DESTINATION_ADJUDICATION_KIND
     ) == 1
 
 
@@ -822,10 +829,18 @@ def test_no_renumber_within_chapter_does_not_duplicate_the_destination_leg() -> 
 _REPO_ROOT = _Path(__file__).resolve().parents[1]
 _REAL_ARCHIVE = _REPO_ROOT / "data" / "norway.farchive"
 
-#: Every base law in the Lovdata corpus that fires — or used to fire —
-#: ``no_replay_renumber_occupied_destination_removed`` at as-of 2026-07-10,
-#: with (firings, receipts carrying a collateral ``removed_paths`` entry).
-#: Measured over all 782 base laws with an indexed amendment source.
+#: Every base law in the Lovdata corpus that fires — or used to fire — the
+#: occupied-destination recovery at as-of 2026-07-10, with (firings, receipts
+#: carrying a collateral ``removed_paths`` entry).
+#:
+#: This list is the REPLAY SET for the survival probes below, and nothing more.
+#: It was written from a sweep and then maintained by hand, and W-72 found what
+#: that costs: between W-52 and W-67 it quietly stopped describing the corpus,
+#: and a destruction landed on a law it did not name. Its completeness is no
+#: longer CLAIMED here — it is proven, per firing and per law, against the
+#: committed corpus sweep in
+#: ``test_no_corpus_wide_occupied_destination_firings_are_all_adjudicated``.
+#: Add a law here only with that sweep agreeing.
 #:
 #: W-52 measured 10 firings, of which exactly 3 were cross-container; the two
 #: laws with a cross-container firing are exactly the two whose strict replay
@@ -1127,18 +1142,27 @@ def _no_occupied_destination_replays():
 def test_no_corpus_occupied_renumber_destination_verdicts_are_pinned(
     _no_occupied_destination_replays,
 ) -> None:
-    """Corpus pin (W-56, deferred from W-54): every ``(RENUMBER, dest_occupied)``
-    firing in the corpus is an ADJUDICATED one, and each one's effect on the
-    occupant's text is the effect W-54 recorded.
+    """Corpus pin (W-56, deferred from W-54): each adjudicated
+    ``(RENUMBER, dest_occupied)`` firing has the effect on the occupant's text
+    that W-54 recorded — re-derived from a live replay, not asserted.
+
+    SCOPE, corrected at W-72. This test replays the laws in
+    ``_NO_OCCUPIED_DESTINATION_LAWS`` and only those, so it owns EFFECT, not
+    POPULATION. It used to say "every firing in the corpus", which was false by
+    nine laws out of 783 and is how W-67's husbankloven destruction passed a
+    green ladder. The population half is now proven separately, over a sweep of
+    all 783, in
+    ``test_no_corpus_wide_occupied_destination_firings_are_all_adjudicated``;
+    the equality below is what makes the two agree on the same event set.
 
     Read the asymmetry on ``_NO_OCCUPIED_DESTINATION_VERDICTS`` before touching
-    this test: one row is pinned WRONG on purpose and belongs to W-58.
+    this test: one row was pinned WRONG on purpose, and W-61 removed it.
     """
     observed: dict[str, tuple[str, str, str]] = {}
     for base_id, replay in sorted(_no_occupied_destination_replays.items()):
         assert replay.error is None, (base_id, replay.error)
         for a in replay.adjudications:
-            if a.kind != "no_replay_renumber_occupied_destination_removed":
+            if a.kind != _OCCUPIED_DESTINATION_ADJUDICATION_KIND:
                 continue
             assert a.op_id is not None, base_id
             observed[a.op_id] = (
@@ -1198,7 +1222,7 @@ def test_no_tvisteloven_vitneforsikring_survives_the_two_limb_ledd_shift(
     assert [
         a.op_id
         for a in replay.adjudications
-        if a.kind == "no_replay_renumber_occupied_destination_removed"
+        if a.kind == _OCCUPIED_DESTINATION_ADJUDICATION_KIND
     ] == []
 
 
@@ -1231,7 +1255,7 @@ def test_no_skattebetalingsloven_8_2_regulation_power_survives(
     assert [
         a.op_id
         for a in replay.adjudications
-        if a.kind == "no_replay_renumber_occupied_destination_removed"
+        if a.kind == _OCCUPIED_DESTINATION_ADJUDICATION_KIND
     ] == []
 
 
@@ -1270,7 +1294,7 @@ def test_no_husbankloven_13_commencement_provision_survives() -> None:
     assert [
         a.op_id
         for a in replay.adjudications
-        if a.kind == "no_replay_renumber_occupied_destination_removed"
+        if a.kind == _OCCUPIED_DESTINATION_ADJUDICATION_KIND
     ] == []
 
 
@@ -1303,7 +1327,7 @@ def test_no_corpus_occupied_renumber_destinations_are_all_declared(
         firings = sum(
             1
             for a in replay.adjudications
-            if a.kind == "no_replay_renumber_occupied_destination_removed"
+            if a.kind == _OCCUPIED_DESTINATION_ADJUDICATION_KIND
         )
         collateral = [
             r
@@ -1331,3 +1355,462 @@ def test_no_corpus_occupied_renumber_destinations_are_all_declared(
     # The two tables must agree on the firing population, so neither can drift
     # alone: one row per firing, keyed by op_id.
     assert sum(f for f, _ in observed.values()) == len(_NO_OCCUPIED_DESTINATION_VERDICTS)
+
+
+# ---- W-72: the sweep that makes the two pins above CORPUS-WIDE ---------------
+#
+# Everything above this line replays the nine laws in
+# ``_NO_OCCUPIED_DESTINATION_LAWS`` and nothing else. That is the right shape for
+# the SURVIVAL probes — they need a real replayed tree per law — but on its own it
+# licenses no corpus-wide claim, and until W-72 the docstrings made one anyway.
+#
+# W-67 is what that cost. Its widening lowered a renumber that destroyed
+# husbankloven § 13, husbankloven was not on the nine-law list, and the whole
+# ladder stayed GREEN with a destruction in the corpus. The gap was not that the
+# list was too short; it was that the list was HANDWRITTEN, so it could only ever
+# describe firings someone had already found.
+#
+# The repair is a full sweep of all 783 base laws, run out of band by
+# ``scripts/inventory_no_occupied_destination_sweep.py`` (~10 CPU-minutes, which
+# the norway shard does not have) and committed as a baseline. What makes the
+# cached number trustworthy is the receipt it carries: the sweep records the
+# LOGICAL content of every Norway corpus plane and the sha256 of every source file
+# in the static import closure of the replay path, and the test below recomputes
+# both in ~2.5s. Corpus moved, or code moved, and the test FAILS with a regenerate
+# instruction instead of passing on a measurement of something else. The
+# code half is not decoration: W-67 did not touch the archive, so a corpus-only
+# receipt would have gone on passing exactly as the nine-law list did.
+#
+# The sweep is exact over 779 of the 783 and names the other four rather than
+# rounding them off — see the blind-spot pin below, which is the same discipline
+# applied to the sweep's own limits that the sweep applies to the nine-law list.
+
+_SWEEP_SCRIPT_PATH = _REPO_ROOT / "scripts" / "inventory_no_occupied_destination_sweep.py"
+
+#: The known-incomplete-base hazard census (W-73's rider (d), pinned at W-72).
+#:
+#: A base is KNOWN-INCOMPLETE when its own replay receipted at least one SKIPPED
+#: amendment — the system already holds a receipt saying "this is not the whole
+#: law" — and a write is DESTRUCTIVE when its landed footprint removes, replaces
+#: or renumbers existing content. Applying a correct op to an incomplete base is
+#: precisely how husbankloven § 13 was destroyed, so the intersection is the
+#: sharpest hazard surface the corpus has.
+#:
+#: READ THE POLARITY. This is a census receipt, not a licence: 161 laws taking
+#: destructive writes into a base the system knows is incomplete is a finding
+#: held open, not expected behaviour that has been blessed. W-72 deliberately
+#: does NOT refuse those writes — that is a product-behaviour change with its own
+#: blast radius — it only stops the number moving in silence. Growth means the
+#: hazard surface grew and wants a reading; shrinkage means an item repaired a
+#: base, and the ledger should say which.
+#:
+#: W-73 measured 163 / 3,737 / 159 over 64 laws across 782 bases. At this base it
+#: is 161 / 3,713 / 167 over 65 across 783, and the whole delta is attributable:
+#: the three laws W-73 moved out of ``blocked_contingent``
+#: (``2015-02-13-9``, ``2015-06-19-70``, ``2020-06-19-77``) LEAVE the hazard set,
+#: ``no/lov/2020-05-07-40`` ENTERS it by gaining a destructive write from W-67's
+#: widening, and 163 - 3 + 1 = 161 conserves exactly.
+_NO_INCOMPLETE_BASE_HAZARD = {
+    "incomplete_bases": 198,
+    "bases_with_destructive_writes": 265,
+    "hazard_bases": 161,
+    "hazard_destructive_writes": 3713,
+    "hazard_content_removing_writes": 167,
+    "hazard_bases_removing_content": 65,
+}
+
+#: Content hash of the per-law hazard list (base_id -> [destructive, removing]).
+#: The counts above can hold while their MEMBERSHIP churns — one law leaving and
+#: another entering nets to zero — so the set is pinned too, exactly as W-73's
+#: own accounting had to reason about which laws moved rather than how many.
+_NO_INCOMPLETE_BASE_HAZARD_LAWS_DIGEST = (
+    "d6ed024705e42da480efca7b002cf148a50668babd314bce65775f66d77f5b8c"
+)
+
+_REGENERATE = (
+    "Regenerate with `uv run python "
+    "scripts/inventory_no_occupied_destination_sweep.py --update-baseline`, then "
+    "adjudicate every NEW firing W-54 style (source text, occupant provenance, does "
+    "the removal destroy in-force law) before touching the verdict table. A "
+    "`removal_wrong` verdict is a STOP, never a new expected row."
+)
+
+
+def _load_sweep_module():
+    """Import ``scripts/inventory_no_occupied_destination_sweep.py`` by path.
+
+    Same idiom as ``tests/test_module_role_consistency.py`` uses for its own
+    scanner: the generator is a script rather than a package module, and the test
+    binds THAT code so the digests it recomputes cannot drift from the ones the
+    baseline was written with.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "lawvm_inventory_no_occupied_destination_sweep", _SWEEP_SCRIPT_PATH
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.fixture(scope="module")
+def _no_occupied_destination_sweep():
+    sweep = _load_sweep_module()
+    path = _REPO_ROOT / sweep.BASELINE_PATH
+    assert path.exists(), f"Missing occupied-destination sweep baseline at {path}. {_REGENERATE}"
+    import json as _json
+
+    return sweep, _json.loads(path.read_text(encoding="utf-8"))
+
+
+def test_no_occupied_destination_sweep_baseline_is_not_stale(
+    _no_occupied_destination_sweep,
+) -> None:
+    """W-72: the committed corpus sweep still describes THIS corpus and THIS code.
+
+    The staleness receipt, checked before anything is read out of the baseline.
+    Two digests, recomputed live:
+
+    * CORPUS — every artifact in all four Norway planes as
+      ``(logical_id, sha256(payload))``. Logical rather than a hash of the
+      ``.farchive`` file, so a VACUUM or a recompression cannot raise a false
+      alarm; false alarms are the one failure mode that would defeat this pin,
+      because they teach people to regenerate without reading the diff.
+    * CODE — the sha256 of every source file in the static import closure of
+      ``lawvm.norway.replay`` / ``.index`` / ``.inventory``, derived by AST walk
+      rather than hand-listed. A new dependency can only enter that closure via
+      an edit to a module already inside it, so the digest moves on its own.
+
+    Those two plus the pinned ``as_of`` and the determinism firewall
+    (``notes/DETERMINISM_FIREWALL.md``) fix the sweep's answer. The residual is
+    the third-party runtime, recorded in the baseline for triage and deliberately
+    not asserted here — see the generator's ``runtime_identity`` docstring.
+    """
+    sweep, baseline = _no_occupied_destination_sweep
+    if not _REAL_ARCHIVE.exists():
+        pytest.skip("requires the local Lovdata archive (data/norway.farchive)")
+
+    assert baseline["as_of"] == sweep.AS_OF == "2026-07-10", (
+        "The sweep replays to a different point in time than the live pins above; "
+        "the two measure different corpora. " + _REGENERATE
+    )
+    assert baseline["rule_id"] == sweep.RULE_ID == _OCCUPIED_DESTINATION_ADJUDICATION_KIND
+
+    reasons = sweep.staleness_reasons(
+        baseline, sweep.corpus_identity(_REAL_ARCHIVE), sweep.code_identity(_REPO_ROOT)
+    )
+    if reasons:
+        pytest.fail(
+            "; ".join(reasons)
+            + ". The corpus-wide claim below is UNPROVEN until the sweep is retaken. "
+            + _REGENERATE
+        )
+
+    # The receipt covers the WHOLE corpus, and the plane list is pinned HERE
+    # rather than only in the generator. Dropping a plane from ``CORPUS_PLANES``
+    # does fail the digest comparison above — but the obvious next move is to
+    # regenerate, and that would quietly install a weaker receipt. ``forskrift``
+    # is the one that matters most: a commencement date moving there changes
+    # which amendments apply, and therefore which renumbers land.
+    assert sweep.CORPUS_PLANES == ("original_lti", "amendment", "forskrift", "current")
+    assert [(p["plane"], p["artifacts"]) for p in baseline["corpus"]["planes"]] == [
+        ("original_lti", 3089),
+        ("amendment", 3089),
+        ("forskrift", 35955),
+        ("current", 763),
+    ]
+
+    # The sweep is only a corpus-wide answer where it actually SAW the law, so
+    # the exceptions are named here rather than rounded off.
+    assert baseline["swept"]["fatals"] == [], baseline["swept"]["fatals"]
+    swept = baseline["swept"]["base_law_ids"]
+    assert len(swept) == baseline["swept"]["base_laws"] == 783
+    assert sorted(set(swept)) == swept
+    assert set(_NO_OCCUPIED_DESTINATION_LAWS) <= set(swept)
+    # 440 laws error before a single op is applied — F-09's sparse-source class,
+    # no original-act bytes at all — so "no firing here" is a complete answer for
+    # them, not an unobserved one.
+    assert baseline["swept"]["errored_before_any_op"] == 440
+    # THE SWEEP'S BLIND SPOT, and it is four laws wide. These abort mid-apply on
+    # a replay invariant violation, which discards the apply plane's receipts and
+    # adjudications along with the statute, so whether they fire is genuinely not
+    # observable. Three of the four do receive RENUMBER ops
+    # (``no/lov/2003-07-04-74`` receives none and so cannot fire at all), which
+    # means the corpus-wide claim above is exact over 779 laws and silent about
+    # three.
+    #
+    # Why that is tolerable, and why it still has to be pinned: a firing can only
+    # destroy IN-FORCE law inside a replayed statute, and these four produce no
+    # statute — they are not scan candidates and contribute no divergence row, so
+    # there is nothing for a hidden firing to be wrong about today. The moment one
+    # is repaired it leaves this set, this equality fails, and its firings get
+    # adjudicated before anything else can go green on them.
+    assert baseline["swept"]["errored_with_ops_applied"] == [
+        "no/lov/2003-07-04-74",
+        "no/lov/2005-06-17-62",
+        "no/lov/2009-06-19-44",
+        "no/lov/2015-04-10-17",
+    ], baseline["swept"]["errored_with_ops_applied"]
+
+
+def test_no_corpus_wide_occupied_destination_firings_are_all_adjudicated(
+    _no_occupied_destination_sweep,
+) -> None:
+    """W-72, THE point of the item: every ``(RENUMBER, dest_occupied)`` firing
+    ANYWHERE in the corpus is in the pinned verdict table — including on laws
+    nobody listed.
+
+    This is the assertion
+    ``test_no_corpus_occupied_renumber_destination_verdicts_are_pinned`` has
+    always claimed and, before W-72, never made: it replays the nine laws it was
+    handed, so a firing on a tenth law was invisible to it. Here the population
+    comes from a sweep of all 783, and the comparison is equality, so an
+    unadjudicated firing on ANY law fails. Exact over 779 of the 783; the other
+    four abort mid-apply and are named in
+    ``test_no_occupied_destination_sweep_baseline_is_not_stale``.
+
+    The two tests are complements and neither is redundant. This one owns
+    POPULATION (which firings exist, corpus-wide, from cached evidence whose
+    staleness is receipted). That one owns EFFECT (what each firing did to the
+    occupant's text, from a live replay). Together they are the corpus-wide
+    claim; apart, each is a half of it.
+    """
+    _sweep, baseline = _no_occupied_destination_sweep
+
+    swept_firings = {
+        f["op_id"]: (f["base_id"], f["source_path"], f["destination_path"])
+        for f in baseline["firings"]
+    }
+    adjudicated = {
+        op_id: (base_id, source, destination)
+        for op_id, (base_id, source, destination, _v, _p, _s)
+        in _NO_OCCUPIED_DESTINATION_VERDICTS.items()
+    }
+    assert swept_firings == adjudicated, (
+        "Corpus-wide occupied-destination firings disagree with the adjudicated verdict "
+        "table. Firings the sweep found and the table lacks are UNADJUDICATED removals — "
+        "each one may be destroying in-force law, which is what happened to husbankloven "
+        "§ 13 under W-67. " + _REGENERATE
+    )
+    # Per-law, so the sweep and the hand-written law list cannot drift apart
+    # either. Laws pinned at ``(0, 0)`` — repaired at the lowering by W-56 and
+    # W-61 — must stay absent from the sweep's firing map.
+    swept_laws = {law: tuple(counts) for law, counts in baseline["firing_laws"].items()}
+    expected_laws = {
+        law: counts for law, counts in _NO_OCCUPIED_DESTINATION_LAWS.items() if counts != (0, 0)
+    }
+    assert swept_laws == expected_laws, swept_laws
+    # And the flipped tripwire holds over the corpus rather than over nine laws:
+    # no adjudicated occupied-destination removal anywhere destroys in-force law.
+    assert [
+        op_id
+        for op_id, (_b, _s, _d, verdict, _p, _sv) in _NO_OCCUPIED_DESTINATION_VERDICTS.items()
+        if verdict == "removal_wrong"
+    ] == []
+
+
+@pytest.mark.skipif(
+    not _REAL_ARCHIVE.exists(),
+    reason="requires the local Lovdata archive (data/norway.farchive)",
+)
+def test_no_occupied_destination_sweep_agrees_with_the_live_replay(
+    _no_occupied_destination_sweep, _no_occupied_destination_replays
+) -> None:
+    """W-72: the cached sweep is checked against a LIVE replay where one is
+    already being done.
+
+    The staleness receipt argues that identical corpus plus identical code gives
+    identical firings. This test stops that from being an argument. The nine laws
+    the pins above replay for real are re-derived here and compared to what the
+    baseline says about those same nine — so a baseline written from a different
+    code state, or a nondeterminism in the replay, fails HERE rather than being
+    taken on the receipt's word.
+
+    It cannot see the other 774 laws. That is the honest limit of the cache, and
+    the reason the receipt has to be tight rather than merely present.
+    """
+    _sweep, baseline = _no_occupied_destination_sweep
+    cached = {
+        law: sorted(f["op_id"] for f in baseline["firings"] if f["base_id"] == law)
+        for law in _NO_OCCUPIED_DESTINATION_LAWS
+    }
+    live = {
+        law: sorted(
+            a.op_id
+            for a in replay.adjudications
+            if a.kind == _OCCUPIED_DESTINATION_ADJUDICATION_KIND
+        )
+        for law, replay in _no_occupied_destination_replays.items()
+    }
+    assert live == cached, (
+        "The live replay and the cached sweep disagree on which firings these laws "
+        "carry, while the staleness receipt says the corpus and the code are unchanged. "
+        "Either the baseline was written from a different tree, or the replay is not "
+        "deterministic. " + _REGENERATE
+    )
+
+
+def test_no_incomplete_base_destructive_write_census_is_pinned(
+    _no_occupied_destination_sweep,
+) -> None:
+    """W-73's rider (d), made ladder-visible (W-72(b)): how many laws take
+    DESTRUCTIVE writes into a base the system already knows is incomplete.
+
+    This is the posture that destroyed husbankloven § 13 — a correctly lowered op
+    applied to a base missing an amendment the replay itself receipted as skipped.
+    W-73 measured it and left the number in an artifact under ``.tmp``, where it
+    could drift with every archive refresh and every widening without anyone
+    noticing.
+
+    The pin is EQUALITY and it is a census, not an expected-behaviour freeze: 161
+    laws in this posture is a finding held open, and W-72 explicitly does not fix
+    it (refusing those writes is a product-behaviour change with its own blast
+    radius). Movement in either direction wants a sentence in the ledger — growth
+    because the hazard surface grew, shrinkage because some item repaired a base
+    and should get the credit.
+
+    It rides in the occupied-destination sweep because it is the same replay pass
+    over the same 783 laws, so it costs nothing extra and inherits the same
+    staleness receipt.
+    """
+    _sweep, baseline = _no_occupied_destination_sweep
+    hazard = baseline["incomplete_base_hazard"]
+    observed = {key: hazard[key] for key in _NO_INCOMPLETE_BASE_HAZARD}
+    assert observed == _NO_INCOMPLETE_BASE_HAZARD, observed
+    assert hazard["laws_digest"] == _NO_INCOMPLETE_BASE_HAZARD_LAWS_DIGEST, (
+        "The hazard census COUNTS held but its MEMBERSHIP changed — some law left the "
+        "set and another entered. Name both in the ledger. " + _REGENERATE
+    )
+    assert len(hazard["laws"]) == _NO_INCOMPLETE_BASE_HAZARD["hazard_bases"]
+    # Every hazard law is incomplete for a reason the replay receipted, and
+    # ``contingent`` still dominates — the class husbankloven was in.
+    assert hazard["hazard_by_skip_kind"]["contingent"] == 161
+    assert hazard["hazard_by_skip_kind"]["missing_source"] == 0
+    # Husbankloven is the witness this census exists for, and it is STILL IN THE
+    # SET — 8 destructive writes, 3 of them content-removing. W-73 repaired the
+    # commencement of ONE amendment (``no/lovtid/2012-08-24-64``); a different one
+    # (``no/lovtid/2025-04-25-12``) is still contingent, so the base is still
+    # known-incomplete and the law still takes destructive writes into it.
+    #
+    # That is the whole argument for keeping this census. § 13 survives today
+    # because W-74 made the one op that vacates it lower — the specific defect was
+    # repaired — but the POSTURE that destroyed it is unchanged on this very law.
+    # Reading the green ladder as "husbankloven is safe" would repeat W-67's
+    # mistake one level up.
+    assert hazard["laws"][_HUSBANKLOVEN] == [8, 3]
+
+
+# ---- W-72 guard liveness: prove the staleness check can actually FAIL --------
+#
+# §2.9's worst class is a guard that exists and cannot fire. Everything above
+# rests on the claim that a moved corpus or a moved module makes the sweep
+# baseline fail loudly, and until something is seen to fail, that claim is a
+# comment. These three run corpus-free.
+
+
+def test_no_sweep_staleness_fires_on_a_moved_corpus_and_a_moved_module() -> None:
+    """The staleness check reports a moved corpus and a moved module, separately.
+
+    Doctored inputs rather than a doctored archive: the point under test is the
+    comparison, and it should say WHICH half moved, because "the digest differs"
+    sends a reader to the wrong place half the time.
+    """
+    sweep = _load_sweep_module()
+    corpus = {
+        "planes": [{"plane": "amendment", "artifacts": 3089, "digest": "aaa"}],
+        "digest": "corpus-was",
+    }
+    code = {
+        "modules": 2,
+        "files": [
+            {"module": "lawvm.norway.grafter", "digest": "g1"},
+            {"module": "lawvm.norway.replay", "digest": "r1"},
+        ],
+        "digest": "code-was",
+    }
+    baseline = {"corpus": corpus, "code": code}
+
+    assert sweep.staleness_reasons(baseline, corpus, code) == []
+
+    grown = {
+        "planes": [{"plane": "amendment", "artifacts": 3125, "digest": "bbb"}],
+        "digest": "corpus-now",
+    }
+    (reason,) = sweep.staleness_reasons(baseline, grown, code)
+    assert "THE CORPUS MOVED" in reason
+    assert "3089 -> 3125 artifacts" in reason
+
+    edited = {
+        "modules": 2,
+        "files": [
+            {"module": "lawvm.norway.grafter", "digest": "g2"},
+            {"module": "lawvm.norway.replay", "digest": "r1"},
+        ],
+        "digest": "code-now",
+    }
+    (reason,) = sweep.staleness_reasons(baseline, corpus, edited)
+    assert "THE REPLAY PATH MOVED" in reason
+    # Named, not counted: the reader has to be able to go and look at it.
+    assert "lawvm.norway.grafter" in reason
+    assert "lawvm.norway.replay" not in reason
+
+    assert len(sweep.staleness_reasons(baseline, grown, edited)) == 2
+
+
+def test_no_sweep_code_closure_reaches_the_code_that_decides_a_firing() -> None:
+    """The import closure contains the modules a firing actually depends on.
+
+    A closure walker that quietly resolved almost nothing would produce a stable
+    digest and a tripwire that never fires — passing for the worst possible
+    reason. So this asserts membership for the specific modules that decide
+    whether the recovery runs: the grafter that applies the RENUMBER and detects
+    the occupied destination, the totalization table that maps
+    ``(RENUMBER, dest_occupied)`` to a recovery at all, the apply seam that emits
+    the receipt, and the replay/index/commencement path that decides which ops
+    reach the law in the first place.
+    """
+    sweep = _load_sweep_module()
+    closure = sweep.code_closure(_REPO_ROOT)
+    for module in (
+        "lawvm.norway.grafter",
+        "lawvm.norway.replay",
+        "lawvm.norway.index",
+        "lawvm.norway.inventory",
+        "lawvm.norway.commencement",
+        "lawvm.norway.totalization_table",
+        "lawvm.core.totalization",
+        "lawvm.core.apply_seam",
+    ):
+        assert module in closure, sorted(closure)
+    # Function-local imports are the codebase's normal idiom, so a module-level
+    # only walk would miss most of the graph. Sixty-plus modules is the shape of
+    # a real closure; a dozen would mean the walk collapsed.
+    assert len(closure) > 60
+    # And it stays inside the lane: a Finland or Sweden edit must not invalidate
+    # a Norway sweep, or people learn to regenerate without reading.
+    other_frontends = {
+        "estonia",
+        "eu",
+        "finland",
+        "new_zealand",
+        "sweden",
+        "uk_legislation",
+        "us_federal",
+    }
+    assert not [m for m in closure if set(m.split(".")[1:2]) & other_frontends]
+
+
+def test_no_sweep_baseline_regenerate_instruction_names_a_real_script() -> None:
+    """The failure messages tell you what to run, and that thing exists.
+
+    Every assertion in this block hands the reader ``_REGENERATE``. A regenerate
+    instruction pointing at a moved or renamed script turns a loud failure into a
+    dead end, which is how a tripwire gets disabled without anyone deciding to.
+    """
+    sweep = _load_sweep_module()
+    assert _SWEEP_SCRIPT_PATH.is_file()
+    assert _SWEEP_SCRIPT_PATH.name in _REGENERATE
+    assert (_REPO_ROOT / sweep.BASELINE_PATH).is_file()
+    assert "--update-baseline" in _REGENERATE

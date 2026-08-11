@@ -1490,6 +1490,10 @@ TOOLING_SHARD_PATHS: dict[str, tuple[str, ...]] = {
     "scripts/probes/no_unbound_binding_causes.py": ("norway",),
     "scripts/probes/no_w7_unlock_landscape.py": ("norway",),
     "scripts/probes/no_zero_amendment_divergence.py": ("norway",),
+    # W-72's corpus-sweep generator. Not a read-only probe: the norway shard
+    # binds this module BY PATH and recomputes the digests it defines, so an
+    # edit here changes what the occupied-destination pin measures.
+    "scripts/inventory_no_occupied_destination_sweep.py": ("norway",),
 }
 TOOL_SOURCE_SHARD_GROUPS: dict[tuple[str, ...], tuple[str, ...]] = {
     ("estonia", "tools_cli_debug"): (
@@ -1847,6 +1851,7 @@ SOURCE_SHARD_PATHS: dict[str, tuple[str, ...]] = {
     "tests/data/ctsf_gate_uk_residual_baseline.json": ("tools_ctsf_gate",),
     "tests/data/ctsf_gate_us_residual_baseline.json": ("tools_ctsf_gate",),
     "tests/data/module_roles_baseline.json": ("core_ir_contracts",),
+    "tests/data/no_occupied_destination_sweep_baseline.json": ("norway",),
     "tests/data/regex_ratchet_baseline.json": ("core_ir_contracts",),
     "src/lawvm/core/ctsf_gate.py": ("tools_ctsf_gate",),
     # XP-06 parity is read-mostly audit/report code. It is not on the replay
