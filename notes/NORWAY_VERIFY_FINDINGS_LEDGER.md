@@ -3431,15 +3431,196 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    intra-part ordering rider W-66 already carries.
 
 72. **W-72 (the occupied-destination tripwire sweeps 7 of 782):**
-   from W-67. `_NO_OCCUPIED_DESTINATION_LAWS` is a hardcoded
-   seven-law list and the corpus pin replays only those, while its
-   docstring asserts a corpus-wide property. W-67 added three
-   firings on unlisted laws — one of them a `removal_wrong` — with
-   the pin still green. Either derive the law list from a corpus
-   sweep (slow: 782 replays) or add a cheap cached sweep whose
-   staleness is itself receipted. Until then, no
-   `(RENUMBER, dest_occupied)` claim in this ledger should be read
-   as corpus-wide.
+   DONE (`c80ce0a6a`, 2026-08-11; artifacts `.tmp/w72/`). Tests,
+   tooling and receipts only — **no product behaviour changed, and
+   none needed to**. The `(RENUMBER, dest_occupied)` claim in this
+   ledger may now be read as corpus-wide, over 779 of the 783 base
+   laws, with the other four NAMED rather than rounded off.
+   **The design decision, and why the obvious receipt is the wrong
+   one.** The item's own sketch offered two routes: derive the law
+   list from a corpus sweep (slow), or cache a sweep whose staleness
+   is receipted. The sweep is 10 CPU-minutes over 783 laws — 3m28s
+   wall at 10 processes — against a ~15-minute budget for the whole
+   27-file norway shard, so it is cached, in
+   `tests/data/no_occupied_destination_sweep_baseline.json`, written
+   by `scripts/inventory_no_occupied_destination_sweep.py
+   --update-baseline`. The sketch proposed CORPUS CONTENT as the
+   staleness receipt, and **that receipt alone would have been worth
+   nothing here**: W-67 did not touch the archive, it changed the
+   parser, so a corpus-only check would have gone on passing exactly
+   as the seven-law list did. The baseline therefore carries TWO
+   digests and the test recomputes both:
+   * **corpus identity** — every artifact in all four Norway planes
+     as `(logical_id, sha256(payload))`, digested per plane
+     (`original_lti` 3,089 / `amendment` 3,089 / `forskrift` 35,955
+     / `current` 763). Logical rather than a hash of the
+     `.farchive` file, which is WAL-mode SQLite: a VACUUM or a
+     recompression would move a file hash without moving a byte of
+     law, and a tripwire with false alarms teaches people to
+     regenerate without reading, which is the only way this
+     mechanism can be defeated.
+   * **code identity** — sha256 of every source file in the STATIC
+     IMPORT CLOSURE of `lawvm.norway.replay` / `.index` /
+     `.inventory`, derived by AST walk over every import node
+     (including function-local ones, which this codebase uses
+     heavily) rather than hand-listed. **79 modules, 2.3 MB, 0.3s.**
+     Derived and not declared is the load-bearing property: a new
+     dependency can only enter the closure through an edit to a
+     module already inside it, which moves the digest on its own.
+     It stays inside the lane — no Finland, Sweden, UK, EE, EU, NZ
+     or US module is in it — so a neighbouring frontend's patch does
+     not redden Norway.
+   Those two plus the pinned `as_of` and the determinism firewall
+   fix the answer. Cost at norway-shard time: **2.5s** for the two
+   digests; the three assertions that read the cache are ~0.01s
+   each. The full sweep ran three times over the item and returned
+   the identical census every time.
+   **What it proves, and the honest limit.** 10 firings corpus-wide,
+   equal element for element to `_NO_OCCUPIED_DESTINATION_VERDICTS`
+   — so the 10 rows the table already carried ARE the corpus, which
+   is what the item had to check first and what nobody could check
+   before. `wrong == []` now holds over the corpus rather than over
+   nine laws. **The sweep also found its own blind spot and it is
+   four laws wide**: `no/lov/2003-07-04-74`, `no/lov/2005-06-17-62`,
+   `no/lov/2009-06-19-44` and `no/lov/2015-04-10-17` abort mid-apply
+   on a replay invariant violation, which discards the apply plane's
+   receipts and adjudications, so whether they fire is genuinely not
+   observable; three of the four do receive RENUMBER ops (the fourth
+   receives none and cannot fire at all). That is tolerable and
+   still pinned: a firing can only destroy in-force law inside a
+   replayed statute and these four produce none, so the moment one
+   is repaired it leaves the set, the equality fails, and its
+   firings get adjudicated before anything can go green on them. The
+   other 440 errored laws error BEFORE any op is applied (F-09's
+   sparse-source class), which is a complete answer rather than an
+   unobserved one — the sweep separates the two rather than
+   reporting one error count.
+   **The honesty repair, which is the part the item is named for.**
+   `test_no_corpus_occupied_renumber_destination_verdicts_are_pinned`
+   said "every `(RENUMBER, dest_occupied)` firing in the corpus"
+   while replaying nine laws. Its docstring now says what it does —
+   it owns EFFECT (what each firing did to the occupant's text, from
+   a live replay) — and the new
+   `test_no_corpus_wide_occupied_destination_firings_are_all_adjudicated`
+   owns POPULATION (which firings exist, corpus-wide, from cached
+   evidence). Neither is redundant and neither claims the other's
+   half. A third test,
+   `test_no_occupied_destination_sweep_agrees_with_the_live_replay`,
+   re-derives the nine replayed laws' firings and compares them to
+   the cache, so "identical corpus plus identical code gives
+   identical firings" is CHECKED where a live replay is already
+   being paid for, not merely argued from the receipt.
+   **Guard liveness, because a staleness check nobody has seen fail
+   is indistinguishable from one that cannot.** Three corpus-free
+   tests: the comparison reports a moved corpus and a moved module
+   separately and NAMES what moved; the closure provably contains
+   `norway.grafter`, `norway.commencement`,
+   `norway.totalization_table`, `core.totalization` and
+   `core.apply_seam` (a walker that quietly resolved nothing would
+   produce a stable digest and a tripwire that never fires — passing
+   for the worst possible reason); and the regenerate instruction
+   every failure prints names a script that exists. Verified
+   end-to-end too: appending one comment line to `grafter.py` fails
+   the pin in 3.3s with "THE REPLAY PATH MOVED … Modules that moved
+   (1 of 79): lawvm.norway.grafter".
+   **(b) The known-incomplete-base hazard, now ladder-visible.**
+   W-73's rider (d) was a number in a `.tmp` artifact that could
+   drift with every archive refresh. It rides in the SAME replay
+   pass — same 783 laws, same staleness receipt, zero extra cost —
+   and is pinned by equality in
+   `test_no_incomplete_base_destructive_write_census_is_pinned`:
+   **198 known-incomplete bases, 265 taking destructive writes, 161
+   in the intersection, 3,713 destructive writes of which 167
+   REMOVE content across 65 laws**, plus a content hash of the
+   per-law list so membership cannot churn under stable counts.
+   W-73 measured 163 / 3,737 / 159 over 64 across 782 bases; the
+   whole delta is attributable and conserves exactly — the three
+   laws W-73 moved out of `blocked_contingent` (`2015-02-13-9`,
+   `2015-06-19-70`, `2020-06-19-77`) LEAVE the set,
+   `no/lov/2020-05-07-40` ENTERS it by gaining a destructive write,
+   163 − 3 + 1 = 161. The pin is a census receipt, NOT an
+   expected-behaviour freeze: 161 laws in this posture is a finding
+   held open, and refusing those writes stays out of scope as a
+   product change with its own blast radius. **Husbankloven is still
+   in the set** — 8 destructive writes, 3 content-removing — because
+   W-73 repaired the commencement of one amendment while
+   `no/lovtid/2025-04-25-12` is still contingent. § 13 survives
+   today because W-74 repaired the specific op, but the POSTURE that
+   destroyed it is unchanged on that very law, and reading the green
+   ladder as "husbankloven is safe" would repeat W-67's mistake one
+   level up.
+   **(c) Rider — the 27 entrant rows, and it did not stay a triage.**
+   The three laws W-73 admitted are `no/lov/2015-02-13-9` (7 rows),
+   `no/lov/2015-06-19-70` (17) and `no/lov/2020-06-19-77` (3), all
+   27 unexplained, 0 ceiling. Classified row by row from the
+   instruments' DOM and the landed ops rather than from row text
+   (`.tmp/w72/entrant_triage.json`): **7 reachable by an open item —
+   5 by W-66 (`no/lov/2015-02-13-9` § 3's ledd sequence, offset by
+   the refused "Nåværende § 3 femte og sjette ledd blir sjette og
+   nytt syvende ledd.") and 2 by W-70 (karanteneloven § 8's
+   malformed `data-move-part`) — and 20 reachable by no open item at
+   all**, because they belong to a family nothing in the queue
+   describes. **Opened as W-75, and 15 of the 20 are a live
+   destruction of in-force law.** No receipt-honesty-only rows: the
+   `no_replay_*` adjudications on these laws (24 + 11
+   `receipt_storage_path_projected`, 13 `sentence_children_
+   materialized`, 1 `insert_occupied_target_replaced`) describe how
+   landed writes were recorded, not writes that failed to land, and
+   none of them corresponds to a divergence row.
+
+75. **W-75 (multi-address `data-change-part` substitutions write the
+   amendment's own address list into in-force law):** from W-72's
+   rider (c). **CORRECTNESS, live at base today, and in the same
+   severity class as the husbankloven destruction W-67 was blocked
+   for.** Probed at the DOM node the parser reads.
+   **The shape.** Lovdata renders a word substitution over many
+   provisions as a pair of siblings:
+   `<article class="defaultP">I følgende bestemmelser skal ordet
+   «tilsettingsmyndigheten» endres til «ansettelsesmyndigheten»:
+   </article>` followed by `<article class="change"
+   data-change-part="lov/2015-06-19-70/§13/ledd/1 …13 addresses…">`
+   whose ONLY child is a `defaultP` carrying the human-readable
+   rendering of those same addresses ("§ 13 første ledd, § 13 andre
+   ledd første punktum, … § 20 fjerde ledd."). The operative
+   instruction — substitute one word in each of the N provisions —
+   is in the SIBLING, not in the change node. The structured lane
+   takes the N addresses from the attribute and the node's own text
+   as the payload, and mints N REPLACEs. Each one overwrites a
+   provision with the amendment's address list.
+   **Measured.** A DOM census over all 3,089 amendment artifacts:
+   248 multi-address `data-change-part` nodes over 112 instruments,
+   of which **4 are announced as a word substitution** and **2 land
+   destructive ops** — `no/lovtid/2025-02-07-1` writes 13 REPLACEs
+   into `no/lov/2015-06-19-70` (karanteneloven) and
+   `no/lovtid/2024-06-21-52` writes 7 into `no/lov/2008-06-27-71`
+   (plan- og bygningsloven), **20 landed content-destroying writes
+   across 2 base laws**. The other two (`no/lovtid/2025-12-22-129`,
+   `no/lovtid/2025-06-20-38`) mint no such op.
+   **Only 15 of the 20 are visible anywhere.** Karanteneloven is a
+   scan candidate, so its 13 addresses surface as 15 divergence rows
+   (three litra under `§ 13 første ledd` go with their parent).
+   Plan- og bygningsloven is `blocked_contingent`, so it is not a
+   candidate, its 7 destroyed provisions produce **no divergence row
+   at all**, and the destruction is invisible to the scoreboard —
+   which is precisely the class W-72(b)'s hazard census exists to
+   surface, and that law is in it at [73, 2].
+   **The benign branch of the same construct, 5 more rows.** Where
+   the substitution simply does not lower, the replayed text is the
+   right sentence carrying the superseded word:
+   `no/lov/2015-02-13-9` § 2 andre/tredje ledd
+   (`utenrikstjenestemann` → `utenrikstjenesteansatt`) and
+   `no/lov/2020-06-19-77` § 8-4 første ledd bokstav a/b
+   (`søket eller innhentingen` → `tiltaket`) and § 11-1 første ledd
+   (`§§ 13 til 13 f` → `13 g`). Coverage, not destruction — but the
+   same source construct, so one item should carry both.
+   **Sizing note for whoever takes it.** The safe direction is
+   available immediately and is strictly an improvement: REFUSING a
+   change node whose preceding sibling announces a substitution
+   leaves 5 stale-word rows instead of 15 destroyed provisions, and
+   needs no new op kind. Doing it properly needs a substitution op
+   (or a REPLACE whose payload is derived from the target's existing
+   text with one token swapped), which is a vocabulary question
+   W-69's `content_policy` discussion already touches.
 
 73. **W-73 (husbankloven base-completeness — the title-cited
    commencement subject):** DONE (`ff202148c`, 2026-08-11;
@@ -3633,6 +3814,70 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-11 (W-72 applied)** — **The occupied-destination pin
+  stops describing nine laws and starts describing the corpus, and
+  the cache that makes that affordable cannot lie about being
+  stale.** (`c80ce0a6a`, artifacts `.tmp/w72/`.) Tests, tooling and
+  receipts only; no product behaviour moved and none needed to.
+  A full sweep of all 783 base laws runs out of band
+  (`scripts/inventory_no_occupied_destination_sweep.py`, 3m28s at 10
+  processes) and commits its census; the shard pays **2.5s** to
+  recompute the receipt that says the census still describes this
+  tree.
+  **The receipt is two digests, and the second one is the whole
+  point.** Corpus identity is every artifact in all four Norway
+  planes as `(logical_id, sha256(payload))` — logical, not a hash of
+  the WAL-mode `.farchive`, so a VACUUM cannot raise a false alarm
+  and teach people to regenerate without reading. Code identity is
+  the sha256 of every file in the STATIC IMPORT CLOSURE of the
+  replay entry points, derived by AST walk: **79 modules, 0.3s**, no
+  neighbouring frontend inside it. W-67 changed the parser and not
+  the archive, so the corpus half alone would have gone on passing
+  exactly as the seven-law list did. Verified end-to-end: one
+  comment line appended to `grafter.py` reddens the pin in 3.3s and
+  names the module.
+  **What it proves.** 10 firings corpus-wide, equal element for
+  element to the adjudicated verdict table — the 10 rows the table
+  carried ARE the corpus, checked rather than hoped. `wrong == []`
+  now holds corpus-wide. **The sweep also found its own blind spot
+  and named it**: four laws abort mid-apply on an invariant
+  violation, discarding the apply plane, so their firings are
+  unobservable; they produce no replayed statute either, so nothing
+  is at risk today, and the set is pinned so that repairing one is
+  loud. The 440 laws that error before any op is applied are counted
+  separately, because "no original-act bytes" is a complete answer
+  and "died halfway" is not.
+  **The docstring that started the item is now true.** The live pin
+  owns EFFECT and says so; a new test owns POPULATION; a third
+  compares the cache against the live replay on the nine laws
+  already being replayed, so determinism is checked and not merely
+  asserted. Three corpus-free guard-liveness tests prove the
+  staleness check can fail, names what moved, and points at a script
+  that exists.
+  **W-73's rider (d) becomes a pin instead of a `.tmp` file**, riding
+  the same replay pass for nothing: 198 known-incomplete bases, 265
+  taking destructive writes, **161 in the intersection**, 3,713
+  destructive writes, 167 removing content across 65 laws, plus a
+  membership hash. W-73's 163 / 3,737 / 159 / 64 conserves exactly
+  into it — three laws leave as `blocked_contingent` clears, one
+  enters. It is a census receipt, not a licence: **husbankloven is
+  still in the set**, because W-73 repaired one amendment's
+  commencement and another is still contingent.
+  **And the rider found a live destruction nobody had recorded.**
+  Triaging the 27 rows W-73's three entrants brought in: 7 are
+  reachable by an open item (5 W-66, 2 W-70) and 20 are reachable by
+  none, because they belong to a family the queue did not describe.
+  **Opened as W-75**: a multi-address `data-change-part` word
+  substitution has its operative sentence in a SIBLING node, so the
+  structured lane mints one REPLACE per listed address using the
+  change node's own text — the amendment's address list — as the
+  payload. **20 landed content-destroying writes across 2 base
+  laws**, and only 15 are visible: plan- og bygningsloven's 7 sit in
+  a `blocked_contingent` law that is not a scan candidate and
+  produce no divergence row at all. That law is in the hazard census
+  above at [73, 2], which is the census doing the job it was pinned
+  for on its first day.
 
 - **2026-08-11 (W-64 applied)** — **The `defaultP` heading stops
   being a payload boundary, and 106 leads a shipped production had
