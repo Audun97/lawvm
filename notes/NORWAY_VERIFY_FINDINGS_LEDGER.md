@@ -3569,59 +3569,135 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    none of them corresponds to a divergence row.
 
 75. **W-75 (multi-address `data-change-part` substitutions write the
-   amendment's own address list into in-force law):** from W-72's
-   rider (c). **CORRECTNESS, live at base today, and in the same
-   severity class as the husbankloven destruction W-67 was blocked
-   for.** Probed at the DOM node the parser reads.
+   amendment's own address list into in-force law):** **DONE FOR THE
+   SAFE DIRECTION** (`c36e2de13`, 2026-08-12; artifacts
+   `.tmp/w75/`). The construct is refused with a typed receipt and
+   107 destructive REPLACEs stop being minted; **lowering the
+   substitution FOR REAL stays OPEN and is W-69's**, because it needs
+   an op kind this vocabulary does not have. Sizing for that half is
+   measured below and in `.tmp/w75/substitution_sizing.json`.
    **The shape.** Lovdata renders a word substitution over many
-   provisions as a pair of siblings:
-   `<article class="defaultP">I følgende bestemmelser skal ordet
-   «tilsettingsmyndigheten» endres til «ansettelsesmyndigheten»:
-   </article>` followed by `<article class="change"
-   data-change-part="lov/2015-06-19-70/§13/ledd/1 …13 addresses…">`
-   whose ONLY child is a `defaultP` carrying the human-readable
-   rendering of those same addresses ("§ 13 første ledd, § 13 andre
-   ledd første punktum, … § 20 fjerde ledd."). The operative
-   instruction — substitute one word in each of the N provisions —
-   is in the SIBLING, not in the change node. The structured lane
-   takes the N addresses from the attribute and the node's own text
-   as the payload, and mints N REPLACEs. Each one overwrites a
-   provision with the amendment's address list.
-   **Measured.** A DOM census over all 3,089 amendment artifacts:
-   248 multi-address `data-change-part` nodes over 112 instruments,
-   of which **4 are announced as a word substitution** and **2 land
-   destructive ops** — `no/lovtid/2025-02-07-1` writes 13 REPLACEs
-   into `no/lov/2015-06-19-70` (karanteneloven) and
-   `no/lovtid/2024-06-21-52` writes 7 into `no/lov/2008-06-27-71`
-   (plan- og bygningsloven), **20 landed content-destroying writes
-   across 2 base laws**. The other two (`no/lovtid/2025-12-22-129`,
-   `no/lovtid/2025-06-20-38`) mint no such op.
-   **Only 15 of the 20 are visible anywhere.** Karanteneloven is a
-   scan candidate, so its 13 addresses surface as 15 divergence rows
-   (three litra under `§ 13 første ledd` go with their parent).
-   Plan- og bygningsloven is `blocked_contingent`, so it is not a
-   candidate, its 7 destroyed provisions produce **no divergence row
-   at all**, and the destruction is invisible to the scoreboard —
-   which is precisely the class W-72(b)'s hazard census exists to
-   surface, and that law is in it at [73, 2].
-   **The benign branch of the same construct, 5 more rows.** Where
-   the substitution simply does not lower, the replayed text is the
-   right sentence carrying the superseded word:
-   `no/lov/2015-02-13-9` § 2 andre/tredje ledd
-   (`utenrikstjenestemann` → `utenrikstjenesteansatt`) and
-   `no/lov/2020-06-19-77` § 8-4 første ledd bokstav a/b
-   (`søket eller innhentingen` → `tiltaket`) and § 11-1 første ledd
-   (`§§ 13 til 13 f` → `13 g`). Coverage, not destruction — but the
-   same source construct, so one item should carry both.
-   **Sizing note for whoever takes it.** The safe direction is
-   available immediately and is strictly an improvement: REFUSING a
-   change node whose preceding sibling announces a substitution
-   leaves 5 stale-word rows instead of 15 destroyed provisions, and
-   needs no new op kind. Doing it properly needs a substitution op
-   (or a REPLACE whose payload is derived from the target's existing
-   text with one token swapped), which is a vocabulary question
-   W-69's `content_policy` discussion already touches.
-
+   provisions as an ANNOUNCEMENT plus an ADDRESS LIST:
+   `I følgende bestemmelser skal ordet «tilsettingsmyndigheten»
+   endres til «ansettelsesmyndigheten»:` followed by the listed
+   addresses. The list carries `data-change-part` naming every one of
+   them, so the structured lane reads N targets and takes the node's
+   OWN text — the announcement, the address list, or both — as the
+   payload. Every op it mints overwrites a provision of in-force law
+   with the amendment's own prose.
+   **The family is 17 nodes, not the 4 W-72's census reported, and
+   the correction is the item's main finding.** That census tested
+   only the PRECEDING SIBLING, against four loose substring markers.
+   It therefore missed the 13 nodes that carry the announcement in
+   the change node's OWN text (`no/lovtid/2026-06-19-45` alone has
+   six), and one of the 4 it did report
+   (`no/lovtid/2025-06-20-38`) was a false positive whose long
+   preceding sibling merely contained a marker. Re-probed at the DOM
+   node the grafter reads, over all 3,885 structured change nodes:
+   **17 nodes over 10 instruments, 193 addresses, 107 landed
+   REPLACEs.** The ledger's earlier "20 landed content-destroying
+   writes" was the count that reaches a REPLAYED law; 107 is the
+   parse-seam universe, and the gap is destruction in laws nothing
+   replays.
+   **The discriminator is two conjuncts, both DOM evidence, and the
+   second one is load-bearing.** (1) A substitution announcement
+   governs the node — its own text or its immediately preceding
+   sibling STARTS with `I følgende <bestemmelser|paragrafer|…>`,
+   quotes a term in guillemets, and carries `endres`/`erstattes`.
+   (2) The node declares NO operative payload of its own. Conjunct
+   (2) is not decoration: `no/lovtid/2026-06-19-45` puts **four
+   genuine `§ X skal lyde: <payload>` change nodes immediately after
+   announcements**, so keying on the preceding sibling — which is
+   what this item was scoped to do — would have deleted four real
+   replacements. The anchor in (1) is load-bearing the same way:
+   `no/lovtid/2025-04-25-12` § 3 contains "hjemmel i følgende
+   bestemmelser med tilhørende forskrifter:" mid-sentence in ordinary
+   payload prose, and an unanchored opener refuses two more genuine
+   replacements. Neither conjunct consults address count or a law
+   list; the single-address node in the family
+   (`no/lovtid/2025-06-20-82`) is caught by the same evidence as the
+   82-address one.
+   **Measured, base `7a4bd801d` → stopgap.** Ops **27,206 → 27,099**
+   on a content-keyed identity diff: **107 lost, 0 gained, 0
+   changed**, every one a REPLACE, over 10 instruments and 13 base
+   laws. Refusal receipts 0 → 17; `no_parse_cross_base_structured_
+   target_skipped` 191 → 105, because the two multi-law nodes are now
+   refused before their cross-base skips are counted. Unstructured
+   refusals 9,265 and entries 2,563 do not move.
+   **Replayed TEXT moves on exactly three laws; 780 of 783 are
+   byte-identical.** `no/lov/2015-06-19-70` (35 → 20 ops),
+   `no/lov/2008-06-27-71` (168 → 161) and `no/lov/2020-04-17-29`
+   (29 → 10). Eleven further laws move only on
+   `adjudications_sha`/`receipts_sha` with `statute_sha` untouched:
+   80 cross-base-skip receipts leave every law that scans
+   `no/lovtid/2026-06-19-48`, and op ids renumber inside instruments
+   that now emit fewer ops. No law's text moves outside the three.
+   **Karanteneloven's 15 destroyed provisions become 12 stale-word
+   rows.** Divergences 17 → 14 (the other two rows are § 8's,
+   unrelated). Five `OPS_MISSING` rows CLOSE — the litra under § 13
+   first and § 14 second ledd exist again, because their parent is no
+   longer overwritten — and two `MISMATCH` rows OPEN on those
+   parents, which had been invisible as rows of their own while their
+   children carried the damage. **Every one of the 12 remaining rows
+   diverges on exactly the superseded word** (`tilsetting…` vs
+   `ansettels…`): the row stays open, honestly, and says what is
+   actually wrong instead of showing an address list where the law
+   should be.
+   **Plan- og bygningsloven's 7 destructions are gone, and only a
+   direct tree probe can see it.** The law is `blocked_contingent`,
+   produces no divergence row, and its § 8-5, §§ 11-12, 11-14, 11-15,
+   12-8, 12-10 and 12-12 all carried the amendment's address list at
+   base. After the stopgap all seven hold their real text — § 11-15
+   second ledd still reads "gjennom elektroniske medier", which is
+   the stale word the substitution was going to fix.
+   **Hazard census reconciles exactly.** 3,713 → **3,706**
+   destructive writes; membership 161 laws, 167 content-removing over
+   65 laws, 198 known-incomplete and 265 with destructive writes ALL
+   unchanged. One law moves: `no/lov/2008-06-27-71` **[73, 2] →
+   [66, 2]** — the seven writes above, and its two content-removing
+   writes are a different defect. The other two text-moving laws are
+   not known-incomplete, so their 34 removed writes were never in
+   this census: the census measures an intersection, and this is a
+   reminder of what it does not see.
+   **Firings 10 → 10, equal element for element**, so nothing to
+   adjudicate under W-54; the sweep baseline is regenerated because
+   the grafter is in the replay import closure and the CODE digest
+   moves (the corpus digest does not).
+   **Scan does not move where it should not.** Candidates 76,
+   scoreboard **29/47/0**, ceiling total 1,011 — all unchanged.
+   Divergence total 1,504 → **1,501**, entirely karanteneloven's
+   −3; unexplained 493 → 490.
+   **Bindings 6,489 → 6,484, and this is reported rather than
+   buried.** Five `(instrument, base)` bindings disappear because the
+   refused ops were the instrument's ONLY ops for that law:
+   `2025-06-20-39|1991-07-04-47`, `2025-06-20-40|1989-02-17-2`,
+   `2025-06-20-82|1916-07-21-2`, `2026-06-19-45|1984-06-08-59`,
+   `2026-06-19-48|1916-06-30-1`. Each was a binding created purely by
+   destructive garbage. No law's executable status moves, the status
+   map keeps all 241 members, and the replay surface of all five is
+   byte-identical — those ops never reached an apply plane.
+   **Sizing for the proper op (W-69's half).** Across the 192 refused
+   addresses plus the 5 benign stale-word rows, measured against the
+   REPAIRED tree: **47 of 197 addresses could be substituted
+   deterministically today** (the announced term present exactly
+   once). The blockers are what price the follow-up: **103 addresses
+   are in a base law with no replayed statute at all**; **30 do not
+   resolve in the tree**, and that number is a design constraint
+   rather than an accident — they are `setning/N` addresses, and
+   sentence children only exist once something has written to the
+   ledd, so a substitution op must either address text inside a ledd
+   or materialize sentences read-only; 13 resolve but do not contain
+   the announced term; 1 has it only under an inflection and 4 only
+   as a substring of a longer word. Only **82 of 197 come from an
+   announcement naming a single `«X» → «Y»` pair** — 109 are
+   `henholdsvis` forms naming several substitutions at once, and 6
+   parse to no pair at all. All five benign rows are deterministic.
+   **What is NOT fixed.** The superseded word still stands in every
+   one of the 193 provisions. That is coverage loss, it is visible in
+   the divergence rows, and it is the trade this item deliberately
+   made: 12 honest stale-word rows instead of 15 destroyed
+   provisions, and 7 silent destructions removed from a law no scan
+   can see.
 73. **W-73 (husbankloven base-completeness — the title-cited
    commencement subject):** DONE (`ff202148c`, 2026-08-11;
    artifacts `.tmp/w73/`). The base-completeness gap is repaired
@@ -3814,6 +3890,56 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-12 (W-75 applied)** — **A word substitution announced in
+  prose was being lowered as N REPLACEs carrying the announcement,
+  and the census that opened the item undercounted it four-fold.**
+  (`c36e2de13`, artifacts `.tmp/w75/`.) Lovdata writes "I følgende
+  bestemmelser skal ordet «X» endres til «Y»:" and then lists the
+  provisions; the list carries `data-change-part`, so the structured
+  lane read N targets and used the node's own prose as their payload.
+  **107 REPLACEs over 10 instruments and 13 base laws, every one
+  overwriting in-force law with the amendment's address list.** The
+  stopgap refuses the construct with a typed receipt
+  (`no_parse_substitution_announcement_not_lowered`); the substitution
+  itself still has no op to lower into and stays open as W-69's.
+  **W-72's census said 4 nodes because it tested only the preceding
+  sibling.** Thirteen nodes carry the announcement in the change
+  node's OWN text, and one of the four it did find was a false
+  positive. Re-probed over all 3,885 structured change nodes: 17
+  nodes, 193 addresses. **And keying the refusal the way the item was
+  scoped would have destroyed real law**: `no/lovtid/2026-06-19-45`
+  puts four genuine `§ X skal lyde:` nodes immediately after
+  announcements, so the discriminator's second conjunct — the node
+  declares no operative payload of its own — is what makes the first
+  one safe. The opener is anchored for the same reason:
+  `no/lovtid/2025-04-25-12` carries the announcement's words
+  mid-sentence in ordinary payload prose.
+  **Ops 27,206 → 27,099 with 0 gained and 0 changed** on a
+  content-keyed identity diff, all 107 REPLACE. Replayed text moves
+  on exactly three laws and **780 of 783 are byte-identical**; the
+  eleven further laws that move do so only on adjudication and
+  receipt digests, from 80 cross-base-skip receipts that no longer
+  exist and op ids renumbering. Karanteneloven's 15 destroyed
+  provisions become **12 rows that each diverge on exactly the
+  superseded word**, five `OPS_MISSING` litra rows closing as their
+  parents come back. Plan- og bygningsloven's seven destructions —
+  invisible to every scan, because the law is `blocked_contingent`
+  and is not a candidate — are confirmed gone by reading the replayed
+  tree directly. Hazard census 3,713 → 3,706 with exactly one law
+  moving, `no/lov/2008-06-27-71` [73, 2] → [66, 2]; firings 10 → 10
+  equal element for element; candidates 76 and scoreboard 29/47/0
+  unmoved; divergence total 1,504 → 1,501.
+  **Bindings 6,489 → 6,484, reported not buried**: five
+  `(instrument, base)` bindings existed only because of the garbage
+  ops and go with them, with no executable status moving.
+  **The follow-up is priced, not guessed** (`substitution_sizing.
+  json`): of 197 addresses, **47 could be substituted deterministically
+  today**. 103 sit in laws with no replayed statute, 30 are
+  `setning/N` addresses that do not resolve until something has
+  written to the ledd — a design constraint for the real op, not an
+  accident — and only 82 come from an announcement naming a single
+  pair.
 
 - **2026-08-11 (W-72 applied)** — **The occupied-destination pin
   stops describing nine laws and starts describing the corpus, and
