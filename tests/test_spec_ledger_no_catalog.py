@@ -43,6 +43,15 @@ _NON_RULE_LITERALS = frozenset(
         #                         mark, not a hypothesis a replay could falsify. The rule it
         #                         gates (no_replay_ledd_set_relabel_occupied_destination_
         #                         refused) IS cataloged.
+        "no_addressed_substitution",  # W-69a PROVENANCE TAG stamped on the addressed
+        #                               word-substitution production's TEXT_PATCH ops
+        #                               (grafter.py NO_SUBSTITUTION_PROVENANCE_TAG). It is
+        #                               how the apply seam recognises its own ops and
+        #                               recovers one announcement's FROM-term set — a
+        #                               carrier mark, not a hypothesis a replay could
+        #                               falsify. The rule it gates
+        #                               (no_replay_substitution_term_not_uniquely_present)
+        #                               IS cataloged.
         "no_stored_consolidation",  # W-45 census key under build_no_verify_partition's
         #                             ``unverifiable`` sibling (verify.py). A report
         #                             dict key naming a corpus population, not a

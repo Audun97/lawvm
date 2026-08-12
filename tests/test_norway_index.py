@@ -1716,9 +1716,21 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # acts lose their gap entirely (``2001-06-15-33``, ``2005-06-17-98``,
     # ``2014-06-20-26``, ``2020-04-15-19``), which is why the receipt count falls by
     # 4 while the pair count falls by 9. Signed off 2026-08-12.
-    assert len(unbound) == 949
-    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2507
-    assert len({diagnostic["source_id"] for diagnostic in unbound}) == 949
+    # 949 -> 947 receipts and 2,507 -> 2,504 pairs at W-69a, and it is W-75's
+    # movement running backwards, exactly. Lowering the word-substitution address
+    # lists for real RESTORES three of the five (act, law) bindings W-75's refusal
+    # removed -- ``2025-06-20-40``/``1989-02-17-2``,
+    # ``2025-06-20-82``/``1916-07-21-2``, ``2026-06-19-45``/``1984-06-08-59`` --
+    # so three declared targets stop being unbound. The W-34/W-35 conservation is
+    # exact: the pair drop equals the binding gain (3 = 3, bindings 6,493 ->
+    # 6,496), ZERO targets newly unbound and NOTHING rebound. Two of the three
+    # acts lose their gap entirely, which is why the receipt count falls by 2
+    # while the pair count falls by 3. The two W-75 bindings that do NOT come back
+    # are its multi-base nodes (``2025-06-20-39``, ``2026-06-19-48``), which W-69a
+    # refuses whole under S2/S1. Signed off 2026-08-12.
+    assert len(unbound) == 947
+    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2504
+    assert len({diagnostic["source_id"] for diagnostic in unbound}) == 947
 
     # 64 acts gain their FIRST index entry: they announced every one of their
     # parts with an unlisted tail, so they had bound no law at all.
@@ -1804,7 +1816,15 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # ``2018-06-15-38`` -> ``no/lov/2017-06-16-53``, is the only base act in the
     # corpus to receive its FIRST op ever, taking the amended-law population from
     # 783 to 784. Signed off 2026-08-12.
-    assert len(bindings) == 6493
+    # 6,493 -> 6,496 at W-69a: three (act, law) pairs return, the same three the
+    # receipt count above loses, and they are three of the five W-75 removed. The
+    # ops binding them are the addressed word substitution lowered for real rather
+    # than the destructive REPLACEs W-75 refused, so this is not a rollback of
+    # W-75 — it is what W-75 said the follow-up would do. Nothing rebound, nothing
+    # removed; no base act gains its first op, so the amended-law population stays
+    # at 784. All three bases have no original-act source in the archive, so the
+    # bindings are declared-and-lowered but never replayed. Signed off 2026-08-12.
+    assert len(bindings) == 6496
     # 26,218 at W-30; +2 at W-24, both reconciled to a named erratum and neither
     # touching this test's own subject. W-24 lowered two Del-scoped Rettelser
     # corrections into the law each part amends — ``2019-12-20-110`` Del I into
@@ -1920,7 +1940,17 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # ledd 4, each a "skal lyde:" beside a relabel moving that same ledd).
     # Semantically 0 lost, 0 rebound. The two cross-base malformed blocks stay
     # refused and contribute nothing. Signed off 2026-08-12.
-    assert sum(entry.n_ops for entry in index.entries) == 28252
+    # 28,252 -> 28,363 at W-69a: +111 addressed ``TEXT_PATCH`` ops and nothing
+    # lost, on a content-keyed identity diff of 111 gained / 0 lost / 0 changed.
+    # The addressed word substitution lowers one op per (listed address x
+    # announced pair) for the 84 addresses that survive the S1-S4 envelope; 27 of
+    # those sit under two-pair ``henholdsvis`` announcements, so 57x1 + 27x2 = 111.
+    # No op changes action or address: the family minted NOTHING at base (W-75
+    # refused all 17 nodes), so this is purely additive. The 109 addresses that do
+    # NOT survive are refused typed at parse — 82 on the four-announcement node,
+    # 21 sentence addresses that are W-69b's, 6 on the multi-base node. Signed off
+    # 2026-08-12.
+    assert sum(entry.n_ops for entry in index.entries) == 28363
 
 
 def test_no_amendment_index_staleness_report_detects_archive_change(tmp_path) -> None:

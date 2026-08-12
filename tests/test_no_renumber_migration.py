@@ -1465,7 +1465,19 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # corpus-wide; 103 land in laws that are known-incomplete. That is the hazard
     # surface growing, honestly, and it is why the census is a pin and not a
     # licence.
-    "hazard_destructive_writes": 3809,
+    #
+    # 3,809 -> 3,810 at W-69a, and it is exactly ONE write on ONE law:
+    # ``no/lov/2008-06-27-71`` [79, 2] -> [80, 2]. The addressed word substitution
+    # now lowers, and a landed ``TEXT_PATCH`` records a REPLACED path, so every
+    # one of them is destructive by this census's definition. W-69a lands 15
+    # corpus-wide; 14 of them are on ``no/lov/2015-06-19-70`` and
+    # ``no/lov/2020-04-17-29``, which are NOT known-incomplete, so this census
+    # cannot see them — the 15th is plan- og bygningsloven § 12-12 femte ledd
+    # (``gjennom elektroniske medier`` -> ``på internett``), and that law is
+    # `blocked_contingent`, i.e. exactly the posture this pin exists to watch.
+    # Content-removing is UNCHANGED at 168 over the same 65 laws: a text
+    # substitution replaces, it never removes. Signed off 2026-08-12.
+    "hazard_destructive_writes": 3810,
     # 167 -> 168, and the +1 is NOT a relabel op. ``no/lov/2016-05-27-14`` gains
     # ``no/lovtid/2021-12-22-158:1``, a REPEAL of § 7-6 annet ledd that could not
     # bind before because that law's ledd sequence was one slot out of step; with
@@ -1485,7 +1497,9 @@ _NO_INCOMPLETE_BASE_HAZARD = {
 _NO_INCOMPLETE_BASE_HAZARD_LAWS_DIGEST = (
     # W-66: the 161-law MEMBERSHIP is unchanged; 26 laws' per-law counts move, so
     # the digest moves with them. See the two count notes above.
-    "70cf059e9f1ab64e7681d33d28f8aa30ea1b981f93556fe471c7a825755646b7"
+    # W-69a: membership again unchanged; ONE law's count moves
+    # (``no/lov/2008-06-27-71`` [79, 2] -> [80, 2]), so the digest moves with it.
+    "a3c4e66c2fbcab0f3f1f8cd39939e62ad339c297fdb29151f228c96e654acecb"
 )
 
 _REGENERATE = (

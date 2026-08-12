@@ -29,7 +29,14 @@ from lawvm.norway.grafter import (
     NO_PARSE_COLLECTIVE_REENACTMENT_PART_UNRESOLVED,
     NO_PARSE_LEDD_SET_RELABEL_ADDRESS_UNRESOLVED,
     NO_PARSE_SUBSTITUTION_ANNOUNCEMENT_NOT_LOWERED,
+    NO_PARSE_SUBSTITUTION_MULTI_BASE_ADDRESS_LIST,
+    NO_PARSE_SUBSTITUTION_MULTIPLE_ANNOUNCEMENTS,
+    NO_PARSE_SUBSTITUTION_SENTENCE_ADDRESS_OUT_OF_SCOPE,
+    NO_REPLAY_SUBSTITUTION_TERM_NOT_UNIQUELY_PRESENT,
+    NO_SUBSTITUTION_PROVENANCE_TAG,
     NOHeadingGroup,
+    _extract_no_substitution_pairs,
+    apply_no_ops_conserved,
     _extract_no_embedded_multi_act_lead,
     _no_collective_reenactment_lead_base_id,
     no_part_law_ids,
@@ -8190,13 +8197,19 @@ def _w75_substitution_change_html(*, announcement_node: str, change_node: str) -
 """.encode("utf-8")
 
 
-def test_no_w75_substitution_announcement_in_sibling_is_refused() -> None:
-    """W-75: the announcement sits in the preceding sibling; the list is not payload.
+def _no_substitution_ops(grouped: list) -> list:
+    return [op for _base, ops in grouped for op in ops if NO_SUBSTITUTION_PROVENANCE_TAG in op.provenance_tags]
+
+
+def test_no_w69a_substitution_announcement_in_sibling_lowers_to_addressed_text_patches() -> None:
+    """W-69a: the announcement sits in the preceding sibling; the list is the ADDRESSES.
 
     ``I følgende bestemmelser skal ordet «X» endres til «Y»:`` announces the
-    operation and the ``change`` node carries only the addresses it applies to.
-    Lowering the node's ``data-change-part`` wrote the address list itself into
-    every listed provision.
+    operation and the ``change`` node carries only the provisions it applies to.
+    W-75 refused the node because there was no producer for the construct;
+    W-69a mints one addressed ``TEXT_PATCH`` per listed address, whose selector
+    is the announced FROM term and whose replacement is the announced TO term —
+    never the node's own prose, which is what the pre-W-75 lowering wrote.
     """
     adjudications: list[CompileAdjudication] = []
     grouped = iter_no_document_change_ops(
@@ -8216,24 +8229,31 @@ def test_no_w75_substitution_announcement_in_sibling_is_refused() -> None:
         adjudications_out=adjudications,
     )
 
-    assert grouped == []
-    refusals = [a for a in adjudications if a.kind == NO_PARSE_SUBSTITUTION_ANNOUNCEMENT_NOT_LOWERED]
-    assert len(refusals) == 1
-    detail = refusals[0].detail
-    assert refusals[0].blocking is True
-    assert detail["announcement_source"] == "preceding_sibling"
-    assert "«tilsettingsmyndigheten» endres til «ansettelsesmyndigheten»" in str(detail["announcement"])
-    assert detail["refused_address_count"] == 2
-    assert detail["other_structured_attributes"] == ()
+    assert not [a for a in adjudications if a.kind.startswith("no_parse_substitution")]
+    ops = _no_substitution_ops(grouped)
+    assert [(op.action, op.target.path) for op in ops] == [
+        (StructuralAction.TEXT_PATCH, (("section", "13"), ("subsection", "1"))),
+        (StructuralAction.TEXT_PATCH, (("section", "14"), ("subsection", "2"))),
+    ]
+    for op in ops:
+        assert op.payload is None
+        assert op.text_patch is not None
+        assert op.text_patch.kind is TextPatchKindEnum.REPLACE
+        assert op.text_patch.selector.match_text == "tilsettingsmyndigheten"
+        assert op.text_patch.replacement == "ansettelsesmyndigheten"
+        assert "scope:addressed" in op.provenance_tags
+    # One group per (instrument, base act, announcement): the apply plane reads
+    # it with the target path to recover the announcement's FROM-term set.
+    assert len({op.group_id for op in ops}) == 1
 
 
-def test_no_w75_substitution_announcement_in_the_node_itself_is_refused() -> None:
-    """W-75: Lovdata's other rendering puts the announcement INSIDE the change node.
+def test_no_w69a_substitution_announcement_in_the_node_itself_lowers() -> None:
+    """W-69a: Lovdata's other rendering puts the announcement INSIDE the change node.
 
     ``no/lovtid/2025-12-22-129`` and ``no/lovtid/2026-06-19-45`` write the
-    announcement as the change node's own first line, so a discriminator that
-    only read the preceding sibling would leave those minting REPLACEs whose
-    payload is the announcement sentence.
+    announcement as the change node's own first line. Both renderings must reach
+    the same production — a discriminator that only read the preceding sibling
+    would leave these minting REPLACEs whose payload is the announcement.
     """
     adjudications: list[CompileAdjudication] = []
     grouped = iter_no_document_change_ops(
@@ -8252,10 +8272,478 @@ def test_no_w75_substitution_announcement_in_the_node_itself_is_refused() -> Non
         adjudications_out=adjudications,
     )
 
-    assert grouped == []
+    assert not [a for a in adjudications if a.kind.startswith("no_parse_substitution")]
+    ops = _no_substitution_ops(grouped)
+    assert len(ops) == 2
+    assert {op.text_patch.selector.match_text for op in ops if op.text_patch} == {"Markedsrådet"}
+    assert {op.text_patch.replacement for op in ops if op.text_patch} == {"Konkurranseklagenemnda"}
+
+
+def test_no_w69a_multiple_announcements_refuse_the_whole_node() -> None:
+    """W-69a S1: two announcements, one flat address list — refuse whole.
+
+    ``no/lovtid/2026-06-19-48`` concatenates FOUR announcement openers into one
+    governing text and hangs 82 addresses over 35 base acts off them. Nothing in
+    ``data-change-part`` says which address belongs to which announcement, and
+    the damage is measurable rather than theoretical: most of the corpus
+    addresses that resolve without carrying their announced term are that node's
+    later-announcement addresses measured against the first announcement's pair.
+    Partial acceptance of such a node is forbidden — no op is minted at all.
+    """
+    adjudications: list[CompileAdjudication] = []
+    grouped = iter_no_document_change_ops(
+        _w75_substitution_change_html(
+            announcement_node='<article class="defaultP">II</article>',
+            change_node=(
+                '<article class="change" data-change-part="lov/2015-06-19-70/§13/ledd/1 '
+                'lov/2015-06-19-70/§14/ledd/2">'
+                '<article class="defaultP">I følgende bestemmelser skal ordene «gjeldsforhandling» '
+                "og «gjeldsforhandlingen» endres til henholdsvis «rekonstruksjonsforhandling» og "
+                "«rekonstruksjonsforhandlingen»: I følgende bestemmelser skal ordet "
+                "«gjeldsforhandlinger» endres til «rekonstruksjonsforhandling»:</article>"
+                "</article>"
+            ),
+        ),
+        "no/lovtid/2026-06-19-48",
+        adjudications_out=adjudications,
+    )
+
+    assert _no_substitution_ops(grouped) == []
+    refusals = [a for a in adjudications if a.kind == NO_PARSE_SUBSTITUTION_MULTIPLE_ANNOUNCEMENTS]
+    assert len(refusals) == 1
+    assert refusals[0].blocking is True
+    assert refusals[0].detail["announcement_count"] == 2
+    assert refusals[0].detail["refused_address_count"] == 2
+
+
+def test_no_w69a_address_list_naming_another_base_act_refuses_the_whole_node() -> None:
+    """W-69a S2: the address list must name exactly the enclosing block's base act.
+
+    ``no/lovtid/2025-06-20-39`` lists addresses across six different acts under
+    one ``document-change`` bound to one of them. Lowering that list binds a
+    substitution to laws its addresses do not belong to.
+    """
+    adjudications: list[CompileAdjudication] = []
+    grouped = iter_no_document_change_ops(
+        _w75_substitution_change_html(
+            announcement_node='<article class="defaultP">II</article>',
+            change_node=(
+                '<article class="change" data-change-part="lov/2015-06-19-70/§13/ledd/1 '
+                'lov/1991-07-04-47/§26a/ledd/2">'
+                '<article class="defaultP">I følgende bestemmelser skal ordet «X» endres '
+                "til «Y»:</article>"
+                "</article>"
+            ),
+        ),
+        "no/lovtid/2025-06-20-39",
+        adjudications_out=adjudications,
+    )
+
+    assert _no_substitution_ops(grouped) == []
+    refusals = [a for a in adjudications if a.kind == NO_PARSE_SUBSTITUTION_MULTI_BASE_ADDRESS_LIST]
+    assert len(refusals) == 1
+    assert refusals[0].detail["address_bases"] == (
+        "no/lov/1991-07-04-47",
+        "no/lov/2015-06-19-70",
+    )
+
+
+def test_no_w69a_unparseable_pair_grammar_keeps_the_w75_refusal() -> None:
+    """W-69a S3: the W-75 receipt survives, scoped to the pair grammar alone.
+
+    Two full substitutions written sequentially in one announcement
+    (``formuleringene «A» endres til «B» og «C» endres til «D»``) do not parse
+    to a pair set under this grammar. Which pair applies where is then unknown,
+    so the node refuses exactly as it did before W-69a — with the same receipt.
+    """
+    adjudications: list[CompileAdjudication] = []
+    grouped = iter_no_document_change_ops(
+        _w75_substitution_change_html(
+            announcement_node='<article class="defaultP">II</article>',
+            change_node=(
+                '<article class="change" data-change-part="lov/2015-06-19-70/§13/ledd/1">'
+                '<article class="defaultP">I følgende bestemmelser skal formuleringene '
+                "«har vist alvorlige atferdsvansker» endres til «utsetter sin utvikling for "
+                "alvorlig fare» og «å ha vist annen form for utpreget normløs atferd» endres "
+                "til «andre utpreget skadelige handlinger»:</article>"
+                "</article>"
+            ),
+        ),
+        "no/lovtid/2025-06-20-39",
+        adjudications_out=adjudications,
+    )
+
+    assert _no_substitution_ops(grouped) == []
     refusals = [a for a in adjudications if a.kind == NO_PARSE_SUBSTITUTION_ANNOUNCEMENT_NOT_LOWERED]
     assert len(refusals) == 1
-    assert refusals[0].detail["announcement_source"] == "own_text"
+    assert refusals[0].blocking is True
+    assert refusals[0].detail["pair_shape"] == "unpaired_1_3"
+
+
+def test_no_w69a_sentence_addresses_refuse_typed_and_their_siblings_still_lower() -> None:
+    """W-69a: ``setning/N`` is W-69b's, and it refuses per ADDRESS, not per node.
+
+    The apply plane materializes sentence children only on the structural
+    branch, AFTER the text-patch branch has returned, so a sentence-addressed
+    TEXT_PATCH cannot resolve at all today. Redirecting it to the parent ledd
+    fails OPEN where the term recurs in a sibling sentence, so the address
+    refuses typed — and the node's ledd addresses lower regardless, because
+    per-address refusal is the envelope for everything below S1/S2/S3.
+    """
+    adjudications: list[CompileAdjudication] = []
+    grouped = iter_no_document_change_ops(
+        _w75_substitution_change_html(
+            announcement_node=(
+                '<article class="defaultP">I følgende bestemmelser skal ordet '
+                "«tilsettingsmyndigheten» endres til «ansettelsesmyndigheten»:</article>"
+            ),
+            change_node=(
+                '<article class="change" data-change-part="lov/2015-06-19-70/§13/ledd/1 '
+                'lov/2015-06-19-70/§13/ledd/2/setning/1">'
+                '<article class="defaultP">§ 13 første ledd, § 13 andre ledd første '
+                "punktum.</article>"
+                "</article>"
+            ),
+        ),
+        "no/lovtid/2025-02-07-1",
+        adjudications_out=adjudications,
+    )
+
+    refusals = [a for a in adjudications if a.kind == NO_PARSE_SUBSTITUTION_SENTENCE_ADDRESS_OUT_OF_SCOPE]
+    assert len(refusals) == 1
+    assert refusals[0].blocking is True
+    assert refusals[0].detail["raw_address"] == "lov/2015-06-19-70/§13/ledd/2/setning/1"
+    assert [op.target.path for op in _no_substitution_ops(grouped)] == [
+        (("section", "13"), ("subsection", "1")),
+    ]
+
+
+def test_no_w69a_henholdsvis_is_from_by_to_not_address_positional() -> None:
+    """W-69a: ``henholdsvis`` names a PAIR SET applying to every listed address.
+
+    The queue entry read it as address-positional (address 1 takes term 1). It
+    is not: *"ordene «namsmannen» og «namsmannens» endres til henholdsvis
+    «namsfogden» og «namsfogdens»"* is a FROM × TO zip, and the resulting pair
+    set applies to all of ``§§ 2-2, 2-3, …``. So N addresses × M pairs is N*M
+    ops carrying the SAME pair set, and which one fires is decided at apply
+    against the provision's own text.
+    """
+    assert _extract_no_substitution_pairs(
+        "I følgende bestemmelser endres ordene «namsmannen» og «namsmannens» til "
+        "henholdsvis ordene «namsfogden» og «namsfogdens»: §§ 2-2 og 2-3."
+    ) == (
+        (("namsmannen", "namsfogden"), ("namsmannens", "namsfogdens")),
+        "positional_pairs_verb_first_henholdsvis",
+    )
+    adjudications: list[CompileAdjudication] = []
+    grouped = iter_no_document_change_ops(
+        _w75_substitution_change_html(
+            announcement_node='<article class="defaultP">II</article>',
+            change_node=(
+                '<article class="change" data-change-part="lov/2015-06-19-70/§13 '
+                'lov/2015-06-19-70/§14">'
+                '<article class="defaultP">I følgende bestemmelser endres ordene «namsmannen» '
+                "og «namsmannens» til henholdsvis ordene «namsfogden» og «namsfogdens»: "
+                "§§ 13 og 14.</article>"
+                "</article>"
+            ),
+        ),
+        "no/lovtid/2026-06-19-45",
+        adjudications_out=adjudications,
+    )
+    ops = _no_substitution_ops(grouped)
+    assert [
+        (op.target.path, op.text_patch.selector.match_text, op.text_patch.replacement)
+        for op in ops
+        if op.text_patch
+    ] == [
+        ((("section", "13"),), "namsmannen", "namsfogden"),
+        ((("section", "13"),), "namsmannens", "namsfogdens"),
+        ((("section", "14"),), "namsmannen", "namsfogden"),
+        ((("section", "14"),), "namsmannens", "namsfogdens"),
+    ]
+
+
+def test_no_w69a_whole_word_scanner_is_the_regex_it_replaces() -> None:
+    """The matching rule is ``(?<!\\w)TERM(?!\\w)``; the implementation is a scan.
+
+    A per-FROM-term ``re.compile`` of an f-string is the frozen-residue shape
+    the FW-07/FW-08 ratchets keep out of a parser module, so the predicate is
+    written with ``str.find`` plus a boundary test. That is only legitimate if
+    it is the SAME predicate, including the non-overlapping advance (``"a a"``
+    occurs once in ``"a a a"``, not twice), so the equivalence is proven here
+    rather than asserted in a comment.
+    """
+    import random
+    import re as _re
+
+    from lawvm.norway.grafter import _no_whole_word_count
+
+    assert _no_whole_word_count("a a a", "a a") == 1
+    assert _no_whole_word_count("namsmannens kontor", "namsmannen") == 0
+    assert _no_whole_word_count("namsmannen og namsmannens", "namsmannen") == 1
+    assert _no_whole_word_count("", "x") == 0
+    assert _no_whole_word_count("x", "") == 0
+
+    random.seed(20690)
+    alphabet = "ab X_ ,.-«»\u00e50"
+    for _ in range(4000):
+        text = "".join(random.choice(alphabet) for _ in range(random.randint(0, 30)))
+        term = "".join(random.choice(alphabet) for _ in range(random.randint(1, 5)))
+        expected = len(_re.findall(rf"(?<!\w){_re.escape(term)}(?!\w)", text))
+        assert _no_whole_word_count(text, term) == expected, (text, term)
+
+
+# ── W-69a apply plane: S6 + S7, where the addressed node's text is in hand ───
+
+
+def _w69a_substitution_op(
+    sequence: int,
+    *,
+    section: str,
+    from_term: str,
+    to_term: str,
+    group: str = "g1",
+) -> LegalOperation:
+    return LegalOperation(
+        op_id=f"no/lovtid/9999-01-01-1:{sequence}",
+        sequence=sequence,
+        action=StructuralAction.TEXT_PATCH,
+        target=LegalAddress(path=(("section", section),)),
+        text_patch=TextPatchSpec(
+            kind=TextPatchKindEnum.REPLACE,
+            selector=TextSelector(match_text=from_term, occurrence=0),
+            replacement=to_term,
+        ),
+        source=OperationSource(statute_id="no/lovtid/9999-01-01-1", raw_text="ann", title="x"),
+        provenance_tags=("base_act:no/lov/1999-01-01-1", "scope:addressed", NO_SUBSTITUTION_PROVENANCE_TAG),
+        group_id=group,
+    )
+
+
+def _w69a_statute(*texts: str) -> IRStatute:
+    return IRStatute(
+        statute_id="no/lov/1999-01-01-1",
+        title="Testlov",
+        body=IRNode(
+            kind=IRNodeKind.BODY,
+            children=tuple(
+                IRNode(kind=IRNodeKind.SECTION, label=str(i), text=text)
+                for i, text in enumerate(texts, start=1)
+            ),
+        ),
+    )
+
+
+def test_no_w69a_apply_replaces_the_announced_term_and_nothing_else() -> None:
+    """The happy path: one whole-word occurrence, one replacement, one section."""
+    before = _w69a_statute("Namsmannen varsler. Tilsettingsmyndigheten treffer vedtaket.", "Uendret.")
+    adjudications: list[CompileAdjudication] = []
+    result = apply_no_ops(
+        before,
+        [_w69a_substitution_op(1, section="1", from_term="Tilsettingsmyndigheten", to_term="Ansettelsesmyndigheten")],
+        adjudications_out=adjudications,
+    )
+    assert [child.text for child in result.body.children] == [
+        "Namsmannen varsler. Ansettelsesmyndigheten treffer vedtaket.",
+        "Uendret.",
+    ]
+    assert not [a for a in adjudications if a.kind == NO_REPLAY_SUBSTITUTION_TERM_NOT_UNIQUELY_PRESENT]
+
+
+def test_no_w69a_apply_refuses_when_the_term_is_absent() -> None:
+    """The addressed provision ALREADY carries the amendment — W-66 finding (v).
+
+    An archived base edition that already reads the NEW word has nothing to
+    substitute; writing anything would be inventing a change. Refuse, typed, so
+    the reason survives instead of dissolving into a content-identical no-op —
+    the two are the same state change and very different evidence.
+    """
+    before = _w69a_statute("Ansettelsesmyndigheten treffer vedtaket.")
+    adjudications: list[CompileAdjudication] = []
+    result = apply_no_ops(
+        before,
+        [_w69a_substitution_op(1, section="1", from_term="tilsettingsmyndigheten", to_term="ansettelsesmyndigheten")],
+        adjudications_out=adjudications,
+    )
+    assert [child.text for child in result.body.children] == ["Ansettelsesmyndigheten treffer vedtaket."]
+    refusals = [a for a in adjudications if a.kind == NO_REPLAY_SUBSTITUTION_TERM_NOT_UNIQUELY_PRESENT]
+    assert [a.detail["reason"] for a in refusals] == ["absent"]
+    assert (refusals[0].detail["whole_word"], refusals[0].detail["substring"]) == (0, 0)
+    assert not [a for a in adjudications if a.kind == "replay_noop"]
+
+
+def test_no_w69a_apply_refuses_a_case_only_match() -> None:
+    """``inflection_only``: the term is present only under case folding.
+
+    Naming note, because the label is the design's and the design's word is
+    looser than the test: this conjunct measures a CASE-insensitive-only match,
+    not a morphological inflection. The genuine morphological case — a Norwegian
+    genitive ``-s`` — is caught by ``substring_only``, which is why that reason
+    exists separately. Matching is case-SENSITIVE: an announcement quotes the
+    exact word it replaces, and folding case would let a sentence-initial
+    occurrence take a lower-case replacement.
+    """
+    before = _w69a_statute("Tilsettingsmyndigheten treffer vedtaket.")
+    adjudications: list[CompileAdjudication] = []
+    result = apply_no_ops(
+        before,
+        [_w69a_substitution_op(1, section="1", from_term="tilsettingsmyndigheten", to_term="ansettelsesmyndigheten")],
+        adjudications_out=adjudications,
+    )
+    assert [child.text for child in result.body.children] == ["Tilsettingsmyndigheten treffer vedtaket."]
+    refusals = [a for a in adjudications if a.kind == NO_REPLAY_SUBSTITUTION_TERM_NOT_UNIQUELY_PRESENT]
+    assert [a.detail["reason"] for a in refusals] == ["inflection_only"]
+    assert (refusals[0].detail["substring"], refusals[0].detail["case_insensitive"]) == (0, 1)
+
+
+def test_no_w69a_apply_refuses_a_genitive_rather_than_fire_inside_a_longer_word() -> None:
+    """W-69a's matching rule is WHOLE WORD, and this is what it costs.
+
+    ``tilsettingsmyndighetens`` contains ``tilsettingsmyndigheten``. Exact
+    substring matching would fire and produce ``ansettelsesmyndighetens`` — which
+    happens to be right here and would be wrong in the general case, because
+    nothing in the announcement licenses a match inside a longer word. Measured
+    price over the corpus: exactly one live divergence row (karanteneloven
+    ``§ 20 fjerde ledd``) stays open, honestly.
+    """
+    before = _w69a_statute("Vedtaket treffes av tilsettingsmyndighetens leder.")
+    adjudications: list[CompileAdjudication] = []
+    result = apply_no_ops(
+        before,
+        [_w69a_substitution_op(1, section="1", from_term="tilsettingsmyndigheten", to_term="ansettelsesmyndigheten")],
+        adjudications_out=adjudications,
+    )
+    assert [child.text for child in result.body.children] == ["Vedtaket treffes av tilsettingsmyndighetens leder."]
+    refusals = [a for a in adjudications if a.kind == NO_REPLAY_SUBSTITUTION_TERM_NOT_UNIQUELY_PRESENT]
+    assert [a.detail["reason"] for a in refusals] == ["substring_only"]
+    assert refusals[0].detail["substring"] == 1
+    assert refusals[0].detail["whole_word"] == 0
+
+
+def test_no_w69a_apply_refuses_more_than_one_occurrence() -> None:
+    """``_apply_no_text_replace`` is an unguarded recursive ``str.replace``.
+
+    It honours neither ``TextSelector.occurrence`` nor a word boundary, so the
+    only way an addressed substitution can mean "replace THE occurrence" is for
+    the parse-to-apply conjunction to prove there is exactly one. Two occurrences
+    refuse rather than take both.
+    """
+    before = _w69a_statute("Markedsrådet avgjør. Markedsrådet kan delegere.")
+    adjudications: list[CompileAdjudication] = []
+    result = apply_no_ops(
+        before,
+        [_w69a_substitution_op(1, section="1", from_term="Markedsrådet", to_term="Konkurranseklagenemnda")],
+        adjudications_out=adjudications,
+    )
+    assert [child.text for child in result.body.children] == ["Markedsrådet avgjør. Markedsrådet kan delegere."]
+    refusals = [a for a in adjudications if a.kind == NO_REPLAY_SUBSTITUTION_TERM_NOT_UNIQUELY_PRESENT]
+    assert [a.detail["reason"] for a in refusals] == ["multiple"]
+    assert refusals[0].detail["whole_word"] == 2
+
+
+def test_no_w69a_apply_counts_occurrences_across_the_whole_addressed_subtree() -> None:
+    """A section-depth address covers its ledd; the count is over all of them.
+
+    Counted node by node on OWN text and summed — exactly what
+    ``_apply_no_text_replace``'s recursion does. A term appearing once in each of
+    two ledd of the addressed section is two occurrences and refuses.
+    """
+    before = IRStatute(
+        statute_id="no/lov/1999-01-01-1",
+        title="Testlov",
+        body=IRNode(
+            kind=IRNodeKind.BODY,
+            children=(
+                IRNode(
+                    kind=IRNodeKind.SECTION,
+                    label="1",
+                    children=(
+                        IRNode(kind=IRNodeKind.SUBSECTION, label="1", text="Markedsrådet avgjør."),
+                        IRNode(kind=IRNodeKind.SUBSECTION, label="2", text="Markedsrådet kan delegere."),
+                    ),
+                ),
+            ),
+        ),
+    )
+    adjudications: list[CompileAdjudication] = []
+    result = apply_no_ops(
+        before,
+        [_w69a_substitution_op(1, section="1", from_term="Markedsrådet", to_term="Konkurranseklagenemnda")],
+        adjudications_out=adjudications,
+    )
+    assert [child.text for child in result.body.children[0].children] == [
+        "Markedsrådet avgjør.",
+        "Markedsrådet kan delegere.",
+    ]
+    assert [
+        a.detail["reason"] for a in adjudications if a.kind == NO_REPLAY_SUBSTITUTION_TERM_NOT_UNIQUELY_PRESENT
+    ] == ["multiple"]
+
+
+def test_no_w69a_apply_refuses_both_legs_when_two_announced_terms_are_present() -> None:
+    """S6, and why it is not implied by S7: the pairs are PREFIX-NESTED.
+
+    One announcement, two pairs (``namsmannen``/``namsmannens``). A provision
+    carrying both would take two writes from an announcement whose grammar says
+    one pair applies at a time — and ``namsmannen``'s ``str.replace`` would also
+    eat the genitive's stem. Both legs refuse; the provision is untouched.
+    """
+    before = _w69a_statute("Namsmannen sender namsmannen sitt varsel til namsmannens kontor.")
+    ops = [
+        _w69a_substitution_op(1, section="1", from_term="namsmannen", to_term="namsfogden"),
+        _w69a_substitution_op(2, section="1", from_term="namsmannens", to_term="namsfogdens"),
+    ]
+    adjudications: list[CompileAdjudication] = []
+    result = apply_no_ops(before, ops, adjudications_out=adjudications)
+    assert [child.text for child in result.body.children] == [
+        "Namsmannen sender namsmannen sitt varsel til namsmannens kontor."
+    ]
+    refusals = [a for a in adjudications if a.kind == NO_REPLAY_SUBSTITUTION_TERM_NOT_UNIQUELY_PRESENT]
+    assert sorted(a.detail["reason"] for a in refusals) == ["term_ambiguous", "term_ambiguous"]
+
+
+def test_no_w69a_apply_lets_the_sibling_pair_fire_when_only_one_term_is_present() -> None:
+    """The other side of S6: exactly one announced term present, so it lands.
+
+    Only the genitive occurs. ``namsmannens`` fires; ``namsmannen`` records that
+    a sibling pair of its own announcement matched instead — a typed rejection,
+    not a silent drop, so the conserved partition still sees every op.
+    """
+    before = _w69a_statute("Varselet sendes til namsmannens kontor.")
+    ops = [
+        _w69a_substitution_op(1, section="1", from_term="namsmannen", to_term="namsfogden"),
+        _w69a_substitution_op(2, section="1", from_term="namsmannens", to_term="namsfogdens"),
+    ]
+    adjudications: list[CompileAdjudication] = []
+    result = apply_no_ops(before, ops, adjudications_out=adjudications)
+    assert [child.text for child in result.body.children] == ["Varselet sendes til namsfogdens kontor."]
+    refusals = [a for a in adjudications if a.kind == NO_REPLAY_SUBSTITUTION_TERM_NOT_UNIQUELY_PRESENT]
+    assert [(a.op_id, a.detail["reason"]) for a in refusals] == [
+        ("no/lovtid/9999-01-01-1:1", "other_announced_term_matches"),
+    ]
+
+
+def test_no_w69a_a_refused_substitution_is_a_typed_rejection_in_the_conserved_partition() -> None:
+    """§1.8: every op is a landed write or a typed rejection — never neither.
+
+    The apply fold raises fail-loud on an op that lands nothing without a skip
+    adjudication, so the refusal kind has to be in ``_NO_SKIP_ADJUDICATION_KINDS``.
+    The W-69 design says half 2 needs nothing there because its refusals are all
+    parse-plane; that does not survive its own premise (S5-S7 need the addressed
+    node's TEXT, and the parse plane has no statute), so the kind is registered.
+    """
+    before = _w69a_statute("Ansettelsesmyndigheten treffer vedtaket.")
+    ops = [
+        _w69a_substitution_op(1, section="1", from_term="tilsettingsmyndigheten", to_term="ansettelsesmyndigheten"),
+        _w69a_substitution_op(2, section="1", from_term="Ansettelsesmyndigheten", to_term="Vedtaksmyndigheten", group="g2"),
+    ]
+    result = apply_no_ops_conserved(before, ops)
+    assert [op.op_id for op in result.applied_ops] == ["no/lovtid/9999-01-01-1:2"]
+    assert [(item.item.op_id, item.reason_code) for item in result.skipped_items] == [
+        ("no/lovtid/9999-01-01-1:1", NO_REPLAY_SUBSTITUTION_TERM_NOT_UNIQUELY_PRESENT),
+    ]
+    assert all(item.blocking for item in result.skipped_items)
 
 
 def test_no_w75_a_real_replacement_after_an_announcement_still_lowers() -> None:
@@ -8326,15 +8814,18 @@ def test_no_w75_announcement_must_open_the_sentence() -> None:
     _NO_FARCHIVE_PATH is None,
     reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
 )
-def test_no_w75_karanteneloven_substitution_witness_no_longer_lowers() -> None:
-    """W-75 corpus witness: 13 destroyed provisions of karanteneloven.
+def test_no_w69a_karanteneloven_substitution_witness_lowers_to_text_patches() -> None:
+    """W-69a corpus witness: karanteneloven's 15 substitution addresses.
 
     ``no/lovtid/2025-02-07-1`` announces ``tilsettingsmyndigheten`` →
     ``ansettelsesmyndigheten`` over 13 provisions of ``no/lov/2015-06-19-70``
-    and lists them in a sibling ``change`` node. Every one of the 13 REPLACEs
-    it used to mint carried the address list as its payload; a second node in
-    the same instrument carries its own announcement and minted 2 more. The
-    instrument's other, genuine changes are unaffected.
+    in a sibling ``change`` node, and ``tilsettingen`` → ``ansettelsen`` over 2
+    more in a node carrying its own announcement. Before W-75 every one of those
+    15 lowered as a REPLACE whose payload was the address list; W-75 refused them
+    all; W-69a lowers the 7 ledd addresses as addressed TEXT_PATCHes and refuses
+    the 8 sentence addresses typed as W-69b's. Nothing carries the announcement
+    as payload in any of the three states, and the instrument's genuine work —
+    the new § 1 a — is untouched throughout.
     """
     html_bytes = load_no_amendment_bytes("no/lovtid/2025-02-07-1", _NO_FARCHIVE_PATH)
     assert html_bytes is not None
@@ -8344,11 +8835,25 @@ def test_no_w75_karanteneloven_substitution_witness_no_longer_lowers() -> None:
         iter_no_document_change_ops(html_bytes, "no/lovtid/2025-02-07-1", adjudications_out=adjudications)
     )
 
-    refusals = [a for a in adjudications if a.kind == NO_PARSE_SUBSTITUTION_ANNOUNCEMENT_NOT_LOWERED]
-    assert [a.detail["refused_address_count"] for a in refusals] == [13, 2]
-    assert [a.detail["announcement_source"] for a in refusals] == ["preceding_sibling", "own_text"]
+    assert not [a for a in adjudications if a.kind == NO_PARSE_SUBSTITUTION_ANNOUNCEMENT_NOT_LOWERED]
+    sentence_refusals = [
+        a for a in adjudications if a.kind == NO_PARSE_SUBSTITUTION_SENTENCE_ADDRESS_OUT_OF_SCOPE
+    ]
+    assert len(sentence_refusals) == 8
 
     ops = grouped["no/lov/2015-06-19-70"]
+    substitutions = [op for op in ops if NO_SUBSTITUTION_PROVENANCE_TAG in op.provenance_tags]
+    assert [
+        (op.target.path, op.text_patch.selector.match_text) for op in substitutions if op.text_patch
+    ] == [
+        ((("section", "13"), ("subsection", "1")), "tilsettingsmyndigheten"),
+        ((("section", "14"), ("subsection", "2")), "tilsettingsmyndigheten"),
+        ((("section", "14"), ("subsection", "4")), "tilsettingsmyndigheten"),
+        ((("section", "15"), ("subsection", "1")), "tilsettingsmyndigheten"),
+        ((("section", "20"), ("subsection", "1")), "tilsettingsmyndigheten"),
+        ((("section", "20"), ("subsection", "4")), "tilsettingsmyndigheten"),
+        ((("section", "14"), ("subsection", "4")), "tilsettingen"),
+    ]
     # Not one op is left carrying the address list or the announcement.
     assert not [
         op
@@ -8358,6 +8863,72 @@ def test_no_w75_karanteneloven_substitution_witness_no_longer_lowers() -> None:
     ]
     # The instrument's genuine work survives: the new § 1 a it enacts.
     assert (("section", "1a"),) in [op.target.path for op in ops]
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w69a_karanteneloven_replay_lands_its_substitutions_and_refuses_the_genitive() -> None:
+    """W-69a end to end, on the payoff law, against the real archive.
+
+    Six of karanteneloven's seven lowered addresses land and one refuses:
+    ``§ 20 fjerde ledd`` carries only the genitive ``tilsettingsmyndighetens``,
+    which whole-word matching declines. That is the measured price of the
+    matching rule — one divergence row on this law stays open, saying what is
+    wrong, and the four rows this item closes are the other four provisions.
+    """
+    from lawvm.norway.index import build_no_amendment_index
+    from lawvm.norway.replay import replay_no_to_pit
+
+    data_dir = cast(Path, _NO_FARCHIVE_PATH)
+    result = replay_no_to_pit(
+        "no/lov/2015-06-19-70",
+        "2026-07-10",
+        data_dir=data_dir,
+        index=build_no_amendment_index(data_dir),
+    )
+    replayed = result.replayed
+    assert replayed is not None
+    refusals = [
+        a for a in result.adjudications if a.kind == NO_REPLAY_SUBSTITUTION_TERM_NOT_UNIQUELY_PRESENT
+    ]
+    assert [((a.detail or {}).get("target"), (a.detail or {}).get("reason")) for a in refusals] == [
+        ("section:20/subsection:4", "substring_only"),
+    ]
+    landed = [
+        receipt
+        for receipt in (result.write_receipts or ())
+        if str(receipt.action) == "text_replace"
+    ]
+    assert len(landed) == 6
+
+    def _ledd_text(label: str, subsection: str) -> str:
+        section = next(
+            node
+            for node in _no_walk(replayed.body)
+            if getattr(node.kind, "value", node.kind) == "section" and node.label == label
+        )
+        ledd = next(child for child in section.children if child.label == subsection)
+        return " ".join(part for part in _no_all_texts(ledd))
+
+    assert "ansettelsesmyndigheten" in _ledd_text("13", "1")
+    assert "tilsettingsmyndigheten" not in _ledd_text("13", "1")
+    # …and the whole-word refusal leaves § 20 fjerde ledd standing, honestly.
+    assert "tilsettingsmyndighetens" in _ledd_text("20", "4")
+
+
+def _no_walk(node: IRNode):
+    yield node
+    for child in node.children:
+        yield from _no_walk(child)
+
+
+def _no_all_texts(node: IRNode):
+    if node.text:
+        yield node.text
+    for child in node.children:
+        yield from _no_all_texts(child)
 
 
 @pytest.mark.skipif(

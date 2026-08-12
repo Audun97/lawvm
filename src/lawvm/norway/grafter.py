@@ -5597,6 +5597,33 @@ def _no_structured_renumber_lead_declares_replacement(lead: str) -> bool:
 # construct is to refuse it and say so.
 NO_PARSE_SUBSTITUTION_ANNOUNCEMENT_NOT_LOWERED = "no_parse_substitution_announcement_not_lowered"
 
+# W-69a: the substitution is now LOWERED, as an addressed ``TEXT_PATCH`` — one
+# op per (listed address × announced pair). The receipt above survives as the
+# S3 conjunct's refusal (an announcement whose pair grammar does not parse) and
+# these four join it, one per boundary of the lowering envelope. Every one is
+# measured against a population, named at its emit site.
+NO_PARSE_SUBSTITUTION_MULTIPLE_ANNOUNCEMENTS = "no_parse_substitution_multiple_announcements"
+NO_PARSE_SUBSTITUTION_MULTI_BASE_ADDRESS_LIST = "no_parse_substitution_multi_base_address_list"
+NO_PARSE_SUBSTITUTION_SENTENCE_ADDRESS_OUT_OF_SCOPE = (
+    "no_parse_substitution_sentence_address_out_of_scope"
+)
+NO_PARSE_SUBSTITUTION_ADDRESS_NOT_LOWERABLE = "no_parse_substitution_address_not_lowerable"
+#: Stamped on every op the addressed-substitution production mints, and read by
+#: the apply seam. It is the ONLY thing that tells the ``text_replace`` branch
+#: that this op must prove its FROM term is uniquely present before writing —
+#: see ``_no_substitution_term_refusal_reason``. A carrier mark, not a rule id.
+NO_SUBSTITUTION_PROVENANCE_TAG = "no_addressed_substitution"
+#: The apply-plane conjuncts S6 (exactly one announced term present) and S7 (it
+#: occurs exactly once, as a whole word). They CANNOT run at parse: the parse
+#: plane has no statute — replay consumes parse output, so the addressed node's
+#: text is not in hand until apply. Refusing here (rather than letting a
+#: content-identical write fall through to the θ ``replay_noop`` cell) is what
+#: keeps the reason typed, so it is a genuine per-op SKIP and joins
+#: :data:`_NO_SKIP_ADJUDICATION_KINDS`.
+NO_REPLAY_SUBSTITUTION_TERM_NOT_UNIQUELY_PRESENT = (
+    "no_replay_substitution_term_not_uniquely_present"
+)
+
 # The announcement is SENTENCE-INITIAL: "hjemmel i følgende bestemmelser med
 # tilhørende forskrifter:" (no/lovtid/2025-04-25-12) is ordinary payload prose
 # containing the same words mid-sentence, and an unanchored test refuses two
@@ -5629,6 +5656,45 @@ _NO_SUBSTITUTION_ANNOUNCEMENT_OPERATIVE_RE = compile_classifier_regex(
     r"\b(?:skal\s+lyde|oppheves|skal\s+ha\s+følgende\s+ordlyd)\b",
     re.IGNORECASE,
     classifier_id="norway.grafter.substitution_announcement_operative",
+)
+# S1's counter: the same opener, UNANCHORED, so a governing text carrying more
+# than one announcement is visible. ``no/lovtid/2026-06-19-48`` concatenates
+# FOUR announcements into one node and hangs 82 addresses over 35 base acts off
+# them; nothing in the flat ``data-change-part`` token list says which address
+# belongs to which announcement, and the damage is already measurable — 8 of the
+# 13 corpus addresses that resolve but do not carry their announced term are
+# that node's, i.e. later-announcement addresses measured against the first
+# announcement's pair. Such a node refuses WHOLE; partial acceptance is
+# forbidden. (The W-69 design says 9 of 13; re-derived at this base it is 8.)
+_NO_SUBSTITUTION_ANNOUNCEMENT_OPENER_SCAN_RE = compile_classifier_regex(
+    r"\bi\s+følgende\s+(?:bestemmelser|bestemmelse|paragrafer|paragraf|lovbestemmelser|lover)\b",
+    re.IGNORECASE,
+    classifier_id="norway.grafter.substitution_announcement_opener_scan",
+)
+# The pair grammar. ``henholdsvis`` is FROM × TO — "ordene «namsmannen» og
+# «namsmannens» endres til henholdsvis «namsfogden» og «namsfogdens»" names a
+# pair SET that applies to EVERY listed address, NOT an address-positional
+# match. Corpus shapes, all measured on the 17-node family:
+#   * ``«A» endres til «B»``            — terms on both sides of the verb
+#   * ``endres ordet «A» til «B»``      — verb first, both terms after it
+#   * ``endres ordene «A» og «B» til henholdsvis «C» og «D»``  — verb first,
+#     2N terms after it, first half FROM, second half TO
+#   * ``skal ordene «A» og «B» endres til henholdsvis «C» og «D»`` — N before,
+#     N after.
+# Anything else refuses under S3 with the W-75 receipt.
+_NO_SUBSTITUTION_PAIR_VERB_RE = compile_classifier_regex(
+    r"\b(?:endres\s+til|erstattes\s+med|erstattes\s+av|erstattes|endres)\b",
+    re.IGNORECASE,
+    classifier_id="norway.grafter.substitution_pair_verb",
+)
+_NO_SUBSTITUTION_QUOTED_TERM_RE = compile_classifier_regex(
+    r"«([^»]+)»",
+    classifier_id="norway.grafter.substitution_quoted_term",
+)
+_NO_SUBSTITUTION_HENHOLDSVIS_RE = compile_classifier_regex(
+    r"\bhenholdsvis\b",
+    re.IGNORECASE,
+    classifier_id="norway.grafter.substitution_henholdsvis",
 )
 
 
@@ -5668,6 +5734,171 @@ def _no_substitution_announcement_governing(
     prior = _normalize_space(" ".join(str(_t) for _t in previous.itertext()))
     if _no_text_announces_word_substitution(prior):
         return ("preceding_sibling", prior)
+    return None
+
+
+def _extract_no_substitution_pairs(announcement: str) -> tuple[tuple[tuple[str, str], ...], str]:
+    """Read the announced ``(FROM, TO)`` pairs out of a substitution announcement.
+
+    Returns ``(pairs, shape)``; ``pairs`` is empty when the grammar does not
+    parse, and ``shape`` names what was seen so the S3 refusal receipt says why.
+    Only the head of the announcement (everything before the first colon) is
+    read: the colon is what separates the announcement from the address list,
+    and a listed address never carries guillemets.
+    """
+    head = _normalize_space(announcement).split(":", 1)[0]
+    # lawvm-regex: owning_parser this IS the substitution-announcement pair parser
+    verb = _NO_SUBSTITUTION_PAIR_VERB_RE.search(head)
+    if verb is None:
+        return (), "verb_not_found"
+    # lawvm-regex: owning_parser this IS the substitution-announcement pair parser
+    before = _NO_SUBSTITUTION_QUOTED_TERM_RE.findall(head[: verb.start()])
+    # lawvm-regex: owning_parser this IS the substitution-announcement pair parser
+    after = _NO_SUBSTITUTION_QUOTED_TERM_RE.findall(head[verb.start() :])
+    # lawvm-regex: owning_parser this IS the substitution-announcement pair parser
+    henholdsvis = _NO_SUBSTITUTION_HENHOLDSVIS_RE.search(head) is not None
+    before = [_normalize_space(term) for term in before if _normalize_space(term)]
+    after = [_normalize_space(term) for term in after if _normalize_space(term)]
+    if not before and not after:
+        return (), "quoted_terms_not_found"
+    if len(before) == 1 and len(after) == 1:
+        return ((before[0], after[0]),), "single_pair"
+    if before and len(before) == len(after):
+        return (
+            tuple(zip(before, after, strict=True)),
+            "positional_pairs_henholdsvis" if henholdsvis else "positional_pairs",
+        )
+    if not before and len(after) == 2:
+        return ((after[0], after[1]),), "single_pair_verb_first"
+    if not before and len(after) >= 4 and len(after) % 2 == 0 and henholdsvis:
+        half = len(after) // 2
+        return (
+            tuple(zip(after[:half], after[half:], strict=True)),
+            "positional_pairs_verb_first_henholdsvis",
+        )
+    return (), f"unpaired_{len(before)}_{len(after)}"
+
+
+def _no_substitution_term_counts(node: IRNode, term: str) -> tuple[int, int, int]:
+    """``(whole_word, substring, case_insensitive)`` counts of ``term`` under ``node``.
+
+    Counted per OWN text, node by node, and summed — which is exactly what
+    :func:`_apply_no_text_replace` does (a recursive ``str.replace`` over each
+    node's own text). Counting over a flattened join would let a multi-word term
+    match across a node boundary that ``str.replace`` can never see. Measured on
+    the corpus at W-69a's base: the two counters agree on every one of the 27
+    resolvable addresses, so this is a soundness guard, not a behaviour change.
+    """
+    whole_word = 0
+    substring = 0
+    case_insensitive = 0
+    lowered = term.lower()
+    stack = [node]
+    while stack:
+        current = stack.pop()
+        text = current.text or ""
+        if text:
+            whole_word += _no_whole_word_count(text, term)
+            substring += text.count(term)
+            case_insensitive += text.lower().count(lowered)
+        stack.extend(current.children)
+    return whole_word, substring, case_insensitive
+
+
+def _no_is_word_char(char: str) -> bool:
+    """``re``'s ``\\w`` for str patterns: unicode alphanumeric, or underscore."""
+    return char.isalnum() or char == "_"
+
+
+def _no_whole_word_count(text: str, term: str) -> int:
+    """``(?<!\\w)TERM(?!\\w)`` occurrences, counted WITHOUT a regex.
+
+    The rule is the design's; the implementation is a scan because the pattern
+    would have to be built per FROM term from corpus data. A per-term
+    ``re.compile`` of an f-string is the frozen-residue shape the FW-07/FW-08
+    ratchets exist to keep out of a parser module, and there is nothing here a
+    regex buys: ``str.find`` plus a boundary test on the two adjacent characters
+    is the same predicate, and ``_no_is_word_char`` is exactly how CPython's
+    ``sre`` defines ``\\w`` for str patterns.
+
+    Whole-word, not substring, and that costs something measurable: it refuses 2
+    of the 42 exact-substring-deterministic corpus addresses, both Norwegian
+    genitive-``s`` cases, one of which is a live divergence row (karanteneloven
+    ``§ 20 fjerde ledd``, ``tilsettingsmyndighetens``). That row stays open,
+    honestly. What it buys is the guarantee that a FROM term never fires inside
+    a longer word — under-application is the safe direction.
+    """
+    if not term:
+        return 0
+    count = 0
+    start = 0
+    width = len(term)
+    while True:
+        found = text.find(term, start)
+        if found < 0:
+            return count
+        before_ok = found == 0 or not _no_is_word_char(text[found - 1])
+        after = found + width
+        after_ok = after >= len(text) or not _no_is_word_char(text[after])
+        if before_ok and after_ok:
+            # Non-overlapping, exactly as ``re.findall`` advances: past a match
+            # it counted, by one on a failed boundary test. It matters for a
+            # multi-word FROM term — ``"a a"`` occurs ONCE in ``"a a a"``, not
+            # twice — and it keeps this count comparable with the ``str.count``
+            # substring count, which is non-overlapping too.
+            count += 1
+            start = after
+            continue
+        start = found + 1
+
+
+def _no_substitution_term_refusal_reason(
+    node: IRNode,
+    match_text: str,
+    announced_terms: tuple[str, ...],
+) -> Optional[tuple[str, dict[str, int]]]:
+    """S6 + S7 at the apply plane: may this substitution op write, and if not why?
+
+    Returns ``None`` when the op may write, otherwise ``(reason, counts)``.
+
+    * **S6** — exactly one of the announcement's FROM terms may be present as a
+      whole word in the addressed node. The prefix-nested pairs are why this is
+      not redundant with S7: ``gjeldsforhandling`` / ``gjeldsforhandlingen`` and
+      ``namsmannen`` / ``namsmannens`` are each other's proper prefixes, so a
+      node carrying both would take two writes from one announcement whose
+      grammar says one pair applies.
+    * **S7** — that term occurs exactly once, as a whole word, AND exactly once
+      as a raw substring. The second half is not belt-and-braces: the shipped
+      :func:`_apply_no_text_replace` is an unguarded recursive ``str.replace``
+      that honours neither ``TextSelector.occurrence`` nor a word boundary, so a
+      substring count above one means the write would also fire inside a longer
+      word. Proving both counts are 1 is what makes the shipped helper's
+      semantics equal to the announced whole-word substitution.
+    """
+    stats = {term: _no_substitution_term_counts(node, term) for term in announced_terms}
+    mine = stats.get(match_text) or _no_substitution_term_counts(node, match_text)
+    counts = {"whole_word": mine[0], "substring": mine[1], "case_insensitive": mine[2]}
+    present = [term for term in announced_terms if stats[term][0] >= 1]
+    if len(present) > 1:
+        return "term_ambiguous", counts
+    if not present:
+        if mine[1] >= 1:
+            return "substring_only", counts
+        if mine[2] >= 1:
+            # The design's word for this cell, kept so the receipt vocabulary
+            # stays auditable against it. What it actually measures is a
+            # CASE-insensitive-only match; the genuine morphological inflection
+            # (a Norwegian genitive ``-s``) is a substring match and lands in
+            # ``substring_only`` above. Matching is deliberately case-SENSITIVE:
+            # the announcement quotes the exact word it replaces.
+            return "inflection_only", counts
+        return "absent", counts
+    if present[0] != match_text:
+        return "other_announced_term_matches", counts
+    if mine[0] != 1:
+        return "multiple", counts
+    if mine[1] != 1:
+        return "substring_overlap", counts
     return None
 
 
@@ -5729,53 +5960,230 @@ def iter_no_document_change_ops(
                 _normalize_space(" ".join(str(_t) for _t in lead_articles[0].itertext())) if lead_articles else raw_text
             )
 
-            # W-75: an address list under a word-substitution announcement. Its
-            # ``data-change-part`` addresses are the provisions to substitute IN,
-            # not provisions to overwrite, and the node carries no payload for
-            # them — so lowering it writes the amendment's own prose into every
-            # one. Refuse the whole node rather than the change attribute alone:
-            # the downstream lead/payload recoveries read the same address list
-            # and would re-mint what the attribute lost. The node's other
-            # structured attributes go into the receipt (corpus-wide there are
-            # none today) so a future node carrying one is visible rather than
-            # silently dropped.
+            # W-75/W-69a: an address list under a word-substitution announcement.
+            # Its ``data-change-part`` addresses are the provisions to substitute
+            # IN, not provisions to overwrite, and the node carries no payload
+            # for them — so the shipped structured lane wrote the amendment's own
+            # announcement prose into every listed provision of in-force law.
+            # W-75 refused the whole node. W-69a LOWERS it, as one addressed
+            # ``TEXT_PATCH`` per (listed address × announced pair), behind the
+            # S1-S7 envelope: S1-S4 here (they are string tests on the
+            # announcement), S5-S7 at apply (they need the addressed node's text,
+            # and the parse plane has no statute — replay consumes parse output).
+            #
+            # The node is still refused WHOLE on S1/S2/S3; only per-address
+            # boundaries refuse per address. Whichever way a boundary refuses, it
+            # refuses TYPED: nothing about this construct is allowed to go quiet.
             change_part_token = change_el.get("data-change-part", "").strip()
             announcement = _no_substitution_announcement_governing(change_el)
             if change_part_token and announcement is not None:
                 announcement_source, announcement_text = announcement
-                _append_no_parse_adjudication(
-                    adjudications_out,
-                    kind=NO_PARSE_SUBSTITUTION_ANNOUNCEMENT_NOT_LOWERED,
-                    message=(
-                        "Norway structured change block is the address list of a word "
-                        "substitution announced in prose; the substitution has no op kind "
-                        "to lower into, so the block was refused instead of overwriting "
-                        "each listed provision with the amendment's own text."
-                    ),
-                    source_id=source_id,
-                    detail=diagnostic_detail(
-                        rule_id=NO_PARSE_SUBSTITUTION_ANNOUNCEMENT_NOT_LOWERED,
-                        phase="parse",
-                        family="unsupported_or_unresolved_action",
-                        blocking=True,
-                        base_id=base_id,
-                        source_doc=source_doc,
-                        announcement_source=announcement_source,
-                        announcement=announcement_text,
-                        refused_address_count=len(change_part_token.split()),
-                        refused_addresses=tuple(change_part_token.split()),
-                        other_structured_attributes=tuple(
-                            sorted(
-                                name
-                                for name in change_el.attrib
-                                if name.startswith("data-")
-                                and name
-                                in {"data-add-new-part", "data-remove-part", "data-repeal-part", "data-move-part"}
-                            )
-                        ),
-                        raw_text=raw_text,
-                    ),
+                refused_addresses = tuple(change_part_token.split())
+                other_structured_attributes = tuple(
+                    sorted(
+                        name
+                        for name in change_el.attrib
+                        if name.startswith("data-")
+                        and name
+                        in {"data-add-new-part", "data-remove-part", "data-repeal-part", "data-move-part"}
+                    )
                 )
+                node_detail: dict[str, Any] = dict(
+                    base_id=base_id,
+                    source_doc=source_doc,
+                    announcement_source=announcement_source,
+                    announcement=announcement_text,
+                    refused_address_count=len(refused_addresses),
+                    refused_addresses=refused_addresses,
+                    other_structured_attributes=other_structured_attributes,
+                    raw_text=raw_text,
+                )
+                # lawvm-regex: owning_parser this IS the substitution-announcement parser
+                opener_count = len(_NO_SUBSTITUTION_ANNOUNCEMENT_OPENER_SCAN_RE.findall(announcement_text))
+                address_bases = tuple(
+                    sorted({normalize_lovdata_refid(raw) or "" for raw in refused_addresses})
+                )
+                pairs, pair_shape = _extract_no_substitution_pairs(announcement_text)
+                if opener_count != 1:
+                    # S1. no/lovtid/2026-06-19-48: FOUR announcements concatenated
+                    # into one governing text, 82 addresses over 35 base acts, and
+                    # only the first announcement's pair is readable. 8 of the 13
+                    # corpus addresses that resolve without carrying their term are
+                    # this node's — the hazard is live, not theoretical.
+                    _append_no_parse_adjudication(
+                        adjudications_out,
+                        kind=NO_PARSE_SUBSTITUTION_MULTIPLE_ANNOUNCEMENTS,
+                        message=(
+                            "Norway structured change block's governing text carries more than "
+                            "one word-substitution announcement; nothing in the flat address "
+                            "list says which address belongs to which announcement, so the "
+                            "whole block was refused rather than measured against the first."
+                        ),
+                        source_id=source_id,
+                        detail=diagnostic_detail(
+                            rule_id=NO_PARSE_SUBSTITUTION_MULTIPLE_ANNOUNCEMENTS,
+                            phase="parse",
+                            family="unsupported_or_unresolved_action",
+                            blocking=True,
+                            announcement_count=opener_count,
+                            address_base_count=len(address_bases),
+                            **node_detail,
+                        ),
+                    )
+                    continue
+                if len(address_bases) != 1 or address_bases[0] != base_id:
+                    # S2. The structured lane binds the whole node to the enclosing
+                    # ``data-document`` base act; an address list that names another
+                    # act (or several) is a different construct and its ops would be
+                    # bound to the wrong law.
+                    _append_no_parse_adjudication(
+                        adjudications_out,
+                        kind=NO_PARSE_SUBSTITUTION_MULTI_BASE_ADDRESS_LIST,
+                        message=(
+                            "Norway word-substitution address list does not name exactly the "
+                            "enclosing document-change base act; the block was refused rather "
+                            "than bound to a base act its addresses do not belong to."
+                        ),
+                        source_id=source_id,
+                        detail=diagnostic_detail(
+                            rule_id=NO_PARSE_SUBSTITUTION_MULTI_BASE_ADDRESS_LIST,
+                            phase="parse",
+                            family="source_pathology",
+                            blocking=True,
+                            address_bases=address_bases,
+                            address_base_count=len(address_bases),
+                            **node_detail,
+                        ),
+                    )
+                    continue
+                if not pairs:
+                    # S3. The W-75 receipt survives here, and only here: an
+                    # announcement whose (FROM, TO) grammar does not parse.
+                    _append_no_parse_adjudication(
+                        adjudications_out,
+                        kind=NO_PARSE_SUBSTITUTION_ANNOUNCEMENT_NOT_LOWERED,
+                        message=(
+                            "Norway structured change block is the address list of a word "
+                            "substitution announced in prose, but the announcement's "
+                            "(from, to) pair grammar did not parse, so the block was refused "
+                            "instead of overwriting each listed provision with the "
+                            "amendment's own text."
+                        ),
+                        source_id=source_id,
+                        detail=diagnostic_detail(
+                            rule_id=NO_PARSE_SUBSTITUTION_ANNOUNCEMENT_NOT_LOWERED,
+                            phase="parse",
+                            family="unsupported_or_unresolved_action",
+                            blocking=True,
+                            pair_shape=pair_shape,
+                            **node_detail,
+                        ),
+                    )
+                    continue
+                group_sequence = sequence
+                for raw_address in refused_addresses:
+                    target = lovdata_path_to_address(raw_address)
+                    if target is None:
+                        _append_no_parse_adjudication(
+                            adjudications_out,
+                            kind=NO_PARSE_SUBSTITUTION_ADDRESS_NOT_LOWERABLE,
+                            message=(
+                                "Norway word-substitution address could not be lowered to a "
+                                "legal address; the substitution was refused for that address."
+                            ),
+                            source_id=source_id,
+                            detail=diagnostic_detail(
+                                rule_id=NO_PARSE_SUBSTITUTION_ADDRESS_NOT_LOWERABLE,
+                                phase="parse",
+                                family="target_resolution_recovery",
+                                blocking=True,
+                                raw_address=raw_address,
+                                base_id=base_id,
+                                source_doc=source_doc,
+                                announcement=announcement_text,
+                            ),
+                        )
+                        continue
+                    if target.leaf_kind() == "sentence":
+                        # W-69a is ledd/section/item depth. A ``setning/N``
+                        # address does not resolve at all today: the apply plane
+                        # materializes sentence children only on the structural
+                        # branch, AFTER the text-patch branch has returned. Lifting
+                        # that call is W-69b, and it changes the tree SHAPE of every
+                        # ledd it touches — a full-corpus statute diff, not this
+                        # item's blast. 21 addresses, of which 19 would resolve
+                        # after the lift; refused typed rather than half-served.
+                        _append_no_parse_adjudication(
+                            adjudications_out,
+                            kind=NO_PARSE_SUBSTITUTION_SENTENCE_ADDRESS_OUT_OF_SCOPE,
+                            message=(
+                                "Norway word-substitution address names a sentence; the "
+                                "text-patch apply branch cannot resolve a sentence address "
+                                "until sentence children are materialized for it, so the "
+                                "substitution was refused for that address."
+                            ),
+                            source_id=source_id,
+                            detail=diagnostic_detail(
+                                rule_id=NO_PARSE_SUBSTITUTION_SENTENCE_ADDRESS_OUT_OF_SCOPE,
+                                phase="parse",
+                                family="unsupported_or_unresolved_action",
+                                blocking=True,
+                                raw_address=raw_address,
+                                target=_no_address_detail(target),
+                                base_id=base_id,
+                                source_doc=source_doc,
+                                announcement=announcement_text,
+                            ),
+                        )
+                        continue
+                    for from_term, to_term in pairs:
+                        doc_ops.append(
+                            LegalOperation(
+                                op_id=f"{source_id}:{sequence}",
+                                sequence=sequence,
+                                action=StructuralAction.TEXT_PATCH,
+                                target=target,
+                                text_patch=TextPatchSpec(
+                                    kind=TextPatchKindEnum.REPLACE,
+                                    selector=TextSelector(
+                                        match_text=from_term,
+                                        occurrence=0,
+                                    ),
+                                    replacement=to_term,
+                                ),
+                                # DEVIATION from W-69 design §1.2, recorded rather
+                                # than taken silently: the design's op shape sets
+                                # ``occurrence_mode="First"``. ``TextSelector``'s
+                                # annotation is ``Literal["Auto", "Last"]`` (its
+                                # ``__post_init__`` accepts "First", so core's type
+                                # and its runtime contract already disagree), and
+                                # NO's ``_apply_no_text_replace`` reads NEITHER
+                                # ``occurrence`` nor ``occurrence_mode``. The
+                                # exactly-one guarantee is carried by the apply-plane
+                                # conjunct instead, which makes the field pure
+                                # decoration here — and widening a core Literal for
+                                # decoration reaches three ``us_federal`` branches
+                                # that test ``occurrence_mode != "Auto"``.
+                                source=OperationSource(
+                                    statute_id=source_id,
+                                    raw_text=announcement_text,
+                                    title=source_doc,
+                                ),
+                                provenance_tags=(
+                                    f"base_act:{base_id}",
+                                    "scope:addressed",
+                                    NO_SUBSTITUTION_PROVENANCE_TAG,
+                                ),
+                                # One group per (instrument, base act,
+                                # announcement). The apply plane reads it together
+                                # with the target path to recover the announcement's
+                                # full FROM-term set for S6 — the pairs of one
+                                # announcement are exactly the ops sharing this id
+                                # and this address.
+                                group_id=f"{source_id}:{base_id}:{group_sequence}",
+                            )
+                        )
+                        sequence += 1
                 continue
 
             specs: list[tuple[str, str]] = []
@@ -7481,6 +7889,26 @@ def _apply_no_ops_fold(
     # than a second argument so the universal seam interface stays op-only).
     _no_active_renumber_sources: set[tuple[tuple[str, str], ...]] = set()
 
+    # ── W-69a: the announced FROM-term set, per (announcement group, address).
+    # S6 says at most one of an announcement's pairs may fire on any one listed
+    # address, and the prefix-nested pairs (``namsmannen``/``namsmannens``,
+    # ``gjeldsforhandling``/``gjeldsforhandlingen``) are why that is not implied
+    # by S7. The parse plane mints one op per (address × pair), so the sibling
+    # pairs of one announcement at one address are exactly the ops sharing this
+    # op's ``group_id`` AND its target path — recovered here, once, from the op
+    # list the fold already has, rather than smuggled onto a new op carrier.
+    _no_substitution_terms: dict[tuple[str, tuple[tuple[str, str], ...]], tuple[str, ...]] = {}
+    for _sub_op in ops:
+        if NO_SUBSTITUTION_PROVENANCE_TAG not in _sub_op.provenance_tags:
+            continue
+        if _sub_op.text_patch is None:
+            continue
+        _sub_key = (_sub_op.group_id or "", tuple(_sub_op.target.path))
+        _sub_terms = _no_substitution_terms.get(_sub_key, ())
+        _sub_match = _sub_op.text_patch.selector.match_text
+        if _sub_match not in _sub_terms:
+            _no_substitution_terms[_sub_key] = (*_sub_terms, _sub_match)
+
     # ── NO materializer (Wave 1, design §3.1/§3.5). ──────────────────────────
     # The per-op tree dispatch — NO's REPLACE/INSERT/REPEAL/RENUMBER/text_replace
     # apply with its inline sentence-materialization, container-chain and
@@ -7576,6 +8004,52 @@ def _apply_no_ops_fold(
                     )
                     _assert_no_invariant_violations(op)
                     return
+                if NO_SUBSTITUTION_PROVENANCE_TAG in op.provenance_tags:
+                    # W-69a S6 + S7. The addressed node's text is only in hand
+                    # HERE, so this is where the announced term has to prove
+                    # itself: exactly one of the announcement's FROM terms
+                    # present, occurring exactly once, as a whole word, and not
+                    # also inside a longer word. Anything else refuses and writes
+                    # nothing. Letting a term-absent op fall through to the θ
+                    # content-identical ``replay_noop`` cell would conserve the
+                    # partition but throw the REASON away, and two of the reasons
+                    # (``substring_only``, ``multiple``) are not no-ops at all —
+                    # the shipped ``_apply_no_text_replace`` would write, wrongly.
+                    refusal = _no_substitution_term_refusal_reason(
+                        node,
+                        text_match,
+                        _no_substitution_terms.get(
+                            (op.group_id or "", tuple(op.target.path)), (text_match,)
+                        ),
+                    )
+                    if refusal is not None:
+                        reason, counts = refusal
+                        _append_no_replay_adjudication(
+                            adjudications_out,
+                            kind=NO_REPLAY_SUBSTITUTION_TERM_NOT_UNIQUELY_PRESENT,
+                            message=(
+                                "Norway replay refused an addressed word substitution: the "
+                                "announced term is not uniquely present as a whole word in "
+                                "the addressed provision."
+                            ),
+                            op=op,
+                            detail={
+                                "rule_id": NO_REPLAY_SUBSTITUTION_TERM_NOT_UNIQUELY_PRESENT,
+                                "family": "unsupported_or_unresolved_action",
+                                "reason": reason,
+                                "target": str(op.target),
+                                "match_text": text_match,
+                                "replacement": text_replacement,
+                                "announced_terms": list(
+                                    _no_substitution_terms.get(
+                                        (op.group_id or "", tuple(op.target.path)), (text_match,)
+                                    )
+                                ),
+                                **counts,
+                            },
+                        )
+                        _assert_no_invariant_violations(op)
+                        return
                 body = tree_ops.replace_at(
                     body,
                     resolved_path,
@@ -8669,6 +9143,18 @@ _NO_SKIP_ADJUDICATION_KINDS = frozenset(
         # per-op state is discarded, and the conserved partition must see it as
         # rejected rather than as a recovery that applied.
         NO_REPLAY_LEDD_SET_RELABEL_OCCUPIED_DESTINATION_REFUSED,
+        # W-69a: an addressed word substitution whose announced term is not
+        # uniquely present in the addressed provision. Same shape: a REFUSAL, no
+        # write, so the conserved partition must see it as rejected.
+        #
+        # The W-69 design (§4.1) states that half 2 "needs nothing here" because
+        # its refusals are all parse-plane. That is not implementable: S5-S7 need
+        # the addressed node's TEXT, the parse plane has no statute (replay
+        # consumes parse output), and the design's own §3.2 header says so ("the
+        # first four are cheap string tests on the announcement; the rest need
+        # the tree"). §4.1's conclusion does not survive its own premise; the
+        # refusing direction is to register the kind.
+        NO_REPLAY_SUBSTITUTION_TERM_NOT_UNIQUELY_PRESENT,
     }
 )
 

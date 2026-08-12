@@ -2723,7 +2723,25 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # Only 1 of the 4 base acts this item touches is a candidate at all: two of
     # the other three are skipped contingent and one has no original-act source,
     # so their recovered legs are banked, not scored. Signed off 2026-08-12.
-    assert report["divergence_totals"] == {"total": 1489, "ceiling": 1011, "unexplained": 478}
+    # W-69a (2026-08-12). Candidates unmoved at 76, summary unmoved at 29/47/0,
+    # and exactly TWO candidate rows change — both named in advance by W-69's
+    # design pass, which is the first time this programme has predicted a row
+    # movement before building the production. ``no/lov/2015-06-19-70`` 12 -> 8
+    # and ``no/lov/2020-04-17-29`` 15 -> 8; the other 74 laws are byte-identical.
+    # 11 rows CLOSE and 0 open, so total and unexplained fall by the same 11 and
+    # the ceiling is untouched at 1,011 for the FOURTEENTH landing running — and
+    # this is the first landing in the series to close rows by ADDING a production
+    # rather than by refusing one. Every closed row diverged on exactly the
+    # superseded word (``tilsetting…``/``ansettels…``,
+    # ``Dagligvaretilsynet``/``Konkurransetilsynet``,
+    # ``Markedsrådet``/``Konkurranseklagenemnda``), which is what W-75 left
+    # standing when it refused the construct rather than lowering it. What stays
+    # open is stated rather than netted: karanteneloven ``§ 20 fjerde ledd``
+    # carries the genitive ``tilsettingsmyndighetens`` and whole-word matching
+    # declines it, the measured price of the matching rule; ``2020-04-17-29``'s
+    # five remaining substitution addresses are ``§ 11``/``§ 18`` ledd that do not
+    # exist in the replayed tree, a different defect. Signed off 2026-08-12.
+    assert report["divergence_totals"] == {"total": 1478, "ceiling": 1011, "unexplained": 467}
     # 3 -> 2 at W-34: no/lov/2001-01-05-1 gains 4 bound ops from
     # no/lovtid/2015-06-19-65 item 178, so its indexed history is no longer
     # sparse. Its 83 divergences do not move; only the bucket does.

@@ -44,6 +44,10 @@ Honest scope note — what is and is not statically enumerable.
     - ``no_replay_`` — a *prefix* matched by ``kind.startswith("no_replay_")`` in
       the diagnostic family-stratification path (``grafter.py``); the bare prefix
       is never an emitted rule id, only its suffixed instances are.
+    - ``no_addressed_substitution`` — W-69a's provenance tag on the addressed
+      word-substitution production's ops (``NO_SUBSTITUTION_PROVENANCE_TAG``), the
+      apply seam's mark for its own ops. A carrier mark, not a hypothesis; the rule
+      it gates (``no_replay_substitution_term_not_uniquely_present``) IS cataloged.
     - ``no_stored_consolidation`` — the W-45 census key under
       ``build_no_verify_partition``'s ``unverifiable`` sibling (``verify.py``). A
       report dict key naming a corpus population ("laws with a replayable original
@@ -321,12 +325,47 @@ _NO_RULE_SPECS: Dict[str, str] = {
     "no_parse_substitution_announcement_not_lowered": (
         "A Norway structured change block is the ADDRESS LIST of a word "
         "substitution announced in prose (\"I følgende bestemmelser skal ordet "
-        "«X» endres til «Y»:\"), so its ``data-change-part`` addresses name "
-        "provisions to substitute IN and the block carries no payload for them. "
-        "Lowering it wrote the amendment's own announcement/address prose over "
-        "every listed provision of in-force law; the block is refused instead, "
-        "leaving the superseded word standing until a substitution can be "
-        "lowered for real."
+        "«X» endres til «Y»:\"), and the announcement's (FROM, TO) pair grammar "
+        "did not parse, so the pairs the substitution applies are unknown. "
+        "Lowering the block anyway wrote the amendment's own announcement/address "
+        "prose over every listed provision of in-force law; the block is refused "
+        "instead, leaving the superseded word standing. Since W-69a this is the "
+        "S3 conjunct alone — a parseable announcement now lowers to addressed "
+        "TEXT_PATCH ops."
+    ),
+    "no_parse_substitution_multiple_announcements": (
+        "A Norway word-substitution change block's governing text carries MORE "
+        "THAN ONE announcement opener, and its flat ``data-change-part`` list "
+        "says nothing about which listed address belongs to which announcement. "
+        "Measuring every address against the first announcement's pair is "
+        "provably wrong — the corpus witness concatenates four announcements over "
+        "82 addresses and 35 base acts, and 8 of the 13 corpus addresses that "
+        "resolve without carrying their term are its later announcements'. The "
+        "whole block refuses; "
+        "partial acceptance of such a node is forbidden."
+    ),
+    "no_parse_substitution_multi_base_address_list": (
+        "A Norway word-substitution address list does not name exactly the base "
+        "act of the enclosing ``document-change`` block. The structured lane "
+        "binds the whole block to that base act, so lowering the list would bind "
+        "a substitution to a law its addresses do not belong to; the block "
+        "refuses whole."
+    ),
+    "no_parse_substitution_sentence_address_out_of_scope": (
+        "A Norway word-substitution address names a SENTENCE (``setning/N``). "
+        "The apply plane materializes sentence children only on the structural "
+        "branch, after the text-patch branch has returned, so a sentence-addressed "
+        "TEXT_PATCH cannot resolve at all; the address refuses typed rather than "
+        "being redirected to its parent ledd, which fails OPEN when the term "
+        "recurs in a sibling sentence. Lifting the materialization call is a "
+        "separate change (W-69b) because it alters the tree SHAPE of every ledd "
+        "it touches."
+    ),
+    "no_parse_substitution_address_not_lowerable": (
+        "A Norway word-substitution address token could not be lowered to a "
+        "``LegalAddress`` by the shipped Lovdata path reader, so the provision to "
+        "substitute in is unknown; that address refuses rather than being guessed "
+        "from its neighbours in the list."
     ),
     "no_parse_replace_promoted_to_insert_for_same_target_renumber": (
         "A Norway REPLACE targeting the same address as a RENUMBER in the same "
@@ -585,6 +624,19 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "survives, the op is rejected with a typed blocking receipt, and the "
         "refusal CASCADES down the relabel's vacate-before-occupy chain so the set "
         "drops whole rather than in halves. W-66."
+    ),
+    "no_replay_substitution_term_not_uniquely_present": (
+        "A W-69a addressed word substitution reached its resolved provision and "
+        "the announced term did not prove itself there: either more than one of "
+        "the announcement's FROM terms is present as a whole word (the pairs are "
+        "prefix-nested, so a node carrying both would take two writes from one "
+        "announcement), or this op's own term is absent / present only as an "
+        "inflection / present only inside a longer word / present more than once. "
+        "The shipped ``_apply_no_text_replace`` is an unguarded recursive "
+        "``str.replace`` honouring neither occurrence nor word boundary, so the "
+        "op refuses rather than write: no state changes, the superseded word "
+        "stands, and the reason is typed instead of vanishing into a "
+        "content-identical no-op."
     ),
     "no_replay_renumber_occupied_destination_removed": (
         "A Norway RENUMBER landed on an occupied destination that was not itself "
