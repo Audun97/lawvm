@@ -47,6 +47,7 @@ consolidation; every class below is evidence to triage, not a repair license.
 | **2026-07-10, after W-53 (73 candidates; see note)** | **29** | **44** | 0 |
 | **2026-08-11, after W-73 (76 candidates; see note)** | **29** | **47** | 0 |
 | **2026-08-12, after W-66 (76 candidates, unmoved)** | **29** | **47** | 0 |
+| **2026-08-12, after W-70 (76 candidates, unmoved)** | **29** | **47** | 0 |
 
 W-15 commensurability caveat: the candidate set moved 58 → 56, so the 21/35
 row is not row-for-row comparable with the 18/40 row above. On the 54 laws
@@ -157,6 +158,13 @@ entrant rows, honest exposure, ceiling untouched. Between this row
 and the table's next reader: the W-67/W-74 composed landing
 (`cf751dd2b`) closed 11 rows corpus-wide, 2 of them candidate rows
 (`total=1510, unexplained=499`), verdicts unmoved at 29/47/0.
+
+W-70 note (verdicts unmoved, so the row above repeats 29/47/0): the
+candidate set is 76 element for element and exactly ONE law moves —
+karanteneloven `no/lov/2015-06-19-70`, 14 → 12, the two rows W-72(c)
+attributed to this item, 0 opened, the other 75 laws byte-identical.
+Totals `total=1489 (ceiling=1011, unexplained=478)`; ceiling
+untouched.
 
 Batch 03 increased coverage rather than changing an existing verdict: all 20
 old rows stayed byte-identical, and 38 laws that had previously been excluded
@@ -3811,13 +3819,28 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    (`§ 3/subsection:6`, OPS_MISSING), and it is the residue the
    closure makes visible: `2023-06-16-34`'s "Nåværende § 3 femte
    ledd blir sjette ledd og skal lyde:" is shift-plus-payload, which
-   W-66 refuses by construction. Net on the law 7 → 5.** No
-   receipt-honesty-only rows: the
+   W-66 refuses by construction. Net on the law 7 → 5.**
+   **W-70 settled its 2 on 2026-08-12, and here the triage was
+   exactly right: both rows close, 0 open, karanteneloven 14 → 12.**
+   They are `§ 8/subsection:3` (MISMATCH/`text_drift`) and
+   `§ 8/subsection:4` (OPS_MISSING/`replay_lowering_gap`), and they
+   were ONE defect wearing two row shapes: with the malformed
+   `data-move-part` refused, the block's INSERT of a new andre ledd
+   landed on the live andre ledd and the insert-occupied recovery
+   replaced it, so the old andre ledd was overwritten (row 1 reads
+   the old tredje ledd's text at slot 3) and the fourth ledd never
+   came into being (row 2). Normalizing the separator mints the two
+   legs and both rows resolve together.
+   No receipt-honesty-only rows: the
    `no_replay_*` adjudications on these laws (24 + 11
    `receipt_storage_path_projected`, 13 `sentence_children_
    materialized`, 1 `insert_occupied_target_replaced`) describe how
    landed writes were recorded, not writes that failed to land, and
-   none of them corresponds to a divergence row.
+   none of them corresponds to a divergence row. **The one
+   exception is now closed rather than an exception: that single
+   `insert_occupied_target_replaced` WAS karanteneloven's, and it
+   was not receipt honesty — it was the recovery overwriting a live
+   ledd. It withdraws at W-70 (corpus 138 → 137).**
 
 75. **W-75 (multi-address `data-change-part` substitutions write the
    amendment's own address list into in-force law):** **DONE FOR THE
@@ -4108,13 +4131,142 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    (`§ 43 annet ledd blir nytt femte ledd i § 42.`, 1 live row).
 
 70. **W-70 (malformed `data-move-part` token normalizer +
-   tripwire):** from W-62. 6 blocks / 6 instruments (3 new since
-   W-56 via the archive refresh); 4 recoverable by token
-   normalisation, **2 cross-base blocks must stay refused**
-   (`2024-06-21-46`; `2026-02-06-2` → `lov/2024-06-21-41`). The
-   population GROWS with the archive — worth a standing tripwire
-   more than a one-shot fix. Artifacts
-   `.tmp/w62/malformed_analysis.json`.
+   tripwire):** DONE (`d7ec7a259`, 2026-08-12; artifacts
+   `.tmp/w70/`). From W-62. **The defect turned out to be smaller
+   and far more boring than the triage artifact made it look, and
+   that is the finding: the whole population is SEPARATOR damage,
+   and reading it off the artifact instead of the DOM would have
+   inverted every leg.**
+   **What the six blocks actually are.** W-62's
+   `malformed_analysis.json` lists the tokens in the order
+   `_split_move_attr` iterates them, which is REVERSED. Read
+   forward off the `article.change` node the parser reads, the
+   attribute values are: three with a STRAY SPACE after `;;`
+   (`…§8/ledd/2;; …§8/ledd/3` — whitespace is the pair delimiter,
+   so one intended pair splits into a token with no destination
+   and a token with no separator), one with `::` typed for `;;`,
+   one with no separator anywhere, and one with two well-formed
+   pairs fused at a missing space. On the reversed reading the
+   first three look like `<dest> <source>;;` and a normalizer
+   written to that reading would have moved every ledd BACKWARDS.
+   The DOM probe is the only reason this item is not a
+   destruction.
+   **What was built.** `_no_normalize_move_attr` runs ONLY where
+   the shipped token grammar already refuses, and every rule is a
+   SEPARATOR repair: `separator_spacing` fuses a `;;`-terminated
+   token onto the following separator-less one;
+   `alternate_separator` retypes a lone `::`. Both are total
+   functions on the token list, tried in a fixed order, and the
+   rule that fired is reported on the receipt so the ordering is a
+   test's fact. The safety property is enforced, not asserted: the
+   value's SKELETON — every token concatenated with `;` and `:`
+   removed — must be byte-identical before and after, so no rule
+   can invent, drop or reorder an address. At most ONE rule
+   applies; a rewrite that leaves any token malformed is not
+   taken, so a half-repaired attribute lowers nothing (the W-56
+   partial-cascade failure mode, refused by construction).
+   **The two named cross-base blocks stay refused, and the gate is
+   the FIRST thing checked.** Every address in the value must name
+   the block's own base act. `2024-06-21-46` names
+   `lov/2010-03-26-9` under base `lov/2022-05-12-28` and
+   `2026-02-06-2` names `lov/2024-06-21-41` under
+   `lov/2022-12-16-91` — the archive mis-filed those endringsdeler
+   under the preceding base, so a separator repair on top would
+   relabel a law the block does not amend at that address. Both
+   keep their receipts, now carrying
+   `normalization="declined:cross_base_tokens"`. The fused-pair
+   defect deliberately has NO rule: its only corpus instance is
+   cross-base, so the rule would be written against evidence that
+   could never be allowed to land. `2024-06-21-46` is refused
+   twice over — no separator appears in its value at all, so the
+   markup does not say which address is the source.
+   **The standing tripwire.**
+   `test_no_malformed_move_attr_population_is_pinned` re-derives the
+   whole census from a live parse of all 3,089 amendment artifacts
+   (~13s) and pins it at membership level: which blocks are
+   refused with which defect classes and decline reason, and which
+   are normalized by which rule with WHICH LEGS. The legs are
+   pinned by content because they are RENUMBERs against live law. A
+   refresh that adds a seventh block, or changes what an existing
+   one lowers, fails with an instruction that names the DOM probe,
+   the cross-base rule and the sweep regeneration.
+   `test_no_cross_base_malformed_move_attrs_are_never_normalized`
+   holds the must-not-recover set on its own so its failure cannot
+   read as ordinary drift.
+   **No new occupied-destination firing, and no W-66 tag.** The
+   recovered legs are ORDINARY structured legs — same mint site,
+   same provenance, deliberately NOT
+   `NO_LEDD_SET_RELABEL_PROVENANCE_TAG` — because a separator
+   repair must not make a leg behave differently from the
+   well-formed leg it was meant to be. That was measured rather
+   than hoped: the kernel's structural-vacate stage runs REPEALs
+   first and then topologically sorts RENUMBERs, and each of the
+   four blocks either has its destination repealed by a sibling
+   block in the same instrument (`§19-1`, `§3-2`) or shifts upward
+   into free space (`§8`, `§4`). **Corpus firing census 10 → 10,
+   verdict table unmoved, `removals` unchanged on all 784 laws.**
+   **Measurement.** Malformed receipts **14 → 3, exactly −11 and
+   nothing else, 0 introduced** — the withdrawal equals the set
+   frozen before implementation element for element (`2024-06-25-60`
+   2, `2025-02-07-1` 4, `2025-04-10-11` 4, `2025-06-20-74` 1).
+   Ops **28,246 → 28,252**, +6 and nothing lost: one leg for
+   `§19-1` (5→3), two for karanteneloven `§8` (2→3, 3→4), two for
+   `§3-2` (3→2, 4→3), one for `§4` (4→5). Two REPLACEs become
+   INSERTs via the shipped
+   `_promote_no_replace_with_following_renumber_insert`, which is
+   the right reading — "§ 4 fjerde ledd skal lyde:" beside a
+   relabel moving that same ledd is new content plus a shift.
+   Entries **2,565**, bindings **6,493**, amended-law population
+   **784**, unstructured refusals **8,583** — all unmoved. Corpus
+   `no_replay_insert_occupied_target_replaced` **138 → 137**.
+   **Blast (all 784 base laws, against a pristine checkout of
+   `f1b148e6a`).** Four laws move and all four are attributed;
+   780 byte-identical. ONE has any op or text movement —
+   karanteneloven, below. The other three (`2015-04-10-17`,
+   `2020-12-18-146`, `2024-03-08-9`) move by RECEIPT ONLY, zero
+   ops and zero text: they are co-amended by `2025-04-10-11`, and
+   NO attaches an instrument's parse adjudications to every base
+   act that instrument amends. Residue 0.
+   **Payoff, and the entrant triage was exactly right this time.**
+   `no/lov/2015-06-19-70` § 8: divergences **14 → 12**, both rows
+   W-72(c) attributed to this item, 0 opened, the other 12 rows
+   byte-identical. The mechanism is worth recording: with the
+   attribute refused, only the block's INSERT of a new andre ledd
+   lowered, and it landed on the LIVE andre ledd, which the
+   insert-occupied recovery then REPLACED — the old andre ledd was
+   overwritten and the old tredje ledd never moved, so § 8 read
+   three ledd where the consolidation prints four
+   (`subsection:3` MISMATCH/`text_drift`, `subsection:4`
+   OPS_MISSING/`replay_lowering_gap`). With the legs minted the
+   vacate stage runs 3→4 before 2→3 and the insert arrives at an
+   empty slot.
+   **So this item RESTORES A DESTROYED IN-FORCE PROVISION, which is
+   not what a "tripwire" item was priced to do.** The occupant the
+   insert-occupied recovery ate is karanteneloven § 8's andre ledd —
+   "Lønn eller vederlag for annet arbeid, verv eller oppdrag som
+   vedkommende måtte motta eller opptjene i karantenetiden, går til
+   fradrag i godtgjørelsen etter første ledd." — standing at
+   `§ 8 tredje ledd` in the published consolidation and absent from
+   the replayed tree at this base. Replayed § 8 now reads
+   1 / new-2 / that ledd at 3 / the old tredje ledd at 4, matching
+   the consolidation. It is the W-54/W-67 shape one level over: a
+   recovery clearing a slot the amendment intended to VACATE rather
+   than to overwrite, invisible precisely because the refused shift
+   is what left the slot occupied.
+   Candidates **76** and scoreboard **29/47/0** unmoved
+   element for element; ceiling **1,011** unmoved; divergence total
+   **1,491 → 1,489**, unexplained **480 → 478**.
+   **Not taken, deliberately.** The `og skal lyde:` variants
+   (`2024-06-25-60` § 19-1, `2025-04-10-11` § 3-2) DO land, but
+   only because their payloads are separately addressed by the
+   block's own `data-change-part` and their destinations are
+   repealed by sibling blocks — the move and the payload never had
+   to be inferred from each other. Neither reaches the apply plane
+   at 2026-07-10 (`2024-06-25-60` and `2025-06-20-74` are skipped
+   contingent for their bases; `1998-07-17-56` has no
+   original-act source at all, the F-09 class), so their ops are
+   banked against a future commencement rather than measurable
+   today. That is stated rather than counted as a win.
 
 71. **W-71 (tighten the operative predicate — receipt hygiene):**
    from W-62. Bare `blir` triggers 278 tail refusals, `endres`
@@ -4141,6 +4293,64 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-12 (W-70 applied)** — **Six malformed `data-move-part`
+  attributes turned out to be nothing but separator damage, four of
+  them are repaired, and the triage artifact that described them
+  would have made a normalizer move every ledd the wrong way.**
+  (`d7ec7a259`, artifacts `.tmp/w70/`.) W-62's census lists the
+  tokens in the order the splitter iterates them, which is REVERSED;
+  read forward off the `article.change` node the parser reads, three
+  values carry a STRAY SPACE after `;;` (whitespace is the pair
+  delimiter, so one intended pair becomes a token with no
+  destination plus a token with no separator), one has `::` typed
+  for `;;`, one has no separator anywhere, and one fuses two pairs
+  at a missing space. On the reversed reading the first three look
+  like `<dest> <source>;;`. The DOM probe is the whole reason this
+  item repairs rather than destroys. **Two rules, both pure
+  separator repairs, each checked against a SKELETON invariant** —
+  the value with `;` and `:` removed must be byte-identical before
+  and after, so no rule can invent, drop or reorder an address —
+  **at most one rule per value, and a rewrite that leaves any token
+  malformed is not taken.** The cross-base gate is checked first and
+  keeps the two named blocks refused (`2024-06-21-46` →
+  `lov/2010-03-26-9`, `2026-02-06-2` → `lov/2024-06-21-41`, both
+  filed under the wrong base by the archive); the fused-pair defect
+  deliberately has no rule because its only instance is one of them.
+  **Malformed receipts 14 → 3, exactly −11, 0 introduced, equal to
+  the frozen expected set element for element;** ops 28,246 →
+  28,252 (six legs, nothing lost); entries 2,565, bindings 6,493,
+  amended-law population 784, unstructured refusals 8,583 — all
+  unmoved. **Standing tripwire:** the population is re-derived from a
+  live parse of all 3,089 amendment artifacts and pinned at
+  membership level (blocks, defect classes, decline reasons, and the
+  exact legs each repair lowers), so an archive refresh that adds a
+  malformed block fails loudly instead of accumulating a silent
+  refusal. **Blast: 4 of 784 laws move, all attributed, 780
+  byte-identical** — three move by RECEIPT ONLY (co-amended by
+  `2025-04-10-11`; NO attaches an instrument's parse adjudications
+  to every base it amends), one is the payoff. **Payoff:**
+  karanteneloven `no/lov/2015-06-19-70` § 8, divergences 14 → 12,
+  both rows the ones W-72(c) attributed to this item, 0 opened —
+  the refused attribute had left the block's INSERT landing on a
+  LIVE andre ledd, which the insert-occupied recovery replaced.
+  **That means this item RESTORES A DESTROYED IN-FORCE PROVISION,
+  which a tripwire item was not priced to do:** karanteneloven § 8's
+  andre ledd ("Lønn eller vederlag for annet arbeid, verv eller
+  oppdrag …", printed at § 8 tredje ledd in the consolidation) was
+  absent from the replayed tree and is back. The W-54/W-67 shape one
+  level over — a recovery clearing a slot the amendment meant to
+  VACATE — hidden by the very refusal that left the slot occupied.
+  Corpus `insert_occupied_target_replaced` 138 → 137. Candidates
+  76, scoreboard 29/47/0, ceiling 1,011 unmoved; divergence total
+  1,491 → 1,489, unexplained 480 → 478. **Occupied-destination
+  firing census 10 → 10 and the hazard census 161 / 3,809 / 168
+  over 65 unmoved** — the recovered legs carry no W-66
+  refuse-on-occupied tag on purpose, and they need none: the
+  kernel's vacate stage runs REPEALs first and topologically sorts
+  the renumbers, and every one of the six destinations is free when
+  its leg runs. Sweep baseline regenerated; only the code digest
+  moved.
 
 - **2026-08-12 (W-66 applied)** — **The renumber-shift family lowers,
   682 refusals withdraw, and the item's own measurement fired the
