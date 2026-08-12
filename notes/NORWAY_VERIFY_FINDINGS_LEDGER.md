@@ -46,6 +46,7 @@ consolidation; every class below is evidence to triage, not a repair license.
 | **2026-07-10, after W-47 (65 candidates; see note)** | **25** | **40** | 0 |
 | **2026-07-10, after W-53 (73 candidates; see note)** | **29** | **44** | 0 |
 | **2026-08-11, after W-73 (76 candidates; see note)** | **29** | **47** | 0 |
+| **2026-08-12, after W-66 (76 candidates, unmoved)** | **29** | **47** | 0 |
 
 W-15 commensurability caveat: the candidate set moved 58 → 56, so the 21/35
 row is not row-for-row comparable with the 18/40 row above. On the 54 laws
@@ -2594,7 +2595,12 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    load-bearing property is ATOMICITY under overlapping
    source/destination sets, not range arity. Do not implement as
    stated — the family is served by W-66 (atomic set-relabel) +
-   W-69 (relocation).**
+   W-69 (relocation).** **HALF-SERVED 2026-08-12: W-66 landed the
+   LEDD sibling-set relabel (622 leads, 682 refusals withdrawn) and
+   its corpus population contains not one unequal-arity range,
+   confirming the corrected premise. The SECTION-level range
+   ("Nåværende §§ 9-1 til 9-6 blir ny §§ 3-1 til 3-7") is still
+   unlowered and is still W-69's, together with relocation.**
 
 58. **W-58 (skattebetalingsloven § 8-2 missing amender —
    index/archive gap):** from W-54. No instrument among the 71
@@ -2854,7 +2860,13 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    questions answered: W-57 second witness YES with corrected
    premise (see item 57); lane yield ~10 rows / 2.1%. Items
    opened: W-64–W-71 (all eight, signed off); W-57 unfrozen and
-   re-scoped into W-66 + W-69. (Late corroboration from the same
+   re-scoped into W-66 + W-69. **W-66's half landed 2026-08-12 and
+   confirms the corrected premise at the corpus: across the 622
+   accepted leads NOT ONE is an unequal-arity range — every one is
+   an equal-cardinality order-preserving bijection, and the "og nytt
+   <ordinal>" suffix that looked like unequal arity is the newness
+   marker on an ordinary destination. W-57's 6→7 witness is the rare
+   shape, not the family. W-69 still owns relocation.** (Late corroboration from the same
    run: of the ~10 traceable rows, one traces to a chapter-scoped
    insert with trailing locative — `Ny § 39 a i kapittel 6 skal
    lyde:`, 1 row on `2017-06-16-67`, detail in
@@ -3086,17 +3098,234 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    as receipt honesty.
 
 66. **W-66 (atomic sibling set-relabel + address inheritance):**
-   from W-62; absorbs half of the re-scoped W-57. The
-   1,536-refusal renumber-shift family lowers to ONE atomic
-   relabel of a sibling set against the pre-operation snapshot —
-   the load-bearing requirement is atomicity under OVERLAPPING
-   source/destination sets (sequential relabelling writes onto
-   live labels; safe order depends on the shift's sign), NOT
-   range arity (none unequal in any sample). Closes 13/16 of the
-   triaged sample. Two non-optional riders: address inheritance
-   (38% of shift-family occurrences recover their section from a
-   preceding node; only 5% unrecoverable) and intra-part ordering
-   (11/16 destinations are created by a co-located insert/repeal).
+   DONE (`dc4b3e4e4`, 2026-08-12; artifacts `.tmp/w66/`). From
+   W-62; absorbs half of the re-scoped W-57. **It is the largest
+   single lowering this lane has shipped — 682 refusals withdrawn,
+   not the "13 of 16" the sizing suggested — and it fired the
+   `removal_wrong` stop condition on the way, which is why the
+   production ends where it does.**
+   **What was built.** One production, at the bottom of the
+   unstructured walk where W-74's sits, for the LEDD sibling-set
+   relabel: `Nåværende femte og sjette ledd blir sjette og sjuende
+   ledd.` It is not two renumbers. It is one relabel of a sibling
+   SET read against the pre-operation snapshot, and its source and
+   destination sets OVERLAP, so the order the legs run in is the
+   whole safety argument. `_no_ledd_set_relabel_pairs` parses the
+   sentence — W-56's shipped `_no_ledd_shift_pairs_from_sentence`
+   FIRST, character for character, then a widened sibling that
+   differs in exactly one token (the currency qualifier, drawn from
+   W-61's `_NO_CURRENCY_QUALIFIER_ALTERNATION`) — and returns WHICH
+   attempt matched, so the additive ordering is a test's fact.
+   `_no_ordered_set_relabel_pairs` then emits the legs in a proven
+   VACATE-BEFORE-OCCUPY order: a leg may run only once every leg
+   whose SOURCE is its destination has run. That is a topological
+   sort, not "descending if the shift is positive" — one corpus
+   lead is a {+1,+2} map and is not a uniform shift at all — and a
+   pair set with a CYCLE (a pure swap, which no sequential relabel
+   can express) is refused rather than emitted in some order and
+   hoped over. No accepted lead is cyclic today; the guard is there
+   because the absence of a cycle is the only reason the emitted
+   order is a proof. The kernel's own structural-vacate stage
+   (`renumber_vacate=True`) reaches the same order independently,
+   and the two agree by construction.
+   **Rider 1, address inheritance, delivered.** 392 of the 642
+   accepted lead occurrences name no `§` of their own. The antecedent is the
+   nearest preceding `article.defaultP` IN THE SAME PART, and it
+   must name exactly one distinct section. `defaultP` is Lovdata's
+   instruction-lead class; the payload classes are excluded, and
+   that is load-bearing rather than tidy — on the payoff witness
+   the node physically preceding the shift is the PAYLOAD of the
+   lead before it and names a foreign "§ 9", so a
+   nearest-any-node rule inherits the wrong section. Being
+   DOM-local rather than a carried "last section seen" is what
+   makes the rule self-guarding across law switches: a part that
+   changes base act does so with a `defaultP` lead naming no
+   section, so a shift right after it inherits NOTHING and refuses,
+   instead of silently carrying the previous act's section over.
+   40 relabels refuse here with a typed receipt
+   (`no_parse_ledd_set_relabel_address_unresolved`): 20
+   `antecedent_names_no_section`, 13 `part_has_no_antecedent_lead`,
+   7 `antecedent_is_meta_amendment` (an antecedent that amends
+   another AMENDMENT establishes an address in that amendment, not
+   in the base act).
+   **THE STOP CONDITION, and the design it forced.** Measured with
+   the ops taking the declared θ `(RENUMBER, dest_occupied)`
+   recovery, the corpus firing census went **10 → 25**, and two of
+   the 15 new firings adjudicate **`removal_wrong`**: straffeloven
+   2005 § 3 femte ledd ("Ved domfellelse etter gjenåpning …",
+   standing at that very address in the published consolidation,
+   removed by `2008-03-07-4`'s "Nåværende annet til fjerde ledd
+   blir tredje til femte ledd.") and verdipapirhandelloven § 9-21
+   fjerde ledd (the konsolidering forskrift power, removed by
+   `2021-04-30-26`'s "Nåværende tredje ledd blir nytt fjerde
+   ledd."). **The cause is not the grammar and not the address.**
+   Both archived BASE editions already carry the amendment being
+   replayed — a pre-2008 replay of straffeloven § 3 is already the
+   five-ledd section the consolidation prints — so the relabel
+   lands a second time and eats a live provision. No sentence
+   grammar can see that.
+   **So the production refuses at APPLY, and that is the item's
+   real content.** Its ops carry
+   `NO_LEDD_SET_RELABEL_PROVENANCE_TAG`, and a leg of a tagged op
+   whose destination is OCCUPIED when it runs emits
+   `no_replay_ledd_set_relabel_occupied_destination_refused` and
+   writes nothing. The check sits BEFORE the `destination in
+   renumber_sources` exemption, not inside it, and the placement is
+   load-bearing: that exemption exists because the vacate stage
+   promises to free a slot before filling it, a promise that holds
+   only while every leg APPLIES. Once a leg may refuse, an exempted
+   follower lands on a sibling that never moved — measured, as
+   `duplicate subsection:4` on verdipapirhandelloven § 15-2.
+   Checking occupancy for real, for every leg, is what makes the
+   refusal CASCADE instead, so the relabel drops WHOLE rather than
+   in halves, which is the W-56 failure mode. **Result: the shipped
+   θ cell is untouched for every op that is not this production's,
+   the corpus firing census is 10 → 10 equal element for element,
+   and the pinned verdict table gains no row.** 31 of the 1,147
+   legs refuse, over 11 laws; 1,116 land. The corpus's
+   `no_replay_insert_occupied_target_replaced` recoveries FALL,
+   184 → 138: a relabel that vacates a slot before the co-located
+   promoted INSERT lands means 46 fewer inserts have an occupant to
+   overwrite, and the promotion receipt
+   `no_parse_replace_promoted_to_insert_for_same_target_renumber`
+   rises 36 → 113 in step.
+   **Measurement (census over all 3,089 artifacts).** Refusals
+   **9,265 → 8,583, exactly −682 and nothing else**; 0 introduced.
+   The withdrawal reconciles element for element: 682 = **642
+   lowered + 40 typed address refusals**, with ZERO accepted leads
+   outside the set frozen before implementation and ZERO frozen
+   leads left unaccepted. 622 distinct (instrument, lead) pairs
+   over 421 instruments and 207 base acts; 592 occurrences accepted
+   by the SHIPPED sentence parser unchanged, 50 needing only the
+   widened qualifier; 250 naming their own `§`, 392 inheriting it.
+   (The pre-registered model predicted 643 occurrences and 1,148
+   legs against 642 and 1,147 realised. The one difference is named
+   rather than rounded off: "Nåværende tredje ledd blir nytt fjerde
+   ledd." occurs twice in `no/lovtid/2013-06-21-85` and the second
+   occurrence sits inside a preceding lead's payload window, which
+   the walk never reads as a lead — an artifact of the offline
+   predictor, which enumerates every candidate node.)
+   Every other adjudication kind is unmoved, including W-61's
+   `no_parse_unstructured_renumber_arity_mismatch_skipped` at 8 and
+   W-75's `no_parse_substitution_announcement_not_lowered` at 17.
+   Ops **27,099 → 28,246**. On a CONTENT-keyed identity diff: 1,361
+   gained (1,147 RENUMBER + 214 INSERT), 214 lost (all REPLACE) —
+   and the 214 are the same ops, promoted. The shipped
+   `_promote_no_replace_with_following_renumber_insert` wakes up by
+   design: a co-located "§ X <ord> ledd skal lyde:" beside a
+   relabel that moves that same ledd is an INSERT of new content
+   plus a shift, not an overwrite-then-move. Semantically 0 lost, 0
+   rebound.
+   **Blast (all 783 base laws, against a pristine checkout of
+   `80596cb5a`).** The RAW surface moves on 158 laws and that
+   number is worthless: op_id is a per-document ordinal, and a
+   PARSE-phase adjudication is a property of the INSTRUMENT that NO
+   attaches to every base act that instrument amends. Normalized
+   for both, **59 laws move, ALL 59 inside the derived
+   expected-change set, 0 outside, 724 byte-identical**; 52 laws'
+   TEXT moves. Amended-law population **783 → 784**:
+   `no/lov/2017-06-16-53` enters on its first lowered op. Entries
+   2,563 → **2,565** (`2001-06-15-33`, `2005-06-17-98`, both
+   gaining their first op; none leave), bindings 6,484 → **6,493**,
+   +9 and 0 lost.
+   **Scan.** Candidates **76 unmoved element for element**,
+   scoreboard **29/47/0 unmoved**, ceiling **1,011 unmoved**.
+   Divergence total 1,501 → **1,491**, unexplained 490 → **480**:
+   **12 rows closed, 2 opened**, over six laws —
+   `no/lov/2019-06-14-21` (28→25), `no/lov/2004-12-17-101` (26→24),
+   `no/lov/2017-06-16-65` (9→7), `no/lov/2015-02-13-9` (7→5),
+   `no/lov/2010-06-25-28` (27→26), `no/lov/2012-01-27-9` (5→5).
+   Both entrant rows are adjudicated. `2012-01-27-9` § 46 fjerde
+   ledd goes OPS_MISSING → MISMATCH — the ledd EXISTS now and its
+   text matches the consolidation except for a trailing full stop
+   the published text drops, so the row kind is an improvement, not
+   a regression. `2015-02-13-9` § 3 sjette ledd opens OPS_MISSING
+   because the ONE remaining unlowered instruction on that section
+   is `2023-06-16-34`'s "Nåværende § 3 femte ledd blir sjette ledd
+   og skal lyde:" — the shift-plus-payload family, refused by this
+   grammar's anchored tail by construction. It was invisible while
+   the whole ledd sequence was out of step; it is visible now
+   because everything around it is right.
+   **W-72's entrant rows, answered honestly.** W-72 traced 5 of
+   `no/lov/2015-02-13-9`'s 7 unexplained rows to this item. Three
+   close. The other two are § 2's, not § 3's, and were never this
+   item's. With the recovery arm this law went 7 → 3; the refusal
+   arm costs it two rows, and that is the trade the stop condition
+   demands: two divergence rows are worth less than two provisions
+   of in-force law.
+   **Hazard census moves and is re-pinned, not silently
+   overwritten.** Destructive writes 3,706 → **3,809** across 26 of
+   the 161 hazard laws, membership unchanged — a RENUMBER is a
+   destructive write by that census's definition, and 103 of the
+   new legs land in known-incomplete bases. Content-removing 167 →
+   **168**, and the +1 is not a relabel op at all:
+   `no/lov/2016-05-27-14` gains `no/lovtid/2021-12-22-158:1`, a
+   REPEAL of § 7-6 annet ledd that could not bind before because
+   that law's ledd sequence was one slot out of step. An amendment
+   finally taking effect. Known-incomplete bases 198 → 199 and the
+   sweep's law count 783 → 784, both the new entrant.
+   **Two corpus pins hold the positive fact**
+   (`test_no_w66_relabel_refusal_keeps_two_live_provisions_standing`):
+   straffeloven 2005 § 3 femte ledd and verdipapirhandelloven
+   § 9-21 fjerde ledd must be at their consolidation addresses, the
+   refusal receipt must be present and blocking, and the
+   occupied-destination firing list for each law must be exactly
+   what the verdict table says — so a regression in either
+   direction is loud.
+   **What is deliberately left refused, with its size.** (a) The
+   currency qualifier is REQUIRED: "Femte ledd blir nytt sjette
+   ledd." (55 further leads) says nothing about which edition its
+   ordinals are read against, and reading the source set against
+   the pre-operation snapshot is this production's premise — a
+   production may not assume the premise it exists to honour.
+   (b) Depths other than `ledd` (punktum, bokstav, nr) are a
+   different address arithmetic and are not in this population.
+   (c) The 40 receipt triples (37 distinct leads) whose address the
+   immediate antecedent cannot supply could largely be recovered by
+   a deeper "last § named in this part" carry; not taken, because
+   crossing a law switch silently is exactly the risk the
+   immediate-predecessor rule structurally excludes.
+   **Report-only findings.** (i) **The sizing in this entry's own
+   prior text was wrong twice.** "Closes 13/16 of the triaged
+   sample" understates the family by a factor of ~40 — 622 leads,
+   not 13 — and the parenthetical calling the payoff witness a 2→3
+   unequal-arity shape is incorrect: "Nåværende § 3 femte og sjette
+   ledd blir sjette og nytt syvende ledd." is a 2→2 bijection with
+   the newness marker on the second destination, which W-56's
+   ordinal vocabulary already strips. **No unequal-arity relabel
+   occurs anywhere in the accepted population**, confirming W-62's
+   corrected premise rather than W-57's original one. A third
+   correction, found by sampling 30 inherited cases before trusting
+   the reader: the first cut of the section-address regex spelled
+   its letter suffix `(?:\s*[A-Za-z])?` and therefore read
+   "§ 12-1 nytt tredje ledd" as section "12-1 n" — a section that
+   does not exist — on 25 of the 30. The shipped reader carries a
+   negative lookahead and a test. (ii) **Rider
+   2's named target cannot be reached by intra-part ordering, and
+   the reason is measured.** W-74 left three cross-chapter shifts
+   on `no/lovtid/2015-04-10-17` refused because nothing proves
+   §§ 2-2/2-3/2-6 are free. The op that vacates them is "Kapittel 2
+   oppheves." — a CHAPTER repeal, and no production lowers it: of
+   the 90 ops that instrument lands on `no/lov/2005-06-10-44`, none
+   is a chapter repeal. Widening W-74's destination-vacated
+   conjunct to see co-located repeals in the same part would
+   therefore unlock nothing; the blocker is a chapter-repeal
+   production with its own blast radius. Recorded, not attempted.
+   (iii) Noted while measuring (ii): TWO cross-chapter shifts in
+   that same part ALREADY land with no vacancy proof at all —
+   `§ 7-8 → § 2-4` and `§ 7-13 → § 2-9`, from the shipped
+   `Nåværende § X blir ny § Y` production, and the first of them is
+   pinned firing `2015-04-10-17:30`. The corpus is already
+   inconsistent about this class; W-74's conjunct constrains only
+   the leads that happen to carry a repeal sentence. (iv) The
+   hyphenated-`til`-range endpoint limitation
+   (`_expand_no_section_range_labels`) is untouched; a label
+   -sequence oracle over the pre-op snapshot's sibling list is
+   still the only way to widen it. (v) **A general hazard this item
+   ran into head-on and does not fix:** archived base editions that
+   already carry the amendment being replayed. Both `removal_wrong`
+   findings are that shape, and the apply-plane refusal contains
+   the damage rather than curing it. Worth an item of its own.
 
 67. **W-67 (the two-token widening):** DONE (`cf751dd2b`,
    2026-08-11; landed TOGETHER with W-74, artifacts `.tmp/w74/`).
@@ -3423,12 +3652,26 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    is the safe direction, and the destination conjunct is evaluated
    against the same set the REPEAL ops are minted from, so the two
    can never disagree. Widening it needs a label-sequence oracle,
-   which is W-66 territory. (b) The three refused cross-chapter
+   which is W-66 territory. **W-66 landed and did NOT take it**;
+   the oracle is still unbuilt and the limitation stands as
+   written. (b) The three refused cross-chapter
    shifts are a genuine coverage gap rather than noise:
    `no/lovtid/2015-04-10-17` moves §§ 7-2/7-7/7-10 into chapter 2
    slots the lead does not vacate, and proving those destinations
    free needs the co-located repeals elsewhere in the same act — the
-   intra-part ordering rider W-66 already carries.
+   intra-part ordering rider W-66 already carries. **W-66 measured
+   that rider and it does not reach these three, so they stay
+   refused: the op that vacates §§ 2-2/2-3/2-6 is "Kapittel 2
+   oppheves.", a CHAPTER repeal, and no production lowers it (of
+   the 90 ops that instrument lands on `no/lov/2005-06-10-44`, none
+   is a chapter repeal). Seeing co-located repeals would unlock
+   nothing here; the blocker is a chapter-repeal production. W-66
+   also recorded that TWO cross-chapter shifts in that same part
+   already land with no vacancy proof at all (`§ 7-8 → § 2-4`,
+   `§ 7-13 → § 2-9`, from the shipped `Nåværende § X blir ny § Y`
+   production; the first is pinned firing `2015-04-10-17:30`), so
+   the destination-vacated conjunct constrains only the leads that
+   happen to carry a repeal sentence.**
 
 72. **W-72 (the occupied-destination tripwire sweeps 7 of 782):**
    DONE (`c80ce0a6a`, 2026-08-11; artifacts `.tmp/w72/`). Tests,
@@ -3561,7 +3804,15 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    malformed `data-move-part`) — and 20 reachable by no open item at
    all**, because they belong to a family nothing in the queue
    describes. **Opened as W-75, and 15 of the 20 are a live
-   destruction of in-force law.** No receipt-honesty-only rows: the
+   destruction of in-force law.** **W-66 settled its 5 on
+   2026-08-12: three close, and the triage over-attributed by two —
+   the other two rows are § 2's, not § 3's, and no relabel was ever
+   going to reach them. One row OPENS in their place
+   (`§ 3/subsection:6`, OPS_MISSING), and it is the residue the
+   closure makes visible: `2023-06-16-34`'s "Nåværende § 3 femte
+   ledd blir sjette ledd og skal lyde:" is shift-plus-payload, which
+   W-66 refuses by construction. Net on the law 7 → 5.** No
+   receipt-honesty-only rows: the
    `no_replay_*` adjudications on these laws (24 + 11
    `receipt_storage_path_projected`, 13 `sentence_children_
    materialized`, 1 `insert_occupied_target_replaced`) describe how
@@ -3890,6 +4141,42 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-12 (W-66 applied)** — **The renumber-shift family lowers,
+  682 refusals withdraw, and the item's own measurement fired the
+  `removal_wrong` stop condition — which is why the production
+  refuses at the APPLY plane rather than taking the declared
+  recovery.** (`dc4b3e4e4`, artifacts `.tmp/w66/`.) One production
+  for the LEDD sibling-set relabel ("Nåværende femte og sjette ledd
+  blir sjette og sjuende ledd."), emitted as one atomic group in a
+  proven vacate-before-occupy topological order, with the shipped
+  W-56 sentence parser tried first character for character and a
+  one-token widening (W-61's currency-qualifier set) behind it.
+  Address inheritance from the nearest preceding `article.defaultP`
+  in the same part — DOM-local, so it is self-guarding across law
+  switches — with a typed receipt for the 40 that cannot be
+  addressed. **Refusals 9,265 → 8,583, exactly −682, 0 introduced,
+  reconciling element for element as 642 lowered + 40 typed;** ops
+  27,099 → 28,246; entries 2,563 → 2,565; bindings 6,484 → 6,493;
+  amended-law population 783 → 784. **Blast: 59 of 783 laws move,
+  all inside the derived expected-change set, 0 outside, 724
+  byte-identical** — after normalizing op_id ordinal churn and the
+  per-instrument parse adjudications that attach to co-amended laws
+  (the raw diff says 158, and the raw diff is worthless). Candidates
+  76, scoreboard 29/47/0, ceiling 1,011 — all unmoved; divergence
+  total 1,501 → 1,491, unexplained 490 → 480, **12 rows closed / 2
+  opened**, both entrants adjudicated. **The stop condition, and it
+  is the story:** with the ops taking the declared θ `(RENUMBER,
+  dest_occupied)` recovery the firing census went 10 → 25 and two
+  new firings were `removal_wrong` — straffeloven 2005 § 3 femte
+  ledd and verdipapirhandelloven § 9-21 fjerde ledd, both destroyed
+  because the archived BASE edition already carries the amendment
+  being replayed. The landed production refuses those legs instead,
+  and the refusal cascades so the relabel drops whole; **firing
+  census back to 10 → 10 equal element for element, verdict table
+  unmoved, both provisions pinned as surviving.** Sizing correction
+  recorded: this family is 622 leads, not the "13 of 16" the queue
+  entry priced, and no unequal-arity relabel exists anywhere in it.
 
 - **2026-08-12 (W-75 applied)** — **A word substitution announced in
   prose was being lowered as N REPLACEs carrying the announcement,
