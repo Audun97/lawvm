@@ -2844,7 +2844,33 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    laws with NO refused bound lead at all, a hard exclusion).
    After W-64 + W-67 (~8 of the 10), the remaining 9,000+
    refusals are receipt-honesty debt on unscorable laws — priced
-   as that, never as scoreboard movement.** Census: full-lead
+   as that, never as scoreboard movement.**
+   **CORRECTED at W-69's design pass (2026-08-12), and the
+   correction is the headline of that pass.** "Never as scoreboard
+   movement" was read forward as *no unexplained row is reachable
+   by an open item*, and at HEAD `4a68b5a48` that is false by at
+   least 19 rows and arguably by 40. The census's own scope is why:
+   it keyed on the UNSTRUCTURED refused-lead population, and the
+   substitution family lives in the STRUCTURED lane, where it was
+   not a refusal at all until W-75 made it one. Re-derived row by
+   row against both texts (`.tmp/w69/rowmap.json`): W-69's
+   substitution arm closes **11 unexplained rows today and 19 with
+   a read-only sentence materialization** — `no/lov/2015-06-19-70`
+   (karanteneloven, 4 + 7 of its 12) and `no/lov/2020-04-17-29`
+   (7 + 1 of its 15), every one diverging on exactly the superseded
+   word. Separately, `no/lov/2016-06-17-29`'s **21 unexplained rows
+   are ALL attributable** to one instrument's unlowered
+   restructuring cascade (`no/lovtid/2020-06-23-98`: `Kapittel 5
+   oppheves.` + `Nåværende kapittel 6 og 7 blir nytt kapittel 5 og
+   6.` + five section moves with a trailing locative + two payload
+   leads), and are deliberately NOT bought — reaching them needs a
+   chapter-repeal production and a chapter-depth set relabel that
+   nothing in the queue describes. The 0.97% / 306-of-474 exclusion
+   arithmetic still holds for the unstructured lane; the sentence
+   that generalized it beyond that lane does not. Re-derived
+   baseline at the same HEAD: 174 of the 478 unexplained rows sit
+   on candidates carrying at least one refused unstructured lead,
+   304 on the 49 candidates carrying none. Census: full-lead
    re-harvest (W-61's excerpts were 240-char truncations; its
    population reproduced exactly, its coarse-six split reconciles
    as an ordered-cascade partition artifact); 13 families /
@@ -3335,6 +3361,12 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    findings are that shape, and the apply-plane refusal contains
    the damage rather than curing it. Worth an item of its own.
 
+   **Item (b) is now OPENED AND PRICED as W-66b (queue item 76
+   below), and it is not the small residue this entry implies:** the
+   same grammar at PUNKTUM depth is **144 refusals / 63 distinct
+   leads / 100 instruments / 69 base acts**, roughly twice all three
+   of W-69's relocation arms combined (W-69's design pass, 2026-08-12).
+
 67. **W-67 (the two-token widening):** DONE (`cf751dd2b`,
    2026-08-11; landed TOGETHER with W-74, artifacts `.tmp/w74/`).
    It was BLOCKED for a day on an adjudicated regression, and the
@@ -3746,6 +3778,39 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    sparse-source class), which is a complete answer rather than an
    unobserved one — the sweep separates the two rather than
    reporting one error count.
+   **ONE OF THE FOUR IS NOW ROOT-CAUSED, and the cause is a
+   soundness defect in a lowering that already ships** (W-69 design
+   pass, 2026-08-12; `.tmp/w69/design.md` §4.2). `no/lov/2009-06-19-44`
+   aborts with `Norway replay invariant violation after renumber
+   (('section','2'),('subsection','3')) from no/lovtid/2025-06-20-42:
+   body/section:2: duplicate subsection:4 (2 times)`. Two RENUMBERs
+   from one instrument collide: a CROSS-CONTAINER in-migration
+   (`§3/ledd/3 → §2/ledd/4`, minted today by the structured
+   `data-move-part` lane — the apply plane's RENUMBER branch resolves
+   `op.destination.parent()` and re-parents, so it IS a relocation)
+   and the destination parent's OWN vacate shift
+   (`§2/ledd/3 → §2/ledd/4`). The migration runs first, creates
+   `§2/ledd/4`, and the shift then lands on it. **W-66's ordering
+   machinery cannot see this and does not generalize as written**:
+   `_no_ordered_set_relabel_pairs` takes `Sequence[tuple[int, int]]`
+   — integer ordinals inside ONE sibling set — while a
+   cross-container move belongs to TWO, and the leg that frees its
+   destination lives in the other one. The kernel's independent
+   `renumber_vacate=True` stage did not catch it either, so the
+   two-stages-agree-by-construction property W-66 relies on is not
+   holding here. The fix is W-69c (dependency nodes keyed on the
+   resolved `(parent_path, label)` pair, spanning the whole atomic
+   group across parents; cycle guard unchanged), and its payoff is
+   exactly this: **the blind-spot set goes 4 laws → 3 and this law's
+   occupied-destination behaviour becomes observable.** Corpus-wide
+   the structured lane mints **14 genuinely cross-container legs**
+   (`.tmp/w69/fullleads.json`), so this is a live population and not
+   a single-law curiosity. It also settles a standing question the
+   other way round: no widening may mint further cross-container
+   RENUMBERs before W-69c lands, because converting a parse refusal
+   into a mid-apply abort is strictly WORSE — an abort discards the
+   law's entire receipt and adjudication plane, which is this item's
+   own finding.
    **The honesty repair, which is the part the item is named for.**
    `test_no_corpus_occupied_renumber_destination_verdicts_are_pinned`
    said "every `(RENUMBER, dest_occupied)` firing in the corpus"
@@ -3966,6 +4031,61 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    announcement naming a single `«X» → «Y»` pair** — 109 are
    `henholdsvis` forms naming several substitutions at once, and 6
    parse to no pair at all. All five benign rows are deterministic.
+   **THREE OF THIS SIZING'S CHARACTERIZATIONS DID NOT SURVIVE
+   RE-DERIVATION at W-69's design pass** (2026-08-12, HEAD
+   `4a68b5a48`; `.tmp/w69/substitution.json`, `s7`/`s8`). The
+   POPULATION reproduces exactly — the shipped discriminator
+   re-run over all 3,885 structured change nodes returns the same 17
+   nodes / 193 addresses / 10 instruments, `own_text` 14 /
+   `preceding_sibling` 3 — and so do 104 no-statute, 30 unresolved,
+   13 term-absent, 1 inflection-only, 4 substring-only, 109
+   `henholdsvis`, 6 no-pair. What moves is what the numbers were
+   said to MEAN.
+   **(i) The 30 unresolved addresses are not all `setning/N`.** They
+   are **21 `sentence` + 5 `subsection` + 3 `section` + 1 `item`**,
+   over 6 base acts. The design constraint survives and gets sharper:
+   of the 21 sentence addresses, **19 resolve after a read-only
+   sentence materialization** and 18 of those carry the term exactly
+   once, while only **14** have the term exactly once in the PARENT
+   ledd — so materialization beats ledd-text addressing 19 to 14, and
+   it fails CLOSED where ledd-text addressing fails OPEN (2 measured
+   addresses have the term twice in the ledd, once per sentence). The
+   2 sentence addresses materialization does not rescue fail because
+   their parent ledd does not resolve either.
+   **(ii) The 103/104 base-completeness blockers are not
+   commencement work.** **98 of the 104**, over 23 base acts, are
+   `no original-act source available for <base> (year YYYY)` — the
+   original act is not in the archive at all, an ACQUISITION gap
+   outside any lowering item. Largest: `no/lov/1992-07-17-99` (24),
+   `no/lov/1984-06-08-59` (15), `no/lov/1984-06-08-58` (9),
+   `no/lov/1989-02-17-2` (7), `no/lov/1981-05-22-25` (7). Only **6**
+   are `blocked_contingent`, and both of those laws
+   (`no/lov/2015-04-10-17`, `no/lov/2005-06-17-62`) are W-72
+   blind-spot laws aborting mid-apply. **Zero** are W-73-shaped.
+   **(iii) `henholdsvis` pairs FROM-terms with TO-terms, not
+   addresses with terms.** "ordene «namsmannen» og «namsmannens»
+   endres til henholdsvis «namsfogden» og «namsfogdens»" names a pair
+   SET that applies to EVERY listed address, so the follow-up op
+   needs no address-positional matching at all — a simplification,
+   not a complication. What it DOES need is a refusal this sizing did
+   not name: `no/lovtid/2026-06-19-48`'s governing text carries
+   **four** announcement openers concatenated into one node with
+   **82 addresses over 35 base acts**, and nothing in the flat
+   `data-change-part` list says which address belongs to which
+   announcement. The hazard is not theoretical: **9 of the 13
+   "resolves but term absent" addresses are that node's**, absent
+   precisely because they belong to its SECOND announcement
+   (`gjeldsforhandlinger` → `rekonstruksjonsforhandling`) while being
+   measured against its first. That node must refuse whole.
+   Two smaller notes from the same pass: the 6 "no pair" addresses
+   (`no/lovtid/2025-06-20-39`) are a PARSER gap, not an unparseable
+   construct — the shape is two full pairs written sequentially
+   (`«A» endres til «B» og «C» endres til «D»`) — and the term-absent
+   set is heterogeneous, including one address
+   (`no/lov/2015-06-19-70 § 20 første ledd`) whose archived base
+   edition ALREADY reads `ansettelsesmyndigheten`, i.e. W-66's
+   finding (v) hazard, where refusing is the correct answer rather
+   than a missed opportunity.
    **What is NOT fixed.** The superseded word still stands in every
    one of the 193 provisions. That is coverage loss, it is visible in
    the divergence rows, and it is the trade this item deliberately
@@ -4114,21 +4234,211 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    CORRECTNESS (the switch is sticky), not coverage. Artifacts
    `.tmp/w62/switch_fail.json`.
 
-69. **W-69 (RELOCATE — the W-57 successor):** from W-62; absorbs
-   the other half of the re-scoped W-57. Abstract form: source =
-   one node or one contiguous same-level range; destination = a
-   container address or a relative anchor (`before|after|
-   between`); `content_policy ∈ {carry-existing,
-   replace-with-payload}`; must preserve identity and inbound
-   cross-references and DERIVE re-parenting of nodes crossed by a
-   moving heading. Only one corpus lead strictly needs a new op
-   kind (a punktum relocating between ledd with no restated
-   payload); 8 of 9 real moves are reachable as a parse
-   production + delete+insert because the text is restated.
-   **Priced as: production first, op kind only if
-   derived-containment risk is judged unacceptable.** Second
+69. **W-69 (RELOCATE + the proper multi-address substitution op):**
+   from W-62; absorbs the other half of the re-scoped W-57 and the
+   open half of W-75. **DESIGN PASS DONE 2026-08-12 and SIGNED OFF**
+   (read-only, no product change; full document
+   `.tmp/w69/design.md`, scripts and artifacts `.tmp/w69/`, all
+   sizings re-derived at HEAD `4a68b5a48` rather than copied
+   forward). The item is RE-PHASED into W-69a–e below; **W-69a is
+   AUTHORIZED and in progress.** No commit hash here on purpose —
+   this is a design record, and each phase earns its own when it
+   lands.
+   **The headline is that the vocabulary question answers itself:
+   NEITHER half needs a new canonical op kind, because both are
+   already expressible in the shipped vocabulary and both already
+   lower somewhere in the corpus today.** (a) The apply plane's
+   `RENUMBER`-with-`destination` branch resolves
+   `op.destination.parent()` and `insert_sorted`s the SAME `IRNode`
+   under a different parent, so it IS a relocation that carries the
+   subtree; the structured `data-move-part` lane already mints 14
+   genuinely cross-container legs, **including the punktum-between-
+   ledd shape this entry previously called the one lead that
+   "strictly needs a new op kind"** (`no/lovtid/2026-06-12-24`,
+   `§29/ledd/1/setning/4 → §29/ledd/3/setning/3`, on three laws).
+   (b) An ADDRESSED `TEXT_PATCH` has a shipped apply branch
+   (`legacy_text_action_value(op) == "text_replace"` with a
+   non-empty `target.path`) that no producer reaches — only the
+   whole-act global text-replace does. `StructuralAction.MOVE`
+   exists in the neutral vocabulary and is documented as having no
+   runtime dispatch path; NO's structural branch accepts only
+   `{REPLACE, REPEAL, INSERT, RENUMBER}`, so minting MOVE would buy
+   an adjudication and no semantics. **What both halves are missing
+   is PARSE PRODUCTIONS, not vocabulary.**
+   **Identity and cross-references, measured rather than assumed as
+   the design pass was asked to do.** There are no stable node ids
+   in the IR — `IRNode` is `kind/label/text/attrs/children` and
+   addressing is positional-by-label throughout — so delete+insert
+   breaks no id; what it breaks is content fidelity, since the
+   payload is the amendment's restatement. Inbound cross-references
+   are plain text that nothing resolves, so no op preserves them and
+   none breaks them; the corpus shows the drafter maintaining them
+   as SEPARATE amendment sentences (`no/lov/2016-06-17-29` § 2
+   bokstav f diverges on exactly `§ 27` vs `§ 25`, and its update is
+   its own refused lead). W-69 must therefore not claim
+   cross-reference maintenance.
+   **Half 1 re-sized (`s2`/`s3`/`s4`/`s10`).** The refused leads were
+   re-harvested UNTRUNCATED by wrapping the recorder — 779 of the
+   8,583 shipped `source_excerpt` values sit at or over the 240-char
+   bound, so a relocation verb past that point is invisible to any
+   census read off the adjudication detail. Three arms, union
+   **83 refusals / 81 distinct leads / 46 instruments / 41 base acts,
+   13 of them in the known-incomplete-base hazard set**; DOM payload
+   probe located 81 of 81 and **only 13 of the 81 restate a payload**
+   (68 carry existing content). By arm: **A** relocation verb
+   (`flyttes`/`flyttast`/`forskyves`) 9 refusals / 8 leads / 7 bases;
+   **B** trailing locative (`<qual> § X blir ny § Y i kapittel Z.`,
+   which the shipped section-renumber production refuses only because
+   it is anchored `\.?$`) 33 / 32 / 15; **C** section-depth set
+   relabel (`<qual> §§ A til B blir nye §§ C til D.` — W-57's own
+   shape) 41 / 41 / 25.
+   **Corrections to this entry's own prior text.** The family is 9
+   prose relocation leads and **5 of them restate, not 8** — three
+   carry existing content, and they are not the ones this entry
+   named: two are HEADING moves with RELATIVE ANCHORS
+   (`Overskriften del VII … flyttes til mellom kapittel 20 og
+   kapittel 21.`, `Deloverskriften «IV Forskriftsfullmakt» … flyttes
+   foran ny § 6-35.`) and the third is the punktum move that already
+   lowers structurally. The genuinely unreachable gap is the
+   anchor-relative heading destination: placement is
+   `insert_sorted(_no_sort_key)` and `_no_sort_key(None)` is
+   `(-1,"",0)`, so an unlabelled heading sorts to the FRONT of its
+   new parent whatever the amendment said.
+   **Arm C's arity, and the shipped expander cannot serve it.**
+   `_expand_no_section_range_labels` enumerates only purely numeric
+   endpoints. 17 of 41 leads qualify and all 17 are syntactically
+   equal-arity — but a label-sequence ORACLE over the replayed
+   sibling list disagrees on at least two (`2011-06-24-19` `§§ 23 til
+   26` is 4 labels and **7 sections**, the lettered intermediates;
+   `2016-09-16-81` `§§ 81 til 83` is 3 and **4**), so endpoint
+   arithmetic STRANDS sections. 24 of 41 need the oracle to enumerate
+   at all and **21 of the 41 base acts do not replay**, so for half
+   the family the oracle has nothing to read. **W-57's own witness is
+   genuinely unequal-arity at section depth**: `Nåværende §§ 9-1 til
+   9-6 blir ny §§ 3-1 til 3-7` resolves **6** sources against **7**
+   destination labels. W-62/W-66's corrected premise ("no
+   unequal-arity range anywhere") was measured on the LEDD population
+   and holds there; it does not extend to section depth, and arm C
+   must refuse unequal arity — which refuses W-57's witness. Three
+   further arm-C leads on that instrument resolve 0, 0 and 3 of their
+   7/3/7 sources and refuse too.
+   **Half 2 re-sized (`s7`/`s8`/`s9`).** W-75's population reproduces
+   exactly (17 nodes / 193 addresses / 10 instruments). Deterministic
+   **42 exact / 40 whole-word**; **104** no-statute; **30**
+   unresolved, and both of those groups are re-characterized in item
+   75's entry above (21 sentence + 5 subsection + 3 section + 1 item;
+   98 of 104 an ACQUISITION gap, not commencement work). 78
+   single-pair / 109 positional / 6 no-pair addresses; leaf kinds
+   `subsection` 98, `section` 57, `sentence` 22, `item` 16.
+   **THE SCOREBOARD FINDING, which contradicts the standing claim
+   that no unexplained row is reachable by an open item** (corrected
+   in place at item 62): adjudicated row by row against both texts,
+   the substitution arm closes **11 unexplained rows today and 19
+   with a read-only sentence materialization** — `no/lov/2015-06-19-70`
+   4 + 7 of 12, `no/lov/2020-04-17-29` 7 + 1 of 15. Half 1 by
+   contrast touches 41 base acts of which only **2** are scan
+   candidates, one of them consistent; its whole exposure is
+   `no/lov/2016-06-17-29`'s 21 rows, reachable only by a COMPOSITION
+   (chapter repeal + chapter-depth set relabel + arm B) and
+   deliberately not bought.
+   **DESIGN DECISIONS, ratified 2026-08-12.** (1) No new op kinds;
+   `RENUMBER`+`destination` for relocation, addressed `TEXT_PATCH`
+   for substitution; `StructuralAction.MOVE` stays dead vocabulary
+   and NO's relocation semantics are documented as living on
+   RENUMBER. (2) **Whole-word matching** for substitution
+   (`(?<!\w)FROM(?!\w)`): measured cost 42 → 40 addresses, of which
+   exactly ONE is a live divergence row (karanteneloven `§ 20 fjerde
+   ledd`, a genitive `tilsettingsmyndighetens`) — under-application
+   is the safe direction and the row stays honestly open. (3)
+   **Read-only sentence materialization**, not ledd-text addressing:
+   19 of 21 vs 14 of 21, reuses the shipped
+   `_materialize_no_sentence_children_with_count` and its shipped
+   `no_replay_sentence_children_materialized` receipt, and fails
+   closed. The one apply-plane edit is lifting that call above the
+   `text_replace` branch, which today sits after it. (4)
+   **Multi-announcement nodes refuse whole** (see item 75 (iii)).
+   (5) The occurrence rule is a PARSE conjunct — exactly one
+   whole-word occurrence or refuse — because `_apply_no_text_replace`
+   is a recursive `str.replace` that ignores `TextSelector.occurrence`
+   entirely and is not this item's to change; 4 addresses have a term
+   more than once and one has both terms, all refusing. (6) The
+   known-incomplete-base hazard pin **will move and is to be moved
+   consciously**, W-66-style, with the delta attributed address by
+   address: `receipt_footprint_mode="observed"` makes every landed
+   addressed `TEXT_PATCH` a destructive write, and 17 of the 51
+   substitution base acts are in the 161-law hazard set. The two
+   payoff laws are NOT in it, so the rows that close are clean. Note
+   the non-interaction the other way: the 98 acquisition-gap
+   addresses never reach a replay, so they are invisible to that
+   census in both directions.
+   **APPLY-PLANE DISCIPLINE.** Half 2 needs no new member of
+   `_NO_SKIP_ADJUDICATION_KINDS` — its refusals are all parse-plane,
+   and an op whose target moves under it already gets the shipped
+   `replay_unresolved_target`. Half 1 needs one, for W-66's reason:
+   `NO_REPLAY_RELOCATION_OCCUPIED_DESTINATION_REFUSED`, or the apply
+   fold's "neither a landed write nor a typed rejection" check trips.
+   The destination-free proof is W-66's, not W-74's: W-74's
+   self-proving conjunct (the destination must be a label this same
+   lead repeals) cannot be reproduced across containers, so the check
+   moves to APPLY — per leg, BEFORE the `destination in
+   renumber_sources` exemption, refusing with a typed receipt so the
+   refusal CASCADES and the relocation drops whole. Stop condition,
+   as W-66: firing census **10 → 10 element for element**, verdict
+   table gains no row, any `removal_wrong` is a STOP.
+   **PHASING (sizes on this session's scale: W-70 small, W-64 medium,
+   W-66 large).**
+   * **W-69a — addressed substitution at ledd/section/item depth.**
+     MEDIUM. **AUTHORIZED, in progress.** The `TEXT_PATCH` producer
+     plus the full refusal envelope (multiple announcements /
+     multi-base address list / no pair / W-75's two shipped
+     conjuncts / address unresolved / term ambiguous / term not
+     uniquely present as a whole word). Expected: 40 addresses lower,
+     **11 unexplained rows close, 0 open**, refusals 17 → ~5 typed.
+     Stops: firing census 10 → 10; hazard delta attributed op by op;
+     any `removal_wrong` a STOP; the 4 genuine replacements W-75's
+     conjunct (2) protects must still land.
+   * **W-69b — read-only sentence materialization on the text-patch
+     path.** SMALL. +19 addresses, **+8 rows** → cumulative **19 of
+     478**. Stop: the tree SHAPE of every touched ledd changes, so
+     the blast measurement is a full-corpus statute diff, not a
+     candidate diff, and the materialization receipt count must
+     reconcile.
+   * **W-69c — generalize the atomic ordering to
+     `(parent_path, label)`.** MEDIUM. No new parse. **Zero
+     divergence rows** — the payoff is that `no/lov/2009-06-19-44`
+     stops aborting, W-72's blind spot goes **4 laws → 3**, and its
+     occupied-destination behaviour becomes observable. Stops: the
+     blind-spot list must SHRINK; the newly observable law's firings
+     must be adjudicated before anything goes green; all other laws
+     byte-identical.
+   * **W-69d — arms B + C.** LARGE. 74 refusals withdrawn over 38
+     base acts / 41 instruments (12 known-incomplete), the
+     label-sequence oracle, the apply-plane refusal and the new skip
+     kind. **Zero divergence rows on its own.** **W-69c is a HARD
+     PREREQUISITE**: widening the parse to mint more cross-container
+     RENUMBERs while the existing ones abort a law mid-apply converts
+     a refusal into an abort, and an abort discards the law's whole
+     receipt plane — strictly worse than the refusal it replaces.
+     Expect the `removal_wrong` stop to fire.
+   * **W-69e — arm A's heading moves with relative anchors.** Small
+     population (3 leads), medium risk, zero rows: the only place a
+     new destination shape is arguable, and the only place
+     `LegalOperation.anchor` / `move_destination` would earn their
+     keep. A heading landing in the wrong position is SILENT, so each
+     lead needs a positive pin.
+   Recommended order **a → b → c → (decide) d → e**. Open question
+   held for a later sign-off: whether to buy `no/lov/2016-06-17-29`'s
+   21 rows by opening a composed "restructuring cascade" item with
+   W-69d as one of three legs; the design pass recommends not now,
+   and the rows stay correctly open in the meantime.
+   Superseded by the above, kept for the record: the original entry
+   priced this as "production first, op kind only if
+   derived-containment risk is judged unacceptable", named ONE lead
+   as strictly needing a new op kind, and cited a second
    cross-container witness on candidate `2019-06-14-21`
-   (`§ 43 annet ledd blir nytt femte ledd i § 42.`, 1 live row).
+   (`§ 43 annet ledd blir nytt femte ledd i § 42.`) — that law's 25
+   unexplained rows are NOT address-coincident with it, so it carries
+   no row after all.
 
 70. **W-70 (malformed `data-move-part` token normalizer +
    tripwire):** DONE (`d7ec7a259`, 2026-08-12; artifacts
@@ -4277,6 +4587,53 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    (production matched, payload failed) overstate the grammar gap
    in the generic refusal receipt.
 
+76. **W-66b (the sibling set relabel at PUNKTUM depth — W-66's
+   item (b), now priced):** OPENED 2026-08-12 by W-69's design
+   pass, which found it while censusing something else and is
+   recording it as its own item rather than burying it inside a
+   relocation item where nobody would look. W-66 left non-`ledd`
+   depths refused because "they are a different address arithmetic
+   and are not in this population". **They are, however, the
+   largest reachable family left in the lowering lane, and it is
+   not close.** Measured at HEAD `4a68b5a48` over the UNTRUNCATED
+   refused leads (`.tmp/w69/arms.json`, scripts `s2`/`s4`): **144
+   refusals / 63 distinct leads / 100 instruments / 69 base acts,
+   17 of them in the known-incomplete-base hazard set.** Every one
+   is W-66's shipped grammar verbatim except for the depth word —
+   `Nåværende annet punktum blir nytt tredje punktum.` (×27 on
+   `2001-12-21-117` alone), `Nåværende tredje punktum blir nytt
+   fjerde punktum.` (×13), `Nåværende annet og tredje punktum blir
+   nye tredje og fjerde punktum.` (×8) — single-sentence,
+   currency-qualified, no payload tail. For scale: W-69's three
+   relocation arms COMBINED are 83 refusals over 41 base acts, and
+   W-69d is priced LARGE to withdraw 74 of them for zero divergence
+   rows.
+   **What makes it a real item rather than a one-token widening.**
+   (a) A punktum address hangs below a ledd that must itself be
+   resolved, so W-66's `defaultP` antecedent inheritance has one
+   more level to establish and one more way to fail — the receipt
+   family needs a ledd-unresolved member alongside
+   `no_parse_ledd_set_relabel_address_unresolved`. (b) The
+   destination sibling set is SENTENCE children, which exist only
+   once something has written to the ledd, so this production
+   shares W-69b's read-only materialization dependency and should
+   not land before it. (c) `_no_ordered_set_relabel_pairs` and the
+   apply-plane refuse-on-occupied tag DO generalize unchanged at
+   this depth, because both stay within ONE sibling set — unlike
+   W-69's cross-container case, which is why that one needs W-69c
+   and this one does not.
+   **Row yield is UNMEASURED and must be measured before this is
+   sized as coverage.** Exactly one of the 69 base acts is a scan
+   candidate (`no/lov/2021-06-18-121`, 2 unexplained rows), which
+   on W-62's arithmetic predicts near-zero scoreboard movement —
+   but this family was never in W-62's coincidence analysis at the
+   depth it actually occurs, and W-69's pass has just shown that
+   such generalizations do not survive a re-derivation. First step
+   is the address-coincidence join, not a production. Also
+   uncounted here: the `bokstav` and `nr.` depths, which the same
+   census sees but which W-69's tightened classifier did not
+   separate — size them in the same pass.
+
 ## 5. Demo / Inspection Tooling
 
 Browser views of any replayable law across its own amendment dates, plus an
@@ -4293,6 +4650,78 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-12 (W-69 design pass — records only, no product change)**
+  — **Both halves of W-69 turn out to need parse productions and not
+  a new op kind, because both already lower somewhere in the corpus
+  today; the relocation op that already ships is UNSOUND across
+  containers and that is why one of W-72's four blind-spot laws is
+  blind; and the standing reading that no unexplained divergence row
+  is reachable by an open item is false by 19 rows.** (Design
+  document `.tmp/w69/design.md`; ten scripts and their artifacts in
+  `.tmp/w69/`, every sizing re-derived at HEAD `4a68b5a48` and none
+  copied forward. Baselines reproduce the ledger element for
+  element: 3,089 artifacts, 28,252 ops, 8,583 unstructured refusals,
+  17 substitution refusals, 76 candidates, total 1,489 / ceiling
+  1,011 / unexplained 478.)
+  **Vocabulary.** `RENUMBER`+`destination` resolves
+  `op.destination.parent()` and re-parents the same `IRNode`, so it
+  IS relocation — and the structured `data-move-part` lane already
+  mints 14 cross-container legs, including the punktum-between-ledd
+  shape the queue called the one lead strictly needing a new op
+  kind. An ADDRESSED `TEXT_PATCH` has a shipped apply branch that no
+  producer reaches. `StructuralAction.MOVE` stays dead vocabulary.
+  **Soundness.** `no/lov/2009-06-19-44` aborts mid-apply with
+  `duplicate subsection:4` because a cross-container in-migration
+  (`§3/ledd/3 → §2/ledd/4`) is not ordered against the destination
+  parent's own vacate shift (`§2/ledd/3 → §2/ledd/4`); W-66's
+  ordering is over integer ordinals inside ONE sibling set and a
+  cross-container move belongs to two. Recorded against W-72's
+  blind-spot narrative; fix is W-69c.
+  **Sizings.** Relocation arms A/B/C: **83 refusals / 81 distinct
+  leads / 46 instruments / 41 base acts**, 13 known-incomplete, and
+  **only 13 of the 81 restate a payload** — the prior "8 of 9 real
+  moves are restated" is 5 of 9, and the three carry-existing cases
+  are not the ones the entry named. Arm C's endpoint expander
+  STRANDS lettered intermediate sections (`§§ 23 til 26` is 4 labels
+  and 7 sections), and W-57's own witness is genuinely
+  unequal-arity at section depth (6 sources, 7 destination labels) —
+  W-62/W-66's corrected premise holds at ledd depth only.
+  Substitution: **17 nodes / 193 addresses** reproduce exactly, **42
+  exact / 40 whole-word deterministic**, 104 no-statute, 30
+  unresolved.
+  **Three W-75 characterizations corrected, W-70-style:** the 30
+  unresolved are 21 sentence + 5 subsection + 3 section + 1 item,
+  not all `setning/N`; **98 of the 104 no-statute blockers are an
+  ACQUISITION gap** (`no original-act source available`), not
+  W-73-shaped commencement work; and `henholdsvis` pairs FROM-terms
+  with TO-terms rather than addresses with terms — with the real
+  hazard being the one node carrying FOUR announcements over 82
+  addresses and 35 base acts, which explains 9 of the 13
+  "term absent" addresses and must refuse whole.
+  **Scoreboard.** Adjudicated row by row against both texts, the
+  substitution arm closes **11 unexplained rows today and 19 with a
+  read-only sentence materialization** — karanteneloven
+  `no/lov/2015-06-19-70` (4 + 7 of 12) and `no/lov/2020-04-17-29`
+  (7 + 1 of 15). `no/lov/2016-06-17-29`'s **21 unexplained rows are
+  fully attributed** to `no/lovtid/2020-06-23-98`'s unlowered
+  restructuring cascade and are deliberately NOT bought: reaching
+  them needs a chapter-repeal production and a chapter-depth set
+  relabel that nothing in the queue describes.
+  **Ratified decisions:** no new op kinds; whole-word matching
+  (costs exactly one row, karanteneloven `§ 20 fjerde ledd`);
+  read-only sentence materialization over ledd-text addressing (19
+  of 21 vs 14 of 21, and it fails closed); multi-announcement nodes
+  refuse whole; the known-incomplete-base hazard pin moves
+  consciously with an attributed delta. **Re-phased into W-69a
+  (medium, AUTHORIZED, +11 rows) → W-69b (small, +8) → W-69c
+  (medium, 0 rows, blind spot 4 → 3) → W-69d (large, 74 refusals, 0
+  rows, HARD-BLOCKED on W-69c) → W-69e (3 leads, 0 rows).**
+  **W-66b opened** with its sizing: the same set relabel at PUNKTUM
+  depth is **144 refusals / 63 leads / 100 instruments / 69 base
+  acts** — roughly twice all three relocation arms combined, one
+  token from a production that already ships and is already proven —
+  with its row yield explicitly unmeasured.
 
 - **2026-08-12 (W-70 applied)** — **Six malformed `data-move-part`
   attributes turned out to be nothing but separator damage, four of
