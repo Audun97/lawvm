@@ -2836,9 +2836,16 @@ def test_w51_corpus_totals_and_the_untouched_part_routes() -> None:
     # section-renumber widening and enters the WIDENED whole-act route, so this
     # time 541 is the count that holds and the other three part routes are again
     # untouched.
+    # 436 -> 437 at W-66, the same mechanism a THIRD time:
+    # ``no/lovtid/2001-06-15-33`` gains its first index entry off the sibling-set
+    # ledd relabel ("Nåværende annet ledd blir nytt tredje ledd.", inheriting § 73 E
+    # from the preceding lead) and enters the WIDENED whole-act route. 541 holds and
+    # all four other routes are unmoved. A LOWERING widening reaches this lane only
+    # by growing what is offered to it, and this assertion is what proves it each
+    # time.
     assert counts == {
         NO_COMMENCEMENT_EXECUTION_AUTHORIZED: 541,
-        NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED: 436,
+        NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED: 437,
         NO_COMMENCEMENT_PART_EXECUTION_AUTHORIZED: 33,
         NO_COMMENCEMENT_MULTI_PART_EXECUTION_AUTHORIZED: 4,
         NO_COMMENCEMENT_NAMED_PART_LIST_EXECUTION_AUTHORIZED: 33,
@@ -2864,6 +2871,14 @@ def test_w51_corpus_totals_and_the_untouched_part_routes() -> None:
     # the five title-cited pairs had carried a whole-act refusal at base and the
     # widened route withdraws it where it grants, so the refusal set falls by
     # exactly the number of grants added and no pair is ever both.
+    # 877 -> 879 at W-66, and it GROWS for the honest reason: no refusal is
+    # created for an act that already had one, and none is withdrawn. The two new
+    # pairs are ``no/lovtid/2005-06-17-98`` x
+    # {``no/forskrift/2005-06-17-631``, ``no/forskrift/2008-05-30-524``} — an act
+    # that had no index entry at all until the sibling-set ledd relabel gave it its
+    # first lowered op, so its commencement instruments had nothing to be refused
+    # AGAINST. The disjointness assertion above is what carries the real property,
+    # and it still holds.
     granted_pairs = {
         (d["source_id"], instrument_id)
         for d in index.diagnostics
@@ -2880,7 +2895,7 @@ def test_w51_corpus_totals_and_the_untouched_part_routes() -> None:
         if d.get("rule_id") == NO_COMMENCEMENT_EXECUTION_REFUSED
     }
     assert not (granted_pairs & refused_pairs)
-    assert len(refused_pairs) == 877
+    assert len(refused_pairs) == 879
 
     # The inert part-grant population, 31 -> 4 at W-53 with the absorption.
     inert = [
@@ -3518,9 +3533,10 @@ def test_w53_corpus_zero_early_over_every_widened_grant() -> None:
     ]
     # 435 -> 436 at W-67: one more act reaches the widened route
     # (``no/lovtid/2004-09-24-72``, see the census note on the totals test above).
+    # 436 -> 437 at W-66 (``no/lovtid/2001-06-15-33``, same mechanism again).
     # The zero-early property below is what actually matters here, and it holds
     # over the grown set.
-    assert len(grants) == 436
+    assert len(grants) == 437
     early = [
         (d["source_id"], d["effective_date"], sibling_id, sibling_date)
         for d in grants

@@ -2691,7 +2691,23 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # the ELEVENTH landing running. Only 1 of the 13 base acts whose ops moved is a
     # candidate at all: the other 12 laws lose 92 of the 107 refused ops off-scan,
     # including plan- og bygningsloven's seven, which no candidate row can see.
-    assert report["divergence_totals"] == {"total": 1501, "ceiling": 1011, "unexplained": 490}
+    # W-66 (2026-08-12). Candidates unmoved at 76, summary unmoved at 29/47/0, and
+    # SIX candidate rows change — the widest scan movement in the series, because
+    # the sibling-set ledd relabel is the widest lowering in it (682 refusals
+    # withdrawn, 1,147 new RENUMBER legs, 59 of 783 laws moving). ``2019-06-14-21``
+    # 28 -> 25, ``2004-12-17-101`` 26 -> 24, ``2017-06-16-65`` 9 -> 7,
+    # ``2015-02-13-9`` 7 -> 5, ``2010-06-25-28`` 27 -> 26, ``2012-01-27-9`` 5 -> 5.
+    # 12 rows close and 2 open, and BOTH entrants are adjudicated rather than
+    # absorbed into the net: ``2012-01-27-9`` § 46 fjerde ledd goes OPS_MISSING ->
+    # MISMATCH, which is the ledd EXISTING now and matching the consolidation
+    # except for a trailing full stop the published text drops; ``2015-02-13-9``
+    # § 3 sjette ledd opens OPS_MISSING because the one remaining unlowered
+    # instruction on that section is ``2023-06-16-34``'s "Nåværende § 3 femte ledd
+    # blir sjette ledd og skal lyde:", a shift-PLUS-PAYLOAD lead this grammar
+    # refuses by construction, which was invisible while the whole ledd sequence
+    # was out of step. Total and unexplained both fall by the same 10, ceiling
+    # untouched at 1,011 for the TWELFTH landing running. Signed off 2026-08-12.
+    assert report["divergence_totals"] == {"total": 1491, "ceiling": 1011, "unexplained": 480}
     # 3 -> 2 at W-34: no/lov/2001-01-05-1 gains 4 bound ops from
     # no/lovtid/2015-06-19-65 item 178, so its indexed history is no longer
     # sparse. Its 83 divergences do not move; only the bucket does.
@@ -2723,6 +2739,14 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             # it was built for, not a membership drift. 23 -> 22.
             "no/lov/2010-06-25-28",
             "no/lov/2011-06-24-39",
+            # W-66: ARRIVES from `untouched_drift`, and the direction is the point.
+            # Its § 46 fjerde ledd row used to sit at an address no op touched;
+            # the sibling-set ledd relabel now LANDS there (the row goes
+            # OPS_MISSING -> MISMATCH, the ledd existing and matching the
+            # consolidation but for a trailing full stop), so the W-23 predicate
+            # re-buckets it as touched. 22 -> 23. Same predicate, opposite
+            # direction to W-67+W-74's `2010-06-04-21` move below.
+            "no/lov/2012-01-27-9",
             "no/lov/2012-11-30-70",
             "no/lov/2014-08-15-59",
             # W-73: two of the three entrants land here, both unblocked by
@@ -2750,7 +2774,8 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             # rows closed; the one MISMATCH row it keeps is untouched drift.
             # 19 -> 20.
             "no/lov/2010-06-04-21",
-            "no/lov/2012-01-27-9",
+            # W-66: `no/lov/2012-01-27-9` LEAVES for `replay_defect`; see the note
+            # there. 20 -> 19.
             # W-34: enters the candidate set with its first indexed amendment.
             "no/lov/2013-06-21-75",
             # W-53: the one entrant of the eight that lands here, at 7 rows,

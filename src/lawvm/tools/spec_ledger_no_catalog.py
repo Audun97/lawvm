@@ -278,6 +278,21 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "unmappable base act; the spec is skipped, failing forward to a finding "
         "instead of applying to an unresolved base."
     ),
+    "no_parse_ledd_set_relabel_address_unresolved": (
+        "A Norway sibling-set ledd relabel (\"Nåværende femte og sjette ledd blir "
+        "sjette og sjuende ledd.\") named no section of its own, and the nearest "
+        "preceding instruction lead in the same part supplied no unambiguous "
+        "antecedent — it named no section, named several, or amends another "
+        "amendment rather than the base act. The relabel is refused rather than "
+        "attached to a guessed address. W-66."
+    ),
+    "no_parse_ledd_set_relabel_order_unprovable": (
+        "A Norway sibling-set ledd relabel's source and destination sets form a "
+        "CYCLE (a pure swap), so no vacate-before-occupy order exists and no "
+        "sequential relabel can express it without a scratch slot. The whole "
+        "relabel is refused rather than emitted in an order that would write onto "
+        "a live sibling. W-66."
+    ),
     "no_parse_malformed_structured_renumber_attr_skipped": (
         "A Norway structured renumber attribute had a malformed token shape "
         "(e.g. trailing separators); skipped with a typed finding, not coerced."
@@ -545,6 +560,18 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "A Norway INSERT landed on an occupied single target; replay recovers by "
         "replacing the target, recording the action-family conversion "
         "(insert→replace) rather than silently overwriting it."
+    ),
+    "no_replay_ledd_set_relabel_occupied_destination_refused": (
+        "A leg of a W-66 sibling-set ledd relabel found its destination still "
+        "OCCUPIED when it ran. The parse plane cannot prove that a section ends "
+        "where the drafter's ordinals say it does, and taking the declared θ "
+        "(RENUMBER, dest_occupied) recovery here destroyed in-force law twice in "
+        "measurement (straffeloven 2005 § 3 femte ledd, verdipapirhandelloven "
+        "§ 9-21 fjerde ledd — base editions that already carry the amendment being "
+        "replayed). This production refuses instead: no write lands, the occupant "
+        "survives, the op is rejected with a typed blocking receipt, and the "
+        "refusal CASCADES down the relabel's vacate-before-occupy chain so the set "
+        "drops whole rather than in halves. W-66."
     ),
     "no_replay_renumber_occupied_destination_removed": (
         "A Norway RENUMBER landed on an occupied destination that was not itself "

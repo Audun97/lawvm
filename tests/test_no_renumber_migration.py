@@ -1094,6 +1094,39 @@ _HUSBANKLOVEN_13_COMMENCEMENT_ADDRESS = "section:13/subsection:1"
 _HUSBANKLOVEN_13_REPEAL_ADDRESS = "section:13/subsection:2"
 
 
+#: W-66's two rescued provisions, and the reason its apply seam refuses instead
+#: of recovering.
+#:
+#: The sibling-set ledd relabel mints 1,147 RENUMBER legs. 31 of them find their
+#: destination still OCCUPIED when they run, and under the declared θ
+#: (RENUMBER, dest_occupied) recovery two of those removals were adjudicated
+#: ``removal_wrong`` — proven destruction of in-force law:
+#:
+#:   * straffeloven 2005 § 3 femte ledd ("Ved domfellelse etter gjenåpning …"),
+#:     removed by ``no/lovtid/2008-03-07-4``'s "Nåværende annet til fjerde ledd
+#:     blir tredje til femte ledd."; the provision stands at that very address in
+#:     the published consolidation.
+#:   * verdipapirhandelloven § 9-21 fjerde ledd (the konsolidering forskrift
+#:     power), removed by ``no/lovtid/2021-04-30-26``'s "Nåværende tredje ledd
+#:     blir nytt fjerde ledd."
+#:
+#: Both base editions ALREADY carry the amendment being replayed, so the relabel
+#: lands a second time. That is not a fact any sentence grammar can see, so the
+#: production refuses at apply rather than guessing at the parse:
+#: ``no_replay_ledd_set_relabel_occupied_destination_refused``, no write, typed
+#: rejection, and the refusal cascades down the vacate-before-occupy chain.
+#:
+#: These two pins hold the POSITIVE fact the way W-56, W-61 and W-74 hold theirs.
+#: The negative half — that the corpus firing census does not grow — is held by
+#: ``_NO_OCCUPIED_DESTINATION_VERDICTS`` above, which is still exactly 10 rows.
+_STRAFFELOVEN_2005 = "no/lov/2005-05-20-28"
+_STRAFFELOVEN_3_GJENAAPNING_PROBE = "ved domfellelse etter gjenåpning anvendes samme lovgivning"
+_STRAFFELOVEN_3_GJENAAPNING_ADDRESS = "part:1/chapter:1/section:3/subsection:5"
+_VERDIPAPIRHANDELLOVEN = "no/lov/2007-06-29-75"
+_VERDIPAPIRHANDELLOVEN_9_21_PROBE = "departementet kan i forskrift gi nærmere regler om konsolidering"
+_VERDIPAPIRHANDELLOVEN_9_21_ADDRESS = "part:3/chapter:9/chapter:II/section:9-21/subsection:4"
+
+
 def _no_normalise_probe_text(text: str) -> str:
     import re as _re
     import unicodedata as _ud
@@ -1411,7 +1444,10 @@ _SWEEP_SCRIPT_PATH = _REPO_ROOT / "scripts" / "inventory_no_occupied_destination
 #: ``no/lov/2020-05-07-40`` ENTERS it by gaining a destructive write from W-67's
 #: widening, and 163 - 3 + 1 = 161 conserves exactly.
 _NO_INCOMPLETE_BASE_HAZARD = {
-    "incomplete_bases": 198,
+    # 198 -> 199 at W-66: ``no/lov/2017-06-16-53`` ENTERS the amended-law
+    # population (783 -> 784 base laws with sources) because the sibling-set
+    # relabel gives it its first lowered op, and it arrives known-incomplete.
+    "incomplete_bases": 199,
     "bases_with_destructive_writes": 265,
     "hazard_bases": 161,
     # 3,713 -> 3,706 at W-75, and exactly one law moves: ``no/lov/2008-06-27-71``
@@ -1422,8 +1458,23 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # count and the incomplete/destructive populations are all unchanged; the other
     # two laws whose text W-75 moves are not known-incomplete, so their writes were
     # never in this intersection. Signed off 2026-08-12.
-    "hazard_destructive_writes": 3706,
-    "hazard_content_removing_writes": 167,
+    #
+    # 3,706 -> 3,809 at W-66, across 26 of the 161 hazard laws and no membership
+    # change. A RENUMBER is a destructive write by this census's definition (it
+    # moves existing content), and the sibling-set relabel mints 1,147 of them
+    # corpus-wide; 103 land in laws that are known-incomplete. That is the hazard
+    # surface growing, honestly, and it is why the census is a pin and not a
+    # licence.
+    "hazard_destructive_writes": 3809,
+    # 167 -> 168, and the +1 is NOT a relabel op. ``no/lov/2016-05-27-14`` gains
+    # ``no/lovtid/2021-12-22-158:1``, a REPEAL of § 7-6 annet ledd that could not
+    # bind before because that law's ledd sequence was one slot out of step; with
+    # the relabel landed, the address it names exists and the repeal lands too.
+    # The removal is an amendment finally taking effect, not a recovery eating an
+    # occupant — § 7-6 itself survives, and the receipt's section-level
+    # ``removed_paths`` is the known ``no_receipt_storage_path_resolution``
+    # projection. Signed off 2026-08-12.
+    "hazard_content_removing_writes": 168,
     "hazard_bases_removing_content": 65,
 }
 
@@ -1432,7 +1483,9 @@ _NO_INCOMPLETE_BASE_HAZARD = {
 #: another entering nets to zero — so the set is pinned too, exactly as W-73's
 #: own accounting had to reason about which laws moved rather than how many.
 _NO_INCOMPLETE_BASE_HAZARD_LAWS_DIGEST = (
-    "fbf3d7252ffdf94caccfca47cb20b62e7208c43f07440f70fb593fbf3d9ab21d"
+    # W-66: the 161-law MEMBERSHIP is unchanged; 26 laws' per-law counts move, so
+    # the digest moves with them. See the two count notes above.
+    "70cf059e9f1ab64e7681d33d28f8aa30ea1b981f93556fe471c7a825755646b7"
 )
 
 _REGENERATE = (
@@ -1534,7 +1587,12 @@ def test_no_occupied_destination_sweep_baseline_is_not_stale(
     # the exceptions are named here rather than rounded off.
     assert baseline["swept"]["fatals"] == [], baseline["swept"]["fatals"]
     swept = baseline["swept"]["base_law_ids"]
-    assert len(swept) == baseline["swept"]["base_laws"] == 783
+    # 783 -> 784 at W-66: ``no/lov/2017-06-16-53`` enters the amended-law
+    # population, its first lowered op being a sibling-set ledd relabel
+    # ("Någjeldende annet ledd blir tredje ledd." in ``no/lovtid/2018-06-15-38``,
+    # § 30 inherited from the preceding lead). It is not a scan candidate, so the
+    # scoreboard does not see it; this census does.
+    assert len(swept) == baseline["swept"]["base_laws"] == 784
     assert sorted(set(swept)) == swept
     assert set(_NO_OCCUPIED_DESTINATION_LAWS) <= set(swept)
     # 440 laws error before a single op is applied — F-09's sparse-source class,
@@ -1822,3 +1880,58 @@ def test_no_sweep_baseline_regenerate_instruction_names_a_real_script() -> None:
     assert _SWEEP_SCRIPT_PATH.name in _REGENERATE
     assert (_REPO_ROOT / sweep.BASELINE_PATH).is_file()
     assert "--update-baseline" in _REGENERATE
+
+
+@pytest.mark.skipif(
+    not _REAL_ARCHIVE.exists(),
+    reason="requires the local Lovdata archive (data/norway.farchive)",
+)
+def test_no_w66_relabel_refusal_keeps_two_live_provisions_standing() -> None:
+    """W-66's payoff, pinned at the corpus: the two provisions the recovery ate.
+
+    Both probes must hit at their consolidation addresses AND no
+    occupied-destination recovery may fire on either law, so a regression in
+    either direction — the provision vanishing, or the θ recovery waking up on
+    these ops — fails loudly rather than passing a shorter table.
+
+    The refusal is also asserted POSITIVELY: the typed receipt must be there. A
+    silently-dropped op and a refused one look the same in the tree, and only one
+    of them is honest.
+    """
+    from lawvm.norway.index import build_no_amendment_index
+
+    index = build_no_amendment_index(_REAL_ARCHIVE)
+    for base_id, probe, address, expected_firings in (
+        (
+            _STRAFFELOVEN_2005,
+            _STRAFFELOVEN_3_GJENAAPNING_PROBE,
+            _STRAFFELOVEN_3_GJENAAPNING_ADDRESS,
+            [],
+        ),
+        (
+            _VERDIPAPIRHANDELLOVEN,
+            _VERDIPAPIRHANDELLOVEN_9_21_PROBE,
+            _VERDIPAPIRHANDELLOVEN_9_21_ADDRESS,
+            # W-67's own row, unmoved. Verdipapirhandelloven carries a SECTION
+            # renumber (§ 4-3 -> § 4-2) whose firing is adjudicated
+            # ``removal_correct`` in the verdict table above; W-66 must neither
+            # remove it nor add to it.
+            ["no/lovtid/2019-06-21-41:2"],
+        ),
+    ):
+        replay = replay_no_to_pit(base_id, as_of="2026-07-10", data_dir=_REAL_ARCHIVE, index=index)
+        assert replay.error is None, base_id
+        assert replay.replayed is not None
+        assert _no_probe_hits(replay.replayed, probe) == (address,), base_id
+        refusals = [
+            a
+            for a in replay.adjudications
+            if a.kind == "no_replay_ledd_set_relabel_occupied_destination_refused"
+        ]
+        assert refusals, f"{base_id}: the relabel refusal receipt is missing"
+        assert all(a.blocking for a in refusals), base_id
+        assert [
+            a.op_id
+            for a in replay.adjudications
+            if a.kind == _OCCUPIED_DESTINATION_ADJUDICATION_KIND
+        ] == expected_firings, base_id

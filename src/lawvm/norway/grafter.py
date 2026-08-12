@@ -1237,6 +1237,249 @@ _NO_CURRENCY_QUALIFIER_ALTERNATION = (
 )
 
 
+# ── W-66: the atomic sibling-set relabel, and where its address comes from ────
+#
+# THE CONSTRUCT. "Nåværende femte og sjette ledd blir sjette og sjuende ledd."
+# is not two independent renumbers. It is ONE relabel of a sibling SET, read
+# against the PRE-operation snapshot, and its source and destination sets
+# OVERLAP: relabelling 5→6 first writes onto the live sixth ledd, which the
+# occupied-destination recovery then clears — the exact shape W-54 caught
+# destroying tvisteloven's vitneforsikring. Applied in the other order (6→7,
+# then 5→6) nothing is ever written onto an occupant.
+#
+# Two things make that safe here rather than lucky. (i) The pairs are emitted in
+# a proven VACATE-BEFORE-OCCUPY order by ``_no_ordered_set_relabel_pairs``, so
+# the op stream is safe read straight through, without appealing to any later
+# stage. (ii) The kernel's within-group structural-vacate stage
+# (``no_ordering_profile``, ``renumber_vacate=True``) independently topologically
+# sorts RENUMBERs that vacate each other's destinations. The two agree by
+# construction, and a pair set for which NO safe order exists (a cycle — a pure
+# swap, which sequential relabelling cannot express at all) is REFUSED rather
+# than emitted in some order and hoped over. Corpus-wide today no accepted lead
+# is cyclic, so the guard costs the production nothing; it is there because the
+# absence of a cycle is the only reason the emitted order is a proof.
+#
+# THE MEASURED POPULATION, read back off the ops actually minted (not off a
+# prediction), against the 9,265 corpus ``no_parse_unstructured_lead_unmatched``
+# refusals: 642 lead OCCURRENCES accept — 622 distinct (instrument, lead) pairs
+# over 421 instruments and 207 base acts, minting 1,147 RENUMBER legs — and every
+# one is in W-62's ``renumber_shift`` family at ``ledd`` depth. Split by how the
+# address is found: 250 occurrences name their own ``§``, 392 inherit it. Split by
+# sentence pattern: 592 are accepted by W-56's SHIPPED
+# ``_no_ledd_shift_pairs_from_sentence`` unchanged, 50 need only the currency
+# qualifier widened to ``_NO_CURRENCY_QUALIFIER_ALTERNATION`` (W-61's measured
+# set). 244 of the 642 have OVERLAPPING source and destination sets, which is the
+# population this whole ordering argument exists for.
+#
+# Shift signatures, and they are why the ordering below is a real topological sort
+# rather than "descending if k > 0": 502 shift by +1, 63 by −1, 55 by +2, 9 by −2,
+# 8 by +3, 2 by +4, 2 by −3, and ONE lead is not a uniform shift at all (a {+1,+2}
+# map). Legs per occurrence run 1 to 7 (380 singletons, 132 pairs, then a tail).
+#
+# WHAT IS DELIBERATELY LEFT REFUSED.
+#   * The qualifier is REQUIRED. "Femte ledd blir nytt sjette ledd." (55 further
+#     occurrences, 55 distinct leads) says nothing about WHICH edition its
+#     ordinals are read against, and reading the source set against the
+#     pre-operation snapshot is this whole production's premise. A production may
+#     not assume the premise it exists to honour. Sized, not taken.
+#   * Depths other than ``ledd`` — ``punktum``, ``bokstav``, ``nr`` — are a
+#     different address arithmetic (they hang below a ledd that must itself be
+#     resolved) and are not in this population.
+#   * 40 receipt triples over 37 distinct leads whose address this grammar cannot
+#     establish get the typed receipt below rather than a guess.
+NO_PARSE_LEDD_SET_RELABEL_ADDRESS_UNRESOLVED = "no_parse_ledd_set_relabel_address_unresolved"
+NO_PARSE_LEDD_SET_RELABEL_ORDER_UNPROVABLE = "no_parse_ledd_set_relabel_order_unprovable"
+#: Stamped on every op this production mints, and read by the apply seam. It is
+#: the ONLY thing that tells the (RENUMBER, dest_occupied) branch that this op
+#: must refuse rather than clear its destination — see the block comment there.
+NO_LEDD_SET_RELABEL_PROVENANCE_TAG = "no_ledd_set_relabel"
+NO_REPLAY_LEDD_SET_RELABEL_OCCUPIED_DESTINATION_REFUSED = (
+    "no_replay_ledd_set_relabel_occupied_destination_refused"
+)
+
+# The section address as a node's OWN text spells it. The trailing letter class
+# is guarded by a negative lookahead on the next letter, and that guard is not
+# cosmetic: without it "§ 12-1 nytt tredje ledd skal lyde:" reads its section as
+# "12-1 n", silently inventing a section that does not exist. Measured — the
+# first cut of this reader made exactly that mistake on 25 of 30 sampled
+# antecedents before the lookahead was added.
+_NO_ANTECEDENT_SECTION_RE = compile_classifier_regex(
+    r"§ ?((?:[0-9][0-9-]*[0-9]|[0-9])(?: [A-Za-z](?![A-Za-zÆØÅæøå]))?)",
+    re.IGNORECASE,
+    classifier_id="norway.grafter.antecedent_section_address",
+)
+# An antecedent that amends ANOTHER AMENDMENT establishes an address in that
+# amendment, not in the base act ("I endringen av § 19-8 skal nytt sjette ledd
+# lyde:", "I lovens del XIV skal endringen av folketrygdloven § 16-11 femte ledd
+# lyde:"). 7 corpus antecedents are of this shape and all 7 are refused here:
+# the ledd numbering a meta-amendment talks about is the numbering of a text
+# that has not landed yet, so inheriting from it would relabel the wrong tree.
+_NO_META_AMENDMENT_ANTECEDENT_RE = compile_classifier_regex(
+    r"\bendring(?:en|a|ene|ane)\s+(?:av|i)\b",
+    re.IGNORECASE,
+    classifier_id="norway.grafter.meta_amendment_antecedent",
+)
+#: The widened sibling-set relabel sentence. Tried ONLY after W-56's shipped
+#: helper has declined, so no sentence that parses today can change what it
+#: parses. It differs from the shipped helper in exactly one token — the
+#: currency qualifier is drawn from the measured set instead of the four
+#: ``nåværende`` spellings — and it is anchored end to end, which is what keeps
+#: ordinary statutory prose containing "… første ledd blir …" out: everything
+#: between the anchors must reduce to two ordinal lists.
+#:
+#: The qualifier is REQUIRED and may sit on either side of the ``§`` — both word
+#: orders are attested ("Nåværende § 2 fjerde og femte ledd blir …" beside
+#: "§ 29 nåværende fjerde til sjette ledd blir …"), which is why the head is two
+#: explicit branches rather than two optional groups. Two optional groups would
+#: make the qualifier optional by accident, and that single character of slack
+#: admits ordinary drafting prose ("Andre ledd blir nytt tredje ledd.") whose
+#: source edition is exactly what is unstated.
+_NO_SET_RELABEL_SECTION_LABEL = r"[0-9][0-9A-Za-z-]*(?:\s+[A-Za-z])?"
+_NO_SET_RELABEL_WIDENED_PATTERN = (
+    r"^(?:(?:" + _NO_CURRENCY_QUALIFIER_ALTERNATION + r")\s+"
+    r"(?:§\s*(?P<qualifier_first_section>" + _NO_SET_RELABEL_SECTION_LABEL + r")\s+)?"
+    r"|§\s*(?P<section_first_section>" + _NO_SET_RELABEL_SECTION_LABEL + r")\s+"
+    r"(?:" + _NO_CURRENCY_QUALIFIER_ALTERNATION + r")\s+)"
+    r"(?P<source>.+?)\s+ledd\s+blir\s+(?P<destination>.+?)\s+ledd\.?$"
+)
+
+
+def _no_ledd_set_relabel_pairs(lead: str) -> Optional[tuple[str, list[tuple[int, int]], str]]:
+    """``Gjeldende femte og sjette ledd blir sjette og sjuende ledd.`` → pairs.
+
+    Returns ``(section_label, [(src, dst), …], pattern)`` where ``section_label``
+    is ``""`` when the sentence does not spell one, or ``None`` when this grammar
+    declines the sentence. ``pattern`` names WHICH of the two attempts matched, so
+    the additive ordering below is a test's fact rather than a comment's claim.
+
+    Attempt order is the W-61/W-67 shape: W-56's SHIPPED
+    ``_no_ledd_shift_pairs_from_sentence`` first, character for character, then
+    the widened sibling. Both go through the same ``_no_ledd_shift_ordinals``
+    vocabulary, so ``til`` ranges and the ``nytt``/``nye`` newness markers behave
+    identically on both paths and there is only ever one ordinal grammar.
+    """
+    shipped = _no_ledd_shift_pairs_from_sentence(lead)
+    if shipped is not None:
+        return shipped[0], shipped[1], "shipped"
+    # Inline ``re.match`` rather than a compiled classifier constant, for the
+    # reason the two sibling productions above already record: the adjacent
+    # ``(.+?)`` spans cannot pass ``compile_classifier_regex``'s backtracking lint.
+    # lawvm-regex: owning_parser this IS the widened sibling-set relabel sentence parser
+    match = re.match(_NO_SET_RELABEL_WIDENED_PATTERN, _normalize_space(lead), re.IGNORECASE)
+    if match is None:
+        return None
+    sources = _no_ledd_shift_ordinals(match.group("source"))
+    destinations = _no_ledd_shift_ordinals(match.group("destination"))
+    if sources is None or destinations is None or len(sources) != len(destinations):
+        return None
+    if len(set(sources)) != len(sources) or len(set(destinations)) != len(destinations):
+        return None
+    if any(src == dst for src, dst in zip(sources, destinations, strict=True)):
+        return None
+    section = match.group("qualifier_first_section") or match.group("section_first_section")
+    return (
+        _normalize_no_section_label(section) if section else "",
+        list(zip(sources, destinations, strict=True)),
+        "widened",
+    )
+
+
+def _no_ordered_set_relabel_pairs(
+    pairs: Sequence[tuple[int, int]],
+) -> Optional[list[tuple[int, int]]]:
+    """Order a sibling-set relabel so no leg ever writes onto a live sibling.
+
+    A leg ``(s, d)`` may only run once every leg whose SOURCE is ``d`` has run —
+    otherwise ``d``'s occupant is still standing when ``s`` lands on it. That is a
+    dependency DAG, and its topological order is the atomic group's proven-safe
+    internal order. ``None`` means the dependency graph has a CYCLE (``3→4`` with
+    ``4→3``: a swap, which no sequential relabel can express without a scratch
+    slot), and the caller must refuse the whole lead.
+
+    Legs with no dependency between them keep their source order, so the emitted
+    stream is deterministic.
+    """
+    by_source: dict[int, int] = {}
+    for index, (src, _dst) in enumerate(pairs):
+        by_source[src] = index
+    ordered: list[int] = []
+    state: dict[int, int] = {}  # 0 = in progress, 1 = done
+
+    def visit(index: int) -> bool:
+        mark = state.get(index)
+        if mark == 1:
+            return True
+        if mark == 0:
+            return False
+        state[index] = 0
+        blocker = by_source.get(pairs[index][1])
+        if blocker is not None and not visit(blocker):
+            return False
+        state[index] = 1
+        ordered.append(index)
+        return True
+
+    for index in range(len(pairs)):
+        if not visit(index):
+            return None
+    return [tuple(pairs[index]) for index in ordered]  # type: ignore[misc]
+
+
+def _no_antecedent_section_label(
+    children: Sequence[etree._Element],
+    part_indexes: Sequence[int],
+    position: int,
+) -> tuple[Optional[str], str]:
+    """The section address a shift lead with no ``§`` of its own inherits.
+
+    Returns ``(label, reason)``; ``label`` is ``None`` and ``reason`` says why
+    when nothing unambiguous is available.
+
+    THE RULE, and it is deliberately DOM-local rather than carried state: the
+    antecedent is the nearest preceding ``article.defaultP`` IN THE SAME PART, and
+    it must name exactly one distinct section. ``defaultP`` is Lovdata's
+    instruction-lead class; the payload classes (``legalP``, ``numberedLegalP``,
+    ``futureLegalArticle``) are excluded, which matters — in
+    ``no/lovtid/2017-06-16-67`` the node physically preceding the shift is the
+    payload of the lead before it and names a foreign "§ 9", so a
+    nearest-any-node rule would inherit the wrong section.
+
+    Being DOM-local rather than a carried "last section seen in this part" is
+    what makes the rule SELF-GUARDING across law switches. A part that changes
+    base act does so with a lead of its own ("6. I lov 19. juni 2015 nr. 70 …
+    gjøres følgende endringer:"), that lead is a ``defaultP`` naming no section,
+    and a shift immediately after it therefore inherits NOTHING and refuses —
+    instead of silently carrying the previous law's section across the boundary.
+    A switch lead that DOES name a section ("5. I lov 13. februar 2015 nr. 9 …
+    skal § 3 femte ledd lyde:") is the case where inheriting is right, and the
+    walk has already rebound ``lead_base_id`` to the new act by then.
+
+    Measured: 392 of the 642 accepted lead occurrences take this route, and the
+    refusals here are 40 receipt triples over 37 distinct leads — 20
+    ``antecedent_names_no_section``, 13 ``part_has_no_antecedent_lead``, 7
+    ``antecedent_is_meta_amendment``.
+    """
+    index = position - 1
+    part = part_indexes[position] if position < len(part_indexes) else None
+    while index >= 0 and (part_indexes[index] if index < len(part_indexes) else None) == part:
+        node = children[index]
+        if _local_name(node) == "article" and "defaultP" in _classes(node):
+            text = _repair_no_mojibake(_normalize_space(" ".join(str(_t) for _t in node.itertext())))
+            # lawvm-regex: owning_parser this IS the sibling-set relabel's antecedent reader, on the antecedent node's own text
+            if _NO_META_AMENDMENT_ANTECEDENT_RE.search(text) is not None:
+                return None, "antecedent_is_meta_amendment"
+            # lawvm-regex: owning_parser the same antecedent reader's address scan; the single-distinct-label conjunct below validates every match
+            raw_labels = _NO_ANTECEDENT_SECTION_RE.findall(text)
+            labels = {_normalize_no_section_label(raw) for raw in raw_labels}
+            if len(labels) == 1:
+                return labels.pop(), "antecedent_names_section"
+            if len(labels) > 1:
+                return None, "antecedent_names_several_sections"
+            return None, "antecedent_names_no_section"
+        index -= 1
+    return None, "part_has_no_antecedent_lead"
+
+
 def _no_unstructured_repeal_renumber_legs(
     lead: str,
 ) -> Optional[tuple[str, list[LegalAddress], list[LegalAddress], list[LegalAddress]]]:
@@ -3375,6 +3618,85 @@ def _iter_unstructured_no_change_groups(
                 )
             )
             sequence += 1
+            idx = cursor
+            continue
+
+        # W-66, and it sits here for the same reason W-74's block above does:
+        # every shipped production has already declined the lead, so this one is
+        # reachable only on a lead that lowers nothing today. See the block
+        # comment on ``_no_ledd_set_relabel_pairs`` for the measurement, the
+        # atomicity argument and what is deliberately left refused.
+        set_relabel = _no_ledd_set_relabel_pairs(lead)
+        if set_relabel is not None:
+            relabel_section, relabel_pairs, relabel_pattern = set_relabel
+            address_reason = "lead_names_section"
+            if not relabel_section:
+                inherited_label, address_reason = _no_antecedent_section_label(
+                    children, child_part_indexes, idx
+                )
+                relabel_section = inherited_label or ""
+            if not relabel_section:
+                _append_no_unstructured_parse_adjudication(
+                    adjudications_out,
+                    kind=NO_PARSE_LEDD_SET_RELABEL_ADDRESS_UNRESOLVED,
+                    message=(
+                        "Norway sibling-set ledd relabel named no section of its own and no "
+                        "unambiguous antecedent supplied one; the relabel was not lowered."
+                    ),
+                    source_id=source_id,
+                    lead=lead,
+                    base_id=lead_base_id,
+                    detail={
+                        "address_reason": address_reason,
+                        "pattern": relabel_pattern,
+                        "pairs": tuple(f"{src}->{dst}" for src, dst in relabel_pairs),
+                    },
+                )
+                idx += 1
+                continue
+            ordered_pairs = _no_ordered_set_relabel_pairs(relabel_pairs)
+            if ordered_pairs is None:
+                _append_no_unstructured_parse_adjudication(
+                    adjudications_out,
+                    kind=NO_PARSE_LEDD_SET_RELABEL_ORDER_UNPROVABLE,
+                    message=(
+                        "Norway sibling-set ledd relabel has no vacate-before-occupy order "
+                        "(the source and destination sets form a cycle); nothing was lowered."
+                    ),
+                    source_id=source_id,
+                    lead=lead,
+                    base_id=lead_base_id,
+                    detail={
+                        "section": relabel_section,
+                        "pattern": relabel_pattern,
+                        "pairs": tuple(f"{src}->{dst}" for src, dst in relabel_pairs),
+                    },
+                )
+                idx += 1
+                continue
+            for src_ordinal, dst_ordinal in ordered_pairs:
+                doc_ops.append(
+                    LegalOperation(
+                        op_id=f"{source_id}:{sequence}",
+                        sequence=sequence,
+                        action=StructuralAction.RENUMBER,
+                        target=LegalAddress(
+                            path=(("section", relabel_section), ("subsection", str(src_ordinal)))
+                        ),
+                        destination=LegalAddress(
+                            path=(("section", relabel_section), ("subsection", str(dst_ordinal)))
+                        ),
+                        source=OperationSource(statute_id=source_id, raw_text=lead, title=lead_base_id),
+                        provenance_tags=(
+                            f"base_act:{lead_base_id}",
+                            "fallback:unstructured",
+                            NO_LEDD_SET_RELABEL_PROVENANCE_TAG,
+                        ),
+                        group_id=f"{source_id}:{lead_base_id}:{sequence}",
+                        witness_rule_id="no_section_renumber_relabel",
+                    )
+                )
+                sequence += 1
             idx = cursor
             continue
 
@@ -7598,6 +7920,76 @@ def _apply_no_ops_fold(
                     moved = _with_no_node_label(moved, op.destination.leaf_label())
                 source_parent_path = resolved_path[:-1]
                 destination_path = _resolve_no_path(body, op.destination)
+                # W-66, and it is the reason the sibling-set relabel can be
+                # shipped at all.
+                #
+                # The parse plane can prove that a destination INSIDE the
+                # relabel's own source set will be vacated by the same atomic
+                # group. It can prove nothing about a destination OUTSIDE it:
+                # whether the section really ends where the drafter's ordinals say
+                # it does is a fact about the TREE, not about the sentence. Under
+                # the shipped θ cell below the tree answers that question by
+                # DELETING whatever is standing there, and W-66's own corpus
+                # measurement caught it doing exactly that twice — straffeloven
+                # 2005 § 3 femte ledd ("Ved domfellelse etter gjenåpning …", in
+                # force at that very address in the published consolidation) and
+                # verdipapirhandelloven § 9-21 fjerde ledd. In both, the archived
+                # BASE edition already carries the amendment being replayed, so the
+                # relabel lands a second time and eats a live provision. That is
+                # W-54's ``removal_wrong``, and it is a stop condition.
+                #
+                # So this production does not take the recovery. An op it minted
+                # whose destination is OCCUPIED refuses, with a typed receipt and
+                # no write. Under-applying a relabel leaves the ledd sequence one
+                # slot out of step, which is a divergence row; over-applying
+                # destroys law that is in force.
+                #
+                # Note where this sits: BEFORE the ``destination in
+                # renumber_sources`` exemption, not inside it, and the placement is
+                # load-bearing. That exemption exists because the kernel's
+                # structural-vacate stage promises to run the leg that frees a slot
+                # before the leg that fills it — a promise that holds only while
+                # every leg APPLIES. Once a leg may refuse, an exempted follower
+                # would land on a sibling that never moved, and the tree invariant
+                # catches it as a duplicate label (measured: verdipapirhandelloven
+                # § 15-2, ``duplicate subsection:4``). Checking occupancy for real,
+                # for every leg, is what makes the refusal CASCADE instead: the leg
+                # that would free slot N runs first, and if it refuses, slot N is
+                # still occupied when the leg aiming at N is evaluated, so that one
+                # refuses too. The whole relabel drops together — never in halves,
+                # which is the W-56 failure mode.
+                #
+                # The shipped θ cell is UNTOUCHED for every op that is not this
+                # production's, which is why the corpus-wide firing census does not
+                # move and the pinned verdict table gains no row.
+                if (
+                    destination_path is not None
+                    and destination_path != resolved_path
+                    and NO_LEDD_SET_RELABEL_PROVENANCE_TAG in (op.provenance_tags or ())
+                ):
+                    standing = tree_ops.resolve(body, destination_path)
+                    if standing is not None:
+                        _append_no_replay_adjudication(
+                            adjudications_out,
+                            kind=NO_REPLAY_LEDD_SET_RELABEL_OCCUPIED_DESTINATION_REFUSED,
+                            message=(
+                                "Norway replay refused a sibling-set ledd relabel leg whose "
+                                "destination is still occupied when the leg runs."
+                            ),
+                            op=op,
+                            detail={
+                                "rule_id": NO_REPLAY_LEDD_SET_RELABEL_OCCUPIED_DESTINATION_REFUSED,
+                                "family": "unsupported_or_unresolved_action",
+                                "source_path": _no_path_label(resolved_path),
+                                "destination_path": _no_path_label(destination_path),
+                                "destination_target": _no_address_detail(op.destination),
+                                "occupant_kind": _no_kind_value(standing.kind),
+                                "occupant_label": standing.label or "",
+                                "destination_was_renumber_source": op.destination.path in renumber_sources,
+                            },
+                        )
+                        _assert_no_invariant_violations(op)
+                        return
                 if (
                     destination_path is not None
                     and destination_path != resolved_path
@@ -8049,6 +8441,11 @@ _NO_SKIP_ADJUDICATION_KINDS = frozenset(
         "replay_unresolved_target",
         "replay_noop",
         "no_replay_insert_occupied_direct_child_refused",
+        # W-66: a sibling-set relabel leg that refused rather than clear its
+        # destination is a genuine per-op SKIP — nothing landed, the tentative
+        # per-op state is discarded, and the conserved partition must see it as
+        # rejected rather than as a recovery that applied.
+        NO_REPLAY_LEDD_SET_RELABEL_OCCUPIED_DESTINATION_REFUSED,
     }
 )
 

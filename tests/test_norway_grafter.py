@@ -27,6 +27,7 @@ from lawvm.core.semantic_types import IRNodeKind, StructuralAction, TextPatchKin
 from lawvm.replay_adjudication import CompileAdjudication
 from lawvm.norway.grafter import (
     NO_PARSE_COLLECTIVE_REENACTMENT_PART_UNRESOLVED,
+    NO_PARSE_LEDD_SET_RELABEL_ADDRESS_UNRESOLVED,
     NO_PARSE_SUBSTITUTION_ANNOUNCEMENT_NOT_LOWERED,
     NOHeadingGroup,
     _extract_no_embedded_multi_act_lead,
@@ -41,6 +42,9 @@ from lawvm.norway.grafter import (
     _normalize_no_chapter_scoped_section_lead,
     _no_element_lead_text,
     _no_unstructured_law_switch_lead_base_id,
+    _no_antecedent_section_label,
+    _no_ledd_set_relabel_pairs,
+    _no_ordered_set_relabel_pairs,
     _no_section_repeal_list_labels,
     _no_unstructured_section_renumber_labels,
     _no_unstructured_section_repeal_renumber_labels,
@@ -4700,7 +4704,11 @@ def test_no_law_announcement_witness_stays_pinned() -> None:
 
     grouped = dict(iter_no_document_change_ops(html_bytes, "no/lovtid/2009-06-19-74"))
 
-    assert len(grouped["no/lov/2005-05-20-28"]) == 22
+    # 22 -> 24 at W-66: the act's item for straffeloven 2005 carries
+    # "Nåværende femte til sjette ledd blir sjette til syvende ledd." (§ 5), a
+    # two-leg sibling-set relabel that was refused whole. The W-21/W-26 property
+    # this pin exists for — WHICH act each item binds to — is unchanged.
+    assert len(grouped["no/lov/2005-05-20-28"]) == 24
     assert len(grouped["no/lov/1975-06-13-39"]) == 1
     # The six ex-inert global text-replaces ride the corrected base act. Every
     # one of their ``match_text`` values occurs in straffeloven 2005's original
@@ -5174,13 +5182,19 @@ def test_no_revisorloven_consequential_items_enter_the_index() -> None:
 
     grouped = dict(iter_no_document_change_ops(html_bytes, "no/lovtid/2020-11-20-128"))
 
+    # W-66 re-pin: +1 on ``1956-12-07-1`` and +4 on ``2007-06-29-75``, all five of
+    # them the sibling-set ledd relabel this act spells in prose and the grammar
+    # used to refuse — ``Nåværende tredje ledd blir nytt fjerde ledd.`` (§ 3 a) and
+    # ``Nåværende tredje til sjette ledd blir fjerde til syvende ledd.`` (§ 21-3,
+    # three RENUMBERs plus the REPLACE→INSERT promotion of the co-located
+    # ``§ 21-3 tredje ledd skal lyde:``). Nothing else in the act moves.
     assert {base_id: len(ops) for base_id, ops in grouped.items()} == {
-        "no/lov/1956-12-07-1": 1,
+        "no/lov/1956-12-07-1": 2,
         "no/lov/1985-06-21-83": 1,
         "no/lov/1991-08-30-71": 1,
         "no/lov/1997-06-13-44": 5,
         "no/lov/1997-06-13-45": 5,
-        "no/lov/2007-06-29-75": 6,
+        "no/lov/2007-06-29-75": 10,
         "no/lov/2015-04-10-17": 8,
         "no/lov/2019-06-21-31": 2,
     }
@@ -6911,10 +6925,14 @@ def test_no_w35_w21_section_412_witness_is_byte_identical() -> None:
     grouped = iter_no_document_change_ops(html_bytes, "no/lovtid/2009-06-19-74")
 
     assert len(grouped) == 218
-    assert sum(len(ops) for _base_id, ops in grouped) == 484
+    # 484 -> 493 at W-66: nine sibling-set ledd relabel legs across six of this
+    # act's consequential items (straffeloven 2005 § 5, straffeprosessloven
+    # § 13, § 41 a, § 32, § 47, § 50). The group COUNT is unmoved, which is the
+    # base-binding property this pin was written for.
+    assert sum(len(ops) for _base_id, ops in grouped) == 493
 
     by_base = dict(grouped)
-    assert len(by_base["no/lov/2005-05-20-28"]) == 22
+    assert len(by_base["no/lov/2005-05-20-28"]) == 24
     assert len(by_base["no/lov/1975-06-13-39"]) == 1
     assert [op.target.path for op in by_base["no/lov/1751-10-02-0"]] == [
         (("section", "19"), ("sentence", "last"))
@@ -6934,7 +6952,11 @@ def test_no_w35_w21_section_412_witness_is_byte_identical() -> None:
             destination = op.destination.path if op.destination is not None else ""
             digest.update(f"{base_id}|{op.action.value}|{op.target.path}|{destination}|".encode())
             digest.update("\n".join(_flatten(op.payload)).encode())
-    assert digest.hexdigest()[:32] == "4ae75aec8c4e068a383edbf1fe360cff"
+    # W-66 re-digest: the nine new relabel legs are part of the digested stream,
+    # so the digest necessarily moves with them. Everything the digest was written
+    # to hold — which base act each op binds to, and the payload under each — is
+    # asserted above it and is unchanged.
+    assert digest.hexdigest()[:32] == "555a43dda16e9e319209a15d6d4596b3"
 
 
 # ---------------------------------------------------------------------------
@@ -8089,3 +8111,397 @@ def test_no_w75_multi_address_non_substitution_change_node_is_untouched() -> Non
     assert (replace_218.payload.children[0].text or "").startswith(
         "For å få tillatelse til å være advokat ved Høyesterett"
     )
+
+
+# ── W-66: the atomic sibling-set ledd relabel ────────────────────────────────
+
+
+def test_no_w66_set_relabel_tries_the_shipped_sentence_parser_first() -> None:
+    """W-66: the additive ordering is a test's fact, not a comment's claim.
+
+    ``_no_ledd_set_relabel_pairs`` returns WHICH attempt matched. Everything
+    W-56's shipped ``_no_ledd_shift_pairs_from_sentence`` already parses must come
+    back tagged ``shipped`` — the widened pattern is only ever reached on a
+    sentence the shipped one declined, so no sentence that parses today can change
+    what it parses.
+    """
+    # The W-66 payoff witness, no/lovtid/2017-06-16-67 → no/lov/2015-02-13-9.
+    # NOTE the arity: "og nytt syvende" is the SECOND destination of a 2 → 2
+    # bijection with the newness marker on it, NOT a third limb. The ledger's
+    # sizing called this an unequal 2 → 3 shape; it is not, and no unequal-arity
+    # relabel occurs anywhere in the accepted population.
+    assert _no_ledd_set_relabel_pairs("Nåværende § 3 femte og sjette ledd blir sjette og nytt syvende ledd.") == (
+        "3",
+        [(5, 6), (6, 7)],
+        "shipped",
+    )
+    # Section spelled AFTER the qualifier — no/lovtid/2009-06-19-109.
+    assert _no_ledd_set_relabel_pairs("§ 29 nåværende fjerde til sjette ledd blir femte til sjuende ledd.") == (
+        "29",
+        [(4, 5), (5, 6), (6, 7)],
+        "shipped",
+    )
+    # No section of its own: the address is the walk's problem, not the
+    # sentence parser's. Empty string, never a guess.
+    assert _no_ledd_set_relabel_pairs("Nåværende femte og sjette ledd blir sjette og sjuende ledd.") == (
+        "",
+        [(5, 6), (6, 7)],
+        "shipped",
+    )
+
+
+def test_no_w66_set_relabel_widening_is_the_currency_qualifier_and_nothing_else() -> None:
+    """W-66: 50 accepted occurrences (47 distinct leads) need only W-61's set.
+
+    The widened attempt differs from the shipped one in exactly one token. Both
+    word orders are attested, so both are witnessed here.
+    """
+    # no/lovtid/2003-07-04-78 → straffeprosessloven 1902.
+    assert _no_ledd_set_relabel_pairs("Gjeldende fjerde ledd blir nytt tredje ledd.") == ("", [(4, 3)], "widened")
+    # no/lovtid/2018-06-15-38 → no/lov/2017-06-16-53.
+    assert _no_ledd_set_relabel_pairs("Någjeldende annet ledd blir tredje ledd.") == ("", [(2, 3)], "widened")
+    # nynorsk, with a ``til`` range through the shared ordinal vocabulary.
+    assert _no_ledd_set_relabel_pairs("Gjeldande andre til fjerde ledd blir tredje til femte ledd.") == (
+        "",
+        [(2, 3), (3, 4), (4, 5)],
+        "widened",
+    )
+
+
+def test_no_w66_set_relabel_requires_the_currency_qualifier() -> None:
+    """W-66: the qualifier is the premise, so it cannot be optional.
+
+    "Andre ledd blir nytt tredje ledd." says nothing about which edition its
+    ordinals are read against, and reading the source set against the
+    PRE-operation snapshot is this production's whole claim. 55 further corpus
+    occurrences, 55 distinct leads, are left refused by this line — deliberately
+    and measurably.
+
+    The same anchoring is what keeps ordinary statutory prose out: a sentence
+    that merely CONTAINS "… ledd blir …" cannot reduce, end to end, to two
+    ordinal lists.
+    """
+    assert _no_ledd_set_relabel_pairs("Andre ledd blir nytt tredje ledd.") is None
+    assert _no_ledd_set_relabel_pairs("Femte ledd blir nytt sjette ledd.") is None
+    assert (
+        _no_ledd_set_relabel_pairs(
+            "Dersom slikt pålegg som nevnt i femte ledd ikke blir fulgt, avgjøres saken etter tredje ledd."
+        )
+        is None
+    )
+    # Two pivots in one sentence: a shape this grammar cannot attribute.
+    assert (
+        _no_ledd_set_relabel_pairs(
+            "Gjeldende femte ledd blir sjette ledd og gjeldende sjette ledd blir syvende ledd."
+        )
+        is None
+    )
+    # A trailing payload clause — the lead is not fully accounted for, so it
+    # lowers nothing (the same polarity W-61's 19 trailing-clause leads get).
+    assert _no_ledd_set_relabel_pairs("Nåværende tredje ledd blir nytt fjerde ledd og skal lyde:") is None
+    # Another container depth is a different address arithmetic.
+    assert _no_ledd_set_relabel_pairs("Nåværende annet punktum blir nytt tredje punktum.") is None
+    # An identity leg means the sentence is not a relabel at all.
+    assert _no_ledd_set_relabel_pairs("Nåværende tredje ledd blir tredje ledd.") is None
+    # Unequal arity: nothing pairs the surplus, so nothing lowers.
+    assert _no_ledd_set_relabel_pairs("Nåværende tredje og fjerde ledd blir femte ledd.") is None
+
+
+def test_no_w66_relabel_order_vacates_before_it_occupies() -> None:
+    """W-66: the atomicity property, stated as an order and proven as a DAG.
+
+    A leg may only run once every leg whose SOURCE is its destination has run.
+    For an overlapping +1 shift that is descending order; for a −1 shift it is
+    ascending; and for the one corpus lead that is not a uniform shift at all it
+    is neither, which is why this is a topological sort rather than a sign test.
+    """
+    assert _no_ordered_set_relabel_pairs([(5, 6), (6, 7)]) == [(6, 7), (5, 6)]
+    assert _no_ordered_set_relabel_pairs([(4, 3), (5, 4)]) == [(4, 3), (5, 4)]
+    assert _no_ordered_set_relabel_pairs([(2, 3), (3, 4), (4, 5)]) == [(4, 5), (3, 4), (2, 3)]
+    # Independent legs keep their source order.
+    assert _no_ordered_set_relabel_pairs([(1, 9), (2, 8)]) == [(1, 9), (2, 8)]
+
+
+def test_no_w66_relabel_refuses_a_pair_set_with_no_safe_order() -> None:
+    """W-66: a swap has no sequential relabel, so it is refused, not ordered.
+
+    No accepted corpus lead is cyclic today, so this guard fires nowhere. It is
+    here because the ABSENCE of a cycle is the only reason the emitted order is a
+    proof rather than a preference.
+    """
+    assert _no_ordered_set_relabel_pairs([(3, 4), (4, 3)]) is None
+    assert _no_ordered_set_relabel_pairs([(1, 2), (2, 3), (3, 1)]) is None
+
+
+def _w66_children(*nodes: str) -> list[etree._Element]:
+    xml = "<main>" + "".join(nodes) + "</main>"
+    return list(etree.fromstring(xml.encode("utf-8")))
+
+
+def test_no_w66_address_inheritance_reads_the_preceding_instruction_lead() -> None:
+    """W-66: the antecedent is the nearest preceding ``article.defaultP``.
+
+    The payload classes are excluded, and that is load-bearing rather than tidy:
+    on the witness instrument the node physically preceding the shift is the
+    PAYLOAD of the lead before it and names a foreign "§ 9". A nearest-any-node
+    rule inherits the wrong section; this rule inherits § 3.
+    """
+    children = _w66_children(
+        '<article class="defaultP">5. I lov 13. februar 2015 nr. 9 om utenrikstjenesten skal § 3 femte ledd lyde:</article>',
+        '<article class="legalP">Statsansatteloven § 9 tredje ledd om at statsansatt som er midlertidig ansatt …</article>',
+        '<article class="defaultP">Nåværende femte og sjette ledd blir sjette og nytt syvende ledd.</article>',
+    )
+    assert _no_antecedent_section_label(children, [0, 0, 0], 2) == ("3", "antecedent_names_section")
+    # A letter-suffixed section survives; a following word does NOT become one.
+    assert _no_antecedent_section_label(
+        _w66_children(
+            '<article class="defaultP">§ 12-1 nytt tredje ledd skal lyde:</article>',
+            '<article class="defaultP">Nåværende tredje ledd blir nytt fjerde ledd.</article>',
+        ),
+        [0, 0],
+        1,
+    ) == ("12-1", "antecedent_names_section")
+    assert _no_antecedent_section_label(
+        _w66_children(
+            '<article class="defaultP">§ 391 a tredje ledd oppheves.</article>',
+            '<article class="defaultP">Gjeldende fjerde ledd blir nytt tredje ledd.</article>',
+        ),
+        [0, 0],
+        1,
+    ) == ("391a", "antecedent_names_section")
+
+
+def test_no_w66_address_inheritance_refuses_rather_than_guesses() -> None:
+    """W-66: every way the antecedent can fail, and the typed reason for it.
+
+    The law-switch case is the one that matters most. A part that changes base act
+    does so with a ``defaultP`` lead naming no section, so a shift immediately
+    after it inherits NOTHING — the rule is self-guarding across law boundaries
+    instead of silently carrying the previous act's section over.
+    """
+    shift = '<article class="defaultP">Nåværende annet ledd blir tredje ledd.</article>'
+    assert _no_antecedent_section_label(
+        _w66_children(
+            '<article class="defaultP">6. I lov 19. juni 2015 nr. 70 om karantene gjøres følgende endringer:</article>',
+            shift,
+        ),
+        [0, 0],
+        1,
+    ) == (None, "antecedent_names_no_section")
+    assert _no_antecedent_section_label(
+        _w66_children('<article class="defaultP">§ 5 og § 7 oppheves.</article>', shift),
+        [0, 0],
+        1,
+    ) == (None, "antecedent_names_several_sections")
+    # Amending another AMENDMENT establishes an address in that amendment, not in
+    # the base act. 7 corpus antecedents, all refused.
+    assert _no_antecedent_section_label(
+        _w66_children('<article class="defaultP">I endringen av § 19-8 skal nytt sjette ledd lyde:</article>', shift),
+        [0, 0],
+        1,
+    ) == (None, "antecedent_is_meta_amendment")
+    # A part boundary stops the search; so does the start of the document.
+    assert _no_antecedent_section_label(
+        _w66_children('<article class="defaultP">§ 4 tredje ledd skal lyde:</article>', shift),
+        [0, 1],
+        1,
+    ) == (None, "part_has_no_antecedent_lead")
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w66_set_relabel_lowers_on_the_payoff_witness_instrument() -> None:
+    """W-66 corpus witness: ``no/lovtid/2017-06-16-67`` → ``no/lov/2015-02-13-9``.
+
+    Item 5 of part ``kapVII`` is two nodes: "… skal § 3 femte ledd lyde:" with its
+    payload, then "Nåværende § 3 femte og sjette ledd blir sjette og nytt syvende
+    ledd." Before W-66 the second node was refused whole and § 3's ledd sequence
+    stayed one slot out of step with the consolidation — five unexplained
+    divergence rows.
+
+    Three separate facts are pinned here, because three separate things have to be
+    right for the result to be right:
+      1. the relabel lowers to TWO RENUMBER ops, not one and not three;
+      2. they are emitted VACATE-FIRST (6 → 7 before 5 → 6), so neither ever
+         lands on a live sibling;
+      3. the co-located "skal lyde" REPLACE at § 3 ledd 5 is promoted to INSERT by
+         the shipped ``_promote_no_replace_with_following_renumber_insert``, which
+         is what makes the pair "insert a new fifth ledd and push the old ones
+         down" rather than "overwrite the fifth ledd and then move it".
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2017-06-16-67", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    adjudications: list[CompileAdjudication] = []
+    grouped = dict(
+        iter_no_document_change_ops(html_bytes, "no/lovtid/2017-06-16-67", adjudications_out=adjudications)
+    )
+    ops = grouped["no/lov/2015-02-13-9"]
+
+    relabel = [
+        op
+        for op in ops
+        if op.action is StructuralAction.RENUMBER
+        and op.source is not None
+        and op.source.raw_text
+        == "Nåværende § 3 femte og sjette ledd blir sjette og nytt syvende ledd."
+    ]
+    assert [(op.target.path, cast(LegalAddress, op.destination).path) for op in relabel] == [
+        ((("section", "3"), ("subsection", "6")), (("section", "3"), ("subsection", "7"))),
+        ((("section", "3"), ("subsection", "5")), (("section", "3"), ("subsection", "6"))),
+    ]
+    assert {op.witness_rule_id for op in relabel} == {"no_section_renumber_relabel"}
+    assert [op.sequence for op in relabel] == sorted(op.sequence for op in relabel)
+
+    promoted = [
+        op
+        for op in ops
+        if op.target.path == (("section", "3"), ("subsection", "5"))
+        and op.action is not StructuralAction.RENUMBER
+    ]
+    assert [str(op.action.value) for op in promoted] == ["insert"]
+
+    assert "Nåværende § 3 femte og sjette ledd blir sjette og nytt syvende ledd." not in {
+        (item.detail or {}).get("source_excerpt")
+        for item in adjudications
+        if item.kind == "no_parse_unstructured_lead_unmatched"
+    }
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w66_unaddressable_relabel_gets_a_typed_receipt_not_a_guess() -> None:
+    """W-66: 40 corpus receipt triples over 37 leads refuse on the address.
+
+    ``no/lovtid/2019-12-13-79`` part ``kapXIV`` opens a law-switch item whose lead
+    names no section, so the relabel immediately after it has no antecedent to
+    inherit from. It gets the typed receipt rather than the generic
+    ``no_parse_unstructured_lead_unmatched`` — and, crucially, no ops.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2019-12-13-79", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    adjudications: list[CompileAdjudication] = []
+    grouped = dict(
+        iter_no_document_change_ops(html_bytes, "no/lovtid/2019-12-13-79", adjudications_out=adjudications)
+    )
+
+    typed = [item for item in adjudications if item.kind == NO_PARSE_LEDD_SET_RELABEL_ADDRESS_UNRESOLVED]
+    assert {(item.detail or {}).get("base_id") for item in typed} == {
+        "no/lov/2000-03-24-16",
+        "no/lov/2000-11-24-81",
+    }
+    assert {(item.detail or {}).get("address_reason") for item in typed} == {"part_has_no_antecedent_lead"}
+    assert all(
+        op.action is not StructuralAction.RENUMBER or "subsection" not in dict(op.target.path)
+        for op in grouped.get("no/lov/2000-03-24-16", ())
+    )
+
+
+def _w66_relabel_op(sequence: int, section: str, src: int, dst: int) -> LegalOperation:
+    from lawvm.norway.grafter import NO_LEDD_SET_RELABEL_PROVENANCE_TAG
+
+    return LegalOperation(
+        op_id=f"no/lovtid/9999-01-01-1:{sequence}",
+        sequence=sequence,
+        action=StructuralAction.RENUMBER,
+        target=LegalAddress(path=(("section", section), ("subsection", str(src)))),
+        destination=LegalAddress(path=(("section", section), ("subsection", str(dst)))),
+        source=OperationSource(statute_id="no/lovtid/9999-01-01-1", raw_text="relabel", title="x"),
+        provenance_tags=("base_act:no/lov/1999-01-01-1", "fallback:unstructured", NO_LEDD_SET_RELABEL_PROVENANCE_TAG),
+        group_id=f"no/lovtid/9999-01-01-1:{sequence}",
+        witness_rule_id="no_section_renumber_relabel",
+    )
+
+
+def _w66_statute(n_ledd: int) -> IRStatute:
+    return IRStatute(
+        statute_id="no/lov/1999-01-01-1",
+        title="Testlov",
+        body=IRNode(
+            kind=IRNodeKind.BODY,
+            children=(
+                IRNode(
+                    kind=IRNodeKind.SECTION,
+                    label="7",
+                    children=tuple(
+                        IRNode(kind=IRNodeKind.SUBSECTION, label=str(i), text=f"ledd {i}")
+                        for i in range(1, n_ledd + 1)
+                    ),
+                ),
+            ),
+        ),
+    )
+
+
+def test_no_w66_relabel_applies_when_the_top_destination_is_free() -> None:
+    """W-66 apply: the ordinary case, and it must still work.
+
+    A five-ledd section, "current fourth and fifth become fifth and sixth". Slot 6
+    does not exist, so nothing is written over and both legs land.
+    """
+    ops = [_w66_relabel_op(1, "7", 5, 6), _w66_relabel_op(2, "7", 4, 5)]
+    adjudications: list[CompileAdjudication] = []
+    result = apply_no_ops(_w66_statute(5), ops, adjudications_out=adjudications)
+    section = result.body.children[0]
+    assert [(child.label, child.text) for child in section.children] == [
+        ("1", "ledd 1"),
+        ("2", "ledd 2"),
+        ("3", "ledd 3"),
+        ("5", "ledd 4"),
+        ("6", "ledd 5"),
+    ]
+    assert not [
+        a
+        for a in adjudications
+        if a.kind == "no_replay_ledd_set_relabel_occupied_destination_refused"
+    ]
+
+
+def test_no_w66_relabel_refuses_whole_rather_than_eat_an_occupant() -> None:
+    """W-66 apply: the safety property, and the CASCADE that makes it whole.
+
+    Same relabel against a SIX-ledd section — the shape of a base edition that
+    already carries the amendment being replayed, which is what straffeloven 2005
+    § 3 and verdipapirhandelloven § 9-21 actually are. Slot 6 is occupied by live
+    text this relabel does not move.
+
+    Under the declared θ (RENUMBER, dest_occupied) recovery, ledd 6 would be
+    DELETED and 4/5 shifted onto 5/6. Here the 5 → 6 leg refuses; slot 5 is
+    therefore still occupied when the 4 → 5 leg runs, so that one refuses too —
+    and the tree comes out untouched rather than half-shifted, which is the W-56
+    partial-cascade failure mode.
+    """
+    ops = [_w66_relabel_op(1, "7", 5, 6), _w66_relabel_op(2, "7", 4, 5)]
+    before = _w66_statute(6)
+    adjudications: list[CompileAdjudication] = []
+    result = apply_no_ops(before, ops, adjudications_out=adjudications)
+    assert [(child.label, child.text) for child in result.body.children[0].children] == [
+        (child.label, child.text) for child in before.body.children[0].children
+    ]
+    refusals = [
+        a
+        for a in adjudications
+        if a.kind == "no_replay_ledd_set_relabel_occupied_destination_refused"
+    ]
+    assert [a.op_id for a in refusals] == [
+        "no/lovtid/9999-01-01-1:1",
+        "no/lovtid/9999-01-01-1:2",
+    ]
+    assert all(a.blocking for a in refusals)
+    assert [(a.detail or {}).get("destination_path") for a in refusals] == [
+        "section:7/subsection:6",
+        "section:7/subsection:5",
+    ]
+    # The second leg's destination IS a source of the same group — the condition
+    # the shipped code exempts from the occupancy check because the ordering
+    # promises it will have been vacated. Once a leg may refuse that promise is
+    # void, and the receipt records which case it was.
+    assert [(a.detail or {}).get("destination_was_renumber_source") for a in refusals] == [False, True]
+    assert not [
+        a for a in adjudications if a.kind == "no_replay_renumber_occupied_destination_removed"
+    ]

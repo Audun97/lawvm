@@ -37,6 +37,12 @@ _NON_RULE_LITERALS = frozenset(
         "no_affecting_act:",  # EV-05 per-instance authorization_rule_id f-string prefix
         #                       (grafter.py f"no_affecting_act:{statute_id}"); the rule
         #                       FAMILY no_affecting_act_authorizes_apply IS cataloged.
+        "no_ledd_set_relabel",  # W-66 PROVENANCE TAG stamped on the sibling-set relabel's
+        #                         ops (grafter.py NO_LEDD_SET_RELABEL_PROVENANCE_TAG). It is
+        #                         how the apply seam recognises its own ops — a carrier
+        #                         mark, not a hypothesis a replay could falsify. The rule it
+        #                         gates (no_replay_ledd_set_relabel_occupied_destination_
+        #                         refused) IS cataloged.
         "no_stored_consolidation",  # W-45 census key under build_no_verify_partition's
         #                             ``unverifiable`` sibling (verify.py). A report
         #                             dict key naming a corpus population, not a
