@@ -1414,7 +1414,15 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     "incomplete_bases": 198,
     "bases_with_destructive_writes": 265,
     "hazard_bases": 161,
-    "hazard_destructive_writes": 3713,
+    # 3,713 -> 3,706 at W-75, and exactly one law moves: ``no/lov/2008-06-27-71``
+    # [73, 2] -> [66, 2]. Refusing the word-substitution address lists stops seven
+    # REPLACEs that had been writing the amendment's own prose into plan- og
+    # bygningsloven, a `blocked_contingent` law no scan candidate covers, so this
+    # census was the ONLY pin that could see them. Membership, the content-removing
+    # count and the incomplete/destructive populations are all unchanged; the other
+    # two laws whose text W-75 moves are not known-incomplete, so their writes were
+    # never in this intersection. Signed off 2026-08-12.
+    "hazard_destructive_writes": 3706,
     "hazard_content_removing_writes": 167,
     "hazard_bases_removing_content": 65,
 }
@@ -1424,7 +1432,7 @@ _NO_INCOMPLETE_BASE_HAZARD = {
 #: another entering nets to zero — so the set is pinned too, exactly as W-73's
 #: own accounting had to reason about which laws moved rather than how many.
 _NO_INCOMPLETE_BASE_HAZARD_LAWS_DIGEST = (
-    "d6ed024705e42da480efca7b002cf148a50668babd314bce65775f66d77f5b8c"
+    "fbf3d7252ffdf94caccfca47cb20b62e7208c43f07440f70fb593fbf3d9ab21d"
 )
 
 _REGENERATE = (

@@ -2676,7 +2676,22 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # same 6, ceiling untouched at 1,011 for the TENTH landing running. Only 2 of
     # the 45 base acts whose ops moved are candidates at all, so the scoreboard
     # sees 2 of the 106 new ops; the other 104 are real and off-scan.
-    assert report["divergence_totals"] == {"total": 1504, "ceiling": 1011, "unexplained": 493}
+    # W-75 (2026-08-12). Candidates unmoved at 76, summary unmoved at 29/47/0, and
+    # exactly ONE candidate row changes -- ``no/lov/2015-06-19-70`` 17 -> 14, where
+    # refusing the word-substitution address list gives karanteneloven's destroyed
+    # provisions their text back. This is the FIRST landing in the series where
+    # rows both close and open, and that is the honest shape of the trade: five
+    # ``OPS_MISSING`` rows close (the litra under § 13 first and § 14 second ledd
+    # exist again now that their parent is not overwritten) and two ``MISMATCH``
+    # rows open on those parents, which had been invisible as rows of their own
+    # while their children carried the damage. Every one of the 12 remaining rows
+    # on the law now diverges on exactly the superseded word (``tilsetting…`` vs
+    # ``ansettels…``) instead of showing an address list where the law should be.
+    # Total and unexplained both fall by the same 3, ceiling untouched at 1,011 for
+    # the ELEVENTH landing running. Only 1 of the 13 base acts whose ops moved is a
+    # candidate at all: the other 12 laws lose 92 of the 107 refused ops off-scan,
+    # including plan- og bygningsloven's seven, which no candidate row can see.
+    assert report["divergence_totals"] == {"total": 1501, "ceiling": 1011, "unexplained": 490}
     # 3 -> 2 at W-34: no/lov/2001-01-05-1 gains 4 bound ops from
     # no/lovtid/2015-06-19-65 item 178, so its indexed history is no longer
     # sparse. Its 83 divergences do not move; only the bucket does.

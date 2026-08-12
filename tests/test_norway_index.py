@@ -1675,9 +1675,22 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # acts; four of the eight lose their gap ENTIRELY (`2001-01-19-4`,
     # `2003-12-19-129`, `2005-06-10-40`, `2006-12-15-79`), which is why the
     # receipt count falls by 4 while the pair count falls by 12.
-    assert len(unbound) == 951
-    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2511
-    assert len({diagnostic["source_id"] for diagnostic in unbound}) == 951
+    # 951 -> 953 receipts and 2,511 -> 2,516 pairs at W-75, and this one moves the
+    # WRONG WAY on purpose: it is the W-25/W-26 metric-honesty precedent, not a
+    # regression. Refusing the word-substitution address lists removes the five
+    # (act, law) bindings whose ONLY ops were the refused REPLACEs, so five
+    # declared targets stop being bound and go back on the receipt they had always
+    # been eligible for. The five newly-unbound pairs are EXACTLY the five lost
+    # bindings, one for one -- ``2025-06-20-39``/``1991-07-04-47``,
+    # ``2025-06-20-40``/``1989-02-17-2``, ``2025-06-20-82``/``1916-07-21-2``,
+    # ``2026-06-19-45``/``1984-06-08-59``, ``2026-06-19-48``/``1916-06-30-1`` --
+    # with zero targets rebound and zero receipts lost. Two of the acts had no gap
+    # at all before, which is why the receipt count rises by 2 while the pair count
+    # rises by 5. A binding that existed only because an op wrote the amendment's
+    # own address list into the law was never a binding. Signed off 2026-08-12.
+    assert len(unbound) == 953
+    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2516
+    assert len({diagnostic["source_id"] for diagnostic in unbound}) == 953
 
     # 64 acts gain their FIRST index entry: they announced every one of their
     # parts with an unlisted tail, so they had bound no law at all.
@@ -1749,7 +1762,10 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # ``2002-08-30-67`` -> verdipapirsentralloven ``1985-06-14-62``, is the only
     # base act in the corpus to receive its FIRST op ever, taking the amended-law
     # population from 782 to 783.
-    assert len(bindings) == 6489
+    # 6,489 -> 6,484 at W-75: the five bindings whose only ops were the refused
+    # word-substitution REPLACEs, the same five the receipt count above gains.
+    # Signed off 2026-08-12.
+    assert len(bindings) == 6484
     # 26,218 at W-30; +2 at W-24, both reconciled to a named erratum and neither
     # touching this test's own subject. W-24 lowered two Del-scoped Rettelser
     # corrections into the law each part amends — ``2019-12-20-110`` Del I into
@@ -1843,7 +1859,10 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # on (base act, action, target, destination, payload digest, lead text)
     # because ``op_id`` is a per-document sequence that churns ordinally when a
     # document gains an op.
-    assert sum(entry.n_ops for entry in index.entries) == 27206
+    # 27,206 -> 27,099 at W-75: the 107 REPLACEs the word-substitution address
+    # lists were minting, on a content-keyed identity diff with 0 gained and 0
+    # changed. Signed off 2026-08-12.
+    assert sum(entry.n_ops for entry in index.entries) == 27099
 
 
 def test_no_amendment_index_staleness_report_detects_archive_change(tmp_path) -> None:

@@ -290,6 +290,16 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "whole. Lowering the partial set instead is what let (RENUMBER, "
         "dest_occupied) remove an occupant the true timeline merely moves down."
     ),
+    "no_parse_substitution_announcement_not_lowered": (
+        "A Norway structured change block is the ADDRESS LIST of a word "
+        "substitution announced in prose (\"I følgende bestemmelser skal ordet "
+        "«X» endres til «Y»:\"), so its ``data-change-part`` addresses name "
+        "provisions to substitute IN and the block carries no payload for them. "
+        "Lowering it wrote the amendment's own announcement/address prose over "
+        "every listed provision of in-force law; the block is refused instead, "
+        "leaving the superseded word standing until a substitution can be "
+        "lowered for real."
+    ),
     "no_parse_replace_promoted_to_insert_for_same_target_renumber": (
         "A Norway REPLACE targeting the same address as a RENUMBER in the same "
         "group is compiled as an INSERT at the newly-renumbered label; the "

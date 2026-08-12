@@ -27,6 +27,7 @@ from lawvm.core.semantic_types import IRNodeKind, StructuralAction, TextPatchKin
 from lawvm.replay_adjudication import CompileAdjudication
 from lawvm.norway.grafter import (
     NO_PARSE_COLLECTIVE_REENACTMENT_PART_UNRESOLVED,
+    NO_PARSE_SUBSTITUTION_ANNOUNCEMENT_NOT_LOWERED,
     NOHeadingGroup,
     _extract_no_embedded_multi_act_lead,
     _no_collective_reenactment_lead_base_id,
@@ -7856,3 +7857,235 @@ def test_no_w64_heading_only_lead_reaches_its_title() -> None:
         (StructuralAction.REPEAL, (("section", "27"),)),
     ]
     assert _no_payload_shape(ops[0][2]) == [("heading", None, "Gebyr og avgift")]
+
+
+# --------------------------------------------------------------------------
+# W-75: the multi-provision word substitution whose address list was lowered
+# as N REPLACEs carrying the amendment's own prose.
+# --------------------------------------------------------------------------
+
+
+def _w75_substitution_change_html(*, announcement_node: str, change_node: str) -> bytes:
+    """A ``document-change`` container holding one announcement and one change node.
+
+    Raw markup, not a builder: the whole subject is which SIBLING carries the
+    operative sentence, so a helper that placed the text for the test would beg
+    the question.
+    """
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <main>
+      <section class="document-change" data-document="lov/2015-06-19-70">
+{announcement_node}
+{change_node}
+      </section>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def test_no_w75_substitution_announcement_in_sibling_is_refused() -> None:
+    """W-75: the announcement sits in the preceding sibling; the list is not payload.
+
+    ``I følgende bestemmelser skal ordet «X» endres til «Y»:`` announces the
+    operation and the ``change`` node carries only the addresses it applies to.
+    Lowering the node's ``data-change-part`` wrote the address list itself into
+    every listed provision.
+    """
+    adjudications: list[CompileAdjudication] = []
+    grouped = iter_no_document_change_ops(
+        _w75_substitution_change_html(
+            announcement_node=(
+                '<article class="defaultP">I følgende bestemmelser skal ordet '
+                "«tilsettingsmyndigheten» endres til «ansettelsesmyndigheten»:</article>"
+            ),
+            change_node=(
+                '<article class="change" data-change-part="lov/2015-06-19-70/§13/ledd/1 '
+                'lov/2015-06-19-70/§14/ledd/2">'
+                '<article class="defaultP">§ 13 første ledd, § 14 andre ledd.</article>'
+                "</article>"
+            ),
+        ),
+        "no/lovtid/2025-02-07-1",
+        adjudications_out=adjudications,
+    )
+
+    assert grouped == []
+    refusals = [a for a in adjudications if a.kind == NO_PARSE_SUBSTITUTION_ANNOUNCEMENT_NOT_LOWERED]
+    assert len(refusals) == 1
+    detail = refusals[0].detail
+    assert refusals[0].blocking is True
+    assert detail["announcement_source"] == "preceding_sibling"
+    assert "«tilsettingsmyndigheten» endres til «ansettelsesmyndigheten»" in str(detail["announcement"])
+    assert detail["refused_address_count"] == 2
+    assert detail["other_structured_attributes"] == ()
+
+
+def test_no_w75_substitution_announcement_in_the_node_itself_is_refused() -> None:
+    """W-75: Lovdata's other rendering puts the announcement INSIDE the change node.
+
+    ``no/lovtid/2025-12-22-129`` and ``no/lovtid/2026-06-19-45`` write the
+    announcement as the change node's own first line, so a discriminator that
+    only read the preceding sibling would leave those minting REPLACEs whose
+    payload is the announcement sentence.
+    """
+    adjudications: list[CompileAdjudication] = []
+    grouped = iter_no_document_change_ops(
+        _w75_substitution_change_html(
+            announcement_node='<article class="defaultP">II</article>',
+            change_node=(
+                '<article class="change" data-change-part="lov/2015-06-19-70/§13/ledd/1 '
+                'lov/2015-06-19-70/§14/ledd/2">'
+                '<article class="defaultP">I følgende bestemmelser skal «Markedsrådet» endres '
+                "til «Konkurranseklagenemnda»:</article>"
+                '<article class="defaultP">§ 13 første ledd, § 14 andre ledd.</article>'
+                "</article>"
+            ),
+        ),
+        "no/lovtid/2025-12-22-129",
+        adjudications_out=adjudications,
+    )
+
+    assert grouped == []
+    refusals = [a for a in adjudications if a.kind == NO_PARSE_SUBSTITUTION_ANNOUNCEMENT_NOT_LOWERED]
+    assert len(refusals) == 1
+    assert refusals[0].detail["announcement_source"] == "own_text"
+
+
+def test_no_w75_a_real_replacement_after_an_announcement_still_lowers() -> None:
+    """W-75: the conjunct that keeps the refusal off genuine amendments.
+
+    ``no/lovtid/2026-06-19-45`` puts four ordinary ``§ X skal lyde: <payload>``
+    change nodes immediately AFTER substitution announcements. Keying the
+    refusal on the preceding sibling alone would refuse all four and delete real
+    replacements, so a node that declares its own operative payload is never a
+    substitution address list — whatever precedes it.
+    """
+    adjudications: list[CompileAdjudication] = []
+    grouped = dict(
+        iter_no_document_change_ops(
+            _w75_substitution_change_html(
+                announcement_node=(
+                    '<article class="defaultP">I følgende bestemmelser endres ordet '
+                    "«politimann» til «en polititjenesteperson»: §§ 176, 198, 206 og 216.</article>"
+                ),
+                change_node=(
+                    '<article class="change" data-change-part="lov/2015-06-19-70/§13/ledd/1">'
+                    '<article class="defaultP">§ 13 første ledd skal lyde:</article>'
+                    '<article class="legalP">Ansettelsesmyndigheten treffer vedtaket.</article>'
+                    "</article>"
+                ),
+            ),
+            "no/lovtid/2026-06-19-45",
+            adjudications_out=adjudications,
+        )
+    )
+
+    assert not [a for a in adjudications if a.kind == NO_PARSE_SUBSTITUTION_ANNOUNCEMENT_NOT_LOWERED]
+    ops = grouped["no/lov/2015-06-19-70"]
+    assert [(op.action, op.target.path) for op in ops] == [
+        (StructuralAction.REPLACE, (("section", "13"), ("subsection", "1"))),
+    ]
+    assert ops[0].payload is not None
+    assert "Ansettelsesmyndigheten treffer vedtaket." in (ops[0].payload.text or "")
+
+
+def test_no_w75_announcement_must_open_the_sentence() -> None:
+    """W-75: ``… hjemmel i følgende bestemmelser med tilhørende forskrifter:`` is payload.
+
+    ``no/lovtid/2025-04-25-12`` § 3 first subsection contains the announcement's
+    words mid-sentence in ordinary operative prose. An unanchored test refuses
+    two genuine replacements on it, so the opener is anchored.
+    """
+    from lawvm.norway.grafter import _no_text_announces_word_substitution
+
+    assert not _no_text_announces_word_substitution(
+        "Plikten til å gi opplysninger etter denne lov omfatter opplysninger som skal gis "
+        "med hjemmel i følgende bestemmelser med tilhørende forskrifter: skatteforvaltningsloven "
+        "«§ 7-2» endres til «§ 7-3»"
+    )
+    # All three conjuncts are load-bearing.
+    assert not _no_text_announces_word_substitution("I følgende bestemmelser skal § 13 endres:")
+    assert not _no_text_announces_word_substitution("I følgende bestemmelser skal «X» lyde slik:")
+    assert not _no_text_announces_word_substitution("I følgende registre skal «X» endres til «Y»:")
+    assert _no_text_announces_word_substitution(
+        "I følgende bestemmelser skal ordet «tilsettingsmyndigheten» endres til «ansettelsesmyndigheten»:"
+    )
+    assert _no_text_announces_word_substitution(
+        "I følgende bestemmelser erstattes uttrykket «politi- og lensmannsetaten» av «politiet»: §§ 1, 18, 21 og 24 b."
+    )
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w75_karanteneloven_substitution_witness_no_longer_lowers() -> None:
+    """W-75 corpus witness: 13 destroyed provisions of karanteneloven.
+
+    ``no/lovtid/2025-02-07-1`` announces ``tilsettingsmyndigheten`` →
+    ``ansettelsesmyndigheten`` over 13 provisions of ``no/lov/2015-06-19-70``
+    and lists them in a sibling ``change`` node. Every one of the 13 REPLACEs
+    it used to mint carried the address list as its payload; a second node in
+    the same instrument carries its own announcement and minted 2 more. The
+    instrument's other, genuine changes are unaffected.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2025-02-07-1", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    adjudications: list[CompileAdjudication] = []
+    grouped = dict(
+        iter_no_document_change_ops(html_bytes, "no/lovtid/2025-02-07-1", adjudications_out=adjudications)
+    )
+
+    refusals = [a for a in adjudications if a.kind == NO_PARSE_SUBSTITUTION_ANNOUNCEMENT_NOT_LOWERED]
+    assert [a.detail["refused_address_count"] for a in refusals] == [13, 2]
+    assert [a.detail["announcement_source"] for a in refusals] == ["preceding_sibling", "own_text"]
+
+    ops = grouped["no/lov/2015-06-19-70"]
+    # Not one op is left carrying the address list or the announcement.
+    assert not [
+        op
+        for op in ops
+        if op.payload is not None
+        and ("I følgende bestemmelser" in (op.payload.text or "") or "§ 13 første ledd," in (op.payload.text or ""))
+    ]
+    # The instrument's genuine work survives: the new § 1 a it enacts.
+    assert (("section", "1a"),) in [op.target.path for op in ops]
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w75_multi_address_non_substitution_change_node_is_untouched() -> None:
+    """W-75 corpus witness: the 232 legitimate multi-address nodes keep lowering.
+
+    ``no/lovtid/2022-05-12-28`` re-enacts domstolloven chapter 11 with a
+    four-address ``data-change-part`` and a real payload. Nothing about it is a
+    substitution, and the refusal must not see it.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2022-05-12-28", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    adjudications: list[CompileAdjudication] = []
+    grouped = dict(
+        iter_no_document_change_ops(html_bytes, "no/lovtid/2022-05-12-28", adjudications_out=adjudications)
+    )
+
+    assert not [a for a in adjudications if a.kind == NO_PARSE_SUBSTITUTION_ANNOUNCEMENT_NOT_LOWERED]
+    ops = grouped["no/lov/1915-08-13-5"]
+    assert [(str(op.action.value), op.target.path) for op in ops][:4] == [
+        ("insert", (("section", "217a"),)),
+        ("replace", (("section", "218"),)),
+        ("replace", (("section", "219"),)),
+        ("replace", (("section", "220"),)),
+    ]
+    assert len(ops) == 20
+    replace_218 = next(op for op in ops if op.target.path == (("section", "218"),))
+    assert replace_218.payload is not None
+    assert (replace_218.payload.children[0].text or "").startswith(
+        "For å få tillatelse til å være advokat ved Høyesterett"
+    )

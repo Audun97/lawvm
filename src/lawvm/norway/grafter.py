@@ -5035,6 +5035,97 @@ def _no_structured_renumber_lead_declares_replacement(lead: str) -> bool:
     return _NO_STRUCTURED_RENUMBER_REPLACEMENT_TAIL_RE.search(lead) is not None
 
 
+# W-75: Lovdata renders a word substitution spanning many provisions as an
+# ANNOUNCEMENT plus an ADDRESS LIST:
+#
+#     I følgende bestemmelser skal ordet «tilsettingsmyndigheten» endres til
+#     «ansettelsesmyndigheten»:
+#     § 13 første ledd, § 13 andre ledd første punktum, … § 20 fjerde ledd.
+#
+# The list carries ``data-change-part`` naming every listed address, so the
+# structured lane reads N targets and takes the node's OWN text as the payload
+# — and the node's own text is the announcement and/or the address list. Every
+# op it mints overwrites a provision of in-force law with the amendment's own
+# prose. Until the substitution can be lowered for real (a substitution op, or
+# a REPLACE whose payload is derived from the target's existing text — the
+# ``content_policy`` vocabulary question), the only sound thing to do with the
+# construct is to refuse it and say so.
+NO_PARSE_SUBSTITUTION_ANNOUNCEMENT_NOT_LOWERED = "no_parse_substitution_announcement_not_lowered"
+
+# The announcement is SENTENCE-INITIAL: "hjemmel i følgende bestemmelser med
+# tilhørende forskrifter:" (no/lovtid/2025-04-25-12) is ordinary payload prose
+# containing the same words mid-sentence, and an unanchored test refuses two
+# genuine replacements on it.
+_NO_SUBSTITUTION_ANNOUNCEMENT_OPENER_RE = compile_classifier_regex(
+    r"^i\s+følgende\s+(?:bestemmelser|bestemmelse|paragrafer|paragraf|lovbestemmelser|lover)\b",
+    re.IGNORECASE,
+    classifier_id="norway.grafter.substitution_announcement_opener",
+)
+# Both remaining conjuncts of the announcement: the substituted term is quoted
+# in guillemets, and the verb is a substitution verb. Corpus phrasings covered:
+# "skal ordet «X» endres til «Y»", "skal «X» endres til «Y»", "skal ordene «X»
+# og «Y» endres til henholdsvis …", "skal uttrykket/formuleringene «X» endres
+# til «Y»", "endres ordet «X» til «Y»", "erstattes uttrykket «X» av «Y»".
+_NO_SUBSTITUTION_ANNOUNCEMENT_TERM_RE = compile_classifier_regex(
+    r"«[^»]+»",
+    classifier_id="norway.grafter.substitution_announcement_term",
+)
+_NO_SUBSTITUTION_ANNOUNCEMENT_VERB_RE = compile_classifier_regex(
+    r"\b(?:endres|erstattes)\b",
+    re.IGNORECASE,
+    classifier_id="norway.grafter.substitution_announcement_verb",
+)
+# A node that declares its own operative payload is NOT an address list, even
+# when an announcement happens to precede it. no/lovtid/2026-06-19-45 puts four
+# genuine "§ X skal lyde: <payload>" change nodes immediately after
+# announcements, so keying on the preceding sibling alone would refuse real
+# amendments — this conjunct is what keeps the refusal off them.
+_NO_SUBSTITUTION_ANNOUNCEMENT_OPERATIVE_RE = compile_classifier_regex(
+    r"\b(?:skal\s+lyde|oppheves|skal\s+ha\s+følgende\s+ordlyd)\b",
+    re.IGNORECASE,
+    classifier_id="norway.grafter.substitution_announcement_operative",
+)
+
+
+def _no_text_announces_word_substitution(text: str) -> bool:
+    """Is this text a multi-provision word-substitution announcement?"""
+    text = _normalize_space(text)
+    # lawvm-regex: owning_parser this IS the substitution-announcement parser
+    if _NO_SUBSTITUTION_ANNOUNCEMENT_OPENER_RE.match(text) is None:
+        return False
+    # lawvm-regex: owning_parser this IS the substitution-announcement parser
+    if _NO_SUBSTITUTION_ANNOUNCEMENT_TERM_RE.search(text) is None:
+        return False
+    # lawvm-regex: owning_parser this IS the substitution-announcement parser
+    return _NO_SUBSTITUTION_ANNOUNCEMENT_VERB_RE.search(text) is not None
+
+
+def _no_substitution_announcement_governing(
+    change_el: etree._Element,
+) -> Optional[tuple[str, str]]:
+    """Return ``(source, announcement)`` when a word substitution governs this node.
+
+    ``source`` is where the announcement was read: ``own_text`` when the change
+    node itself opens with it (Lovdata's usual rendering) or
+    ``preceding_sibling`` when it sits in the sibling ``defaultP`` before the
+    node (``no/lovtid/2025-02-07-1``, ``no/lovtid/2024-06-21-52``). Both are the
+    DOM the lowering reads; neither is an address-count or law-list guess.
+    """
+    own = _normalize_space(" ".join(str(_t) for _t in change_el.itertext()))
+    # lawvm-regex: owning_parser this IS the substitution-announcement parser
+    if _NO_SUBSTITUTION_ANNOUNCEMENT_OPERATIVE_RE.search(own) is not None:
+        return None
+    if _no_text_announces_word_substitution(own):
+        return ("own_text", own)
+    previous = change_el.getprevious()
+    if previous is None or not isinstance(previous.tag, str):
+        return None
+    prior = _normalize_space(" ".join(str(_t) for _t in previous.itertext()))
+    if _no_text_announces_word_substitution(prior):
+        return ("preceding_sibling", prior)
+    return None
+
+
 def iter_no_document_change_ops(
     html_bytes: bytes,
     source_id: str,
@@ -5092,6 +5183,56 @@ def iter_no_document_change_ops(
             lead_text = (
                 _normalize_space(" ".join(str(_t) for _t in lead_articles[0].itertext())) if lead_articles else raw_text
             )
+
+            # W-75: an address list under a word-substitution announcement. Its
+            # ``data-change-part`` addresses are the provisions to substitute IN,
+            # not provisions to overwrite, and the node carries no payload for
+            # them — so lowering it writes the amendment's own prose into every
+            # one. Refuse the whole node rather than the change attribute alone:
+            # the downstream lead/payload recoveries read the same address list
+            # and would re-mint what the attribute lost. The node's other
+            # structured attributes go into the receipt (corpus-wide there are
+            # none today) so a future node carrying one is visible rather than
+            # silently dropped.
+            change_part_token = change_el.get("data-change-part", "").strip()
+            announcement = _no_substitution_announcement_governing(change_el)
+            if change_part_token and announcement is not None:
+                announcement_source, announcement_text = announcement
+                _append_no_parse_adjudication(
+                    adjudications_out,
+                    kind=NO_PARSE_SUBSTITUTION_ANNOUNCEMENT_NOT_LOWERED,
+                    message=(
+                        "Norway structured change block is the address list of a word "
+                        "substitution announced in prose; the substitution has no op kind "
+                        "to lower into, so the block was refused instead of overwriting "
+                        "each listed provision with the amendment's own text."
+                    ),
+                    source_id=source_id,
+                    detail=diagnostic_detail(
+                        rule_id=NO_PARSE_SUBSTITUTION_ANNOUNCEMENT_NOT_LOWERED,
+                        phase="parse",
+                        family="unsupported_or_unresolved_action",
+                        blocking=True,
+                        base_id=base_id,
+                        source_doc=source_doc,
+                        announcement_source=announcement_source,
+                        announcement=announcement_text,
+                        refused_address_count=len(change_part_token.split()),
+                        refused_addresses=tuple(change_part_token.split()),
+                        other_structured_attributes=tuple(
+                            sorted(
+                                name
+                                for name in change_el.attrib
+                                if name.startswith("data-")
+                                and name
+                                in {"data-add-new-part", "data-remove-part", "data-repeal-part", "data-move-part"}
+                            )
+                        ),
+                        raw_text=raw_text,
+                    ),
+                )
+                continue
+
             specs: list[tuple[str, str]] = []
             renumber_specs = _split_move_attr(
                 change_el.get("data-move-part", ""),
