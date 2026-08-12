@@ -166,6 +166,17 @@ attributed to this item, 0 opened, the other 75 laws byte-identical.
 Totals `total=1489 (ceiling=1011, unexplained=478)`; ceiling
 untouched.
 
+W-69a note (verdicts again unmoved at 29/47/0, candidates 76): the
+first row movement this programme has bought by ADDING a production
+rather than refusing one. Exactly TWO laws move and both were named
+in advance by W-69's design pass — karanteneloven
+`no/lov/2015-06-19-70` 12 → 8 and `no/lov/2020-04-17-29` 15 → 8 —
+**11 unexplained rows closed, 0 opened**, the other 74 laws
+byte-identical. Totals `total=1478 (ceiling=1011, unexplained=467)`;
+ceiling untouched. The one row the matching rule deliberately leaves
+open (karanteneloven `§ 20 fjerde ledd`, a genitive) is counted here
+as still open, which is the point of taking whole-word matching.
+
 Batch 03 increased coverage rather than changing an existing verdict: all 20
 old rows stayed byte-identical, and 38 laws that had previously been excluded
 for unresolved commencement entered the scan. Their first durable baseline is:
@@ -3915,6 +3926,19 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    substitution FOR REAL stays OPEN and is W-69's**, because it needs
    an op kind this vocabulary does not have. Sizing for that half is
    measured below and in `.tmp/w75/substitution_sizing.json`.
+   **SUPERSEDED FOR THE OTHER HALF at W-69a** (item 77,
+   `17e5dcfb4`), and the receipt count moves with it: this
+   stopgap's **17 firings become 0**. The construct did NOT need a
+   new op kind after all — an addressed `TEXT_PATCH` was already in
+   the vocabulary with a shipped apply branch and no producer — and
+   `no_parse_substitution_announcement_not_lowered` survives as the
+   S3 conjunct alone (the announcement's pair grammar did not parse),
+   whose only corpus node is refused one conjunct earlier by S2.
+   A live guard with an empty population, not a dead receipt. The
+   family's refusals are now 21 sentence-address + 1
+   multiple-announcement + 1 multi-base, and 23 addresses lower.
+   Three of the five bindings this item removed come back at W-69a,
+   as real ops rather than destructive garbage.
    **The shape.** Lovdata renders a word substitution over many
    provisions as an ANNOUNCEMENT plus an ADDRESS LIST:
    `I følgende bestemmelser skal ordet «tilsettingsmyndigheten»
@@ -4388,15 +4412,33 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    **PHASING (sizes on this session's scale: W-70 small, W-64 medium,
    W-66 large).**
    * **W-69a — addressed substitution at ledd/section/item depth.**
-     MEDIUM. **AUTHORIZED, in progress.** The `TEXT_PATCH` producer
-     plus the full refusal envelope (multiple announcements /
-     multi-base address list / no pair / W-75's two shipped
-     conjuncts / address unresolved / term ambiguous / term not
-     uniquely present as a whole word). Expected: 40 addresses lower,
-     **11 unexplained rows close, 0 open**, refusals 17 → ~5 typed.
-     Stops: firing census 10 → 10; hazard delta attributed op by op;
-     any `removal_wrong` a STOP; the 4 genuine replacements W-75's
-     conjunct (2) protects must still land.
+     MEDIUM. **DONE (`17e5dcfb4`, 2026-08-12; artifacts
+     `.tmp/w69a/`).** The `TEXT_PATCH` producer plus the full refusal
+     envelope shipped as designed, with the two corrections below.
+     **11 unexplained rows close, 0 open**, exactly the design's
+     projection and on exactly the design's laws. Full narrative at
+     item 77.
+     **Correction to this phase's own sizing, and it is arithmetic
+     the design pass owed itself.** "40 addresses lower" counts the
+     `deterministic_whole_word` population WITHOUT subtracting the
+     nodes S1/S2 refuse whole — and **17 of those 40 are
+     `no/lovtid/2026-06-19-48`'s**, the four-announcement node S1
+     exists to refuse. The reachable set is **23 address-lowerings
+     over 22 distinct addresses** (one address is named by two
+     different announcements of the same instrument), and that is
+     what shipped. The row payoff is unaffected: none of the 17 is
+     on either payoff law.
+     **Correction to "refusals 17 → ~5 typed": it is 17 → 0.** S2
+     (address list names exactly one base act) is evaluated before
+     S3 (pair grammar parses) as the design's own ordering requires,
+     and S3's ONLY corpus node — `no/lovtid/2025-06-20-39` — is also
+     the second multi-base node. So S3 keeps the W-75 receipt as a
+     live conjunct with an EMPTY population today, and the family's
+     17 refusals become 21 sentence-address + 1 multiple-announcement
+     + 1 multi-base, all typed.
+     Stops: firing census **10 → 10** element for element; hazard
+     delta **+1 write, attributed**; **no `removal_wrong`**; the 4
+     genuine replacements W-75's conjunct (2) protects still land.
    * **W-69b — read-only sentence materialization on the text-patch
      path.** SMALL. +19 addresses, **+8 rows** → cumulative **19 of
      478**. Stop: the tree SHAPE of every touched ledd changes, so
@@ -4634,6 +4676,205 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    census sees but which W-69's tightened classifier did not
    separate — size them in the same pass.
 
+77. **W-69a (the addressed word substitution, lowered for real):**
+   DONE (`17e5dcfb4`, 2026-08-12; artifacts `.tmp/w69a/`). From
+   W-69's design pass; replaces W-75's stopgap refusal for every
+   node whose announcement and address list the envelope can prove.
+   **The construct the corpus writes as "announcement plus address
+   list" now lowers to one addressed `TEXT_PATCH` per (listed
+   address × announced pair), and 11 unexplained divergence rows
+   close — the first time this programme has closed a scoreboard row
+   by ADDING a production rather than by refusing one.**
+   **What was built.** Parse plane, inside the structured
+   document-change walk where W-75's blanket refusal stood: S1 the
+   governing text carries exactly ONE announcement opener, S2 the
+   address list names exactly the enclosing block's base act, S3 the
+   `(FROM, TO)` pair grammar parses, S4 W-75's two shipped
+   conjuncts unchanged, plus a per-address gate that refuses a
+   `setning/N` leaf as W-69b's and an unlowerable address token as
+   its own kind. Surviving addresses mint
+   `TEXT_PATCH`/`TextPatchSpec(REPLACE, TextSelector(match_text=FROM),
+   replacement=TO)` on the shipped apply branch that had no producer.
+   Apply plane: S6 (exactly one of the announcement's FROM terms
+   present) and S7 (that term present exactly once, as a whole word,
+   and exactly once as a raw substring) with a typed refusal and a
+   new `_NO_SKIP_ADJUDICATION_KINDS` member.
+   **THE DESIGN IS WRONG ABOUT WHERE HALF 2'S REFUSALS LIVE, and
+   this is the item's headline.** §4.1 states that half 2 "needs
+   nothing" in the conserved partition because "its refusals are all
+   parse-plane (S1–S7): no op is minted". S5–S7 cannot run at parse:
+   they need the addressed node's TEXT, and the parse plane has no
+   statute — replay CONSUMES parse output, so asking for one is
+   circular. The design's own §3.2 header says as much ("the first
+   four are cheap string tests on the announcement; the rest need
+   the tree"); §4.1's conclusion simply does not survive its own
+   premise. Taken in the refusing direction: S6/S7 are an apply-plane
+   conjunct emitting
+   `no_replay_substitution_term_not_uniquely_present`, registered in
+   the skip set so a refused op is a typed REJECTION and not an op
+   that landed nothing. Letting it fall through to the θ
+   content-identical `replay_noop` cell would have conserved the
+   partition and thrown the REASON away — and two of the six reasons
+   (`substring_only`, `multiple`) are not no-ops at all: the shipped
+   `_apply_no_text_replace` is an unguarded recursive `str.replace`
+   honouring neither occurrence nor word boundary, so it would have
+   written, wrongly.
+   **S5's `no_statute` arm degrades, and it is stated rather than
+   quietly dropped.** The design has S5 refuse the 104 addresses
+   whose base act has no replayed statute "loudly, with the receipt
+   naming the base act so an acquisition sweep can harvest the list".
+   No parse-plane receipt can know that either. Those ops are now
+   MINTED and simply never applied, which is the corpus-wide norm —
+   440 of 784 base laws error before any op. The list stays
+   harvestable, better than before: join the ops carrying
+   `no_addressed_substitution` against
+   `amended_executable_law_status_map()`, which cannot go stale the
+   way a frozen receipt can. **Net honesty change: 104 addresses that
+   carried a blocking refusal now carry a banked op instead.** That
+   is the same treatment every other unreplayable base's ops get, and
+   it is the price of lowering the construct at all.
+   **Two sizing corrections, both arithmetic the design owed itself
+   (detail at item 69's W-69a bullet).** "40 addresses lower" did not
+   subtract the 17 that belong to the four-announcement node S1
+   refuses whole: the reachable set is **23 lowerings over 22
+   addresses**. "Refusals 17 → ~5" is **17 → 0**, because S2 runs
+   before S3 and S3's only corpus node is also the second multi-base
+   node — the W-75 receipt survives as a live conjunct with an empty
+   population.
+   **Frozen before implementing, matched after, element for
+   element** (`.tmp/w69a/freeze.json`, `f1_freeze.py`). Parse census
+   `no_parse_substitution_announcement_not_lowered` **17 → 0**;
+   `no_parse_substitution_sentence_address_out_of_scope` **21**,
+   `no_parse_substitution_multiple_announcements` **1**,
+   `no_parse_substitution_multi_base_address_list` **1**,
+   `no_parse_substitution_address_not_lowerable` **0** — the frozen
+   set exactly, **0 introduced**. Adjudications 10,885 → 10,891.
+   Ops **28,252 → 28,363**: on a content-keyed identity diff (source,
+   base, action, target, destination, payload shape,
+   match/replacement — never `op_id`) **111 gained, 0 lost, 0
+   changed**, every one a `text_patch`. 84 surviving addresses, of
+   which 27 sit under two-pair `henholdsvis` announcements, so 57×1 +
+   27×2. The family minted NOTHING at base, so this widening is
+   purely additive. Unstructured refusals **8,583**, entries
+   **2,565**, amended-law population **784**, candidates **76**,
+   malformed-attr receipts **3** — all unmoved.
+   **Bindings 6,493 → 6,496, reported rather than buried.** Three
+   `(instrument, base)` pairs appear because the substitution was the
+   instrument's ONLY content for that law:
+   `2025-06-20-40|1989-02-17-2`, `2025-06-20-82|1916-07-21-2`,
+   `2026-06-19-45|1984-06-08-59`. These are exactly three of the five
+   bindings W-75's refusal REMOVED, returning now that the ops are
+   real rather than destructive garbage; the other two are its
+   multi-base nodes, which S1/S2 refuse whole. The declared-target
+   receipt census falls in step — **949 → 947 receipts, 2,507 → 2,504
+   pairs** — with the W-34/W-35 conservation exact at 3 = 3, nothing
+   rebound and nothing newly unbound. All three bases have no
+   original-act source, so no replay reaches them; 0 bindings
+   removed, and no base act gains its first op.
+   **Blast (all 784 base laws, against a pristine checkout of
+   `1ffd5c5a7`; content-keyed on statute digest, per-kind
+   adjudication census and receipts keyed on action + bound/landed
+   path + footprint, never on `op_id`).** **15 laws move, 769
+   byte-identical, residue 0.** Only THREE have any text movement —
+   `no/lov/2015-06-19-70`, `no/lov/2020-04-17-29`,
+   `no/lov/2008-06-27-71`. The other 12 move by RECEIPT ONLY, zero
+   ops and zero text, and NO attaches an instrument's parse
+   adjudications to every base act it amends: **11** are co-amended
+   by `no/lovtid/2026-06-19-48` and see its one refusal change kind
+   from `…announcement_not_lowered` to `…multiple_announcements`;
+   **1** (`no/lov/2018-06-15-40`) is co-amended by
+   `no/lovtid/2024-06-21-52` and picks up its six sentence-address
+   refusals. Corpus receipts 6,032 → 6,047 (+15 landed
+   `text_replace`), destructive 4,552 → 4,567, **content-removing
+   207 → 207**.
+   **The 15 landed writes, by law.** karanteneloven 6 (§ 13 first,
+   § 14 second, § 14 fourth ×2 — two different announcements of the
+   same instrument name that ledd — § 15 first, § 20 first);
+   `no/lov/2020-04-17-29` 8 (§ 13 first ×2, § 14 first, § 14 third,
+   § 15 first, § 15 second, § 17 first, § 21 second); plan- og
+   bygningsloven 1 (§ 12-12 fifth, `gjennom elektroniske medier` →
+   `på internett`). The gap between 23 parse-eligible and 15 landed
+   is COMMENCEMENT, not the envelope: `no/lovtid/2026-06-19-45` is
+   skipped contingent for `no/lov/2008-05-15-35` and
+   `no/lovtid/2025-06-20-93` for plan- og bygningsloven, so their 9
+   ops are banked against a future commencement rather than
+   measurable today.
+   **Payoff: unexplained 478 → 467, ceiling 1,011 UNMOVED, 0 rows
+   opened, and only the two design-named laws move.**
+   `no/lov/2015-06-19-70` 12 → 8 (§ 13 first, § 14 second, § 14
+   fourth, § 15 first); `no/lov/2020-04-17-29` 15 → 8 (§ 13 first,
+   § 14 first, § 14 third, § 15 first, § 15 second, § 17 first, § 21
+   second). Total 1,489 → **1,478**. Scoreboard **29/47/0** and
+   candidates **76** unmoved; no consistent → inconsistent flip.
+   **What stays open on those two laws, honestly.** Karanteneloven
+   `§ 20 fjerde ledd` reads the genitive `tilsettingsmyndighetens`,
+   which whole-word matching declines — the design priced this at
+   exactly one row and it cost exactly one row. Its `§ 20 første
+   ledd` write DOES land (the ledd is later replaced wholesale by
+   another amendment, so the row was never this item's), and the
+   design's "term absent, the archived edition already carries the
+   amendment" reading was measured against the FINAL tree rather
+   than mid-timeline. `no/lov/2020-04-17-29`'s five remaining
+   addresses are `§ 11` and `§ 18` ledd that do not exist in the
+   replayed tree at all — that law's own `§ 11 fjerde ledd oppheves`
+   + relabel sequence, a different defect, correctly out of scope.
+   **Hazard census re-pinned CONSCIOUSLY, W-66 style. 3,809 →
+   3,810 destructive writes; membership 161 laws, 168
+   content-removing over 65, 199 incomplete and 265 with destructive
+   writes ALL unchanged.** ONE law moves:
+   `no/lov/2008-06-27-71` **[79, 2] → [80, 2]**, the § 12-12 write
+   above, and that law is `blocked_contingent` — exactly the posture
+   this census exists to watch. The other 14 landed writes are on
+   laws that are not known-incomplete, so the census cannot see them;
+   the census measures an intersection. Content-removing does not
+   move because a text substitution REPLACES and never removes,
+   which is the whole reason this widening is cheaper than W-66's.
+   **Firings 10 → 10, element for element; verdict table gains no
+   row; no `removal_wrong`.** The sweep baseline is regenerated
+   because the grafter is in the replay import closure and the CODE
+   digest moves; the corpus digest does not, and beyond the code
+   digest the ONLY movement is the one hazard count and its
+   `laws_digest`. W-72's blind spot is unchanged at 4 laws.
+   **Two deviations from `design.md`, both recorded at the code.**
+   (a) The op shape's `occurrence_mode="First"`: `TextSelector`'s
+   annotation is `Literal["Auto", "Last"]` (its `__post_init__`
+   accepts `"First"`, so core's type and runtime contract already
+   disagree), NO's apply reads NEITHER occurrence field, and the
+   exactly-one guarantee is carried by the apply conjunct — so the
+   field would be decoration, and widening a core `Literal` for
+   decoration reaches three `us_federal` branches testing
+   `occurrence_mode != "Auto"`. Not set. (b) The detail vocabulary's
+   `inflection_only` is kept as the design's word, but it measures a
+   CASE-insensitive-only match; the genuine Norwegian inflection is a
+   substring match and lands in `substring_only`. Named at the emit
+   site rather than renamed, so the receipt stays auditable against
+   the design.
+   **Report-only findings.** (i) The whole-word matcher is a
+   `str.find` scan, not a regex: a per-term `re.compile` of an
+   f-string is the frozen-residue shape the FW-07/FW-08 ratchets keep
+   out of a parser module, and a test proves the scanner equals
+   `(?<!\w)TERM(?!\w)` on 4,000 randomized inputs including the
+   non-overlapping advance. (ii) Occurrence counting is per node's
+   OWN text and summed, matching `_apply_no_text_replace`'s recursion
+   exactly; counting over a flattened join could match a multi-word
+   term across a node boundary `str.replace` can never see. The two
+   agree on all 27 resolvable corpus addresses, so this is a
+   soundness guard rather than a behaviour change. (iii) S6's corpus
+   population is EMPTY under this envelope — the one address carrying
+   two announced terms belongs to the four-announcement node S1
+   refuses — but the two-pair announcements that DO survive have
+   prefix-nested FROM terms (`namsmannen`/`namsmannens`), so the
+   conjunct is a live guard on 27 addresses whose bases are currently
+   unacquirable. (iv) One design-pass number does not survive
+   re-derivation, and it is the one that JUSTIFIES S1: item 75 (iii)
+   and the design's §2.2 say **9** of the 13 term-absent addresses
+   belong to `no/lovtid/2026-06-19-48`. Re-derived at this base it is
+   **8** (the other five are `2025-06-20-39` 2,
+   `2026-06-19-45` 2, `2025-02-07-1` 1). The argument is unchanged —
+   a clear majority of the term-absent population is one node's
+   announcement crosstalk — and the corrected figure is what the code
+   and the catalog say.
+
 ## 5. Demo / Inspection Tooling
 
 Browser views of any replayable law across its own amendment dates, plus an
@@ -4650,6 +4891,48 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-12 (W-69a — the addressed word substitution lowers for
+  real; `17e5dcfb4`)** — **11 unexplained divergence rows close,
+  the first this programme has closed by ADDING a production instead
+  of refusing one, and the design's projection was right to the row
+  and to the law.** W-75's blanket refusal of the "announcement plus
+  address list" construct is replaced by a producer minting one
+  addressed `TEXT_PATCH` per (listed address × announced pair) onto
+  a shipped apply branch that had no producer. Envelope: S1 exactly
+  one announcement opener, S2 the address list names exactly the
+  block's base act, S3 the `(FROM, TO)` grammar parses, S4 W-75's two
+  conjuncts unchanged, a per-address `setning/N` refusal (W-69b's),
+  and at apply S6/S7 — exactly one announced term present, occurring
+  exactly once as a whole word and exactly once as a substring.
+  **The design is wrong that half 2 needs nothing in the conserved
+  partition.** S5–S7 need the addressed node's TEXT and the parse
+  plane has no statute — replay consumes parse output — so
+  `no_replay_substitution_term_not_uniquely_present` joins
+  `_NO_SKIP_ADJUDICATION_KINDS`; two of its six reasons would
+  otherwise have WRITTEN, wrongly, through an unguarded recursive
+  `str.replace`. S5's `no_statute` arm degrades from a receipt to a
+  banked op, stated at item 77 rather than dropped. Two sizing
+  corrections: 23 addresses lower, not 40 (the design's count did not
+  subtract the 17 belonging to the four-announcement node S1 refuses
+  whole), and the W-75 receipt goes 17 → 0, not 17 → ~5 (S2 subsumes
+  S3's only node). Measured: ops 28,252 → 28,363 (+111, nothing
+  lost, content-keyed, every one a `text_patch`); adjudications
+  10,885 → 10,891; bindings 6,493 → 6,496 and the declared-target
+  receipt census 949 → 947 in step (three bindings W-75 removed,
+  returning as real ops); entries 2,565, population 784, candidates
+  76, unstructured refusals 8,583 all unmoved. Blast
+  over all 784 laws against pristine `1ffd5c5a7`: **15 movers, 769
+  byte-identical, residue 0**, only three with text movement, 15
+  landed writes, corpus content-removing 207 → 207. Scan: total 1,489
+  → 1,478, ceiling **1,011 unmoved**, unexplained 478 → 467,
+  scoreboard **29/47/0**, 0 rows opened, no flips. Hazard census
+  re-pinned consciously: 3,809 → **3,810**, one law
+  (`no/lov/2008-06-27-71` [79, 2] → [80, 2]), membership and
+  content-removing unchanged. **Firings 10 → 10 element for element;
+  no `removal_wrong`; W-72's blind spot unchanged at 4 laws.**
+  (Artifacts `.tmp/w69a/`: frozen expected set, before/after
+  censuses, blast attribution, ladder logs.)
 
 - **2026-08-12 (W-69 design pass — records only, no product change)**
   — **Both halves of W-69 turn out to need parse productions and not
