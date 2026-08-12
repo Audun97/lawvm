@@ -2,7 +2,7 @@
  "_doc": "Corpus-wide (RENUMBER, dest_occupied) firing sweep + the known-incomplete-base destructive-write census, over EVERY Norway base law. Cached because the sweep is ~10 CPU-minutes and the norway shard is not. `corpus` and `code` are the staleness receipt: tests/test_no_renumber_migration.py recomputes both and FAILS when either moved, rather than passing on a stale measurement. Regenerate with `uv run python scripts/inventory_no_occupied_destination_sweep.py --update-baseline`. NOTE: this file is a RECEIPT of what the corpus does, never a statement of what it should do -- a new firing row here is an unadjudicated firing, and it must be adjudicated W-54 style before the verdict table in the test is extended.",
  "as_of": "2026-07-10",
  "code": {
-  "digest": "c091f25bc097e588e08fa937790225f3dadd0152e32f745e5991f7e719b3c24e",
+  "digest": "6065382b4f74fda4627ec7a6ad9473d447417c806dd1c5b49094e34e8a7f957a",
   "files": [
    {
     "digest": "e3c727b378ae497fa2fc65a174f837dff2a8417dd458378ac22af35d4bf339fb",
@@ -269,7 +269,7 @@
     "module": "lawvm.norway.commencement_instruments"
    },
    {
-    "digest": "583e50ba8dd9a5b91b9931fb084358ae6f3754f698636bfe56506a1b2a2ed013",
+    "digest": "3b424bfa6efb58e8a67d579a5c0db6e34a76e4f2f739c603c83a8f7930cc72be",
     "module": "lawvm.norway.grafter"
    },
    {

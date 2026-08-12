@@ -44,6 +44,8 @@ from lawvm.norway.grafter import (
     _no_unstructured_law_switch_lead_base_id,
     _no_antecedent_section_label,
     _no_ledd_set_relabel_pairs,
+    _no_move_attr_skeleton,
+    _no_normalize_move_attr,
     _no_ordered_set_relabel_pairs,
     _no_section_repeal_list_labels,
     _no_unstructured_section_renumber_labels,
@@ -2771,6 +2773,286 @@ def test_iter_no_document_change_ops_keeps_valid_structured_renumber_when_malfor
     ]
     assert adjudications[0].detail["raw_token"] == "lov/2025-01-01-1/§6"
     assert adjudications[0].detail["reason"] == "missing_separator"
+    # W-70: nothing here is repairable — the well-formed token carries the real
+    # separator, so the stray-space rule cannot fuse ``§6`` onto it.
+    assert adjudications[0].detail["normalization"] == "declined:no_rule_matched"
+
+
+# ── W-70: the malformed ``data-move-part`` normalizer ─────────────────────────
+#
+# One test per rule and one per decline reason, because "the normalizer works"
+# is not a claim any single corpus assertion can carry: what has to hold is that
+# each repair fires on exactly its own defect and that everything else is left
+# refused. The corpus population itself is pinned in
+# ``tests/test_no_renumber_migration.py``.
+
+
+def _move_attr_change_block(base: str, move: str, lead: str) -> bytes:
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <article class="document-change" data-document="{base}">
+      <article class="change" data-move-part="{move}">
+        <article class="defaultP">{lead}</article>
+      </article>
+    </article>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def test_no_normalize_move_attr_repairs_a_stray_space_after_the_separator() -> None:
+    """``a;; b`` is ONE pair Lovtidend split with a space, not two broken tokens."""
+    result = _no_normalize_move_attr(
+        ["lov/2025-01-01-1/§8/ledd/2;;", "lov/2025-01-01-1/§8/ledd/3"],
+        base_id="no/lov/2025-01-01-1",
+    )
+
+    assert result.rule == "separator_spacing"
+    assert result.pairs == (("lov/2025-01-01-1/§8/ledd/2", "lov/2025-01-01-1/§8/ledd/3"),)
+
+
+def test_no_normalize_move_attr_repairs_the_alternate_separator_glyph() -> None:
+    """``a::b`` is ``a;;b`` mistyped; source order is the token's own order."""
+    result = _no_normalize_move_attr(
+        ["lov/2025-01-01-1/§4/ledd/4::lov/2025-01-01-1/§4/ledd/5"],
+        base_id="no/lov/2025-01-01-1",
+    )
+
+    assert result.rule == "alternate_separator"
+    assert result.pairs == (("lov/2025-01-01-1/§4/ledd/4", "lov/2025-01-01-1/§4/ledd/5"),)
+
+
+def test_no_normalize_move_attr_declines_a_value_with_no_separator_anywhere() -> None:
+    """Two bare addresses do not say WHICH is the source, so nothing is guessed.
+
+    This is the corpus shape of ``no/lovtid/2024-06-21-46``, and the decline is
+    the second, independent reason that block stays refused (the first is the
+    cross-base gate below).
+    """
+    result = _no_normalize_move_attr(
+        ["lov/2025-01-01-1/§65/ledd/2", "lov/2025-01-01-1/§65/ledd/3"],
+        base_id="no/lov/2025-01-01-1",
+    )
+
+    assert result == type(result)(None, "declined:no_rule_matched")
+
+
+def test_no_normalize_move_attr_declines_when_a_token_names_another_base_act() -> None:
+    """The gate that keeps W-70's two named blocks refused.
+
+    Both carry addresses in an act the block is not filed under, because the
+    archive mis-attributed the endringsdel to the preceding base. Repairing the
+    separator there would relabel a law this instrument never addressed at this
+    address, so the value is declined BEFORE any rule is tried.
+    """
+    result = _no_normalize_move_attr(
+        ["lov/2010-03-26-9/§65/ledd/2;;", "lov/2010-03-26-9/§65/ledd/3"],
+        base_id="no/lov/2022-05-12-28",
+    )
+
+    assert result.pairs is None
+    assert result.rule == "declined:cross_base_tokens"
+
+
+def test_no_normalize_move_attr_declines_a_partial_repair() -> None:
+    """All or nothing: a rule that leaves ANY token malformed is not taken.
+
+    ``a;; b;; c`` fuses only its second pair; the first token still has no
+    destination, so the block keeps its receipts rather than lowering half a
+    shift — the W-56 failure mode this codebase already paid for once.
+    """
+    result = _no_normalize_move_attr(
+        [
+            "lov/2025-01-01-1/§8/ledd/2;;",
+            "lov/2025-01-01-1/§8/ledd/3;;",
+            "lov/2025-01-01-1/§8/ledd/4",
+        ],
+        base_id="no/lov/2025-01-01-1",
+    )
+
+    assert result.pairs is None
+    assert result.rule == "declined:no_rule_matched"
+
+
+def test_no_normalize_move_attr_applies_at_most_one_rule() -> None:
+    """Two different defects in one value is not a clean-up pass; it is a decline.
+
+    Each rule must produce a FULLY well-formed token list on its own. Chaining
+    them would make the repaired value depend on rule order in a way no receipt
+    could explain, so the value is refused instead.
+    """
+    result = _no_normalize_move_attr(
+        [
+            "lov/2025-01-01-1/§4/ledd/4::lov/2025-01-01-1/§4/ledd/5",
+            "lov/2025-01-01-1/§8/ledd/2;;",
+            "lov/2025-01-01-1/§8/ledd/3",
+        ],
+        base_id="no/lov/2025-01-01-1",
+    )
+
+    assert result.pairs is None
+    assert result.rule == "declined:no_rule_matched"
+
+
+def test_no_normalize_move_attr_leaves_a_well_formed_value_alone() -> None:
+    """The shipped path is not merely unchanged — it is not entered at all."""
+    result = _no_normalize_move_attr(
+        ["lov/2025-01-01-1/§4;;lov/2025-01-01-1/§5"], base_id="no/lov/2025-01-01-1"
+    )
+
+    assert result.pairs is None
+    assert result.rule == "declined:well_formed"
+
+
+def test_no_move_attr_skeleton_is_blind_to_separators_and_nothing_else() -> None:
+    """The invariant every rule is checked against.
+
+    Both repairs preserve the skeleton; a rewrite that swapped, dropped or
+    invented an address would not, and the normalizer rejects any rule whose
+    output moves it.
+    """
+    spaced = ["lov/2025-01-01-1/§8/ledd/2;;", "lov/2025-01-01-1/§8/ledd/3"]
+    typo = ["lov/2025-01-01-1/§8/ledd/2::lov/2025-01-01-1/§8/ledd/3"]
+    fused = ["lov/2025-01-01-1/§8/ledd/2;;lov/2025-01-01-1/§8/ledd/3"]
+    swapped = ["lov/2025-01-01-1/§8/ledd/3;;lov/2025-01-01-1/§8/ledd/2"]
+
+    assert _no_move_attr_skeleton(spaced) == _no_move_attr_skeleton(typo)
+    assert _no_move_attr_skeleton(fused) == _no_move_attr_skeleton(spaced)
+    assert _no_move_attr_skeleton(swapped) != _no_move_attr_skeleton(spaced)
+
+
+def test_iter_no_document_change_ops_lowers_a_separator_spaced_move_attr() -> None:
+    """The karanteneloven § 8 shape, end to end: two legs, one receipt, no refusal.
+
+    The legs come out in the shipped REVERSED order — Lovtidend writes them in
+    ascending prose order — so the 3->4 leg vacates before 2->3 fills, exactly as
+    a well-formed attribute of the same shape would.
+    """
+    xml = _move_attr_change_block(
+        "lov/2015-06-19-70",
+        "lov/2015-06-19-70/§8/ledd/2;; lov/2015-06-19-70/§8/ledd/3 "
+        "lov/2015-06-19-70/§8/ledd/3;; lov/2015-06-19-70/§8/ledd/4",
+        "Nåværende § 8 andre og tredje ledd blir tredje og nytt fjerde ledd.",
+    )
+    adjudications: list[CompileAdjudication] = []
+
+    grouped = dict(
+        iter_no_document_change_ops(xml, "no/lovtid/2025-02-07-1", adjudications_out=adjudications)
+    )
+
+    ops = grouped["no/lov/2015-06-19-70"]
+    assert [(op.action, op.target.path, op.destination.path if op.destination else ()) for op in ops] == [
+        (
+            StructuralAction.RENUMBER,
+            (("section", "8"), ("subsection", "3")),
+            (("section", "8"), ("subsection", "4")),
+        ),
+        (
+            StructuralAction.RENUMBER,
+            (("section", "8"), ("subsection", "2")),
+            (("section", "8"), ("subsection", "3")),
+        ),
+    ]
+    # A repaired leg is an ORDINARY structured leg: same provenance, and
+    # deliberately NOT W-66's refuse-on-occupied tag — see the block comment at
+    # the normalizer for why a separator repair must not change apply semantics.
+    assert all(op.provenance_tags == ("base_act:no/lov/2015-06-19-70",) for op in ops)
+    assert [item.kind for item in adjudications] == ["no_parse_structured_move_attr_normalized"]
+    detail = adjudications[0].detail
+    assert detail["rule_id"] == "no_parse_structured_move_attr_normalized"
+    assert detail["phase"] == "parse"
+    assert detail["family"] == "source_pathology"
+    assert detail["blocking"] is False
+    assert detail["quirks_disposition"] == "apply"
+    assert detail["attr_name"] == "data-move-part"
+    assert detail["reason"] == "separator_spacing"
+    assert detail["normalized_legs"] == (
+        "lov/2015-06-19-70/§8/ledd/2;;lov/2015-06-19-70/§8/ledd/3",
+        "lov/2015-06-19-70/§8/ledd/3;;lov/2015-06-19-70/§8/ledd/4",
+    )
+
+
+def test_iter_no_document_change_ops_lowers_an_alternate_separator_move_attr() -> None:
+    """The ``no/lovtid/2025-06-20-74`` shape: one glyph, one leg."""
+    xml = _move_attr_change_block(
+        "lov/2017-12-15-107",
+        "lov/2017-12-15-107/§4/ledd/4::lov/2017-12-15-107/§4/ledd/5",
+        "Nåværende § 4 fjerde ledd blir nytt femte ledd.",
+    )
+    adjudications: list[CompileAdjudication] = []
+
+    grouped = dict(
+        iter_no_document_change_ops(xml, "no/lovtid/2025-06-20-74", adjudications_out=adjudications)
+    )
+
+    assert [
+        (op.action, op.target.path, op.destination.path if op.destination else ())
+        for op in grouped["no/lov/2017-12-15-107"]
+    ] == [
+        (
+            StructuralAction.RENUMBER,
+            (("section", "4"), ("subsection", "4")),
+            (("section", "4"), ("subsection", "5")),
+        )
+    ]
+    assert [item.kind for item in adjudications] == ["no_parse_structured_move_attr_normalized"]
+    assert adjudications[0].detail["reason"] == "alternate_separator"
+
+
+def test_iter_no_document_change_ops_keeps_a_cross_base_malformed_move_attr_refused() -> None:
+    """``no/lovtid/2024-06-21-46``, verbatim: refused, and the receipt says why.
+
+    Nothing is lowered, the two per-token receipts survive unchanged, and each
+    now carries the decline reason so the standing population pin can hold the
+    REASON and not merely the count.
+    """
+    xml = _move_attr_change_block(
+        "lov/2022-05-12-28",
+        "lov/2010-03-26-9/§65/ledd/2 lov/2010-03-26-9/§65/ledd/3",
+        "§ 65 nåværende andre ledd blir tredje ledd.",
+    )
+    adjudications: list[CompileAdjudication] = []
+
+    grouped = iter_no_document_change_ops(
+        xml, "no/lovtid/2024-06-21-46", adjudications_out=adjudications
+    )
+
+    assert grouped == []
+    assert [item.kind for item in adjudications] == [
+        "no_parse_malformed_structured_renumber_attr_skipped",
+        "no_parse_malformed_structured_renumber_attr_skipped",
+    ]
+    assert {item.detail["normalization"] for item in adjudications} == {"declined:cross_base_tokens"}
+    assert {item.detail["reason"] for item in adjudications} == {"missing_separator"}
+
+
+def test_iter_no_document_change_ops_does_not_receipt_a_well_formed_move_attr() -> None:
+    """Additivity, asserted where it matters: no new receipt on the shipped path."""
+    xml = _move_attr_change_block(
+        "lov/2025-01-01-1",
+        "lov/2025-01-01-1/§4;;lov/2025-01-01-1/§5",
+        "Nåværende § 4 blir ny § 5.",
+    )
+    adjudications: list[CompileAdjudication] = []
+
+    grouped = dict(
+        iter_no_document_change_ops(xml, "no/lovtid/2025-06-20-90", adjudications_out=adjudications)
+    )
+
+    assert [
+        (op.action, op.target.path, op.destination.path if op.destination else ())
+        for op in grouped["no/lov/2025-01-01-1"]
+    ] == [(StructuralAction.RENUMBER, (("section", "4"),), (("section", "5"),))]
+    assert [
+        item.kind
+        for item in adjudications
+        if item.kind
+        in {
+            "no_parse_structured_move_attr_normalized",
+            "no_parse_malformed_structured_renumber_attr_skipped",
+        }
+    ] == []
 
 
 def test_iter_no_document_change_ops_records_missing_structured_base() -> None:

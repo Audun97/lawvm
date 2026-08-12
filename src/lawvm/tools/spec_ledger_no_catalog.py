@@ -295,7 +295,20 @@ _NO_RULE_SPECS: Dict[str, str] = {
     ),
     "no_parse_malformed_structured_renumber_attr_skipped": (
         "A Norway structured renumber attribute had a malformed token shape "
-        "(e.g. trailing separators); skipped with a typed finding, not coerced."
+        "(e.g. trailing separators); skipped with a typed finding, not coerced. "
+        "Since W-70 the finding also carries WHY the normalizer declined to "
+        "repair it — cross-base tokens, no matching rule, or an address that "
+        "will not lower."
+    ),
+    "no_parse_structured_move_attr_normalized": (
+        "A Norway ``data-move-part`` whose token grammar refuses was repaired by "
+        "an explicit SEPARATOR rule and its legs lowered: a stray space after "
+        "``;;`` (one intended pair split into two broken tokens) or ``::`` typed "
+        "for ``;;``. Every rule preserves the value's address skeleton exactly, "
+        "so a repair can never invent, drop or reorder an address; a value whose "
+        "tokens name another base act, or that no single rule makes wholly "
+        "well-formed, stays refused. Non-blocking: the legs LANDED, and this is "
+        "their provenance. W-70."
     ),
     "no_parse_structured_move_legs_completed_from_lead_prose": (
         "A Norway structured change block's ``data-move-part`` declared FEWER "

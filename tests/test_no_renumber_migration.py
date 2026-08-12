@@ -1935,3 +1935,271 @@ def test_no_w66_relabel_refusal_keeps_two_live_provisions_standing() -> None:
             for a in replay.adjudications
             if a.kind == _OCCUPIED_DESTINATION_ADJUDICATION_KIND
         ] == expected_firings, base_id
+
+
+# ---- W-70: the malformed ``data-move-part`` population, and its tripwire -----
+#
+# WHY A PIN AND NOT A COUNT. Lovtidend's ``data-move-part`` is authoritative
+# markup, and six corpus blocks carry a value the token grammar refuses. That
+# population GROWS with archive refreshes — three of the six arrived in the one
+# refresh between W-56 and W-62, and until W-70 nothing said so: the refusals
+# simply accumulated, each one a shift that silently did not happen. The census
+# below is re-derived from a live parse of every amendment artifact (~13s), so a
+# refresh that introduces a NEW malformed block, or changes what an existing one
+# lowers, fails HERE and forces an adjudication instead of a quiet receipt.
+#
+# READ THE POLARITY, same as the hazard census above. The refused half is a
+# finding held open, not blessed behaviour; the normalized half is a write that
+# HAPPENS, and its legs are pinned by content because those legs move live law.
+_MALFORMED_MOVE_ATTR_KIND = "no_parse_malformed_structured_renumber_attr_skipped"
+_NORMALIZED_MOVE_ATTR_KIND = "no_parse_structured_move_attr_normalized"
+
+_MOVE_ATTR_POPULATION_INSTRUCTION = (
+    "The malformed `data-move-part` population moved. Do NOT relax this pin. "
+    "For each block that ENTERED: read the attribute off the `article.change` node "
+    "the parser reads (never a text-plane grep), decide whether its defect class has "
+    "a normalizer rule in `grafter._NO_MOVE_ATTR_NORMALIZATION_RULES`, and if it does "
+    "NOT, leave it refused and add it to `_NO_MALFORMED_MOVE_ATTR_REFUSED` with its "
+    "decline reason. A block whose tokens name a base act other than the block's own "
+    "must STAY refused — repairing it would relabel a law the instrument does not "
+    "address there. For each block that LEFT: say in the ledger which item repaired "
+    "the archive or the parse. If a block moved from refused to normalized, its new "
+    "legs are new RENUMBERs against live law: re-run "
+    "`scripts/inventory_no_occupied_destination_sweep.py --update-baseline` and "
+    "adjudicate every new firing W-54 style before pinning anything. A "
+    "`removal_wrong` verdict is a STOP."
+)
+
+#: Blocks whose malformed attribute is DELIBERATELY left refused, keyed
+#: ``(instrument, base_id)``. Both members are cross-base: the archive filed the
+#: endringsdel under the preceding base act, so every address in the attribute
+#: names a law the block is not amending here.
+#:
+#: * ``no/lovtid/2024-06-21-46`` — value ``…lov/2010-03-26-9/§65/ledd/2
+#:   lov/2010-03-26-9/§65/ledd/3`` under base ``no/lov/2022-05-12-28``
+#:   (vergemålsloven addresses inside a barnevernsloven part). It is refused
+#:   TWICE over: no separator appears anywhere in the value, so which address is
+#:   the source is not stated by the markup either.
+#: * ``no/lovtid/2026-02-06-2`` — two well-formed pairs fused at a missing space,
+#:   naming ``lov/2024-06-21-41`` under base ``no/lov/2022-12-16-91``. The fusion
+#:   is repairable in principle and deliberately has no rule: the only corpus
+#:   instance is cross-base, so a rule for it would be written against evidence
+#:   that could never be allowed to land.
+_NO_MALFORMED_MOVE_ATTR_REFUSED: dict[tuple[str, str], dict[str, object]] = {
+    ("no/lovtid/2024-06-21-46", "no/lov/2022-05-12-28"): {
+        "receipts": 2,
+        "defect_reasons": ("missing_separator",),
+        "decline": "declined:cross_base_tokens",
+    },
+    ("no/lovtid/2026-02-06-2", "no/lov/2022-12-16-91"): {
+        "receipts": 1,
+        "defect_reasons": ("multiple_separators",),
+        "decline": "declined:cross_base_tokens",
+    },
+}
+
+#: Blocks W-70's normalizer repairs, with the legs each one lowers. Content, not
+#: counts: these six legs are RENUMBERs against live law, and the whole point of
+#: the pin is that a refresh cannot change WHICH provision moves WHERE in silence.
+_NO_NORMALIZED_MOVE_ATTR: dict[tuple[str, str], dict[str, object]] = {
+    ("no/lovtid/2024-06-25-60", "no/lov/2007-06-29-75"): {
+        "rule": "separator_spacing",
+        "legs": ("lov/2007-06-29-75/§19-1/ledd/5;;lov/2007-06-29-75/§19-1/ledd/3",),
+    },
+    ("no/lovtid/2025-02-07-1", "no/lov/2015-06-19-70"): {
+        "rule": "separator_spacing",
+        "legs": (
+            "lov/2015-06-19-70/§8/ledd/2;;lov/2015-06-19-70/§8/ledd/3",
+            "lov/2015-06-19-70/§8/ledd/3;;lov/2015-06-19-70/§8/ledd/4",
+        ),
+    },
+    ("no/lovtid/2025-04-10-11", "no/lov/1998-07-17-56"): {
+        "rule": "separator_spacing",
+        "legs": (
+            "lov/1998-07-17-56/§3-2/ledd/3;;lov/1998-07-17-56/§3-2/ledd/2",
+            "lov/1998-07-17-56/§3-2/ledd/4;;lov/1998-07-17-56/§3-2/ledd/3",
+        ),
+    },
+    ("no/lovtid/2025-06-20-74", "no/lov/2017-12-15-107"): {
+        "rule": "alternate_separator",
+        "legs": ("lov/2017-12-15-107/§4/ledd/4;;lov/2017-12-15-107/§4/ledd/5",),
+    },
+}
+
+
+@pytest.fixture(scope="module")
+def _no_move_attr_population():
+    """Re-derive the whole ``data-move-part`` pathology census from a live parse.
+
+    Every amendment artifact, through the production entry point, collecting the
+    two typed receipts. Keyed ``(instrument, base_id)``: no instrument in this
+    corpus carries two malformed blocks against one base, and if one ever does
+    the merged row still moves the pin rather than hiding behind it.
+    """
+    if not _REAL_ARCHIVE.exists():
+        pytest.skip("requires the local Lovdata archive (data/norway.farchive)")
+    from lawvm.norway.grafter import parse_no_amendment_groups
+    from lawvm.norway.sources import iter_no_amendment_artifacts
+
+    receipts: dict[tuple[str, str], int] = {}
+    declines: dict[tuple[str, str], str] = {}
+    reasons: dict[tuple[str, str], set[str]] = {}
+    normalized: dict[tuple[str, str], dict[str, object]] = {}
+    leg_counts: dict[tuple[str, str], int] = {}
+    artifacts = 0
+    for artifact in iter_no_amendment_artifacts(_REAL_ARCHIVE):
+        artifacts += 1
+        adjudications: list = []
+        parse_no_amendment_groups(
+            artifact.payload, artifact.logical_id, adjudications_out=adjudications
+        )
+        for item in adjudications:
+            detail = item.detail or {}
+            key = (artifact.logical_id, str(detail.get("base_id", "")))
+            if item.kind == _MALFORMED_MOVE_ATTR_KIND:
+                receipts[key] = receipts.get(key, 0) + 1
+                declines[key] = str(detail.get("normalization", ""))
+                reasons.setdefault(key, set()).add(str(detail.get("reason", "")))
+            elif item.kind == _NORMALIZED_MOVE_ATTR_KIND:
+                legs = tuple(detail.get("normalized_legs", ()))
+                leg_counts[key] = len(legs)
+                normalized[key] = {"rule": str(detail.get("reason", "")), "legs": legs}
+    refused: dict[tuple[str, str], dict[str, object]] = {
+        key: {
+            "receipts": count,
+            "defect_reasons": tuple(sorted(reasons[key])),
+            "decline": declines[key],
+        }
+        for key, count in receipts.items()
+    }
+    return {
+        "artifacts": artifacts,
+        "refused": refused,
+        "normalized": normalized,
+        "refused_receipts": sum(receipts.values()),
+        "normalized_legs": sum(leg_counts.values()),
+    }
+
+
+@pytest.mark.skipif(
+    not _REAL_ARCHIVE.exists(),
+    reason="requires the local Lovdata archive (data/norway.farchive)",
+)
+def test_no_malformed_move_attr_population_is_pinned(_no_move_attr_population) -> None:
+    """W-70's standing tripwire: the malformed-attr population, membership-level.
+
+    Six blocks in 3,089 amendment artifacts carry a ``data-move-part`` the token
+    grammar refuses. Four are repaired by an explicit separator rule and lower
+    six RENUMBER legs; two are refused, both because their addresses name another
+    act. Anything else — a seventh block, a defect class with no rule, a block
+    that starts lowering different legs — is a finding, and this is where it
+    surfaces.
+    """
+    population = _no_move_attr_population
+    assert population["artifacts"] == 3089, (
+        f"the amendment plane holds {population['artifacts']} artifacts, not 3,089; "
+        "the census below is measured over a different corpus. "
+        + _MOVE_ATTR_POPULATION_INSTRUCTION
+    )
+    assert population["refused"] == _NO_MALFORMED_MOVE_ATTR_REFUSED, (
+        "The REFUSED malformed `data-move-part` blocks are not the pinned set. "
+        + _MOVE_ATTR_POPULATION_INSTRUCTION
+    )
+    assert population["normalized"] == _NO_NORMALIZED_MOVE_ATTR, (
+        "The NORMALIZED `data-move-part` blocks, or the legs they lower, are not the "
+        "pinned set. These legs move live law. "
+        + _MOVE_ATTR_POPULATION_INSTRUCTION
+    )
+    assert population["refused_receipts"] == 3
+    assert population["normalized_legs"] == 6
+
+
+@pytest.mark.skipif(
+    not _REAL_ARCHIVE.exists(),
+    reason="requires the local Lovdata archive (data/norway.farchive)",
+)
+def test_no_cross_base_malformed_move_attrs_are_never_normalized(
+    _no_move_attr_population,
+) -> None:
+    """W-70's named must-not-recover set, asserted on its own.
+
+    Split out from the census above so its failure message cannot be mistaken for
+    ordinary population drift. These two blocks name ``lov/2010-03-26-9`` and
+    ``lov/2024-06-21-41`` inside parts filed under ``lov/2022-05-12-28`` and
+    ``lov/2022-12-16-91``: the base-tracking defect is in the ARCHIVE, and a
+    separator repair applied on top of it would relabel provisions of an act the
+    block does not amend at that address. Refusing under-applies; recovering
+    would write into the wrong law.
+    """
+    population = _no_move_attr_population
+    for key in (
+        ("no/lovtid/2024-06-21-46", "no/lov/2022-05-12-28"),
+        ("no/lovtid/2026-02-06-2", "no/lov/2022-12-16-91"),
+    ):
+        assert key not in population["normalized"], (
+            f"{key[0]} was NORMALIZED under base {key[1]}. It is cross-base: every "
+            "address in its `data-move-part` names another act. This is a STOP, not a "
+            "pin to update — the repair would relabel a law the block does not amend. "
+            + _MOVE_ATTR_POPULATION_INSTRUCTION
+        )
+        assert population["refused"].get(key, {}).get("decline") == "declined:cross_base_tokens", (
+            f"{key[0]} is no longer refused for being cross-base. "
+            + _MOVE_ATTR_POPULATION_INSTRUCTION
+        )
+
+
+@pytest.mark.skipif(
+    not _REAL_ARCHIVE.exists(),
+    reason="requires the local Lovdata archive (data/norway.farchive)",
+)
+def test_no_karanteneloven_ledd_shift_lands_after_move_attr_normalization() -> None:
+    """W-70's payoff at the apply plane, and the only base law it reaches.
+
+    ``no/lovtid/2025-02-07-1`` shifts karanteneloven § 8's second and third ledd
+    up one and inserts a new second ledd. With the attribute refused, only the
+    INSERT lowered — and it landed on the LIVE second ledd, which the
+    insert-occupied recovery then replaced: the old andre ledd was overwritten
+    and the old tredje ledd never moved. Normalizing the attribute mints the two
+    legs, the kernel's structural-vacate stage runs 3->4 before 2->3, and the
+    insert arrives at a slot that is genuinely empty.
+
+    Three things are asserted because three different things could regress: the
+    ledd population (the shift happened), the withdrawn recovery (it happened for
+    the right reason, not by the insert being dropped), and the absence of any
+    occupied-destination firing (the shift did not eat a sibling on the way).
+    """
+    from lawvm.norway.index import build_no_amendment_index
+
+    index = build_no_amendment_index(_REAL_ARCHIVE)
+    replay = replay_no_to_pit(
+        "no/lov/2015-06-19-70", as_of="2026-07-10", data_dir=_REAL_ARCHIVE, index=index
+    )
+    assert replay.error is None
+    assert replay.replayed is not None
+
+    sections = [
+        node
+        for node in _no_walk_nodes(replay.replayed.body)
+        if str(getattr(node.kind, "value", node.kind)) == "section" and node.label == "8"
+    ]
+    assert len(sections) == 1
+    labels = [
+        child.label
+        for child in sections[0].children
+        if str(getattr(child.kind, "value", child.kind)) == "subsection"
+    ]
+    assert labels == ["1", "2", "3", "4"], labels
+
+    kinds = [a.kind for a in replay.adjudications]
+    assert _MALFORMED_MOVE_ATTR_KIND not in kinds
+    assert kinds.count(_NORMALIZED_MOVE_ATTR_KIND) == 1
+    assert "no_replay_insert_occupied_target_replaced" not in kinds
+    assert _OCCUPIED_DESTINATION_ADJUDICATION_KIND not in kinds
+
+
+def _no_walk_nodes(node):
+    stack = [node]
+    while stack:
+        current = stack.pop()
+        yield current
+        stack.extend(current.children or ())

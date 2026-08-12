@@ -2707,7 +2707,23 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # refuses by construction, which was invisible while the whole ledd sequence
     # was out of step. Total and unexplained both fall by the same 10, ceiling
     # untouched at 1,011 for the TWELFTH landing running. Signed off 2026-08-12.
-    assert report["divergence_totals"] == {"total": 1491, "ceiling": 1011, "unexplained": 480}
+    # W-70 (2026-08-12). Candidates unmoved at 76, summary unmoved at 29/47/0, and
+    # exactly ONE candidate row changes — ``no/lov/2015-06-19-70`` 14 -> 12, the
+    # two rows W-72(c)'s entrant triage attributed to this item and no others; the
+    # other 75 laws are byte-identical. 2 rows close, 0 open, so total and
+    # unexplained fall by the same 2 and the ceiling is untouched at 1,011 for the
+    # THIRTEENTH landing running. Both rows were ONE defect wearing two shapes:
+    # with the block's malformed ``data-move-part`` refused, its INSERT of a new
+    # § 8 andre ledd landed on the LIVE andre ledd and the insert-occupied
+    # recovery replaced it, so ``subsection:3`` held the old tredje ledd's text
+    # (MISMATCH/text_drift) and ``subsection:4`` never existed
+    # (OPS_MISSING/replay_lowering_gap). Normalizing the separator mints 2->3 and
+    # 3->4, the vacate stage runs 3->4 first, and the destroyed andre ledd ("Lønn
+    # eller vederlag for annet arbeid…") is back at its consolidation address.
+    # Only 1 of the 4 base acts this item touches is a candidate at all: two of
+    # the other three are skipped contingent and one has no original-act source,
+    # so their recovered legs are banked, not scored. Signed off 2026-08-12.
+    assert report["divergence_totals"] == {"total": 1489, "ceiling": 1011, "unexplained": 478}
     # 3 -> 2 at W-34: no/lov/2001-01-05-1 gains 4 bound ops from
     # no/lovtid/2015-06-19-65 item 178, so its indexed history is no longer
     # sparse. Its 83 divergences do not move; only the bucket does.

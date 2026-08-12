@@ -1909,7 +1909,18 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # ``_promote_no_replace_with_following_renumber_insert`` converts REPLACE ->
     # INSERT at 214 addresses. Semantically 0 lost, 0 rebound. Signed off
     # 2026-08-12.
-    assert sum(entry.n_ops for entry in index.entries) == 28246
+    # 28,246 -> 28,252 at W-70: +6 ledd RENUMBERs, and they are the whole of it —
+    # four ``data-move-part`` values whose only defect was a SEPARATOR (a stray
+    # space after ``;;`` on three, ``::`` typed for ``;;`` on one) are normalized
+    # and lower the legs they always meant to. Per instrument: 2024-06-25-60
+    # 65 -> 66, 2025-02-07-1 11 -> 13, 2025-04-10-11 25 -> 27, 2025-06-20-74
+    # 16 -> 17. On the content-keyed identity diff 8 gained / 2 lost, and the 2
+    # are again the SAME ops promoted REPLACE -> INSERT by
+    # ``_promote_no_replace_with_following_renumber_insert`` (§ 3-2 ledd 3 and § 4
+    # ledd 4, each a "skal lyde:" beside a relabel moving that same ledd).
+    # Semantically 0 lost, 0 rebound. The two cross-base malformed blocks stay
+    # refused and contribute nothing. Signed off 2026-08-12.
+    assert sum(entry.n_ops for entry in index.entries) == 28252
 
 
 def test_no_amendment_index_staleness_report_detects_archive_change(tmp_path) -> None:

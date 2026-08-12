@@ -1011,6 +1011,9 @@ def _split_change_attr(value: str, default_action: str) -> list[tuple[str, str]]
 
 NO_PARSE_MALFORMED_STRUCTURED_RENUMBER_ATTR_SKIPPED = "no_parse_malformed_structured_renumber_attr_skipped"
 NO_PARSE_MOVE_LEGS_COMPLETED_FROM_LEAD_PROSE = "no_parse_structured_move_legs_completed_from_lead_prose"
+#: W-70. Non-blocking: the attribute was repaired and its legs LOWERED, so this
+#: is a provenance receipt for a write that happened, not a refusal.
+NO_PARSE_STRUCTURED_MOVE_ATTR_NORMALIZED = "no_parse_structured_move_attr_normalized"
 
 
 def _structured_move_attr_skip_reason(token: str) -> Optional[str]:
@@ -1029,6 +1032,194 @@ def _structured_move_attr_skip_reason(token: str) -> Optional[str]:
     return None
 
 
+# ── W-70: the malformed ``data-move-part``, and what may be recovered from it ──
+#
+# A well-formed ``data-move-part`` is whitespace-separated ``<source>;;<dest>``
+# tokens. 286 of the corpus's 3,885 change blocks carry the attribute; SIX carry
+# a value the token grammar above refuses. Before this production those six mint
+# 14 ``no_parse_malformed_structured_renumber_attr_skipped`` receipts (one per
+# malformed token) and lower nothing; after it, four recover and 3 receipts
+# remain. The population GROWS with archive refreshes — three of the six arrived
+# in the one refresh between W-56 and W-62 — which is why the membership is
+# pinned by a standing tripwire (``test_no_renumber_migration.py``) rather than
+# left to accumulate in silence.
+#
+# WHAT THE SIX ACTUALLY ARE, read off the ``article.change`` node the parser
+# itself reads (not a text-plane grep), attribute value verbatim:
+#
+#   1. ``…§19-1/ledd/5;; …§19-1/ledd/3``            (2024-06-25-60)
+#   2. ``…§8/ledd/2;; …§8/ledd/3 …§8/ledd/3;; …§8/ledd/4``   (2025-02-07-1)
+#   3. ``…§3-2/ledd/3;; …§3-2/ledd/2 …§3-2/ledd/4;; …§3-2/ledd/3`` (2025-04-10-11)
+#        — a STRAY SPACE after the separator. Whitespace is the pair delimiter,
+#          so ``a;; b`` splits into ``a;;`` (no destination) and ``b`` (no
+#          separator): one intended pair read as two broken tokens.
+#   4. ``…§4/ledd/4::…§4/ledd/5``                    (2025-06-20-74)
+#        — ``::`` typed for ``;;``. One intended pair, one wrong glyph.
+#   5. ``…§65/ledd/2 …§65/ledd/3``                   (2024-06-21-46)
+#        — no separator ANYWHERE. Which address is the source is not stated by
+#          the markup, and this production does not guess: NO RULE.
+#   6. ``…bokstav/u;;…bokstav/vlov/…/bokstav/v;;…bokstav/w`` (2026-02-06-2)
+#        — two pairs fused at a missing space. Recoverable in principle; NO RULE
+#          here, see the cross-base gate below.
+#
+# THE SHAPE OF THE REPAIR. Each rule is a total function on the token list, and
+# every rule is a SEPARATOR repair: it may move, retype or delete separator
+# glyphs and whitespace and nothing else. That is enforced, not asserted — the
+# ``skeleton`` (every token concatenated with ``;`` and ``:`` removed) must be
+# byte-identical before and after, so no rule can invent an address, drop one,
+# or reorder two. Lovdata paths contain no ``;`` or ``:``, which is what makes
+# the skeleton a faithful identity for "the addresses, in order".
+#
+# TWO GATES, and both are load-bearing for the two blocks that must NOT recover:
+#
+#   * CROSS-BASE. Every address in the attribute must name the block's own base
+#     act. Block 5 names ``lov/2010-03-26-9`` under base ``lov/2022-05-12-28``
+#     and block 6 names ``lov/2024-06-21-41`` under ``lov/2022-12-16-91``: the
+#     archive has mis-attributed those endringsdeler to the preceding base, so a
+#     "repair" would relabel a law the instrument never addressed here. Both are
+#     declined before any rule is tried, and the pin in
+#     ``test_no_renumber_migration.py`` holds them refused.
+#   * FULLY DETERMINED. After the rewrite EVERY token must be well-formed and
+#     every side must lower to an address. A partial repair is not taken; the
+#     block keeps its existing typed receipts (now carrying the decline reason).
+#
+# WHAT LANDS. Four blocks recover, minting six RENUMBER legs. They are ordinary
+# structured legs — same emission site, same provenance, no new tag — because
+# the normalizer repairs a separator rather than founding a production with its
+# own semantics; a repaired leg must behave exactly like the well-formed leg it
+# was meant to be. The corpus consequence was MEASURED, not assumed: none of the
+# six destinations is occupied when its leg runs, because the kernel's
+# structural-vacate stage (``no_ordering_profile``) already runs REPEALs first
+# and then topologically sorts RENUMBERs, and each of the four blocks either has
+# its destination repealed by the same instrument first (§19-1's own
+# ``data-repeal-part``, §3-2's sibling "§ 3-2 annet ledd oppheves." block) or
+# shifts UPWARD past the section's last ledd (§8 has three, §4 has four). So the
+# corpus firing census is 10 → 10 and the pinned verdict table gains no row —
+# which is also why the W-66
+# refuse-on-occupied tag is deliberately NOT stamped here: there is nothing to
+# refuse, and stamping it would make a repaired leg quieter than the well-formed
+# leg beside it.
+#
+# The well-formed path is untouched byte for byte: ``_no_normalize_move_attr``
+# returns immediately when no token is malformed, so no attribute that parses
+# today can change what it parses.
+_NO_MOVE_ATTR_RULE_SEPARATOR_SPACING = "separator_spacing"
+_NO_MOVE_ATTR_RULE_ALTERNATE_SEPARATOR = "alternate_separator"
+_NO_MOVE_ATTR_DECLINED_WELL_FORMED = "declined:well_formed"
+_NO_MOVE_ATTR_DECLINED_CROSS_BASE = "declined:cross_base_tokens"
+_NO_MOVE_ATTR_DECLINED_NO_RULE = "declined:no_rule_matched"
+_NO_MOVE_ATTR_DECLINED_UNRESOLVED = "declined:unresolvable_address"
+#: The alternate separator glyph block 4 was typed with. Kept as a constant so
+#: the skeleton below and the rule agree on exactly which glyphs are separators.
+_NO_MOVE_ATTR_ALTERNATE_SEPARATOR = "::"
+
+
+@dataclass(frozen=True)
+class _NOMoveAttrNormalization:
+    """The normalizer's verdict on one ``data-move-part`` value.
+
+    ``pairs`` is ``None`` when nothing was repaired, and ``rule`` then names WHY
+    (a ``declined:`` reason); otherwise ``rule`` names which repair fired. The
+    rule id is reported both ways so the ordering of the rules is a test's fact
+    rather than a comment's claim.
+    """
+
+    pairs: Optional[Tuple[Tuple[str, str], ...]]
+    rule: str
+
+
+def _no_move_attr_skeleton(tokens: Sequence[str]) -> str:
+    """Every address character in the value, in order, separators removed.
+
+    The invariant a repair must preserve. Whitespace is already gone (the caller
+    split on it), so removing the two separator glyph characters leaves exactly
+    the address text — reorder, drop or invent one character of an address and
+    this string moves.
+    """
+    return "".join(char for token in tokens for char in token if char not in ";:")
+
+
+def _no_fuse_separator_spaced_tokens(tokens: Sequence[str]) -> list[str]:
+    """``["a;;", "b"]`` → ``["a;;b"]`` — the stray space after the separator.
+
+    A token that ENDS with the separator has an empty destination slot, and the
+    token after it carries no separator of its own, so it can only be that
+    destination. Anything else is left exactly as it was.
+    """
+    out: list[str] = []
+    index = 0
+    while index < len(tokens):
+        token = tokens[index]
+        following = tokens[index + 1] if index + 1 < len(tokens) else None
+        if token.endswith(";;") and token.count(";;") == 1 and following is not None and ";;" not in following:
+            out.append(token + following)
+            index += 2
+            continue
+        out.append(token)
+        index += 1
+    return out
+
+
+def _no_retype_alternate_separator_tokens(tokens: Sequence[str]) -> list[str]:
+    """``a::b`` → ``a;;b`` — the wrong glyph, on a token with no real separator.
+
+    Guarded on ``";;" not in token`` so this can never touch a token that
+    already carries the real separator, and on a single occurrence so a token
+    with two ``::`` is left to be declined rather than split on a guess.
+    """
+    return [
+        token.replace(_NO_MOVE_ATTR_ALTERNATE_SEPARATOR, ";;")
+        if ";;" not in token and token.count(_NO_MOVE_ATTR_ALTERNATE_SEPARATOR) == 1
+        else token
+        for token in tokens
+    ]
+
+
+#: Tried in order; the FIRST rule that yields a fully well-formed token list
+#: wins. Order is reported on every receipt, so which rule fired is testable.
+_NO_MOVE_ATTR_NORMALIZATION_RULES = (
+    (_NO_MOVE_ATTR_RULE_SEPARATOR_SPACING, _no_fuse_separator_spaced_tokens),
+    (_NO_MOVE_ATTR_RULE_ALTERNATE_SEPARATOR, _no_retype_alternate_separator_tokens),
+)
+
+
+def _no_move_attr_tokens_share_base(tokens: Sequence[str], base_id: str) -> bool:
+    """Does every address in the value name ``base_id``?
+
+    Read across the alternate separator too, so a cross-base ``a::b`` is caught
+    before the rule that would retype it.
+    """
+    for token in tokens:
+        for side in token.replace(_NO_MOVE_ATTR_ALTERNATE_SEPARATOR, ";;").split(";;"):
+            if not side:
+                continue
+            if normalize_lovdata_refid(side) != base_id:
+                return False
+    return True
+
+
+def _no_normalize_move_attr(tokens: Sequence[str], *, base_id: str) -> _NOMoveAttrNormalization:
+    """Repair a malformed ``data-move-part`` token list, or decline it."""
+    if all(_structured_move_attr_skip_reason(token) is None for token in tokens):
+        return _NOMoveAttrNormalization(None, _NO_MOVE_ATTR_DECLINED_WELL_FORMED)
+    if not base_id or not _no_move_attr_tokens_share_base(tokens, base_id):
+        return _NOMoveAttrNormalization(None, _NO_MOVE_ATTR_DECLINED_CROSS_BASE)
+    skeleton = _no_move_attr_skeleton(tokens)
+    for rule_id, rewrite in _NO_MOVE_ATTR_NORMALIZATION_RULES:
+        repaired = rewrite(tokens)
+        if repaired == list(tokens):
+            continue
+        if any(_structured_move_attr_skip_reason(token) is not None for token in repaired):
+            continue
+        if _no_move_attr_skeleton(repaired) != skeleton:
+            continue
+        pairs = tuple(cast(Tuple[str, str], tuple(token.split(";;", 1))) for token in repaired)
+        if any(lovdata_path_to_address(side) is None for pair in pairs for side in pair):
+            return _NOMoveAttrNormalization(None, _NO_MOVE_ATTR_DECLINED_UNRESOLVED)
+        return _NOMoveAttrNormalization(pairs, rule_id)
+    return _NOMoveAttrNormalization(None, _NO_MOVE_ATTR_DECLINED_NO_RULE)
+
+
 def _split_move_attr(
     value: str,
     *,
@@ -1040,6 +1231,34 @@ def _split_move_attr(
 ) -> list[tuple[str, str]]:
     out: list[tuple[str, str]] = []
     tokens = [token.strip() for token in value.split() if token.strip()]
+    normalization = _no_normalize_move_attr(tokens, base_id=base_id)
+    if normalization.pairs is not None:
+        _append_no_parse_adjudication(
+            adjudications_out,
+            kind=NO_PARSE_STRUCTURED_MOVE_ATTR_NORMALIZED,
+            message=(
+                "Norway parser normalized a malformed structured renumber attribute "
+                "into well-formed source/destination pairs."
+            ),
+            source_id=source_id,
+            detail=diagnostic_detail(
+                rule_id=NO_PARSE_STRUCTURED_MOVE_ATTR_NORMALIZED,
+                phase="parse",
+                family="source_pathology",
+                blocking=False,
+                quirks_disposition=QuirksDisposition.APPLY,
+                reason=normalization.rule,
+                base_id=base_id,
+                source_doc=source_doc,
+                attr_name="data-move-part",
+                declared_tokens=tuple(tokens),
+                normalized_legs=tuple(f"{src};;{dst}" for src, dst in normalization.pairs),
+                raw_text=raw_text,
+            ),
+        )
+        # Same convention as the loop below: legs are handed back REVERSED,
+        # because Lovtidend writes them in ascending prose order.
+        return [(src, dst) for src, dst in reversed(normalization.pairs)]
     for token in reversed(tokens):
         reason = _structured_move_attr_skip_reason(token)
         if reason is not None:
@@ -1058,6 +1277,10 @@ def _split_move_attr(
                     source_doc=source_doc,
                     attr_name="data-move-part",
                     raw_token=token,
+                    # W-70: WHY the normalizer left this token refused, so the
+                    # standing population pin can hold the decline reason and
+                    # not merely the count.
+                    normalization=normalization.rule,
                     raw_text=raw_text,
                 ),
             )
