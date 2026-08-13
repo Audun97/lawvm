@@ -2741,7 +2741,24 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # declines it, the measured price of the matching rule; ``2020-04-17-29``'s
     # five remaining substitution addresses are ``§ 11``/``§ 18`` ledd that do not
     # exist in the replayed tree, a different defect. Signed off 2026-08-12.
-    assert report["divergence_totals"] == {"total": 1478, "ceiling": 1011, "unexplained": 467}
+    # W-69b (2026-08-13). Candidates unmoved at 76, summary unmoved at 29/47/0,
+    # and again exactly TWO candidate rows change — the SAME two laws W-69a
+    # moved: ``no/lov/2015-06-19-70`` 8 -> 2 and ``no/lov/2020-04-17-29`` 8 -> 7.
+    # The other 74 laws are byte-identical. 7 rows CLOSE and 0 open, so total and
+    # unexplained fall by the same 7 and the ceiling is untouched at 1,011 for
+    # the FIFTEENTH landing running. Putting ``setning/N`` addresses in scope
+    # lands 17 substitutions corpus-wide, but only these two laws are scan
+    # candidates: the other 6 landings are on ``no/lov/2008-06-27-71``, which is
+    # `blocked_contingent` and not scanned at all.
+    #
+    # The design pass projected 8 rows (7 + 1) and the measured answer is 7
+    # (6 + 1), for a reason worth recording rather than netting: karanteneloven
+    # ``§ 17 første ledd`` carries TWO of the eight sentence addresses, and one
+    # of them (``første punktum``) reads ``Tilsettingsmyndigheten`` capitalised,
+    # which case-sensitive whole-word matching declines (``inflection_only``).
+    # ``tredje punktum`` lands, the ledd still diverges on the first, and the row
+    # correctly stays open. Seven landings over seven ledd close six rows.
+    assert report["divergence_totals"] == {"total": 1471, "ceiling": 1011, "unexplained": 460}
     # 3 -> 2 at W-34: no/lov/2001-01-05-1 gains 4 bound ops from
     # no/lovtid/2015-06-19-65 item 178, so its indexed history is no longer
     # sparse. Its 83 divergences do not move; only the bucket does.

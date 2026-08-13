@@ -31,7 +31,6 @@ from lawvm.norway.grafter import (
     NO_PARSE_SUBSTITUTION_ANNOUNCEMENT_NOT_LOWERED,
     NO_PARSE_SUBSTITUTION_MULTI_BASE_ADDRESS_LIST,
     NO_PARSE_SUBSTITUTION_MULTIPLE_ANNOUNCEMENTS,
-    NO_PARSE_SUBSTITUTION_SENTENCE_ADDRESS_OUT_OF_SCOPE,
     NO_REPLAY_SUBSTITUTION_TERM_NOT_UNIQUELY_PRESENT,
     NO_SUBSTITUTION_PROVENANCE_TAG,
     NOHeadingGroup,
@@ -8380,15 +8379,22 @@ def test_no_w69a_unparseable_pair_grammar_keeps_the_w75_refusal() -> None:
     assert refusals[0].detail["pair_shape"] == "unpaired_1_3"
 
 
-def test_no_w69a_sentence_addresses_refuse_typed_and_their_siblings_still_lower() -> None:
-    """W-69a: ``setning/N`` is W-69b's, and it refuses per ADDRESS, not per node.
+def test_no_w69b_sentence_addresses_lower_alongside_their_ledd_siblings() -> None:
+    """W-69b: ``setning/N`` is in scope, and it lowers per ADDRESS like the rest.
 
-    The apply plane materializes sentence children only on the structural
-    branch, AFTER the text-patch branch has returned, so a sentence-addressed
-    TEXT_PATCH cannot resolve at all today. Redirecting it to the parent ledd
-    fails OPEN where the term recurs in a sibling sentence, so the address
-    refuses typed — and the node's ledd addresses lower regardless, because
-    per-address refusal is the envelope for everything below S1/S2/S3.
+    W-69a refused this address typed
+    (``no_parse_substitution_sentence_address_out_of_scope``, 21 corpus
+    receipts) because the apply plane materialized sentence children only on
+    the structural branch, AFTER the text-patch branch had returned, so a
+    sentence-addressed TEXT_PATCH could not resolve at all. W-69b lifts the
+    materializer onto both branches, so the sentence address lowers to an
+    ordinary addressed TEXT_PATCH sitting beside its ledd sibling — no
+    redirection to the parent ledd, which is the reading that fails OPEN when
+    the term recurs in a sibling sentence.
+
+    The retired receipt kind must be GONE from the parse plane, not merely
+    unfired: an address list mixing both depths raises no substitution
+    adjudication at all now.
     """
     adjudications: list[CompileAdjudication] = []
     grouped = iter_no_document_change_ops(
@@ -8409,13 +8415,19 @@ def test_no_w69a_sentence_addresses_refuse_typed_and_their_siblings_still_lower(
         adjudications_out=adjudications,
     )
 
-    refusals = [a for a in adjudications if a.kind == NO_PARSE_SUBSTITUTION_SENTENCE_ADDRESS_OUT_OF_SCOPE]
-    assert len(refusals) == 1
-    assert refusals[0].blocking is True
-    assert refusals[0].detail["raw_address"] == "lov/2015-06-19-70/§13/ledd/2/setning/1"
-    assert [op.target.path for op in _no_substitution_ops(grouped)] == [
-        (("section", "13"), ("subsection", "1")),
+    assert not [a for a in adjudications if a.kind.startswith("no_parse_substitution")]
+    assert not [
+        a for a in adjudications if a.kind == "no_parse_substitution_sentence_address_out_of_scope"
     ]
+    ops = _no_substitution_ops(grouped)
+    assert [op.target.path for op in ops] == [
+        (("section", "13"), ("subsection", "1")),
+        (("section", "13"), ("subsection", "2"), ("sentence", "1")),
+    ]
+    # Both carry the same announced pair; only the address depth differs.
+    assert {
+        (op.text_patch.selector.match_text, op.text_patch.replacement) for op in ops if op.text_patch
+    } == {("tilsettingsmyndigheten", "ansettelsesmyndigheten")}
 
 
 def test_no_w69a_henholdsvis_is_from_by_to_not_address_positional() -> None:
@@ -8746,6 +8758,257 @@ def test_no_w69a_a_refused_substitution_is_a_typed_rejection_in_the_conserved_pa
     assert all(item.blocking for item in result.skipped_items)
 
 
+# ── W-69b apply plane: read-only sentence materialization on the patch path ──
+
+
+def _w69b_sentence_substitution_op(
+    sequence: int,
+    *,
+    section: str,
+    subsection: str,
+    sentence: str,
+    from_term: str,
+    to_term: str,
+    group: str = "g1",
+) -> LegalOperation:
+    """W-69a's op, addressed one level deeper: ``§ N/ledd/M/setning/K``."""
+    return LegalOperation(
+        op_id=f"no/lovtid/9999-01-01-1:{sequence}",
+        sequence=sequence,
+        action=StructuralAction.TEXT_PATCH,
+        target=LegalAddress(
+            path=(("section", section), ("subsection", subsection), ("sentence", sentence))
+        ),
+        text_patch=TextPatchSpec(
+            kind=TextPatchKindEnum.REPLACE,
+            selector=TextSelector(match_text=from_term, occurrence=0),
+            replacement=to_term,
+        ),
+        source=OperationSource(statute_id="no/lovtid/9999-01-01-1", raw_text="ann", title="x"),
+        provenance_tags=("base_act:no/lov/1999-01-01-1", "scope:addressed", NO_SUBSTITUTION_PROVENANCE_TAG),
+        group_id=group,
+    )
+
+
+def _w69b_ledd_statute(*ledd_texts: str) -> IRStatute:
+    """One section whose subsections carry RAW multi-sentence text, no children."""
+    return IRStatute(
+        statute_id="no/lov/1999-01-01-1",
+        title="Testlov",
+        body=IRNode(
+            kind=IRNodeKind.BODY,
+            children=(
+                IRNode(
+                    kind=IRNodeKind.SECTION,
+                    label="1",
+                    children=tuple(
+                        IRNode(kind=IRNodeKind.SUBSECTION, label=str(i), text=text)
+                        for i, text in enumerate(ledd_texts, start=1)
+                    ),
+                ),
+            ),
+        ),
+    )
+
+
+def _w69b_ledd(result: IRStatute, index: int) -> IRNode:
+    return result.body.children[0].children[index]
+
+
+def _w69b_sentence_texts(ledd: IRNode) -> list[str]:
+    return [
+        child.text or ""
+        for child in ledd.children
+        if getattr(child.kind, "value", child.kind) == "sentence"
+    ]
+
+
+def test_no_w69b_text_patch_path_materializes_and_lands_on_the_addressed_sentence() -> None:
+    """W-69b's whole point: a ``setning/N`` TEXT_PATCH now resolves.
+
+    At the base pin the text-patch branch resolved the target and returned long
+    before the structural branch's materialization call, so this op could only
+    ever produce ``replay_unresolved_target``. Lifting the call gives the
+    text-patch branch the same sentence children the structural branch has had
+    all along — and the write lands on the ADDRESSED sentence, not on a sibling
+    that happens to carry the same word.
+    """
+    before = _w69b_ledd_statute(
+        "Tilsettingsmyndigheten varsler. Tilsettingsmyndigheten treffer vedtaket."
+    )
+    adjudications: list[CompileAdjudication] = []
+    result = apply_no_ops(
+        before,
+        [
+            _w69b_sentence_substitution_op(
+                1,
+                section="1",
+                subsection="1",
+                sentence="2",
+                from_term="Tilsettingsmyndigheten",
+                to_term="Ansettelsesmyndigheten",
+            )
+        ],
+        adjudications_out=adjudications,
+    )
+    ledd = _w69b_ledd(result, 0)
+    assert _w69b_sentence_texts(ledd) == [
+        "Tilsettingsmyndigheten varsler.",
+        "Ansettelsesmyndigheten treffer vedtaket.",
+    ]
+    assert not ledd.text
+    assert not [a for a in adjudications if a.kind == NO_REPLAY_SUBSTITUTION_TERM_NOT_UNIQUELY_PRESENT]
+    assert not [a for a in adjudications if a.kind == "replay_unresolved_target"]
+    materialized = [a for a in adjudications if a.kind == "no_replay_sentence_children_materialized"]
+    assert [
+        (a.detail["rule_id"], a.detail["target"], a.detail["materialized_sentence_count"])
+        for a in materialized
+    ] == [
+        ("no_sentence_text_materialized_for_sentence_target", "section:1/subsection:1/sentence:2", 2),
+    ]
+
+
+def test_no_w69b_text_patch_path_materialization_conserves_text() -> None:
+    """The read-only tripwire: materializing changes SHAPE, never text bytes.
+
+    ``_split_no_sentences`` partitions ``_normalize_space(parent.text)`` at
+    sentence boundaries, so space-joining the sentence children reproduces the
+    former ledd text exactly. That is the whole licence for reaching the
+    materializer from a *content*-writing branch, and it is the property the
+    item's full-corpus statute diff allows as a tree-shape-only delta — so it is
+    asserted here byte-for-byte, on a ledd whose sentences carry the boundary
+    cases the splitter has rules for: an abbreviation ending in a full stop
+    (``jf.``) and a numbered date (``1. januar 2020``), neither of which may be
+    read as a sentence end.
+
+    Two ledd are exercised: the one the op addresses (whose text changes by
+    exactly the announced substitution and nothing else) and the one it merely
+    passes over (which must not be materialized at all).
+    """
+    from lawvm.norway.grafter import _normalize_space
+
+    addressed = (
+        "Vedtak treffes av Tilsettingsmyndigheten innen 1. januar 2020. "
+        "Klage behandles etter forvaltningsloven kapittel VI, jf. § 28. "
+        "Departementet kan gi forskrift."
+    )
+    untouched = "Denne paragrafen gjelder ikke for embetsmenn. Kongen kan gjøre unntak."
+    before = _w69b_ledd_statute(addressed, untouched)
+    result = apply_no_ops(
+        before,
+        [
+            _w69b_sentence_substitution_op(
+                1,
+                section="1",
+                subsection="1",
+                sentence="1",
+                from_term="Tilsettingsmyndigheten",
+                to_term="Ansettelsesmyndigheten",
+            )
+        ],
+    )
+
+    sentences = _w69b_sentence_texts(_w69b_ledd(result, 0))
+    assert sentences == [
+        "Vedtak treffes av Ansettelsesmyndigheten innen 1. januar 2020.",
+        "Klage behandles etter forvaltningsloven kapittel VI, jf. § 28.",
+        "Departementet kan gi forskrift.",
+    ]
+    # The ONLY difference between the space-joined children and the former ledd
+    # text is the announced substitution: undo it and the bytes are identical.
+    assert " ".join(sentences).replace(
+        "Ansettelsesmyndigheten", "Tilsettingsmyndigheten"
+    ) == _normalize_space(addressed)
+    # …and the substitution really did land (the assertion above would also pass
+    # on a no-op, which is the failure this pairing rules out).
+    assert " ".join(sentences) != _normalize_space(addressed)
+
+    # A ledd no sentence-addressed op names keeps its raw text: the lift is
+    # reached from the op's own target, never swept over the tree.
+    second = _w69b_ledd(result, 1)
+    assert second.text == untouched
+    assert _w69b_sentence_texts(second) == []
+
+
+def test_no_w69b_a_refused_sentence_substitution_leaves_no_materialization_residue() -> None:
+    """Materialization runs BEFORE the term conjuncts — and is rolled back with them.
+
+    Resolution has to happen before the addressed node's text can be read at
+    all, so the ledd IS split into sentence children before S6/S7 get to refuse.
+    What happens to that shape change when the op then writes nothing is a
+    property of the apply seam, not of this item, and it is worth pinning
+    because the whole read-only argument would be weaker if a refusal could
+    leave a half-materialized ledd behind: the seam discards the op's state
+    entirely, so the tree is returned IDENTICAL — same object, not merely equal.
+
+    The ``no_replay_sentence_children_materialized`` receipt still fires. It
+    describes work the dispatch really did; the receipt lane is deliberately
+    wider than the landed-write lane here, and the alternative (suppressing a
+    receipt for a shape change that was computed) would make the two lanes lie
+    about each other. Same behaviour the structural branch has always had.
+    """
+    text = "Tilsettingsmyndigheten treffer vedtaket. Klagen avgjøres av departementet."
+    before = _w69b_ledd_statute(text)
+    adjudications: list[CompileAdjudication] = []
+    result = apply_no_ops(
+        before,
+        [
+            _w69b_sentence_substitution_op(
+                1,
+                section="1",
+                subsection="1",
+                sentence="1",
+                from_term="tilsettingsmyndigheten",
+                to_term="ansettelsesmyndigheten",
+            )
+        ],
+        adjudications_out=adjudications,
+    )
+    assert result.body is before.body
+    ledd = _w69b_ledd(result, 0)
+    assert ledd.text == text
+    assert _w69b_sentence_texts(ledd) == []
+    refusals = [a for a in adjudications if a.kind == NO_REPLAY_SUBSTITUTION_TERM_NOT_UNIQUELY_PRESENT]
+    assert [a.detail["reason"] for a in refusals] == ["inflection_only"]
+    assert [a.kind for a in adjudications if a.kind == "no_replay_sentence_children_materialized"] == [
+        "no_replay_sentence_children_materialized"
+    ]
+
+
+def test_no_w69b_a_sentence_address_whose_parent_ledd_is_missing_refuses_typed() -> None:
+    """The 2 corpus addresses W-69b does NOT serve, in miniature.
+
+    ``lov/2020-04-17-29/§11/ledd/1/setning/1`` and ``…/§18/ledd/2/setning/2``
+    are unresolvable because their PARENT ledd is absent from the replayed tree
+    — the same defect as that law's five unresolvable LEDD-addressed ops, and so
+    it takes the same typed receipt. Materialization cannot invent a parent, and
+    the parse plane cannot see one (it has no statute), so this refusal belongs
+    at apply and nowhere else.
+    """
+    before = _w69b_ledd_statute("Ett enkelt ledd med Tilsettingsmyndigheten i.")
+    adjudications: list[CompileAdjudication] = []
+    result = apply_no_ops(
+        before,
+        [
+            _w69b_sentence_substitution_op(
+                1,
+                section="1",
+                subsection="4",
+                sentence="1",
+                from_term="Tilsettingsmyndigheten",
+                to_term="Ansettelsesmyndigheten",
+            )
+        ],
+        adjudications_out=adjudications,
+    )
+    assert [child.text for child in result.body.children[0].children] == [
+        "Ett enkelt ledd med Tilsettingsmyndigheten i."
+    ]
+    assert [a.kind for a in adjudications] == ["replay_unresolved_target"]
+    assert adjudications[0].detail["target"] == "section:1/subsection:4/sentence:1"
+    assert not [a for a in adjudications if a.kind == "no_replay_sentence_children_materialized"]
+
+
 def test_no_w75_a_real_replacement_after_an_announcement_still_lowers() -> None:
     """W-75: the conjunct that keeps the refusal off genuine amendments.
 
@@ -8814,18 +9077,19 @@ def test_no_w75_announcement_must_open_the_sentence() -> None:
     _NO_FARCHIVE_PATH is None,
     reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
 )
-def test_no_w69a_karanteneloven_substitution_witness_lowers_to_text_patches() -> None:
-    """W-69a corpus witness: karanteneloven's 15 substitution addresses.
+def test_no_w69b_karanteneloven_substitution_witness_lowers_all_15_addresses() -> None:
+    """W-69a/b corpus witness: karanteneloven's 15 substitution addresses.
 
     ``no/lovtid/2025-02-07-1`` announces ``tilsettingsmyndigheten`` →
     ``ansettelsesmyndigheten`` over 13 provisions of ``no/lov/2015-06-19-70``
     in a sibling ``change`` node, and ``tilsettingen`` → ``ansettelsen`` over 2
     more in a node carrying its own announcement. Before W-75 every one of those
     15 lowered as a REPLACE whose payload was the address list; W-75 refused them
-    all; W-69a lowers the 7 ledd addresses as addressed TEXT_PATCHes and refuses
-    the 8 sentence addresses typed as W-69b's. Nothing carries the announcement
-    as payload in any of the three states, and the instrument's genuine work —
-    the new § 1 a — is untouched throughout.
+    all; W-69a lowered the 7 ledd addresses as addressed TEXT_PATCHes and refused
+    the 8 sentence addresses typed; **W-69b lowers all 15**, the sentence ones
+    included. Nothing carries the announcement as payload in any of the four
+    states, and the instrument's genuine work — the new § 1 a — is untouched
+    throughout.
     """
     html_bytes = load_no_amendment_bytes("no/lovtid/2025-02-07-1", _NO_FARCHIVE_PATH)
     assert html_bytes is not None
@@ -8836,10 +9100,7 @@ def test_no_w69a_karanteneloven_substitution_witness_lowers_to_text_patches() ->
     )
 
     assert not [a for a in adjudications if a.kind == NO_PARSE_SUBSTITUTION_ANNOUNCEMENT_NOT_LOWERED]
-    sentence_refusals = [
-        a for a in adjudications if a.kind == NO_PARSE_SUBSTITUTION_SENTENCE_ADDRESS_OUT_OF_SCOPE
-    ]
-    assert len(sentence_refusals) == 8
+    assert not [a for a in adjudications if a.kind.startswith("no_parse_substitution")]
 
     ops = grouped["no/lov/2015-06-19-70"]
     substitutions = [op for op in ops if NO_SUBSTITUTION_PROVENANCE_TAG in op.provenance_tags]
@@ -8847,11 +9108,19 @@ def test_no_w69a_karanteneloven_substitution_witness_lowers_to_text_patches() ->
         (op.target.path, op.text_patch.selector.match_text) for op in substitutions if op.text_patch
     ] == [
         ((("section", "13"), ("subsection", "1")), "tilsettingsmyndigheten"),
+        ((("section", "13"), ("subsection", "2"), ("sentence", "1")), "tilsettingsmyndigheten"),
         ((("section", "14"), ("subsection", "2")), "tilsettingsmyndigheten"),
         ((("section", "14"), ("subsection", "4")), "tilsettingsmyndigheten"),
         ((("section", "15"), ("subsection", "1")), "tilsettingsmyndigheten"),
+        ((("section", "17"), ("subsection", "1"), ("sentence", "1")), "tilsettingsmyndigheten"),
+        ((("section", "17"), ("subsection", "1"), ("sentence", "3")), "tilsettingsmyndigheten"),
+        ((("section", "18"), ("subsection", "1"), ("sentence", "1")), "tilsettingsmyndigheten"),
+        ((("section", "18"), ("subsection", "2"), ("sentence", "1")), "tilsettingsmyndigheten"),
+        ((("section", "18"), ("subsection", "3"), ("sentence", "2")), "tilsettingsmyndigheten"),
+        ((("section", "19"), ("subsection", "1"), ("sentence", "1")), "tilsettingsmyndigheten"),
         ((("section", "20"), ("subsection", "1")), "tilsettingsmyndigheten"),
         ((("section", "20"), ("subsection", "4")), "tilsettingsmyndigheten"),
+        ((("section", "14"), ("subsection", "1"), ("sentence", "1")), "tilsettingen"),
         ((("section", "14"), ("subsection", "4")), "tilsettingen"),
     ]
     # Not one op is left carrying the address list or the announcement.
@@ -8869,14 +9138,23 @@ def test_no_w69a_karanteneloven_substitution_witness_lowers_to_text_patches() ->
     _NO_FARCHIVE_PATH is None,
     reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
 )
-def test_no_w69a_karanteneloven_replay_lands_its_substitutions_and_refuses_the_genitive() -> None:
-    """W-69a end to end, on the payoff law, against the real archive.
+def test_no_w69b_karanteneloven_replay_lands_its_substitutions_and_refuses_two() -> None:
+    """W-69a/b end to end, on the payoff law, against the real archive.
 
-    Six of karanteneloven's seven lowered addresses land and one refuses:
-    ``§ 20 fjerde ledd`` carries only the genitive ``tilsettingsmyndighetens``,
-    which whole-word matching declines. That is the measured price of the
-    matching rule — one divergence row on this law stays open, saying what is
-    wrong, and the four rows this item closes are the other four provisions.
+    Thirteen of karanteneloven's fifteen lowered addresses land and two refuse,
+    both on the matching rule rather than on addressing:
+
+    * ``§ 20 fjerde ledd`` carries only the genitive ``tilsettingsmyndighetens``
+      (``substring_only``) — W-69a's measured price, one row that stays open;
+    * ``§ 17 første ledd første punktum`` carries only ``Tilsettingsmyndigheten``
+      capitalised (``inflection_only``) — W-69b's, and the reason the item's
+      eight sentence addresses on this law close SIX divergence rows and not
+      seven: ``§ 17 første ledd`` holds two of them, ``tredje punktum`` lands
+      and ``første punktum`` refuses, so that ledd still diverges.
+
+    Six of the landings are W-69a's ledd addresses; the other seven are the
+    sentence addresses this item put in scope, each one landing on the addressed
+    ``punktum`` rather than on its ledd.
     """
     from lawvm.norway.index import build_no_amendment_index
     from lawvm.norway.replay import replay_no_to_pit
@@ -8893,7 +9171,10 @@ def test_no_w69a_karanteneloven_replay_lands_its_substitutions_and_refuses_the_g
     refusals = [
         a for a in result.adjudications if a.kind == NO_REPLAY_SUBSTITUTION_TERM_NOT_UNIQUELY_PRESENT
     ]
-    assert [((a.detail or {}).get("target"), (a.detail or {}).get("reason")) for a in refusals] == [
+    assert sorted(
+        ((a.detail or {}).get("target"), (a.detail or {}).get("reason")) for a in refusals
+    ) == [
+        ("section:17/subsection:1/sentence:1", "inflection_only"),
         ("section:20/subsection:4", "substring_only"),
     ]
     landed = [
@@ -8901,7 +9182,22 @@ def test_no_w69a_karanteneloven_replay_lands_its_substitutions_and_refuses_the_g
         for receipt in (result.write_receipts or ())
         if str(receipt.action) == "text_replace"
     ]
-    assert len(landed) == 6
+    assert len(landed) == 13
+    # W-69b's own contribution: the materialization the text-patch branch could
+    # not reach before, once per ledd a landed sentence address names.
+    materialized = [
+        a for a in result.adjudications if a.kind == "no_replay_sentence_children_materialized"
+    ]
+    assert sorted((a.detail or {}).get("target", "") for a in materialized) == [
+        "section:13/subsection:2/sentence:1",
+        "section:14/subsection:1/sentence:1",
+        "section:17/subsection:1/sentence:1",
+        "section:17/subsection:1/sentence:3",
+        "section:18/subsection:1/sentence:1",
+        "section:18/subsection:2/sentence:1",
+        "section:18/subsection:3/sentence:2",
+        "section:19/subsection:1/sentence:1",
+    ]
 
     def _ledd_text(label: str, subsection: str) -> str:
         section = next(
@@ -8916,6 +9212,170 @@ def test_no_w69a_karanteneloven_replay_lands_its_substitutions_and_refuses_the_g
     assert "tilsettingsmyndigheten" not in _ledd_text("13", "1")
     # …and the whole-word refusal leaves § 20 fjerde ledd standing, honestly.
     assert "tilsettingsmyndighetens" in _ledd_text("20", "4")
+
+
+#: W-69b's population, membership-level: every substitution op the parse plane
+#: mints whose target leaf is a SENTENCE, keyed on content
+#: ``(instrument, base act, address, FROM, TO)``. It is exactly the 21 addresses
+#: W-69a refused with ``no_parse_substitution_sentence_address_out_of_scope`` —
+#: the frozen withdrawal set, matched element for element. Four instruments,
+#: four base acts, five announced pairs; ``§ 12 første ledd første/tredje
+#: punktum`` of ``no/lov/2020-04-17-29`` appears twice because TWO announcements
+#: in ``no/lovtid/2025-12-22-129`` list it, and each lowers its own op.
+_NO_W69B_SENTENCE_ADDRESSED_SUBSTITUTIONS = (
+    ("no/lovtid/2024-06-21-42", "no/lov/1998-07-17-56", "section:7-6/subsection:4/sentence:1", "store foretak", "foretak av allmenn interesse"),
+    ("no/lovtid/2024-06-21-52", "no/lov/2008-06-27-71", "section:11-12/subsection:2/sentence:2", "gjennom elektroniske medier", "på internett"),
+    ("no/lovtid/2024-06-21-52", "no/lov/2008-06-27-71", "section:11-14/subsection:1/sentence:1", "gjennom elektroniske medier", "på internett"),
+    ("no/lovtid/2024-06-21-52", "no/lov/2008-06-27-71", "section:11-15/subsection:2/sentence:1", "gjennom elektroniske medier", "på internett"),
+    ("no/lovtid/2024-06-21-52", "no/lov/2008-06-27-71", "section:12-10/subsection:1/sentence:2", "gjennom elektroniske medier", "på internett"),
+    ("no/lovtid/2024-06-21-52", "no/lov/2008-06-27-71", "section:12-8/subsection:3/sentence:1", "gjennom elektroniske medier", "på internett"),
+    ("no/lovtid/2024-06-21-52", "no/lov/2008-06-27-71", "section:8-5/subsection:5/sentence:1", "gjennom elektroniske medier", "på internett"),
+    ("no/lovtid/2025-02-07-1", "no/lov/2015-06-19-70", "section:13/subsection:2/sentence:1", "tilsettingsmyndigheten", "ansettelsesmyndigheten"),
+    ("no/lovtid/2025-02-07-1", "no/lov/2015-06-19-70", "section:14/subsection:1/sentence:1", "tilsettingen", "ansettelsen"),
+    ("no/lovtid/2025-02-07-1", "no/lov/2015-06-19-70", "section:17/subsection:1/sentence:1", "tilsettingsmyndigheten", "ansettelsesmyndigheten"),
+    ("no/lovtid/2025-02-07-1", "no/lov/2015-06-19-70", "section:17/subsection:1/sentence:3", "tilsettingsmyndigheten", "ansettelsesmyndigheten"),
+    ("no/lovtid/2025-02-07-1", "no/lov/2015-06-19-70", "section:18/subsection:1/sentence:1", "tilsettingsmyndigheten", "ansettelsesmyndigheten"),
+    ("no/lovtid/2025-02-07-1", "no/lov/2015-06-19-70", "section:18/subsection:2/sentence:1", "tilsettingsmyndigheten", "ansettelsesmyndigheten"),
+    ("no/lovtid/2025-02-07-1", "no/lov/2015-06-19-70", "section:18/subsection:3/sentence:2", "tilsettingsmyndigheten", "ansettelsesmyndigheten"),
+    ("no/lovtid/2025-02-07-1", "no/lov/2015-06-19-70", "section:19/subsection:1/sentence:1", "tilsettingsmyndigheten", "ansettelsesmyndigheten"),
+    ("no/lovtid/2025-12-22-129", "no/lov/2020-04-17-29", "section:11/subsection:1/sentence:1", "Dagligvaretilsynet", "Konkurransetilsynet"),
+    ("no/lovtid/2025-12-22-129", "no/lov/2020-04-17-29", "section:12/subsection:1/sentence:1", "Dagligvaretilsynet", "Konkurransetilsynet"),
+    ("no/lovtid/2025-12-22-129", "no/lov/2020-04-17-29", "section:12/subsection:1/sentence:1", "Markedsrådet", "Konkurranseklagenemnda"),
+    ("no/lovtid/2025-12-22-129", "no/lov/2020-04-17-29", "section:12/subsection:1/sentence:3", "Dagligvaretilsynet", "Konkurransetilsynet"),
+    ("no/lovtid/2025-12-22-129", "no/lov/2020-04-17-29", "section:12/subsection:1/sentence:3", "Markedsrådet", "Konkurranseklagenemnda"),
+    ("no/lovtid/2025-12-22-129", "no/lov/2020-04-17-29", "section:18/subsection:2/sentence:2", "Markedsrådet", "Konkurranseklagenemnda"),
+)
+
+_W69B_POPULATION_INSTRUCTION = (
+    "Re-derive with `.tmp/w69b/f4_pinlit.py` (or an equivalent corpus scan for "
+    "substitution-tagged TEXT_PATCH ops whose target leaf is a sentence) and "
+    "adjudicate every added, removed or retargeted row BEFORE moving the pin: "
+    "each of these writes live law at PUNKTUM depth, where a wrong address is "
+    "invisible in a ledd-level diff."
+)
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w69b_sentence_addressed_substitution_population_is_pinned() -> None:
+    """W-69b's standing tripwire: the sentence-addressed population, membership-level.
+
+    Twenty-one ops over 3,089 amendment artifacts, on four base acts. This is
+    the SAME 21 that W-69a refused with
+    ``no_parse_substitution_sentence_address_out_of_scope``, which is why that
+    receipt kind is retired rather than left at zero — and the test asserts the
+    retirement directly: no adjudication anywhere in the corpus may carry the
+    dead kind, and every sentence address must arrive as an op instead.
+
+    A 22nd row is not automatically wrong, but it is automatically a finding:
+    the parse plane cannot see whether the address resolves, so the only thing
+    standing between a new row and a wrong write at punktum depth is this pin
+    plus the apply-plane term conjuncts.
+    """
+    from lawvm.norway.grafter import parse_no_amendment_groups
+    from lawvm.norway.sources import iter_no_amendment_artifacts
+
+    artifacts = 0
+    found: list[tuple[str, str, str, str, str]] = []
+    dead_kind: list[str] = []
+    for artifact in iter_no_amendment_artifacts(cast(Path, _NO_FARCHIVE_PATH)):
+        artifacts += 1
+        adjudications: list[CompileAdjudication] = []
+        groups = parse_no_amendment_groups(
+            artifact.payload, artifact.logical_id, adjudications_out=adjudications
+        )
+        dead_kind.extend(
+            a.kind
+            for a in adjudications
+            if a.kind == "no_parse_substitution_sentence_address_out_of_scope"
+        )
+        for base_id, ops in groups:
+            for op in ops:
+                if NO_SUBSTITUTION_PROVENANCE_TAG not in (op.provenance_tags or ()):
+                    continue
+                if not op.target.path or op.target.leaf_kind() != "sentence":
+                    continue
+                assert op.text_patch is not None
+                found.append(
+                    (
+                        artifact.logical_id,
+                        base_id,
+                        "/".join(f"{kind}:{label}" for kind, label in op.target.path),
+                        op.text_patch.selector.match_text,
+                        op.text_patch.replacement or "",
+                    )
+                )
+
+    assert artifacts == 3089, (
+        f"the amendment plane holds {artifacts} artifacts, not 3,089; the census "
+        "below is measured over a different corpus. " + _W69B_POPULATION_INSTRUCTION
+    )
+    assert dead_kind == [], (
+        "`no_parse_substitution_sentence_address_out_of_scope` is retired by W-69b; "
+        "something is still emitting it. " + _W69B_POPULATION_INSTRUCTION
+    )
+    assert tuple(sorted(found)) == _NO_W69B_SENTENCE_ADDRESSED_SUBSTITUTIONS, (
+        "The sentence-addressed word substitutions are not the pinned set. "
+        + _W69B_POPULATION_INSTRUCTION
+    )
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w69b_the_two_unservable_sentence_addresses_stay_refused_typed() -> None:
+    """The 2 of 21 W-69b does not serve, on the corpus, with their siblings.
+
+    ``no/lov/2020-04-17-29`` § 11 første ledd and § 18 andre ledd are absent
+    from the replayed tree — that law's own ``§ 11 fjerde ledd oppheves`` +
+    relabel sequence is not lowered, so five of its LEDD-addressed substitution
+    ops have never resolved either (§ 11 andre ledd is refused twice, once per
+    announcement). The two sentence addresses beneath those ledd fail for
+    exactly that reason and no other, so they take exactly that receipt:
+    ``replay_unresolved_target``, alongside the five. Read the assertion
+    as a claim about the DEFECT, not about sentences — if sentence addresses
+    ever started refusing for a reason of their own, this list would stop
+    interleaving with the ledd list and the test would say so.
+    """
+    from lawvm.norway.index import build_no_amendment_index
+    from lawvm.norway.replay import replay_no_to_pit
+
+    data_dir = cast(Path, _NO_FARCHIVE_PATH)
+    result = replay_no_to_pit(
+        "no/lov/2020-04-17-29",
+        "2026-07-10",
+        data_dir=data_dir,
+        index=build_no_amendment_index(data_dir),
+    )
+    assert result.replayed is not None
+    unresolved = sorted(
+        str((a.detail or {}).get("target", ""))
+        for a in result.adjudications
+        if a.kind == "replay_unresolved_target"
+        and "text_replace" == str((a.detail or {}).get("action", ""))
+    )
+    assert unresolved == [
+        "section:11/subsection:1/sentence:1",
+        "section:11/subsection:2",
+        "section:11/subsection:2",
+        "section:11/subsection:3",
+        "section:11/subsection:4",
+        "section:18/subsection:1",
+        "section:18/subsection:2/sentence:2",
+    ]
+    # No sentence op on this law may reach a WRITE it could not resolve: the
+    # twelve that land are the four sentence-addressed ones under § 12 plus the
+    # eight ledd-addressed ones whose ledd do exist.
+    landed = [r for r in (result.write_receipts or ()) if str(r.action) == "text_replace"]
+    assert len(landed) == 12
+    assert not [
+        a
+        for a in result.adjudications
+        if a.kind == NO_REPLAY_SUBSTITUTION_TERM_NOT_UNIQUELY_PRESENT
+    ]
 
 
 def _no_walk(node: IRNode):

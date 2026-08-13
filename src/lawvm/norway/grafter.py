@@ -5600,13 +5600,19 @@ NO_PARSE_SUBSTITUTION_ANNOUNCEMENT_NOT_LOWERED = "no_parse_substitution_announce
 # W-69a: the substitution is now LOWERED, as an addressed ``TEXT_PATCH`` — one
 # op per (listed address × announced pair). The receipt above survives as the
 # S3 conjunct's refusal (an announcement whose pair grammar does not parse) and
-# these four join it, one per boundary of the lowering envelope. Every one is
+# these three join it, one per boundary of the lowering envelope. Every one is
 # measured against a population, named at its emit site.
+#
+# W-69a's fourth, ``no_parse_substitution_sentence_address_out_of_scope``, is
+# RETIRED by W-69b: it named a phase boundary (sentence materialization was not
+# reachable from the text-patch apply branch) rather than a property of the
+# construct, and lifting the materializer removed the boundary. Its 21 receipts
+# became 17 landed substitutions, 1 op on a base act with no replayed statute,
+# 1 apply-plane ``no_replay_substitution_term_not_uniquely_present`` and 2
+# ``replay_unresolved_target``. Deleted rather than left at zero, so no reader
+# has to work out which of the two W-69 halves it still guards.
 NO_PARSE_SUBSTITUTION_MULTIPLE_ANNOUNCEMENTS = "no_parse_substitution_multiple_announcements"
 NO_PARSE_SUBSTITUTION_MULTI_BASE_ADDRESS_LIST = "no_parse_substitution_multi_base_address_list"
-NO_PARSE_SUBSTITUTION_SENTENCE_ADDRESS_OUT_OF_SCOPE = (
-    "no_parse_substitution_sentence_address_out_of_scope"
-)
 NO_PARSE_SUBSTITUTION_ADDRESS_NOT_LOWERABLE = "no_parse_substitution_address_not_lowerable"
 #: Stamped on every op the addressed-substitution production mints, and read by
 #: the apply seam. It is the ONLY thing that tells the ``text_replace`` branch
@@ -6104,38 +6110,22 @@ def iter_no_document_change_ops(
                             ),
                         )
                         continue
-                    if target.leaf_kind() == "sentence":
-                        # W-69a is ledd/section/item depth. A ``setning/N``
-                        # address does not resolve at all today: the apply plane
-                        # materializes sentence children only on the structural
-                        # branch, AFTER the text-patch branch has returned. Lifting
-                        # that call is W-69b, and it changes the tree SHAPE of every
-                        # ledd it touches — a full-corpus statute diff, not this
-                        # item's blast. 21 addresses, of which 19 would resolve
-                        # after the lift; refused typed rather than half-served.
-                        _append_no_parse_adjudication(
-                            adjudications_out,
-                            kind=NO_PARSE_SUBSTITUTION_SENTENCE_ADDRESS_OUT_OF_SCOPE,
-                            message=(
-                                "Norway word-substitution address names a sentence; the "
-                                "text-patch apply branch cannot resolve a sentence address "
-                                "until sentence children are materialized for it, so the "
-                                "substitution was refused for that address."
-                            ),
-                            source_id=source_id,
-                            detail=diagnostic_detail(
-                                rule_id=NO_PARSE_SUBSTITUTION_SENTENCE_ADDRESS_OUT_OF_SCOPE,
-                                phase="parse",
-                                family="unsupported_or_unresolved_action",
-                                blocking=True,
-                                raw_address=raw_address,
-                                target=_no_address_detail(target),
-                                base_id=base_id,
-                                source_doc=source_doc,
-                                announcement=announcement_text,
-                            ),
-                        )
-                        continue
+                    # W-69b: ``setning/N`` addresses are IN scope. W-69a refused
+                    # them here (``no_parse_substitution_sentence_address_out_of_scope``,
+                    # 21 receipts) because the apply plane materialized sentence
+                    # children only on the structural branch, AFTER the text-patch
+                    # branch had returned, so a sentence-addressed TEXT_PATCH could
+                    # not resolve at all. ``_materialize_sentence_parent_for`` now
+                    # runs on both branches, so the address resolves whenever its
+                    # PARENT ledd does — and when the parent does not resolve (2 of
+                    # the 21, both on ``no/lov/2020-04-17-29``, whose § 11 and § 18
+                    # ledd are missing from the replayed tree) the op refuses at
+                    # apply as ``replay_unresolved_target``, the same typed receipt
+                    # the five unresolvable LEDD-addressed ops on that law already
+                    # take (§ 11 andre ledd twice, tredje, fjerde, § 18 første). The
+                    # parse plane has no statute, so resolution is not a conjunct it
+                    # can evaluate; keeping a parse-plane sentence guard would only
+                    # re-refuse the 17 addresses that do resolve.
                     for from_term, to_term in pairs:
                         doc_ops.append(
                             LegalOperation(
@@ -7940,6 +7930,54 @@ def _apply_no_ops_fold(
             nonlocal _no_landed_primary_path
             _no_landed_primary_path = tuple(path)
 
+        def _materialize_sentence_parent_for(op: LegalOperation) -> None:
+            """W-69b: read-only sentence materialization, before target resolution.
+
+            Lifted verbatim out of the structural arm (where it sat between the
+            unsupported-action guard and ``_resolve_no_path``) so BOTH arms of the
+            dispatch reach it. It had to move: a ``setning/N`` ``TEXT_PATCH`` could
+            not resolve at all, because the text-patch arm returns before the
+            structural arm's materialization ever runs — which is why W-69a refused
+            every sentence-addressed substitution rather than half-serving it.
+
+            READ-ONLY means read-only on CONTENT, not on shape. The parent ledd goes
+            from text-carrying to children-carrying, and that shape change is exactly
+            what makes the address resolvable — but no byte of the provision's text is
+            added, dropped or rewritten: :func:`_split_no_sentences` partitions
+            ``_normalize_space(parent.text)`` at sentence boundaries, so space-joining
+            the sentence children reproduces the former ledd text exactly. The
+            tripwire that holds this is
+            ``test_no_w69b_text_patch_path_materialization_conserves_text``.
+
+            Emits the SHIPPED ``no_replay_sentence_children_materialized`` receipt: the
+            mechanism is unchanged, only its reachability is, so a new receipt kind
+            here would name a distinction that does not exist.
+            """
+            nonlocal body
+            if op.target.leaf_kind() != "sentence" or op.target.parent() is None:
+                return
+            parent_path = _resolve_no_path(body, cast(LegalAddress, op.target.parent()))
+            if parent_path is None:
+                return
+            body, materialized_count = _materialize_no_sentence_children_with_count(body, parent_path)
+            if not materialized_count:
+                return
+            _record_structural_recovery(
+                kind="no_replay_sentence_children_materialized",
+                message=(
+                    "Norway replay materialized sentence children from parent text "
+                    "before applying a sentence-level operation."
+                ),
+                op=op,
+                detail={
+                    "rule_id": "no_sentence_text_materialized_for_sentence_target",
+                    "family": "ontology_normalization",
+                    "target": str(op.target),
+                    "materialized_parent_path": _no_path_label(parent_path),
+                    "materialized_sentence_count": materialized_count,
+                },
+            )
+
         def _dispatch() -> None:
             """Run one op's tree dispatch (mutating the closure ``body``).
 
@@ -7982,6 +8020,15 @@ def _apply_no_ops_fold(
                     _record_landed_path(())
                     _assert_no_invariant_violations(op)
                     return
+                # W-69b: a ``setning/N`` TEXT_PATCH resolves only after its parent
+                # ledd's text has been split into sentence children. The call is a
+                # no-op for every other target shape (and for a ledd that already
+                # carries sentence children), which is why it can sit unconditionally
+                # ahead of the resolve rather than behind a substitution-only guard:
+                # the population it newly serves is bounded by what the parse plane
+                # mints, and at the base pin NO text_replace op targeted a sentence
+                # leaf at all — W-69a refused every one of them.
+                _materialize_sentence_parent_for(op)
                 resolved_path = _resolve_no_path(body, op.target)
                 if resolved_path is None:
                     _append_no_replay_adjudication(
@@ -8083,26 +8130,7 @@ def _apply_no_ops_fold(
                 )
                 _assert_no_invariant_violations(op)
                 return
-            if op.target.leaf_kind() == "sentence" and op.target.parent() is not None:
-                parent_path = _resolve_no_path(body, cast(LegalAddress, op.target.parent()))
-                if parent_path is not None:
-                    body, materialized_count = _materialize_no_sentence_children_with_count(body, parent_path)
-                    if materialized_count:
-                        _record_structural_recovery(
-                            kind="no_replay_sentence_children_materialized",
-                            message=(
-                                "Norway replay materialized sentence children from parent text "
-                                "before applying a sentence-level operation."
-                            ),
-                            op=op,
-                            detail={
-                                "rule_id": "no_sentence_text_materialized_for_sentence_target",
-                                "family": "ontology_normalization",
-                                "target": str(op.target),
-                                "materialized_parent_path": _no_path_label(parent_path),
-                                "materialized_sentence_count": materialized_count,
-                            },
-                        )
+            _materialize_sentence_parent_for(op)
             resolved_path = _resolve_no_path(body, op.target)
             if (
                 resolved_path is None

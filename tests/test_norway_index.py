@@ -1950,7 +1950,20 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # NOT survive are refused typed at parse — 82 on the four-announcement node,
     # 21 sentence addresses that are W-69b's, 6 on the multi-base node. Signed off
     # 2026-08-12.
-    assert sum(entry.n_ops for entry in index.entries) == 28363
+    # 28,363 -> 28,384 at W-69b: +21 addressed ``TEXT_PATCH`` ops and nothing
+    # lost, on a content-keyed identity diff of 21 gained / 0 lost / 0 changed.
+    # They are exactly the 21 ``setning/N`` addresses W-69a refused with
+    # ``no_parse_substitution_sentence_address_out_of_scope`` — each announcement
+    # in this family carries a single pair, so 21 addresses = 21 ops. Per
+    # instrument: 2024-06-21-42 +1, 2024-06-21-52 +6, 2025-02-07-1 +8,
+    # 2025-12-22-129 +6.
+    #
+    # 21 is a PARSE count and it is deliberately larger than the 17 that land:
+    # the parse plane has no statute, so it cannot see that 1 address is on a base
+    # act with no replayed source at all, that 2 sit under a ledd missing from the
+    # replayed tree, or that 1 carries only a case-variant of its term. Those four
+    # refuse at apply, typed, where the evidence for refusing exists.
+    assert sum(entry.n_ops for entry in index.entries) == 28384
 
 
 def test_no_amendment_index_staleness_report_detects_archive_change(tmp_path) -> None:

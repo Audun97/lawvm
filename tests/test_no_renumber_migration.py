@@ -1477,7 +1477,27 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # `blocked_contingent`, i.e. exactly the posture this pin exists to watch.
     # Content-removing is UNCHANGED at 168 over the same 65 laws: a text
     # substitution replaces, it never removes. Signed off 2026-08-12.
-    "hazard_destructive_writes": 3810,
+    #
+    # 3,810 -> 3,816 at W-69b, and again it is ONE law:
+    # ``no/lov/2008-06-27-71`` [80, 2] -> [86, 2]. Putting ``setning/N``
+    # addresses in scope lands 17 substitutions corpus-wide; 11 are on
+    # ``no/lov/2015-06-19-70`` and ``no/lov/2020-04-17-29``, which are not
+    # known-incomplete, and the other 6 are plan- og bygningsloven's remaining
+    # ``gjennom elektroniske medier`` -> ``på internett`` addresses (§§ 8-5
+    # femte, 11-12 andre, 11-14 første, 11-15 andre, 12-8 tredje, 12-10 første
+    # ledd), the sentence-depth siblings of the § 12-12 address W-69a landed on
+    # the same `blocked_contingent` law.
+    #
+    # This is the pin doing its job rather than a new hazard: the writes go into
+    # a base the system knows is incomplete, but each one proved its announced
+    # term uniquely present as a whole word in the ADDRESSED punktum before
+    # writing, and a term substitution replaces without removing — so the
+    # content-removing count is unchanged at 168 over the same 65 laws, and
+    # nothing in the base's incompleteness can turn one of these into a wrong
+    # removal. The full-corpus statute diff for W-69b confirms it from the other
+    # side: 781 of 784 statutes byte-identical, and the 17 word-level changes on
+    # the other 3 are exactly the 17 announced substitutions.
+    "hazard_destructive_writes": 3816,
     # 167 -> 168, and the +1 is NOT a relabel op. ``no/lov/2016-05-27-14`` gains
     # ``no/lovtid/2021-12-22-158:1``, a REPEAL of § 7-6 annet ledd that could not
     # bind before because that law's ledd sequence was one slot out of step; with
@@ -1499,7 +1519,9 @@ _NO_INCOMPLETE_BASE_HAZARD_LAWS_DIGEST = (
     # the digest moves with them. See the two count notes above.
     # W-69a: membership again unchanged; ONE law's count moves
     # (``no/lov/2008-06-27-71`` [79, 2] -> [80, 2]), so the digest moves with it.
-    "a3c4e66c2fbcab0f3f1f8cd39939e62ad339c297fdb29151f228c96e654acecb"
+    # W-69b: membership unchanged a third time; the SAME law moves again
+    # ([80, 2] -> [86, 2]) as its six sentence-depth substitution addresses land.
+    "768cf06b7b3581d6e706ef2d04be6445692b987b9df2fdad488969b4acac64e8"
 )
 
 _REGENERATE = (

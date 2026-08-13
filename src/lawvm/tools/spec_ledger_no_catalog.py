@@ -351,16 +351,6 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "a substitution to a law its addresses do not belong to; the block "
         "refuses whole."
     ),
-    "no_parse_substitution_sentence_address_out_of_scope": (
-        "A Norway word-substitution address names a SENTENCE (``setning/N``). "
-        "The apply plane materializes sentence children only on the structural "
-        "branch, after the text-patch branch has returned, so a sentence-addressed "
-        "TEXT_PATCH cannot resolve at all; the address refuses typed rather than "
-        "being redirected to its parent ledd, which fails OPEN when the term "
-        "recurs in a sibling sentence. Lifting the materialization call is a "
-        "separate change (W-69b) because it alters the tree SHAPE of every ledd "
-        "it touches."
-    ),
     "no_parse_substitution_address_not_lowerable": (
         "A Norway word-substitution address token could not be lowered to a "
         "``LegalAddress`` by the shipped Lovdata path reader, so the provision to "
