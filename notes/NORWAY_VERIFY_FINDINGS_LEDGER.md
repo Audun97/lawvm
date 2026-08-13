@@ -177,6 +177,17 @@ ceiling untouched. The one row the matching rule deliberately leaves
 open (karanteneloven `§ 20 fjerde ledd`, a genitive) is counted here
 as still open, which is the point of taking whole-word matching.
 
+W-69b note (verdicts unmoved at 29/47/0, candidates 76): the same
+two design-named laws move and no other — karanteneloven
+`no/lov/2015-06-19-70` 8 → 2 and `no/lov/2020-04-17-29` 8 → 7 —
+**7 unexplained rows closed, 0 opened**, the other 74 laws
+byte-identical. Totals `total=1471 (ceiling=1011, unexplained=460)`;
+ceiling untouched. The design priced this phase at 8 rows; the
+eighth (karanteneloven `§ 17 første ledd`) holds two sentence
+addresses of which one refuses `inflection_only` on a capitalised
+`Tilsettingsmyndigheten`, so that row correctly stays open — the
+whole-word/exact-case trade costing what it says it costs.
+
 Batch 03 increased coverage rather than changing an existing verdict: all 20
 old rows stayed byte-identical, and 38 laws that had previously been excluded
 for unresolved commencement entered the scan. Their first durable baseline is:
@@ -4444,7 +4455,15 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
      478**. Stop: the tree SHAPE of every touched ledd changes, so
      the blast measurement is a full-corpus statute diff, not a
      candidate diff, and the materialization receipt count must
-     reconcile.
+     reconcile. **DONE at item 78 (`ccf623ae4`).** Realized: +21
+     ops (the parse plane has no statute and cannot pre-refuse the 4
+     that fail at apply), 17 landed, **+7 rows, not +8** — one
+     karanteneloven ledd holds TWO sentence addresses and the second
+     refuses `inflection_only` on a capitalised term, so its row
+     correctly stays open. The full-corpus statute diff came in at
+     781 of 784 byte-identical, 0 shape-only movers, and the 17
+     word-level changes on the 3 movers are exactly the 17 announced
+     substitutions.
    * **W-69c — generalize the atomic ordering to
      `(parent_path, label)`.** MEDIUM. No new parse. **Zero
      divergence rows** — the payoff is that `no/lov/2009-06-19-44`
@@ -4875,6 +4894,117 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    announcement crosstalk — and the corrected figure is what the code
    and the catalog say.
 
+78. **W-69b (read-only sentence materialization on the text-patch
+   path):** DONE (`ccf623ae4`, 2026-08-13; artifacts `.tmp/w69b/`).
+   The second W-69 phase, exactly as re-phased at item 69: two edits,
+   both small, **7 more unexplained rows close** and the sentence
+   half of the substitution family is fully served or typed.
+   **What was built.** Apply plane: the materialization-before-resolve
+   block (shipped at W-54's seam, previously reachable only on the
+   structural arm AFTER the text-patch arm had returned) is lifted
+   verbatim into a closure `_materialize_sentence_parent_for(op)`
+   called from BOTH arms of the dispatch, before `_resolve_no_path`.
+   Same shipped `_materialize_no_sentence_children_with_count`, same
+   shipped `no_replay_sentence_children_materialized` receipt, same
+   `rule_id` — the mechanism is unchanged, only its reachability.
+   READ-ONLY means read-only on CONTENT: the parent ledd goes from
+   text-carrying to children-carrying, but space-joining the children
+   reproduces the former ledd text byte-for-byte, and a tripwire test
+   holds that conservation with a paired `!=` assertion so a no-op
+   cannot satisfy it. Parse plane: W-69a's per-address `setning/N`
+   refusal is deleted; sentence addresses fall through to the same op
+   minting as ledd/section/item.
+   **`no_parse_substitution_sentence_address_out_of_scope` is
+   RETIRED — deleted, not zeroed.** It named a phase boundary (the
+   materializer's reachability), not a property of the construct, and
+   the boundary no longer exists. Constant, emit site, catalog entry
+   and test import all removed; the family's surviving conjuncts are
+   unchanged (`multiple_announcements` 1, `multi_base_address_list`
+   1, `announcement_not_lowered` 0, `address_not_lowerable` 0).
+   **The lift is UNCONDITIONAL, licensed by measurement**: at the
+   base pin ZERO `text_replace` ops corpus-wide targeted a sentence
+   leaf (`.tmp/w69b/sentence_textreplace_census.json`) — W-69a
+   refused every one — so the only ops the new reachability serves
+   are the 21 this item mints, and the call is a no-op for every
+   other target shape.
+   **Frozen before implementing, matched after, element for element**
+   (`.tmp/w69b/expected_withdrawal_set.json`): 21 receipts, 4
+   instruments, 4 base acts → **21 ops minted, 0 strays, 0 survivors
+   of the retired kind**. Accounting: **17 `lowered_and_landed`**, 1
+   `lowered_no_statute` (`no/lov/1998-07-17-56` § 7-6 — no
+   original-act source; the design counted this one as "resolving",
+   but the base act has no replayed statute at all), 1
+   `lowered_apply_term_refused` (karanteneloven `§ 17 første ledd
+   første punktum`, `inflection_only`: the text reads capitalised
+   `Tilsettingsmyndigheten`), 2 `lowered_apply_unresolved`
+   (`no/lov/2020-04-17-29` `§ 11/1/1` and `§ 18/2/2`, whose parent
+   ledd are missing from the replayed tree — the same defect as that
+   law's five unresolvable LEDD-addressed ops, so they take the same
+   generic `replay_unresolved_target`, interleaved with them in one
+   pinned list, rather than a new typed kind that would claim a
+   difference which isn't there).
+   **Design numbers corrected, all in the refusing direction.**
+   "+~19 ops" is **+21** (parse cannot pre-refuse the 4 apply
+   failures); "19 resolve" is **17 land**; "**+8 rows**" is **+7**
+   (`§ 17 første ledd` holds TWO sentence addresses; `tredje punktum`
+   lands, `første punktum` refuses, the row stays open); "13
+   materialization receipts on karanteneloven at design time" was
+   mis-scoped — the corpus total at base is 807 and karanteneloven's
+   is 0.
+   **Measured.** Ops **28,363 → 28,384** (+21, content-keyed, 0
+   lost, 0 changed, every one a `text_patch`); parse adjudications
+   10,891 → 10,870 (−21). Replay:
+   `no_replay_sentence_children_materialized` **807 → 822**, the +15
+   reconciled op-by-op (`2008-06-27-71` +6 in 6 distinct ledd;
+   karanteneloven +8 — 7 ledd plus `§ 17/1` materializing TWICE,
+   because the refused `setning/1` op's state was rolled back whole
+   and `setning/3` re-materialized; `2020-04-17-29` +1, one receipt
+   for `§ 12/1` shared by all four landings there);
+   `no_replay_substitution_term_not_uniquely_present` 1 → 2;
+   `replay_unresolved_target` 697 → 699. A refused sentence op still
+   EMITS a materialization receipt even though the seam rolls its
+   state back entirely — pre-existing seam behaviour, pinned by test
+   rather than suppressed. Bindings 6,496, entries 2,565, population
+   784, candidates 76, unstructured refusals 8,583 all unmoved.
+   **Full-corpus statute diff (the item's headline blast cost,
+   priced by the design and paid): 781 of 784 byte-identical, 0
+   shape-only movers, 3 content movers** — and the word-level diff
+   of those three is **17 changes, every one an announced (FROM→TO)
+   pair on a lowered sentence address, 0 unadjudicated**. The
+   co-amendment leak is stated: the retired receipt's replay-plane
+   count was 26, not 21, because parse receipts attach to every base
+   act the instrument touches — 6 leaked onto `no/lov/2018-06-15-40`,
+   whose statute is byte-identical and which is the corpus's only
+   adjudication-only mover.
+   **Payoff: unexplained 467 → 460, ceiling 1,011 UNMOVED, 0 rows
+   opened, only the two design-named laws move.** Karanteneloven
+   8 → 2 (six of its remaining eight rows were sentence-addressed);
+   `no/lov/2020-04-17-29` 8 → 7. Total 1,478 → 1,471. Scoreboard
+   **29/47/0**, candidates 76, no flips.
+   **Hazard census re-pinned CONSCIOUSLY, third time in the W-69
+   family and same shape: 3,810 → 3,816 destructive writes, ONE law**
+   — `no/lov/2008-06-27-71` [80, 2] → [86, 2], plan- og
+   bygningsloven's six remaining `gjennom elektroniske medier` → `på
+   internett` addresses at sentence depth, the siblings of the
+   § 12-12 write W-69a landed on the same `blocked_contingent` law.
+   The design said the payoff laws sit outside the hazard set and did
+   not anticipate this third law moving; adjudicated safe at the
+   landing: each write proved its term uniquely present as a whole
+   word in the ADDRESSED punktum, and a substitution replaces without
+   removing — content-removing is unchanged at 168 over the same 65
+   laws (corpus-wide 207), membership 161, incomplete 199 all
+   unchanged. **No `removal_wrong` anywhere. Firings 10 → 10,
+   `firings` and `firing_laws` blocks byte-identical; verdict table
+   gains no row.** Sweep baseline regenerated (grafter in the
+   closure); beyond the code digest the only movement is the one
+   hazard count and its `laws_digest`. W-72's blind spot unchanged
+   at 4 laws.
+   **Judgement calls ratified at sign-off:** the receipt retirement;
+   the generic `replay_unresolved_target` for the 2 unresolvable
+   sentence addresses; the unconditional lift; the hazard-set
+   landings on `2008-06-27-71`; the materialization receipt surviving
+   rollback as pinned seam behaviour.
+
 ## 5. Demo / Inspection Tooling
 
 Browser views of any replayable law across its own amendment dates, plus an
@@ -4891,6 +5021,32 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-13 (W-69b — read-only sentence materialization on the
+  text-patch path; `ccf623ae4`)** — **7 more unexplained rows
+  close (467 → 460) and the sentence half of the substitution family
+  is fully served or typed.** The materialization-before-resolve
+  block is lifted into a closure called from BOTH arms of the replay
+  dispatch, so a `setning/N` `TEXT_PATCH` resolves whenever its
+  parent ledd does; W-69a's per-address sentence refusal is deleted
+  and `no_parse_substitution_sentence_address_out_of_scope` is
+  RETIRED (it named a phase boundary that no longer exists). The
+  frozen 21-receipt withdrawal set matched element for element: 17
+  landed, 1 banked (no original-act source), 1 refused
+  `inflection_only`, 2 refused `replay_unresolved_target` alongside
+  their five ledd siblings with the same defect. Ops 28,363 →
+  28,384; materialization receipts 807 → 822, reconciled op-by-op
+  including one double-materialization behind a rolled-back refusal.
+  The full-corpus statute diff the design priced was paid: 781 of
+  784 byte-identical, 0 shape-only movers, and the 3 movers' 17
+  word-level changes are exactly the 17 announced substitutions.
+  Hazard 3,810 → 3,816, one law (`no/lov/2008-06-27-71`, six
+  sentence-depth siblings of W-69a's § 12-12 write); content-removing
+  unchanged; firings 10 → 10 byte-identical; ceiling 1,011 unmoved;
+  0 rows opened. Design corrected: +21 ops not +19, 17 landings not
+  19, **+7 rows not +8** — one karanteneloven ledd carries two
+  sentence addresses and the capitalised term's row stays honestly
+  open.
 
 - **2026-08-12 (W-69a — the addressed word substitution lowers for
   real; `17e5dcfb4`)** — **11 unexplained divergence rows close,
