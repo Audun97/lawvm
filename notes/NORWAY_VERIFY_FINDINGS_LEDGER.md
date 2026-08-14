@@ -3833,6 +3833,26 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    into a mid-apply abort is strictly WORSE — an abort discards the
    law's entire receipt and adjudication plane, which is this item's
    own finding.
+   **RESOLVED at W-69c (item 79, `d5699c464`), with the root
+   cause corrected.** The two legs are not reorderable but MUTUALLY
+   UNSATISFIABLE — the instrument's §3 `data-move-part` attribute
+   names the wrong destination section (its annotated prose says an
+   intra-§3 shift), so two legs claim `§2/ledd/4` and no permutation
+   satisfies both. The kernel's `renumber_vacate` stage worked as
+   designed and IS keyed on full paths; what it cannot do is report
+   "no order exists" — a topological sort can only answer with a
+   permutation, and it has no `by_destination` map to notice a
+   contest with. The fix is a provability TEST at the apply seam
+   (union-find components over `(parent_path, label)`; contested
+   destination, contested source, or cycle refuses the component
+   whole, typed, before any write), which un-aborts the law:
+   **blind spot 4 → 3, this narrative's prediction honoured — the
+   law left the set and its firings were adjudicated (zero new
+   firings; all six legs refuse before the θ cell)**. The
+   standing prohibition above is DISCHARGED; W-69d is unblocked.
+   The design's "14 cross-container legs" re-measures as **7** at
+   the post-W-70 base (the separator repair changed the population).
+   The design artifact's ordering framing is superseded by item 79.
    **The honesty repair, which is the part the item is named for.**
    `test_no_corpus_occupied_renumber_destination_verdicts_are_pinned`
    said "every `(RENUMBER, dest_occupied)` firing in the corpus"
@@ -4471,7 +4491,16 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
      occupied-destination behaviour becomes observable. Stops: the
      blind-spot list must SHRINK; the newly observable law's firings
      must be adjudicated before anything goes green; all other laws
-     byte-identical.
+     byte-identical. **DONE at item 79 (`d5699c464`).** Realized
+     with a root-cause CORRECTION: the two legs are not reorderable
+     but MUTUALLY UNSATISFIABLE (a Lovdata `data-move-part`
+     attribute names the wrong destination section), so the fix is a
+     provability REFUSAL over `(parent_path, label)` components, not
+     a reordering. Blind spot 4 → 3, firings 10 → 10, 783/784
+     byte-identical; the un-aborted law surfaces two pre-existing
+     INSERT-occupied replacements the abort was hiding (item 80
+     opened to repair the source defect). W-69d's hard prerequisite
+     is now satisfied.
    * **W-69d — arms B + C.** LARGE. 74 refusals withdrawn over 38
      base acts / 41 instruments (12 known-incomplete), the
      label-sequence oracle, the apply-plane refusal and the new skip
@@ -5005,6 +5034,126 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    landings on `2008-06-27-71`; the materialization receipt surviving
    rollback as pinned seam behaviour.
 
+79. **W-69c (the atomic relocation ordering, generalized to
+   `(parent_path, label)` — as a provability refusal):** DONE
+   (`d5699c464`, 2026-08-13; artifacts `.tmp/w69c/`). The third
+   W-69 phase. **Zero divergence rows, by design; the payoff is
+   W-72's blind spot going 4 laws → 3** and the cross-container
+   apply plane becoming trustworthy, which unblocks W-69d.
+   **THE DESIGN'S FRAMING DID NOT SURVIVE THE DATA, and the
+   correction is the item's headline.** §4.2 read the
+   `no/lov/2009-06-19-44` abort as an ordering bug: the
+   in-migration runs first, the vacate shift lands on it, reorder
+   and it is fixed. The two legs are in fact MUTUALLY
+   UNSATISFIABLE: `no/lovtid/2025-06-20-42`'s §3 `data-move-part`
+   attribute sends `§3/ledd/3 → §2/ledd/4` while its own annotated
+   prose says an intra-§3 shift ("Noverande § 3 andre og tredje
+   ledd blir tredje og nytt fjerde ledd") — **the Lovdata attribute
+   names the wrong destination section**, our lowering is faithful
+   to it, and so that leg and the §2 block's own `§2/ledd/3 →
+   §2/ledd/4` both claim one slot. No permutation satisfies both
+   (DOM evidence `.tmp/w69c/instr_2025-06-20-42.xml`). The design's
+   first-hour question is answered the same way: the kernel's
+   `renumber_vacate=True` stage is ALREADY full-path-keyed and on
+   this law produced exactly the order it promises — but a
+   topological sort can only answer with a permutation, has no
+   `by_destination` map, and is structurally incapable of reporting
+   "no order exists". W-66's `_no_ordered_set_relabel_pairs` has
+   the identical hole, unreachable there only because one lead's
+   grammar cannot spell a destination twice.
+   **What was built: a provability TEST at the apply seam, not a
+   reordering** — which is what makes it W-70-safe (no landed op's
+   semantics change; proof below). `_no_unprovable_relocation_targets`
+   (grafter.py): union-find over `(parent_path, label)` nodes —
+   which is exactly `LegalAddress.path` — across one affecting-act
+   group's DISTINCT RENUMBER legs; a connected component is
+   unprovable on a CONTESTED DESTINATION (this law's shape), a
+   CONTESTED SOURCE, or a CYCLE (W-66's guard at the new keying),
+   and every leg of an unprovable component refuses
+   `no_replay_relocation_order_unprovable_refused` — FIRST in the
+   RENUMBER branch, ahead of target resolution, so the verdict is a
+   fact about addresses independent of the tree and of emitted
+   order, and "the component drops whole" is proven rather than
+   observed. Registered in `_NO_SKIP_ADJUDICATION_KINDS`,
+   cataloged. The COMPONENT is the refusal unit: refusing one leg
+   out of a shift chain is W-56's half-application; refusing the
+   whole group would take down disjoint shifts with no argument;
+   and there is no principled discriminator between two internally
+   consistent but contradictory attributes, so picking a winner
+   would be a semantics change on landed ops. It lives at the APPLY
+   plane because the two colliding legs come from two different
+   `data-move-part` attributes on two different `article.change`
+   elements — no parse-plane production ever sees both.
+   **A latent wrong answer caught mid-item, in the refusing
+   direction's favour**: the first cut counted a REPEATED leg
+   (identical source and destination announced twice) as a contest.
+   Two corpus groups do this (`no/lov/1999-03-26-14` and
+   `no/lov/2017-06-16-53`), neither reaches the apply seam today —
+   a wrong answer with zero corpus blast to reveal it. Legs are
+   deduplicated before the analysis; pinned by
+   `test_no_w69c_a_leg_announced_twice_is_one_instruction_not_a_contest`.
+   **The judgement call ratified at sign-off — the un-aborted law
+   loses two provisions to a recovery this item did not touch.**
+   With the six relocation legs refusing, the instrument's "skal
+   lyde" INSERTs land on slots the refused shift never vacated, and
+   the SHIPPED `(INSERT, occupied)` θ cell recovers by replacing
+   the occupant: base `§ 2 tredje ledd` and `§ 3 andre ledd` are
+   overwritten, each carrying a typed blocking
+   `no_replay_insert_occupied_target_replaced` receipt (137 → 139;
+   the law's third is pre-existing, from `no/lovtid/2021-06-11-78`,
+   and ran at the base pin too). The abort was HIDING these two
+   firings — this is the blind-spot narrative's prediction
+   honoured, not a new defect. Trade taken: a fully receipted
+   statute honestly missing two provisions beats no statute and no
+   receipts at all; the loss is named in
+   `test_no_w69c_witness_2009_06_19_44_replays_to_completion` and
+   the repair is item 80.
+   **Measured.** Scan totals UNCHANGED and measured, not assumed:
+   candidates 76, scoreboard 29/47/0, total 1,471, ceiling 1,011,
+   unexplained 460 (the law is not a candidate). Full-corpus
+   statute diff: **783 of 784 byte-identical; exactly one law moves,
+   and it moves from no-statute to statute** (+8,293 chars).
+   Receipts 6,064 → 6,074 (+10, all its), adjudications +6 (the six
+   refusals), destructive writes 4,584 → 4,591 (+7, all its),
+   content-removing **207 → 207**, `no_replay_apply_raise` 4 → 3,
+   bindings and ops flat. **Firings 10 → 10 element for element,
+   verdict table gains no row, no `removal_wrong`.** Unprovable
+   census: 1 group at apply (the target law, 6/6 legs); 1 more
+   corpus-wide at parse (`no/lov/1981-05-22-25` ←
+   `no/lovtid/2012-01-20-6`, §186 told to become both `ledd/6` and
+   `ledd/4` — genuinely contradictory, F-09 sparse so it never
+   reaches apply; W-69d will meet it). Cross-container legs
+   re-derived at this base: **7 over 6 base acts / 4 instruments**
+   (the design's 14 measured pre-W-70; the separator repair changed
+   the population).
+   **Sweep baseline: 9 keys moved, each adjudicated** — the code
+   digests (grafter only, 1 of 79 modules), the aborting-law rows
+   4 → 3 (the payoff), and the law's own hazard membership
+   (`bases_with_destructive_writes` 265 → 266, `hazard_bases` 161 →
+   162, `hazard_destructive_writes` 3,816 → 3,823, its row
+   `[7, 0]` — zero content-removing — and `laws_digest`). Firings,
+   corpus digest, content-removing (168/65), incomplete bases (199)
+   all unmoved.
+
+80. **W-70b (Lovdata destination-section repair on `data-move-part`,
+   behind a population tripwire):** OPEN, unauthorized. Opened at
+   the W-69c sign-off. `no/lovtid/2025-06-20-42`'s §3 attribute
+   writes `§3/ledd/2;;§2/ledd/3 §3/ledd/3;;§2/ledd/4` where its own
+   annotated prose commands an intra-§3 shift — the same class of
+   source defect as W-70's separator damage: the attribute
+   contradicts the prose it annotates, and the prose is the
+   authority. A W-70-shaped repair (normalize the destination
+   section to the change block's own section when the prose
+   announces an intra-section shift; refuse anything unprovable;
+   population tripwire so a growing family fails closed) would turn
+   the six W-69c refusals on `no/lov/2009-06-19-44` back into a
+   provable relocation, recover the two provisions item 79's θ cell
+   replaced, and land the under-applied shift. Sizing: ONE
+   instrument in the population today (census before building, per
+   W-70's discipline); small. Prerequisite: none — W-69c's refusal
+   keeps the law safe meanwhile, which is exactly the
+   refusal-first contract working as intended.
+
 ## 5. Demo / Inspection Tooling
 
 Browser views of any replayable law across its own amendment dates, plus an
@@ -5021,6 +5170,34 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-13 (W-69c — the atomic relocation ordering generalized
+  to `(parent_path, label)`, as a provability refusal;
+  `d5699c464`)** — **W-72's blind spot goes 4 laws → 3, zero
+  divergence rows by design, and W-69d's hard prerequisite is
+  satisfied.** The design's ordering framing did not survive the
+  data: `no/lov/2009-06-19-44`'s two colliding legs are mutually
+  unsatisfiable — a Lovdata `data-move-part` attribute names the
+  wrong destination section against its own prose — so the fix is a
+  provability TEST at the apply seam, not a reordering. Union-find
+  components over `(parent_path, label)` nodes; a contested
+  destination, contested source, or cycle refuses the whole
+  component typed
+  (`no_replay_relocation_order_unprovable_refused`, in the skip
+  set), first in the RENUMBER branch, before any write. The
+  un-aborted law surfaces two pre-existing INSERT-occupied
+  replacements the abort was hiding (typed blocking receipts, 137 →
+  139); ratified as the right trade and item 80 (W-70b) opened to
+  repair the source defect. Firings 10 → 10, verdict table
+  unchanged, no `removal_wrong`; 783/784 statutes byte-identical;
+  scan totals measured unchanged (76 / 29-47-0 / 1,471 / 1,011 /
+  460); hazard 3,816 → 3,823, all the one law's own writes, zero
+  content-removing. A latent false-contest on repeated legs was
+  caught mid-item and deduplicated (two corpus groups protected).
+  The kernel's `renumber_vacate` stage is exonerated: full-path
+  keyed, worked as designed, structurally incapable of reporting
+  "no order exists". Cross-container legs re-measure at 7 (the
+  design's 14 was pre-W-70).
 
 - **2026-08-13 (W-69b — read-only sentence materialization on the
   text-patch path; `ccf623ae4`)** — **7 more unexplained rows
