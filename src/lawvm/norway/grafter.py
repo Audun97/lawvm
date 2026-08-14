@@ -1520,6 +1520,61 @@ NO_REPLAY_LEDD_SET_RELABEL_OCCUPIED_DESTINATION_REFUSED = (
     "no_replay_ledd_set_relabel_occupied_destination_refused"
 )
 
+# ── W-69c: the same atomic ordering, generalized to (parent_path, label) ──────
+#
+# W-66's ``_no_ordered_set_relabel_pairs`` orders a relabel over integer ORDINALS
+# inside ONE sibling set. The structured ``data-move-part`` lane mints legs that
+# leave their container — ``§3/ledd/3 → §2/ledd/4`` — so a relocation belongs to
+# TWO sibling sets and the leg that frees its destination lives in the other one.
+# The dependency node therefore has to be the resolved ``(parent_path, label)``
+# pair, which is exactly ``LegalAddress.path``: a full path IS its parent path
+# plus its own ``(kind, label)`` step.
+#
+# WHERE THIS LIVES, AND WHY IT IS THE APPLY PLANE. The two colliding legs on
+# ``no/lov/2009-06-19-44`` come from TWO DIFFERENT ``data-move-part`` attributes
+# on two different ``article.change`` elements of one instrument. No parse-plane
+# production sees both — each production sees one attribute — so the parse plane
+# is structurally unable to detect the collision. The apply seam is the first
+# place the legs meet, so the check is here, alongside W-66's own apply-plane
+# refusal and in the same receipt family.
+#
+# WHY ``renumber_vacate=True`` DID NOT ALREADY DO THIS, which the design pass
+# asked to be answered before any code. The kernel's structural-vacate stage
+# (``core/op_ordering._ordered_renumber_group``) is ALREADY keyed on full paths —
+# ``by_target = {op.target.path: op}`` and ``by_target.get(op.destination.path)``
+# — so it is cross-container-capable in principle, and on this law it worked
+# exactly as advertised: it hoisted ``§2/ledd/4 → §2/ledd/5`` in front of
+# ``§3/ledd/3 → §2/ledd/4``. What it cannot express is the constraint that is
+# actually violated. It models ONE relation — "the leg whose TARGET is my
+# destination must run first" — and it answers by producing a PERMUTATION. Here
+# two legs, ``§3/ledd/3 → §2/ledd/4`` and ``§2/ledd/3 → §2/ledd/4``, claim the
+# SAME destination, and no permutation of them exists in which the second does
+# not land on the first: whichever runs last writes onto a live sibling. A
+# topological sort is the wrong shape of answer to a question whose answer is
+# "there is no order". The stage did not miss the case; it is incapable of
+# reporting it, and it has no ``by_destination`` map to notice it with. W-66's
+# parse-plane function has the identical hole (its ``by_source`` dict likewise
+# never looks for a repeated destination); it is unreachable there today only
+# because a single lead's grammar cannot spell one destination twice.
+#
+# SO THE GUARD IS A PROVABILITY TEST, NOT A REORDERING. Over one affecting-act
+# group's DISTINCT RENUMBER legs, keyed on ``(parent_path, label)``:
+#   * a destination claimed by more than one leg is UNSATISFIABLE;
+#   * a cycle in "my destination is your source" is UNSATISFIABLE (W-66's guard,
+#     unchanged, lifted to the same keying);
+#   * a source sent to two different destinations is UNSATISFIABLE.
+# "Distinct" is load-bearing: a leg announced twice is one instruction, and two
+# corpus groups repeat one — see the docstring of the helper.
+# Any of those makes the CONNECTED COMPONENT they sit in unprovable, and every
+# leg of that component refuses with a typed receipt and no write. The component
+# — not the group, and not the single leg — is the unit because legs in
+# different components cannot interfere, and because refusing a leg out of the
+# middle of a shift chain would leave the chain half-applied, which is the W-56
+# failure mode this whole lane exists to prevent. Under-application is safe;
+# picking a winner between two contradictory instructions is not, and would be
+# a semantics change on landed ops (W-70's precedent).
+NO_REPLAY_RELOCATION_ORDER_UNPROVABLE_REFUSED = "no_replay_relocation_order_unprovable_refused"
+
 # The section address as a node's OWN text spells it. The trailing letter class
 # is guarded by a negative lookahead on the next letter, and that guard is not
 # cosmetic: without it "§ 12-1 nytt tredje ledd skal lyde:" reads its section as
@@ -7381,6 +7436,135 @@ def _no_renumber_tiebreak_key(
     )
 
 
+#: A dependency node in the generalized atomic ordering: the resolved
+#: ``(parent_path, label)`` pair, spelled as the full ``LegalAddress.path`` it
+#: already is (``path[:-1]`` is the parent, ``path[-1]`` is the ``(kind, label)``
+#: step). Nothing in the analysis below is ordinal, so a leg that leaves its
+#: container is an ordinary node like any other.
+_NORelocationNode = tuple[tuple[str, str], ...]
+
+
+def _no_unprovable_relocation_targets(
+    renumbers: Sequence[LegalOperation],
+) -> frozenset[_NORelocationNode]:
+    """Target paths of the RENUMBER legs whose relocation has no safe order.
+
+    ``renumbers`` is one affecting-act group's RENUMBER legs (``destination`` not
+    ``None``). Returns the ``target.path`` of every leg that must refuse.
+
+    THE GRAPH. Vertices are ``(parent_path, label)`` nodes — every path that
+    appears as a leg's source or destination. Each leg is an edge between its two
+    endpoints. Two legs are in the same ATOMIC COMPONENT when the edges connect
+    them, transitively; legs in different components address disjoint sets of
+    nodes and therefore cannot interfere, so each component is judged alone.
+
+    THE THREE WAYS A COMPONENT IS UNPROVABLE, all of them "no permutation of
+    these legs satisfies the constraint", none of them fixable by sorting:
+
+    * **Contested destination** — two legs name the same destination. Whichever
+      runs second writes onto the first. This is the shape that aborts
+      ``no/lov/2009-06-19-44`` today, and it is invisible to a sort that only
+      maps destinations back to sources.
+    * **Contested source** — two legs move the same node somewhere DIFFERENT. The
+      second finds it gone, or finds a later occupant standing at the old
+      address and moves the wrong node.
+    * **Cycle** — ``3→4`` with ``4→3``, a swap, which sequential relabelling
+      cannot express without a scratch slot. W-66's guard, at the new keying.
+
+    WHAT IS NOT A CONFLICT, and both cases are in the corpus, so neither is
+    hypothetical:
+
+    * **A repeated leg.** The same ``(source, destination)`` announced twice is
+      ONE instruction, not two contradictory ones — it is satisfied by applying
+      it once, and today the second copy simply fails to resolve its source and
+      takes the typed ``replay_unresolved_target`` skip. Legs are deduplicated
+      before the analysis so a repeat cannot be mistaken for a contest.
+      Measured: ``no/lov/1999-03-26-14`` (``§10-65/ledd/2 → ledd/3`` twice, from
+      ``no/lovtid/2013-12-13-117``) and ``no/lov/2017-06-16-53``
+      (``§30/ledd/2 → ledd/3`` twice, from ``no/lovtid/2018-06-15-38``) would
+      both refuse a legitimate move without this.
+    * **A leg that goes nowhere.** ``source == destination`` is a no-op edge; it
+      joins its component but conflicts with nothing.
+
+    Deterministic and order-independent: the analysis reads only op ADDRESSES, so
+    the same group yields the same refusal set regardless of the order the kernel
+    emitted, which is what makes "nothing half-applies" a property rather than a
+    hope.
+    """
+    seen_legs: set[tuple[_NORelocationNode, _NORelocationNode]] = set()
+    legs: list[tuple[_NORelocationNode, _NORelocationNode]] = []
+    for op in renumbers:
+        if op.destination is None:
+            continue
+        leg = (op.target.path, op.destination.path)
+        if leg in seen_legs:
+            continue
+        seen_legs.add(leg)
+        legs.append(leg)
+    if not legs:
+        return frozenset()
+
+    # Union-find over the nodes; each leg unions its two endpoints.
+    parent: dict[_NORelocationNode, _NORelocationNode] = {}
+
+    def _find(node: _NORelocationNode) -> _NORelocationNode:
+        parent.setdefault(node, node)
+        root = node
+        while parent[root] != root:
+            root = parent[root]
+        while parent[node] != root:  # path compression
+            parent[node], node = root, parent[node]
+        return root
+
+    def _union(left: _NORelocationNode, right: _NORelocationNode) -> None:
+        left_root, right_root = _find(left), _find(right)
+        if left_root != right_root:
+            parent[left_root] = right_root
+
+    for source, destination in legs:
+        _union(source, destination)
+
+    # Conflicting components: a destination or a source claimed by two legs.
+    conflicted: set[_NORelocationNode] = set()
+    seen_destinations: set[_NORelocationNode] = set()
+    seen_sources: set[_NORelocationNode] = set()
+    for source, destination in legs:
+        if destination in seen_destinations:
+            conflicted.add(_find(destination))
+        seen_destinations.add(destination)
+        if source in seen_sources:
+            conflicted.add(_find(source))
+        seen_sources.add(source)
+
+    # Cycles in "my destination is your source" — the same relation the kernel's
+    # structural-vacate stage sorts on, re-read here for provability rather than
+    # for an order. Iterative DFS with a three-colour marking (0 = on stack,
+    # 1 = finished) so a deep chain cannot blow the interpreter stack.
+    by_source: dict[_NORelocationNode, _NORelocationNode] = {}
+    for source, destination in legs:
+        by_source.setdefault(source, destination)
+    state: dict[_NORelocationNode, int] = {}
+    for start, _destination in legs:
+        if state.get(start) is not None:
+            continue
+        chain: list[_NORelocationNode] = []
+        node: Optional[_NORelocationNode] = start
+        while node is not None and state.get(node) is None:
+            state[node] = 0
+            chain.append(node)
+            node = by_source.get(node)
+        if node is not None and state.get(node) == 0:
+            conflicted.add(_find(node))  # closed back onto the live chain
+        for visited in chain:
+            state[visited] = 1
+
+    if not conflicted:
+        return frozenset()
+    return frozenset(
+        source for source, _destination in legs if _find(source) in conflicted
+    )
+
+
 def no_ordering_profile() -> OrderingProfile:
     """The NO jurisdiction ordering profile fed to the unified kernel.
 
@@ -7657,6 +7841,26 @@ def _apply_no_ops_fold(
     ordered_ops: list[tuple[LegalOperation, set[tuple[tuple[str, str], ...]]]] = [
         (op, _no_renumber_sources_by_group.get(_no_group_key(op), set())) for op in ordered_result.ops
     ]
+
+    # ── W-69c: the generalized atomic ordering's provability verdict, decided
+    # ONCE per affecting-act group, before any op runs. The kernel's
+    # structural-vacate stage answers "in what order?" and can only ever answer
+    # with a permutation; this answers the prior question "is there an order at
+    # all?" over ``(parent_path, label)`` dependency nodes — see the block
+    # comment on ``NO_REPLAY_RELOCATION_ORDER_UNPROVABLE_REFUSED``. Keyed by
+    # ``(group, target path)`` so the RENUMBER branch can read its verdict off
+    # the op alone, without a second per-op closure slot.
+    _no_renumbers_by_group: dict[tuple[str, str, str], list[LegalOperation]] = {}
+    for op in ordered_result.ops:
+        if op.action is StructuralAction.RENUMBER and op.destination is not None:
+            _no_renumbers_by_group.setdefault(_no_group_key(op), []).append(op)
+    _no_unprovable_relocation_legs: frozenset[
+        tuple[tuple[str, str, str], tuple[tuple[str, str], ...]]
+    ] = frozenset(
+        (group_key, target_path)
+        for group_key, group_renumbers in _no_renumbers_by_group.items()
+        for target_path in _no_unprovable_relocation_targets(group_renumbers)
+    )
 
     no_replay_tree_invariant_families = CORE_REPLAY_DELTA_MINIMAL_FAMILIES
 
@@ -8619,6 +8823,40 @@ def _apply_no_ops_fold(
                 )
 
             elif op.action is StructuralAction.RENUMBER and op.destination is not None:
+                # W-69c. FIRST in the branch, ahead of target resolution: the
+                # verdict is a fact about the group's ADDRESSES, so refusing here
+                # makes it independent of the tree and of the order the kernel
+                # emitted — the property that lets "the component drops whole"
+                # be proven rather than observed. A leg that also fails to
+                # resolve would otherwise report the accident
+                # (``replay_unresolved_target``) instead of the cause.
+                if (
+                    _no_group_key(op),
+                    op.target.path,
+                ) in _no_unprovable_relocation_legs:
+                    _append_no_replay_adjudication(
+                        adjudications_out,
+                        kind=NO_REPLAY_RELOCATION_ORDER_UNPROVABLE_REFUSED,
+                        message=(
+                            "Norway replay refused a relocation leg whose atomic group "
+                            "admits no order in which every leg avoids a live sibling."
+                        ),
+                        op=op,
+                        detail={
+                            "rule_id": NO_REPLAY_RELOCATION_ORDER_UNPROVABLE_REFUSED,
+                            "family": "unsupported_or_unresolved_action",
+                            "action": legacy_text_action_value(op),
+                            "source_path": _no_path_label(op.target.path),
+                            "destination_path": _no_path_label(op.destination.path),
+                            "destination_target": _no_address_detail(op.destination),
+                            "reason": (
+                                "relocation component has a contested destination, a "
+                                "contested source, or a cycle over (parent_path, label)"
+                            ),
+                        },
+                    )
+                    _assert_no_invariant_violations(op)
+                    return
                 if resolved_path is None:
                     _append_no_replay_adjudication(
                         adjudications_out,
@@ -9183,6 +9421,10 @@ _NO_SKIP_ADJUDICATION_KINDS = frozenset(
         # the tree"). §4.1's conclusion does not survive its own premise; the
         # refusing direction is to register the kind.
         NO_REPLAY_SUBSTITUTION_TERM_NOT_UNIQUELY_PRESENT,
+        # W-69c: a relocation leg whose atomic component admits no safe order.
+        # Same shape as W-66's: a REFUSAL, no write, so the conserved partition
+        # must see it as rejected rather than as a recovery that applied.
+        NO_REPLAY_RELOCATION_ORDER_UNPROVABLE_REFUSED,
     }
 )
 

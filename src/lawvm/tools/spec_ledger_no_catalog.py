@@ -615,6 +615,22 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "refusal CASCADES down the relabel's vacate-before-occupy chain so the set "
         "drops whole rather than in halves. W-66."
     ),
+    "no_replay_relocation_order_unprovable_refused": (
+        "A leg of a Norway RENUMBER relocation whose atomic group admits NO order "
+        "in which every leg avoids writing onto a live sibling. W-66's ordering is "
+        "over integer ordinals inside ONE sibling set; the structured "
+        "data-move-part lane mints legs that LEAVE their container, so W-69c "
+        "re-keys the dependency node on the resolved (parent_path, label) pair and "
+        "judges each connected component of the relocation graph. A component is "
+        "unprovable when two legs contest a destination, two legs contest a "
+        "source, or the vacate relation closes a cycle — none of which a "
+        "topological sort can report, because its only possible answer is a "
+        "permutation. Every leg of an unprovable component refuses: no write "
+        "lands, the component drops whole rather than in halves (the W-56 failure "
+        "mode), and the op is rejected with a typed blocking receipt. "
+        "Under-application is safe; choosing a winner between two contradictory "
+        "instructions would be a semantics change on landed ops. W-69c."
+    ),
     "no_replay_substitution_term_not_uniquely_present": (
         "A W-69a addressed word substitution reached its resolved provision and "
         "the announced term did not prove itself there: either more than one of "

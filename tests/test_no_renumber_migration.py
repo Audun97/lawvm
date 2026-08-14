@@ -1448,8 +1448,17 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # population (783 -> 784 base laws with sources) because the sibling-set
     # relabel gives it its first lowered op, and it arrives known-incomplete.
     "incomplete_bases": 199,
-    "bases_with_destructive_writes": 265,
-    "hazard_bases": 161,
+    # 265 -> 266 and 161 -> 162 at W-69c, and it is ONE law ENTERING the census:
+    # ``no/lov/2009-06-19-44``. It was already counted incomplete (four
+    # `contingent` skips, which the replay receipts before it applies anything,
+    # so ``incomplete_bases`` is unchanged at 199) but it aborted mid-apply and
+    # therefore took no writes at all. Now that it replays it takes 7, so it
+    # joins both the destructive-write population and the intersection. This is
+    # a law becoming OBSERVABLE, not a new hazard being created — the same
+    # movement W-72's blind-spot narrative said to expect the moment one of the
+    # four aborting laws was repaired.
+    "bases_with_destructive_writes": 266,
+    "hazard_bases": 162,
     # 3,713 -> 3,706 at W-75, and exactly one law moves: ``no/lov/2008-06-27-71``
     # [73, 2] -> [66, 2]. Refusing the word-substitution address lists stops seven
     # REPLACEs that had been writing the amendment's own prose into plan- og
@@ -1497,7 +1506,15 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # removal. The full-corpus statute diff for W-69b confirms it from the other
     # side: 781 of 784 statutes byte-identical, and the 17 word-level changes on
     # the other 3 are exactly the 17 announced substitutions.
-    "hazard_destructive_writes": 3816,
+    #
+    # 3,816 -> 3,823 at W-69c: the 7 writes ``no/lov/2009-06-19-44`` takes now
+    # that it replays (3 REPLACEs, 3 INSERTs of which 2 recover onto an occupant,
+    # 1 further INSERT). NONE of them removes content — the law's per-law row is
+    # ``[7, 0]`` — so ``hazard_content_removing_writes`` and
+    # ``hazard_bases_removing_content`` below are unchanged. Its six relocation
+    # legs, which WOULD have been destructive, all refuse typed
+    # (``no_replay_relocation_order_unprovable_refused``) and write nothing.
+    "hazard_destructive_writes": 3823,
     # 167 -> 168, and the +1 is NOT a relabel op. ``no/lov/2016-05-27-14`` gains
     # ``no/lovtid/2021-12-22-158:1``, a REPEAL of § 7-6 annet ledd that could not
     # bind before because that law's ledd sequence was one slot out of step; with
@@ -1521,7 +1538,9 @@ _NO_INCOMPLETE_BASE_HAZARD_LAWS_DIGEST = (
     # (``no/lov/2008-06-27-71`` [79, 2] -> [80, 2]), so the digest moves with it.
     # W-69b: membership unchanged a third time; the SAME law moves again
     # ([80, 2] -> [86, 2]) as its six sentence-depth substitution addresses land.
-    "768cf06b7b3581d6e706ef2d04be6445692b987b9df2fdad488969b4acac64e8"
+    # W-69c: the first MEMBERSHIP change since W-66 — ``no/lov/2009-06-19-44``
+    # enters at [7, 0], nothing leaves, no other law's row moves.
+    "85e47aa4d4953a820cb67988a3e2de6f6f71cf04980924d15ade71e984fc0700"
 )
 
 _REGENERATE = (
@@ -1635,26 +1654,154 @@ def test_no_occupied_destination_sweep_baseline_is_not_stale(
     # no original-act bytes at all — so "no firing here" is a complete answer for
     # them, not an unobserved one.
     assert baseline["swept"]["errored_before_any_op"] == 440
-    # THE SWEEP'S BLIND SPOT, and it is four laws wide. These abort mid-apply on
-    # a replay invariant violation, which discards the apply plane's receipts and
-    # adjudications along with the statute, so whether they fire is genuinely not
-    # observable. Three of the four do receive RENUMBER ops
-    # (``no/lov/2003-07-04-74`` receives none and so cannot fire at all), which
-    # means the corpus-wide claim above is exact over 779 laws and silent about
-    # three.
+    # THE SWEEP'S BLIND SPOT, and W-69c has taken it from four laws to THREE.
+    # These abort mid-apply on a replay invariant violation, which discards the
+    # apply plane's receipts and adjudications along with the statute, so whether
+    # they fire is genuinely not observable. Two of the three do receive RENUMBER
+    # ops (``no/lov/2003-07-04-74`` receives none and so cannot fire at all),
+    # which means the corpus-wide claim above is exact over 781 laws and silent
+    # about two.
     #
     # Why that is tolerable, and why it still has to be pinned: a firing can only
-    # destroy IN-FORCE law inside a replayed statute, and these four produce no
+    # destroy IN-FORCE law inside a replayed statute, and these three produce no
     # statute — they are not scan candidates and contribute no divergence row, so
     # there is nothing for a hidden firing to be wrong about today. The moment one
     # is repaired it leaves this set, this equality fails, and its firings get
     # adjudicated before anything else can go green on them.
+    #
+    # THAT IS EXACTLY WHAT HAPPENED TO ``no/lov/2009-06-19-44`` (W-69c). It
+    # aborted with ``duplicate subsection:4`` because two relocation legs of
+    # ``no/lovtid/2025-06-20-42`` — a cross-container in-migration
+    # ``§3/ledd/3 → §2/ledd/4`` and the destination parent's own vacate shift
+    # ``§2/ledd/3 → §2/ledd/4`` — claim ONE destination, which no ordering can
+    # satisfy. It now replays to completion with the component refused typed
+    # (``no_replay_relocation_order_unprovable_refused``), so its
+    # ``(RENUMBER, dest_occupied)`` behaviour is observable, and the answer is
+    # that it has NONE: every one of its relocation legs refuses, the firing
+    # census above stays 10, and the verdict table gains no row. The witness is
+    # ``test_no_w69c_witness_2009_06_19_44_replays_to_completion`` below.
     assert baseline["swept"]["errored_with_ops_applied"] == [
         "no/lov/2003-07-04-74",
         "no/lov/2005-06-17-62",
-        "no/lov/2009-06-19-44",
         "no/lov/2015-04-10-17",
     ], baseline["swept"]["errored_with_ops_applied"]
+
+
+@pytest.mark.skipif(
+    not _REAL_ARCHIVE.exists(),
+    reason="requires the local Lovdata archive (data/norway.farchive)",
+)
+def test_no_w69c_witness_2009_06_19_44_replays_to_completion() -> None:
+    """W-69c's corpus witness: the law that used to abort now produces a statute.
+
+    At HEAD this replay returned no statute at all —
+    ``Norway replay invariant violation after renumber
+    (('section','2'),('subsection','3')) from no/lovtid/2025-06-20-42:
+    body/section:2: duplicate subsection:4`` — and an aborted apply discards the
+    law's ENTIRE receipt and adjudication plane, which is why the law sat in
+    W-72's blind spot.
+
+    WHY IT COULD NOT BE ORDERED, which is the finding and not a detail.
+    ``no/lovtid/2025-06-20-42`` carries two ``data-move-part`` attributes. The §2
+    one is a clean +1 shift (``3→4, 4→5, 5→6, 6→7``). The §3 one reads
+    ``§3/ledd/2 ;; §2/ledd/3`` and ``§3/ledd/3 ;; §2/ledd/4`` — it sends §3's
+    ledd into §2 — while the prose it annotates says "Noverande § 3 andre og
+    tredje ledd blir tredje og nytt fjerde ledd", an intra-§3 shift. **The
+    Lovdata attribute names the wrong section**; the lowering is faithful to it.
+    So ``§2/ledd/3 → §2/ledd/4`` and ``§3/ledd/3 → §2/ledd/4`` both claim
+    ``§2/ledd/4``, no permutation satisfies both, and the honest answer is a
+    typed refusal of the whole component rather than a guess at which of two
+    contradictory instructions the drafter meant. Repairing the ATTRIBUTE is a
+    lowering change and belongs to its own item with its own before/after (W-70's
+    precedent); this item does not touch which ops are minted.
+
+    The occupied-destination payoff, which is what W-72 pinned this law for: the
+    answer is that the law fires the ``(RENUMBER, dest_occupied)`` recovery ZERO
+    times, because every one of its relocation legs refuses first. The corpus
+    firing census therefore stays at 10 and the verdict table gains no row.
+    """
+    from lawvm.norway.index import build_no_amendment_index
+
+    index = build_no_amendment_index(_REAL_ARCHIVE)
+    result = replay_no_to_pit(
+        "no/lov/2009-06-19-44", as_of="2026-07-10", data_dir=_REAL_ARCHIVE, index=index
+    )
+    assert result.error is None, result.error
+    replayed = result.replayed
+    assert replayed is not None
+
+    refusals = sorted(
+        (
+            str((a.detail or {}).get("source_path")),
+            str((a.detail or {}).get("destination_path")),
+        )
+        for a in result.adjudications
+        if a.kind == "no_replay_relocation_order_unprovable_refused"
+    )
+    # ALL SIX legs of the single connected component — §2's own four-leg shift
+    # chain plus §3's two in-migrations — drop together. The chain is provable in
+    # isolation but shares ``§2/ledd/4`` with the contested pair, and refusing a
+    # leg out of the middle of a chain is the W-56 half-application failure.
+    assert refusals == [
+        ("section:2/subsection:3", "section:2/subsection:4"),
+        ("section:2/subsection:4", "section:2/subsection:5"),
+        ("section:2/subsection:5", "section:2/subsection:6"),
+        ("section:2/subsection:6", "section:2/subsection:7"),
+        ("section:3/subsection:2", "section:2/subsection:3"),
+        ("section:3/subsection:3", "section:2/subsection:4"),
+    ]
+    assert not [
+        a
+        for a in result.adjudications
+        if a.kind == "no_replay_renumber_occupied_destination_removed"
+    ]
+
+    def _labels(section_label: str) -> list[str]:
+        section = next(
+            child
+            for child in replayed.body.children
+            if (child.kind.value if hasattr(child.kind, "value") else str(child.kind)) == "section"
+            and child.label == section_label
+        )
+        return [
+            child.label or ""
+            for child in section.children
+            if (child.kind.value if hasattr(child.kind, "value") else str(child.kind))
+            == "subsection"
+        ]
+
+    # THE HONEST COST, pinned rather than hidden. With the shift refused, the
+    # instrument's "§ 2 andre og tredje ledd skal lyde" INSERT lands on a slot
+    # that was never vacated, and the SHIPPED ``(INSERT, occupied)`` θ cell
+    # recovers by replacing the occupant — so base §2 ledd 3 ("Enkeltpersonar kan
+    # vende seg direkte til krisesentertilbodet …") and base §3 ledd 2 ("Kommunen
+    # skal sørgje for å ta vare på barn …") are overwritten instead of shifted.
+    # Both losses carry a typed blocking
+    # ``no_replay_insert_occupied_target_replaced`` receipt, and W-69c neither
+    # created nor touched that recovery — it made it OBSERVABLE, which is exactly
+    # what leaving the blind spot is supposed to do. The under-applied shift is a
+    # divergence row; the correct repair is at the lowering (the wrong section in
+    # the ``data-move-part`` attribute), not here.
+    #
+    # §2 therefore ends with SIX ledd where a faithful application of the §2
+    # attribute alone would give seven, and §3 with three where it would give
+    # four.
+    assert _labels("2") == ["1", "2", "3", "4", "5", "6"]
+    assert _labels("3") == ["1", "2", "3"]
+    replaced = sorted(
+        str((a.detail or {}).get("resolved_path"))
+        for a in result.adjudications
+        if a.kind == "no_replay_insert_occupied_target_replaced"
+    )
+    # ``section:4`` is NOT W-69c's: it comes from ``no/lovtid/2021-06-11-78``, an
+    # earlier affecting-act group that ran to completion before the abort point
+    # at HEAD too, and the corpus census confirms it is unmoved (137 → 139
+    # corpus-wide, both new rows on this law's §2 and §3).
+    assert replaced == [
+        "section:2/subsection:3",
+        "section:3/subsection:2",
+        "section:4",
+    ], replaced
 
 
 def test_no_corpus_wide_occupied_destination_firings_are_all_adjudicated(
@@ -1788,7 +1935,7 @@ def test_no_incomplete_base_destructive_write_census_is_pinned(
     assert len(hazard["laws"]) == _NO_INCOMPLETE_BASE_HAZARD["hazard_bases"]
     # Every hazard law is incomplete for a reason the replay receipted, and
     # ``contingent`` still dominates — the class husbankloven was in.
-    assert hazard["hazard_by_skip_kind"]["contingent"] == 161
+    assert hazard["hazard_by_skip_kind"]["contingent"] == 162
     assert hazard["hazard_by_skip_kind"]["missing_source"] == 0
     # Husbankloven is the witness this census exists for, and it is STILL IN THE
     # SET — 8 destructive writes, 3 of them content-removing. W-73 repaired the

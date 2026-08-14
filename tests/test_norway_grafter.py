@@ -9818,3 +9818,244 @@ def test_no_w66_relabel_refuses_whole_rather_than_eat_an_occupant() -> None:
     assert not [
         a for a in adjudications if a.kind == "no_replay_renumber_occupied_destination_removed"
     ]
+
+
+# ── W-69c: the atomic ordering generalized to (parent_path, label) ────────────
+#
+# W-66's machinery orders a relabel over integer ORDINALS inside ONE sibling set.
+# The structured ``data-move-part`` lane mints legs that LEAVE their container,
+# so a relocation belongs to two sibling sets and the leg that frees its
+# destination lives in the other one. These four tests fix the generalization at
+# the apply plane, which is where the legs actually meet: the two colliding legs
+# on ``no/lov/2009-06-19-44`` come from two DIFFERENT ``data-move-part``
+# attributes, so no parse-plane production can see both.
+#
+# Note what these ops do NOT carry: ``NO_LEDD_SET_RELABEL_PROVENANCE_TAG``. The
+# structured lane stamps only ``base_act:``, so W-66's refusal cannot fire on
+# them and the guard under test is reached on its own terms.
+
+
+def _w69c_move_op(
+    sequence: int, source: tuple[str, str], destination: tuple[str, str]
+) -> LegalOperation:
+    """A structured-lane relocation leg, ``(§, ledd)`` to ``(§, ledd)``."""
+    return LegalOperation(
+        op_id=f"no/lovtid/9999-02-02-2:{sequence}",
+        sequence=sequence,
+        action=StructuralAction.RENUMBER,
+        target=LegalAddress(path=(("section", source[0]), ("subsection", source[1]))),
+        destination=LegalAddress(
+            path=(("section", destination[0]), ("subsection", destination[1]))
+        ),
+        source=OperationSource(statute_id="no/lovtid/9999-02-02-2", raw_text="move", title="x"),
+        provenance_tags=("base_act:no/lov/1999-01-01-1",),
+        group_id=f"no/lovtid/9999-02-02-2:{sequence}",
+        witness_rule_id="no_section_renumber_relabel",
+    )
+
+
+def _w69c_statute(sections: dict[str, int]) -> IRStatute:
+    """A statute of ``{section label: ledd count}``, each ledd labelled by text."""
+    return IRStatute(
+        statute_id="no/lov/1999-01-01-1",
+        title="Testlov",
+        body=IRNode(
+            kind=IRNodeKind.BODY,
+            children=tuple(
+                IRNode(
+                    kind=IRNodeKind.SECTION,
+                    label=label,
+                    children=tuple(
+                        IRNode(
+                            kind=IRNodeKind.SUBSECTION,
+                            label=str(i),
+                            text=f"§{label} ledd {i}",
+                        )
+                        for i in range(1, count + 1)
+                    ),
+                )
+                for label, count in sections.items()
+            ),
+        ),
+    )
+
+
+def _w69c_shape(body: IRNode) -> dict[str, list[tuple[str, str]]]:
+    return {
+        section.label or "": [(child.label or "", child.text or "") for child in section.children]
+        for section in body.children
+    }
+
+
+def test_no_w69c_cross_container_in_migration_lands_after_its_vacate() -> None:
+    """The SATISFIABLE cross-container shape, and it must keep working unchanged.
+
+    ``§3/ledd/3 → §2/ledd/4`` is a genuine relocation (the apply plane resolves
+    ``op.destination.parent()`` and re-parents the node), and its destination is
+    freed by ``§2/ledd/4 → §2/ledd/5`` living in the OTHER sibling set. There is
+    an order in which no leg writes onto a live sibling, so the component is
+    provable and both legs land — vacate first, occupy second. W-69c adds a
+    provability TEST, not a reordering; this is the witness that it does not
+    disturb the case the kernel already gets right.
+    """
+    ops = [
+        _w69c_move_op(1, ("2", "4"), ("2", "5")),
+        _w69c_move_op(2, ("3", "3"), ("2", "4")),
+    ]
+    adjudications: list[CompileAdjudication] = []
+    result = apply_no_ops(_w69c_statute({"2": 4, "3": 3}), ops, adjudications_out=adjudications)
+    assert _w69c_shape(result.body) == {
+        "2": [
+            ("1", "§2 ledd 1"),
+            ("2", "§2 ledd 2"),
+            ("3", "§2 ledd 3"),
+            # the in-migrated node, carrying its ORIGINAL text under its new label
+            ("4", "§3 ledd 3"),
+            ("5", "§2 ledd 4"),
+        ],
+        "3": [("1", "§3 ledd 1"), ("2", "§3 ledd 2")],
+    }
+    assert not [
+        a for a in adjudications if a.kind == "no_replay_relocation_order_unprovable_refused"
+    ]
+    # Nothing was written onto a live sibling, so the θ recovery never ran.
+    assert not [
+        a for a in adjudications if a.kind == "no_replay_renumber_occupied_destination_removed"
+    ]
+
+
+def test_no_w69c_contested_destination_refuses_the_whole_component() -> None:
+    """``no/lov/2009-06-19-44`` in miniature: two legs claim ONE destination.
+
+    The law's own shape, reduced. ``§2/ledd/3 → §2/ledd/4`` is the destination
+    parent's own vacate shift; ``§3/ledd/3 → §2/ledd/4`` is a cross-container
+    in-migration minted by a DIFFERENT ``data-move-part`` attribute of the same
+    instrument. Both name ``§2/ledd/4``. No permutation of these legs exists in
+    which the second does not land on the first — which is why the kernel's
+    structural-vacate stage cannot help: a topological sort's only possible
+    answer is a permutation. At HEAD the second leg wrote a duplicate label and
+    the tree invariant aborted the whole law's apply, discarding its receipts and
+    its adjudications with it.
+
+    The component drops WHOLE — including ``§2/ledd/4 → §2/ledd/5``, which is
+    provable on its own but shares a node with the contested pair. Refusing a leg
+    out of the middle of a shift chain would leave the chain half-applied, which
+    is the W-56 failure mode; and choosing which of two contradictory
+    instructions to honour would be a semantics change on landed ops (W-70).
+    """
+    ops = [
+        _w69c_move_op(1, ("2", "4"), ("2", "5")),
+        _w69c_move_op(2, ("2", "3"), ("2", "4")),
+        _w69c_move_op(3, ("3", "3"), ("2", "4")),
+    ]
+    before = _w69c_statute({"2": 4, "3": 3})
+    adjudications: list[CompileAdjudication] = []
+    result = apply_no_ops(before, ops, adjudications_out=adjudications)
+    # Nothing half-applied: the tree is identical to the pre-op statute.
+    assert _w69c_shape(result.body) == _w69c_shape(before.body)
+    refusals = [
+        a for a in adjudications if a.kind == "no_replay_relocation_order_unprovable_refused"
+    ]
+    assert sorted((a.detail or {}).get("source_path") for a in refusals) == [
+        "section:2/subsection:3",
+        "section:2/subsection:4",
+        "section:3/subsection:3",
+    ]
+    assert all(a.blocking for a in refusals)
+    # Under-application, never over-application: the θ recovery that would have
+    # DELETED an occupant to make room never ran.
+    assert not [
+        a for a in adjudications if a.kind == "no_replay_renumber_occupied_destination_removed"
+    ]
+
+
+def test_no_w69c_cross_container_cycle_refuses_at_the_new_keying() -> None:
+    """W-66's cycle guard, unchanged, lifted to ``(parent_path, label)``.
+
+    A pure swap across containers — ``§2/ledd/1 → §3/ledd/1`` with
+    ``§3/ledd/1 → §2/ledd/1``. Sequential relabelling cannot express a swap
+    without a scratch slot, so no order exists and both legs refuse. W-66's guard
+    could not see this one at all: its dependency nodes are integer ordinals
+    inside one sibling set, and these two legs are in different sections.
+    """
+    ops = [
+        _w69c_move_op(1, ("2", "1"), ("3", "1")),
+        _w69c_move_op(2, ("3", "1"), ("2", "1")),
+    ]
+    before = _w69c_statute({"2": 2, "3": 2})
+    adjudications: list[CompileAdjudication] = []
+    result = apply_no_ops(before, ops, adjudications_out=adjudications)
+    assert _w69c_shape(result.body) == _w69c_shape(before.body)
+    refusals = [
+        a for a in adjudications if a.kind == "no_replay_relocation_order_unprovable_refused"
+    ]
+    assert sorted((a.detail or {}).get("source_path") for a in refusals) == [
+        "section:2/subsection:1",
+        "section:3/subsection:1",
+    ]
+
+
+def test_no_w69c_an_unprovable_component_does_not_take_its_neighbours_down() -> None:
+    """The refusal unit is the COMPONENT, not the affecting-act group.
+
+    Legs that address disjoint sets of ``(parent_path, label)`` nodes cannot
+    interfere, so a contested destination in §2 says nothing about a shift in §7.
+    Refusing the whole group would be under-application with no argument behind
+    it; this pins that the guard does not do that.
+    """
+    ops = [
+        _w69c_move_op(1, ("2", "3"), ("2", "4")),
+        _w69c_move_op(2, ("3", "3"), ("2", "4")),
+        _w69c_move_op(3, ("7", "2"), ("7", "3")),
+    ]
+    adjudications: list[CompileAdjudication] = []
+    result = apply_no_ops(
+        _w69c_statute({"2": 3, "3": 3, "7": 2}), ops, adjudications_out=adjudications
+    )
+    shape = _w69c_shape(result.body)
+    assert shape["2"] == [("1", "§2 ledd 1"), ("2", "§2 ledd 2"), ("3", "§2 ledd 3")]
+    assert shape["3"] == [("1", "§3 ledd 1"), ("2", "§3 ledd 2"), ("3", "§3 ledd 3")]
+    # The independent component landed.
+    assert shape["7"] == [("1", "§7 ledd 1"), ("3", "§7 ledd 2")]
+    refusals = [
+        a for a in adjudications if a.kind == "no_replay_relocation_order_unprovable_refused"
+    ]
+    assert sorted((a.detail or {}).get("source_path") for a in refusals) == [
+        "section:2/subsection:3",
+        "section:3/subsection:3",
+    ]
+
+
+def test_no_w69c_a_leg_announced_twice_is_one_instruction_not_a_contest() -> None:
+    """A repeated leg must NOT be read as two legs contesting a slot.
+
+    Two corpus groups announce one move twice — ``no/lov/1999-03-26-14``
+    (``§10-65/ledd/2 → ledd/3``, from ``no/lovtid/2013-12-13-117``) and
+    ``no/lov/2017-06-16-53`` (``§30/ledd/2 → ledd/3``, from
+    ``no/lovtid/2018-06-15-38``). Identical source AND destination is ONE
+    instruction: it is satisfied by applying it once, and the shipped ordering
+    stage already treats it that way — ``_ordered_renumber_group``'s DFS is keyed
+    on ``op.target.path``, so the second copy is collapsed into the first and a
+    single leg reaches the fold.
+
+    Without deduplication the guard reads the repeat as a contested destination
+    AND a contested source and refuses a perfectly good move — under-application
+    with nothing behind it. Neither group reaches the apply seam at
+    ``as_of=2026-07-10`` (one law has no original-act source, the other applies
+    no ops), so this would have been a LATENT wrong answer with no corpus blast
+    to reveal it; it is pinned here instead.
+    """
+    ops = [
+        _w69c_move_op(1, ("2", "2"), ("2", "3")),
+        _w69c_move_op(2, ("2", "2"), ("2", "3")),
+    ]
+    adjudications: list[CompileAdjudication] = []
+    result = apply_no_ops(_w69c_statute({"2": 2}), ops, adjudications_out=adjudications)
+    assert not [
+        a for a in adjudications if a.kind == "no_replay_relocation_order_unprovable_refused"
+    ]
+    # The move landed exactly once, and nothing was written onto a live sibling.
+    assert _w69c_shape(result.body)["2"] == [("1", "§2 ledd 1"), ("3", "§2 ledd 2")]
+    assert not [
+        a for a in adjudications if a.kind == "no_replay_renumber_occupied_destination_removed"
+    ]
