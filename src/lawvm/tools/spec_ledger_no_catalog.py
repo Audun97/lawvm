@@ -283,12 +283,25 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "instead of applying to an unresolved base."
     ),
     "no_parse_ledd_set_relabel_address_unresolved": (
-        "A Norway sibling-set ledd relabel (\"Nåværende femte og sjette ledd blir "
+        "A Norway sibling-set relabel (\"Nåværende femte og sjette ledd blir "
         "sjette og sjuende ledd.\") named no section of its own, and the nearest "
         "preceding instruction lead in the same part supplied no unambiguous "
         "antecedent — it named no section, named several, or amends another "
         "amendment rather than the base act. The relabel is refused rather than "
-        "attached to a guessed address. W-66."
+        "attached to a guessed address. W-66; since W-66b the SAME kind carries "
+        "the section half at PUNKTUM depth too, because it is the same reader "
+        "failing the same way — the depth-specific half is the sibling kind "
+        "``no_parse_punktum_set_relabel_ledd_unresolved``."
+    ),
+    "no_parse_punktum_set_relabel_ledd_unresolved": (
+        "A Norway sibling-set relabel at PUNKTUM depth (\"Nåværende annet punktum "
+        "blir nytt tredje punktum.\") resolved its SECTION but not the LEDD the "
+        "punktum hangs below: the sentence named no ledd of its own and the "
+        "DOM-local antecedent supplied none, named several, was a meta-amendment, "
+        "or was not itself a punktum-depth instruction (an antecedent naming a "
+        "whole ledd establishes that ledd as a payload, not as a container whose "
+        "sentences are being renumbered). The relabel is refused rather than "
+        "attached to a guessed ledd. W-66b."
     ),
     "no_parse_ledd_set_relabel_order_unprovable": (
         "A Norway sibling-set ledd relabel's source and destination sets form a "

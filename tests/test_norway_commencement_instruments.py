@@ -2843,9 +2843,16 @@ def test_w51_corpus_totals_and_the_untouched_part_routes() -> None:
     # all four other routes are unmoved. A LOWERING widening reaches this lane only
     # by growing what is offered to it, and this assertion is what proves it each
     # time.
+    # 437 -> 438 at W-66b, a FOURTH time and by the same mechanism:
+    # ``no/lovtid/2005-06-17-92`` gains its first index entry off the sibling-set
+    # relabel one depth word down ("Nåværende annet og tredje punktum blir nye
+    # fjerde og femte punktum.", § 54 første ledd of ``no/lov/1902-05-22-10``,
+    # section AND ledd both inherited from the preceding lead) and enters the
+    # WIDENED whole-act route at 2006-01-01 via ``no/forskrift/2005-12-16-1517``.
+    # 541 holds and all four other routes are unmoved.
     assert counts == {
         NO_COMMENCEMENT_EXECUTION_AUTHORIZED: 541,
-        NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED: 437,
+        NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED: 438,
         NO_COMMENCEMENT_PART_EXECUTION_AUTHORIZED: 33,
         NO_COMMENCEMENT_MULTI_PART_EXECUTION_AUTHORIZED: 4,
         NO_COMMENCEMENT_NAMED_PART_LIST_EXECUTION_AUTHORIZED: 33,
@@ -3534,9 +3541,16 @@ def test_w53_corpus_zero_early_over_every_widened_grant() -> None:
     # 435 -> 436 at W-67: one more act reaches the widened route
     # (``no/lovtid/2004-09-24-72``, see the census note on the totals test above).
     # 436 -> 437 at W-66 (``no/lovtid/2001-06-15-33``, same mechanism again).
+    # 437 -> 438 at W-66b (``no/lovtid/2005-06-17-92`` @2006-01-01 via
+    # ``no/forskrift/2005-12-16-1517``), and the mechanism is the same a THIRD
+    # time: an instrument with no lowered op has no amendment for a commencement
+    # route to authorize. That instrument's only lowerable instruction is
+    # "Nåværende annet og tredje punktum blir nye fjerde og femte punktum."
+    # against ``no/lov/1902-05-22-10`` § 54 første ledd, which this item lowers.
+    # Gained by CONTENT, 0 lost.
     # The zero-early property below is what actually matters here, and it holds
     # over the grown set.
-    assert len(grants) == 437
+    assert len(grants) == 438
     early = [
         (d["source_id"], d["effective_date"], sibling_id, sibling_date)
         for d in grants

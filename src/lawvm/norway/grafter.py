@@ -1517,6 +1517,11 @@ _NO_CURRENCY_QUALIFIER_ALTERNATION = (
 #     establish get the typed receipt below rather than a guess.
 NO_PARSE_LEDD_SET_RELABEL_ADDRESS_UNRESOLVED = "no_parse_ledd_set_relabel_address_unresolved"
 NO_PARSE_LEDD_SET_RELABEL_ORDER_UNPROVABLE = "no_parse_ledd_set_relabel_order_unprovable"
+#: W-66b. The SECOND way a punktum-depth relabel's address can fail. The section
+#: half reuses the kind above verbatim — it is the same helper failing the same
+#: way — so this member names only what is new at this depth: the LEDD the
+#: punktum hangs below could not be established. See the W-66b block comment.
+NO_PARSE_PUNKTUM_SET_RELABEL_LEDD_UNRESOLVED = "no_parse_punktum_set_relabel_ledd_unresolved"
 #: Stamped on every op this production mints, and read by the apply seam. It is
 #: the ONLY thing that tells the (RENUMBER, dest_occupied) branch that this op
 #: must refuse rather than clear its destination — see the block comment there.
@@ -1664,6 +1669,141 @@ def _no_ledd_set_relabel_pairs(lead: str) -> Optional[tuple[str, list[tuple[int,
         _normalize_no_section_label(section) if section else "",
         list(zip(sources, destinations, strict=True)),
         "widened",
+    )
+
+
+# ── W-66b: the same sibling-set relabel, one depth word down (PUNKTUM) ────────
+#
+# THE CONSTRUCT is W-66's, character for character, with ``punktum`` where
+# ``ledd`` stood: "Nåværende annet punktum blir nytt tredje punktum." It is one
+# relabel of ONE sibling set read against the pre-operation snapshot, its source
+# and destination sets overlap, and the ordering argument is therefore identical
+# — which is why ``_no_ordered_set_relabel_pairs`` is REUSED here rather than
+# forked. A punktum relabel stays inside one ledd's sentence list, so it is a
+# single-sibling-set problem exactly as the ledd case is, and none of W-69c's
+# cross-container machinery is needed for it (item 76 (c), confirmed).
+#
+# WHAT IS GENUINELY NEW, and it is the address, not the sentence. A punktum
+# address hangs below a LEDD that must itself resolve, so this grammar has to
+# establish TWO levels where W-66 established one, and it has one more way to
+# fail. Measured over the 8,583 ``no_parse_unstructured_lead_unmatched`` refusals
+# at the W-66b base pin (`5c0fb190d`), harvested UNTRUNCATED — the shipped
+# adjudication detail clips ``source_excerpt`` at 240 chars, so a depth word past
+# that bound is invisible to a receipt-plane census:
+#
+#   165 refusals / 84 distinct leads / 115 instruments / 78 base acts.
+#
+# Of the 165, only 23 spell a ``§`` of their own and only 16 spell a ledd, so the
+# DOM-local antecedent carries this family rather than decorating it. Split by
+# what the production does with them:
+#
+#   * 112 LOWER (59 distinct leads, 161 RENUMBER legs);
+#   *  27 refuse ``NO_PARSE_PUNKTUM_SET_RELABEL_LEDD_UNRESOLVED``, every one
+#         ``antecedent_names_no_ledd`` — a punktum hanging directly under a
+#         section, or under a ``nr.``/``bokstav`` container the ledd reader is
+#         deliberately blind to;
+#   *  10 refuse ``NO_PARSE_LEDD_SET_RELABEL_ADDRESS_UNRESOLVED`` (W-66's kind,
+#         reused because it is the same helper failing the same way): 5
+#         ``part_has_no_antecedent_lead``, 4 ``antecedent_names_no_section``, 1
+#         ``antecedent_names_several_sections``;
+#   *  16 are DECLINED by this grammar and keep their shipped refusal.
+#
+# WHAT IS DELIBERATELY LEFT REFUSED, and each limb is a shape in that 16.
+#   * The DESTINATION side must reduce to ordinals ALONE. A destination that
+#     respells a ledd is either a RELOCATION out of the sibling set ("Nåværende
+#     annet til fjerde punktum blir nytt fjerde ledd første til tredje punktum."
+#     — W-69's territory, and the shape this production must never lower) or a
+#     harmless restatement of the same ledd ("… blir første ledd andre og nytt
+#     tredje punktum."). Refusing BOTH is the point: the anchored destination is
+#     the only thing that makes the cross-container case impossible by
+#     construction rather than by a check someone can delete. 5 leads pay for it.
+#   * ``bokstav``/``nr.`` sub-containers between the ledd and the punktum
+#     ("§ 18-3 nåværende annet ledd bokstav b annet punktum blir …") decline at
+#     the ordinal vocabulary, because the residue is not a list of ordinals. 6
+#     leads, and lowering them needs an address level this production does not
+#     model.
+#   * The ordinal vocabulary is ``_NORWEGIAN_ORDINALS`` VERBATIM, so "sjuande"
+#     declines (1 lead) exactly as it does at ledd depth. One ordinal grammar.
+#   * "blir TIL" (2 leads) and a parenthetical currency aside (1 lead) decline at
+#     the anchors, unchanged from W-66's reasoning about what an anchor is for.
+#
+# NOT IN THIS POPULATION AT ALL, and the census says so rather than the charter:
+# ``bokstav`` and ``nr.`` are NOT this grammar one word further down. They PREFIX
+# their depth word to a letter or an arabic numeral ("Nåværende bokstav c blir
+# bokstav d.", "Nåværende nr. 2 blir ny nr. 3."), where ``ledd``/``punktum``
+# POSTFIX it to a Norwegian ordinal. Zero of the 8,583 refusals match this
+# pattern at either depth. Sized with a classifier of the RIGHT shape they are 27
+# refusals / 23 leads / 17 bases (``bokstav``) and 36 / 33 / 19 (``nr.``) — a
+# real family, but a different sentence grammar over a different label
+# vocabulary, and therefore a different item.
+_NO_SET_RELABEL_PUNKTUM_PATTERN = (
+    r"^(?:(?:" + _NO_CURRENCY_QUALIFIER_ALTERNATION + r")\s+"
+    r"(?:§\s*(?P<qualifier_first_section>" + _NO_SET_RELABEL_SECTION_LABEL + r")\s+)?"
+    r"|§\s*(?P<section_first_section>" + _NO_SET_RELABEL_SECTION_LABEL + r")\s+"
+    r"(?:" + _NO_CURRENCY_QUALIFIER_ALTERNATION + r")\s+)"
+    r"(?P<source>.+?)\s+punktum\s+blir\s+(?P<destination>.+?)\s+punktum\.?$"
+)
+#: Splits an optional ``<ordinal> ledd`` phrase off the front of the SOURCE side.
+#: It is applied to the source residue rather than spelled as an optional group
+#: in the pattern above, so the ledd ordinal goes through the SAME
+#: ``_no_ledd_shift_ordinals`` vocabulary as every other ordinal in this module
+#: — a second ordinal alternation inside a regex is exactly the drift W-56's
+#: single-vocabulary rule exists to prevent.
+_NO_SET_RELABEL_PUNKTUM_LEDD_SPLIT = r"^(?P<ledd>.+?)\s+ledd\s+(?P<rest>.+)$"
+
+
+def _no_punktum_set_relabel_pairs(
+    lead: str,
+) -> Optional[tuple[str, str, list[tuple[int, int]], str]]:
+    """``Nåværende annet punktum blir nytt tredje punktum.`` → pairs.
+
+    Returns ``(section_label, ledd_label, [(src, dst), …], pattern)``.
+    ``section_label`` and ``ledd_label`` are ``""`` when the sentence does not
+    spell one (the caller then inherits them from the DOM-local antecedent), and
+    the whole result is ``None`` when this grammar declines the sentence.
+
+    ``pattern`` is always ``"punktum"``. It exists for the same reason W-66's
+    does: the caller tries the shipped LEDD grammar FIRST and this one only after
+    it has declined, and naming the winner makes that ordering a test's fact
+    rather than a comment's claim. The two are disjoint by their tail anchors, so
+    the ordering costs nothing and buys the guarantee that nothing W-66 lowers
+    today can change what it lowers.
+    """
+    # Inline ``re.match`` rather than a compiled classifier constant, for the
+    # reason W-66's sibling records: the adjacent ``(.+?)`` spans cannot pass
+    # ``compile_classifier_regex``'s backtracking lint.
+    # lawvm-regex: owning_parser this IS the punktum sibling-set relabel sentence parser
+    match = re.match(_NO_SET_RELABEL_PUNKTUM_PATTERN, _normalize_space(lead), re.IGNORECASE)
+    if match is None:
+        return None
+    source_phrase = match.group("source")
+    ledd_label = ""
+    # lawvm-regex: owning_parser the same parser's optional ledd-phrase split, validated by the ordinal vocabulary below
+    ledd_split = re.match(_NO_SET_RELABEL_PUNKTUM_LEDD_SPLIT, source_phrase, re.IGNORECASE)
+    if ledd_split is not None:
+        ledd_ordinals = _no_ledd_shift_ordinals(ledd_split.group("ledd"))
+        if ledd_ordinals is None or len(ledd_ordinals) != 1:
+            return None
+        ledd_label = str(ledd_ordinals[0])
+        source_phrase = ledd_split.group("rest")
+    sources = _no_ledd_shift_ordinals(source_phrase)
+    # The DESTINATION is read WITHOUT the ledd split, and that asymmetry is the
+    # whole cross-container guard: a destination that respells a ledd cannot
+    # reduce to ordinals, so it declines here instead of being lowered into
+    # another sibling set.
+    destinations = _no_ledd_shift_ordinals(match.group("destination"))
+    if sources is None or destinations is None or len(sources) != len(destinations):
+        return None
+    if len(set(sources)) != len(sources) or len(set(destinations)) != len(destinations):
+        return None
+    if any(src == dst for src, dst in zip(sources, destinations, strict=True)):
+        return None
+    section = match.group("qualifier_first_section") or match.group("section_first_section")
+    return (
+        _normalize_no_section_label(section) if section else "",
+        ledd_label,
+        list(zip(sources, destinations, strict=True)),
+        "punktum",
     )
 
 
@@ -1995,6 +2135,76 @@ def _no_antecedent_section_label(
             if len(labels) > 1:
                 return None, "antecedent_names_several_sections"
             return None, "antecedent_names_no_section"
+        index -= 1
+    return None, "part_has_no_antecedent_lead"
+
+
+#: The LEDD an antecedent names, in the antecedent's own text. Deliberately the
+#: same ordinal vocabulary as everything else in this module, spelled as an
+#: alternation because this reader SCANS for the phrase rather than parsing a
+#: sentence into it.
+_NO_ANTECEDENT_LEDD_RE = compile_classifier_regex(
+    r"\b(første|fyrste|andre|annet|tredje|fjerde|femte|sjette|sjuende|syvende|åttende|niende|tiende)"
+    r"\s+ledd\b",
+    re.IGNORECASE,
+    classifier_id="norway.grafter.antecedent_ledd_address",
+)
+
+
+def _no_antecedent_ledd_label(
+    children: Sequence[etree._Element],
+    part_indexes: Sequence[int],
+    position: int,
+) -> tuple[Optional[str], str]:
+    """The ledd address a punktum relabel with no ledd of its own inherits.
+
+    Returns ``(label, reason)``; ``label`` is ``None`` and ``reason`` says why
+    when nothing unambiguous is available.
+
+    THE RULE is W-66's ``_no_antecedent_section_label`` at one more level, and it
+    reads THE SAME antecedent node — the nearest preceding ``article.defaultP``
+    in the same part. That the two levels come from ONE node is the reason the
+    pair is coherent: "§ 3-4 fjerde ledd nytt annet punktum skal lyde:" followed
+    by "Nåværende annet punktum blir nytt tredje punktum." is one instruction in
+    two sentences, and reading the section from one antecedent and the ledd from
+    another could silently compose an address neither sentence names.
+
+    THE EXTRA CONJUNCT, which W-66 has no need of: the antecedent must ITSELF be
+    a punktum-depth instruction. An antecedent that names a ledd while talking
+    about whole ledds ("§ 13 nytt tredje ledd skal lyde:") establishes that ledd
+    as a PAYLOAD, not as a container whose sentences are being renumbered — its
+    text is given in full, so it has no "nåværende" punktums for a follower to
+    relabel, and inheriting from it would relabel sentences of a provision that
+    was just written. Measured: the conjunct changes NO element of the frozen
+    withdrawal set — every lead it would refuse already declines at the grammar
+    for an independent reason. It is carried for W-66's cycle-guard reason: the
+    absence of that pairing in today's corpus is not a property of the rule, and
+    the rule is what a corpus refresh will be read against.
+
+    Measured over the 165 punktum refusals at the base pin: 128 antecedents name
+    exactly one ledd, 32 name none, and 5 parts have no antecedent lead at all;
+    after the grammar has declined the 16 it declines, the surviving refusals
+    here are 27, every one ``antecedent_names_no_ledd``.
+    """
+    index = position - 1
+    part = part_indexes[position] if position < len(part_indexes) else None
+    while index >= 0 and (part_indexes[index] if index < len(part_indexes) else None) == part:
+        node = children[index]
+        if _local_name(node) == "article" and "defaultP" in _classes(node):
+            text = _repair_no_mojibake(_normalize_space(" ".join(str(_t) for _t in node.itertext())))
+            # lawvm-regex: owning_parser this IS the punktum relabel's antecedent reader, on the antecedent node's own text
+            if _NO_META_AMENDMENT_ANTECEDENT_RE.search(text) is not None:
+                return None, "antecedent_is_meta_amendment"
+            if "punktum" not in text.casefold():
+                return None, "antecedent_is_not_punktum_depth"
+            # lawvm-regex: owning_parser the same antecedent reader's ledd scan; the single-distinct-label conjunct below validates every match
+            raw_labels = _NO_ANTECEDENT_LEDD_RE.findall(text)
+            labels = {_NORWEGIAN_ORDINALS[raw.casefold()] for raw in raw_labels}
+            if len(labels) == 1:
+                return labels.pop(), "antecedent_names_ledd"
+            if len(labels) > 1:
+                return None, "antecedent_names_several_ledd"
+            return None, "antecedent_names_no_ledd"
         index -= 1
     return None, "part_has_no_antecedent_lead"
 
@@ -4204,6 +4414,140 @@ def _iter_unstructured_no_change_groups(
                         ),
                         destination=LegalAddress(
                             path=(("section", relabel_section), ("subsection", str(dst_ordinal)))
+                        ),
+                        source=OperationSource(statute_id=source_id, raw_text=lead, title=lead_base_id),
+                        provenance_tags=(
+                            f"base_act:{lead_base_id}",
+                            "fallback:unstructured",
+                            NO_LEDD_SET_RELABEL_PROVENANCE_TAG,
+                        ),
+                        group_id=f"{source_id}:{lead_base_id}:{sequence}",
+                        witness_rule_id="no_section_renumber_relabel",
+                    )
+                )
+                sequence += 1
+            idx = cursor
+            continue
+
+        # W-66b, and it sits BEHIND W-66's block for the reason its ``pattern``
+        # field exists: the shipped ledd grammar is tried first and must be
+        # byte-identical for everything it already handles. The two are disjoint
+        # by their tail anchors (``… ledd.`` against ``… punktum.``), so the
+        # ordering costs nothing and buys the guarantee outright. See the block
+        # comment on ``_no_punktum_set_relabel_pairs`` for the measurement and for
+        # what is deliberately left refused.
+        #
+        # The ops are stamped with W-66's OWN provenance tag rather than a
+        # sibling, and that is a decision rather than an economy. The apply-plane
+        # refuse-on-occupied branch keyed on that tag is depth-agnostic already —
+        # it compares resolved paths — so reusing the tag generalizes it unchanged
+        # (item 76 (b)), while a second tag would need either a duplicated branch
+        # or a widened condition on a load-bearing safety seam, for no semantic
+        # gain. It also keeps these legs VISIBLE to W-72's occupied-destination
+        # sweep and inside the conserved partition's existing skip kind; a fresh
+        # tag would make a punktum firing invisible to both, which is exactly the
+        # wrong polarity. A punktum firing is still told apart from a ledd one by
+        # the receipt's own ``source_path``/``destination_path``.
+        punktum_relabel = _no_punktum_set_relabel_pairs(lead)
+        if punktum_relabel is not None:
+            (
+                punktum_section,
+                punktum_ledd,
+                punktum_pairs,
+                punktum_pattern,
+            ) = punktum_relabel
+            punktum_address_reason = "lead_names_section"
+            if not punktum_section:
+                inherited_section, punktum_address_reason = _no_antecedent_section_label(
+                    children, child_part_indexes, idx
+                )
+                punktum_section = inherited_section or ""
+            if not punktum_section:
+                _append_no_unstructured_parse_adjudication(
+                    adjudications_out,
+                    kind=NO_PARSE_LEDD_SET_RELABEL_ADDRESS_UNRESOLVED,
+                    message=(
+                        "Norway sibling-set punktum relabel named no section of its own and no "
+                        "unambiguous antecedent supplied one; the relabel was not lowered."
+                    ),
+                    source_id=source_id,
+                    lead=lead,
+                    base_id=lead_base_id,
+                    detail={
+                        "address_reason": punktum_address_reason,
+                        "pattern": punktum_pattern,
+                        "pairs": tuple(f"{src}->{dst}" for src, dst in punktum_pairs),
+                    },
+                )
+                idx += 1
+                continue
+            punktum_ledd_reason = "lead_names_ledd"
+            if not punktum_ledd:
+                inherited_ledd, punktum_ledd_reason = _no_antecedent_ledd_label(
+                    children, child_part_indexes, idx
+                )
+                punktum_ledd = inherited_ledd or ""
+            if not punktum_ledd:
+                _append_no_unstructured_parse_adjudication(
+                    adjudications_out,
+                    kind=NO_PARSE_PUNKTUM_SET_RELABEL_LEDD_UNRESOLVED,
+                    message=(
+                        "Norway sibling-set punktum relabel named no ledd of its own and no "
+                        "unambiguous antecedent supplied one; the relabel was not lowered."
+                    ),
+                    source_id=source_id,
+                    lead=lead,
+                    base_id=lead_base_id,
+                    detail={
+                        "section": punktum_section,
+                        "address_reason": punktum_address_reason,
+                        "ledd_reason": punktum_ledd_reason,
+                        "pattern": punktum_pattern,
+                        "pairs": tuple(f"{src}->{dst}" for src, dst in punktum_pairs),
+                    },
+                )
+                idx += 1
+                continue
+            punktum_ordered = _no_ordered_set_relabel_pairs(punktum_pairs)
+            if punktum_ordered is None:
+                _append_no_unstructured_parse_adjudication(
+                    adjudications_out,
+                    kind=NO_PARSE_LEDD_SET_RELABEL_ORDER_UNPROVABLE,
+                    message=(
+                        "Norway sibling-set punktum relabel has no vacate-before-occupy order "
+                        "(the source and destination sets form a cycle); nothing was lowered."
+                    ),
+                    source_id=source_id,
+                    lead=lead,
+                    base_id=lead_base_id,
+                    detail={
+                        "section": punktum_section,
+                        "ledd": punktum_ledd,
+                        "pattern": punktum_pattern,
+                        "pairs": tuple(f"{src}->{dst}" for src, dst in punktum_pairs),
+                    },
+                )
+                idx += 1
+                continue
+            for src_ordinal, dst_ordinal in punktum_ordered:
+                doc_ops.append(
+                    LegalOperation(
+                        op_id=f"{source_id}:{sequence}",
+                        sequence=sequence,
+                        action=StructuralAction.RENUMBER,
+                        target=LegalAddress(
+                            path=(
+                                ("section", punktum_section),
+                                ("subsection", punktum_ledd),
+                                ("sentence", str(src_ordinal)),
+                            )
+                        ),
+                        destination=LegalAddress(
+                            path=(
+                                ("section", punktum_section),
+                                ("subsection", punktum_ledd),
+                                ("sentence", str(dst_ordinal)),
+                            )
                         ),
                         source=OperationSource(statute_id=source_id, raw_text=lead, title=lead_base_id),
                         provenance_tags=(

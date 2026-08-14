@@ -1131,7 +1131,15 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
     # from the preceding lead), and the act it commences reaches the widened route.
     # One act, one entry, ``plain`` rather than staged, so the staged pin above is
     # unmoved.
-    assert len(widened_ids) == 437
+    # 437 -> 438 at W-66b, the same mechanism a FOURTH time and one depth word
+    # down: ``no/lovtid/2005-06-17-92`` gains its FIRST index entry off the
+    # sibling-set PUNKTUM relabel ("Nåværende annet og tredje punktum blir nye
+    # fjerde og femte punktum.", § 54 første ledd of ``no/lov/1902-05-22-10``,
+    # section AND ledd both inherited from the preceding lead), and the act it
+    # commences reaches the widened route at 2006-01-01 via
+    # ``no/forskrift/2005-12-16-1517``. One act, one entry, ``plain`` rather than
+    # staged, so the staged pin above is again unmoved.
+    assert len(widened_ids) == 438
     assert not (widened_ids & authorized_ids)
     # FIVE of the 430 are staged acts, so the staged re-dating population grows
     # 8 -> 13 — the same offer gate, the same "an official instrument outranks a
@@ -1247,7 +1255,21 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # commence on a plain date, so both land here. No existing entry's status
         # moved, and no other bucket moves — in particular
         # ``instrument_authorized`` stays at exactly 977.
-        "dated": 1049,
+        # 1049 -> 1051 at W-66b, and the whole of this landing's effect on the
+        # act-level histogram is THREE acts gaining their FIRST index entry off
+        # the sibling-set relabel one depth word down. Two land here on a plain
+        # own date — ``no/lovtid/2001-12-21-111`` (2001-12-21) and
+        # ``no/lovtid/2022-06-10-38`` (2022-06-10) — and the third
+        # (``no/lovtid/2005-06-17-92``) lands in ``instrument_authorized`` below.
+        # Exactly conserving: index entries 2,565 -> 2,568, nothing lost, and no
+        # existing entry's status moves.
+        #
+        # ``no/lovtid/2022-06-10-38`` is worth naming: its single lowered op
+        # REFUSES at apply (its punktum-depth companion repeal is not lowered, so
+        # the destination is occupied). It still earns an index entry, and that is
+        # correct rather than sloppy — the index is a PARSE-plane fact about which
+        # base act an instrument binds, and the refusal is an apply-plane one.
+        "dated": 1051,
         "immediate": 1,
         # 976 -> 977 at W-67, and the whole of this landing's effect on the
         # act-level histogram is ONE act gaining its FIRST index entry — the same
@@ -1272,7 +1294,16 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # PRE-EXISTING entry's ``effective_status`` changes, so the two new entries
         # land in exactly two buckets (+1 here, +1 contingent) and every other
         # bucket holds.
-        "instrument_authorized": 978,
+        # 978 -> 979 at W-66b, the same mechanism a FOURTH time and one depth word
+        # down: ``no/lovtid/2005-06-17-92`` gains its FIRST index entry off the
+        # sibling-set PUNKTUM relabel and is dated 2006-01-01 by
+        # ``no/forskrift/2005-12-16-1517``, ``plain`` rather than staged. It is one
+        # of THREE entrants; the other two are dated by their own date and land in
+        # ``dated`` above. Entries 2,565 -> 2,568, nothing lost, and no
+        # PRE-EXISTING entry's ``effective_status`` changes, so the three new
+        # entries land in exactly two buckets (+1 here, +2 dated) and
+        # ``contingent``/``unknown``/``immediate`` all hold.
+        "instrument_authorized": 979,
         "unknown": 2,
     }
 
@@ -1412,14 +1443,19 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     # move lands in the non-staged half and the staged pin does not budge.
     # 977 -> 978 (and 964 -> 965 non-staged, 13 staged unmoved) at W-66: the single
     # new act ``no/lovtid/2001-06-15-33``, same route, same ``plain`` shape.
-    assert len(authorized) == 978
+    # 978 -> 979 (and 965 -> 966 non-staged, 13 staged unmoved) at W-66b: the
+    # single new act ``no/lovtid/2005-06-17-92``, same route, same ``plain``
+    # shape, one depth word down. W-66b's other two entrants carry their own
+    # plain date and never reach this route, so the whole of the move again lands
+    # in the non-staged half and the staged pin does not budge.
+    assert len(authorized) == 979
     assert (
         len([
             entry
             for entry in authorized
             if entry.commencement_shape != NOCommencementShape.STAGED_DELEGATED
         ])
-        == 965
+        == 966
     )
     assert all(entry.effective_date for entry in authorized)
     authorization_receipts = [
@@ -1446,8 +1482,12 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     # authorized by the WIDENED route, so the widened receipt count moves alone.
     # 541 + 437 = 978 at W-66, the same mirror case again: ``no/lovtid/2001-06-15-33``
     # is authorized by the WIDENED route and the shipped receipt count is unmoved.
+    # 541 + 438 = 979 at W-66b, the same mirror case a fourth time:
+    # ``no/lovtid/2005-06-17-92`` is authorized by the WIDENED route and the
+    # shipped receipt count is again unmoved. Its two sibling entrants are dated
+    # by their own date and take no authorization receipt at all.
     assert len(authorization_receipts) == 541
-    assert len(widened_receipts) == 437
+    assert len(widened_receipts) == 438
     assert {d["source_id"] for d in authorization_receipts + widened_receipts} == {
         entry.source_id for entry in authorized
     }
@@ -1728,9 +1768,15 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # while the pair count falls by 3. The two W-75 bindings that do NOT come back
     # are its multi-base nodes (``2025-06-20-39``, ``2026-06-19-48``), which W-69a
     # refuses whole under S2/S1. Signed off 2026-08-12.
-    assert len(unbound) == 947
-    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2504
-    assert len({diagnostic["source_id"] for diagnostic in unbound}) == 947
+    # 947 -> 944 receipts at W-66b, and it is the three instruments that gain
+    # their FIRST index entry off the sibling-set relabel one depth word down:
+    # ``no/lovtid/2001-12-21-111``, ``no/lovtid/2005-06-17-92`` and
+    # ``no/lovtid/2022-06-10-38``. Each declared TWO targets and bound neither,
+    # so each loses its gap ENTIRELY: receipts fall by 3 and pairs by 6 (2,504 ->
+    # 2,498). ZERO targets newly unbound and NOTHING rebound.
+    assert len(unbound) == 944
+    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2498
+    assert len({diagnostic["source_id"] for diagnostic in unbound}) == 944
 
     # 64 acts gain their FIRST index entry: they announced every one of their
     # parts with an unlisted tail, so they had bound no law at all.
@@ -1783,7 +1829,13 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # ledd relabel — ``no/lovtid/2001-06-15-33`` (§ 73 E inherited from the
     # preceding lead; enters ``instrument_authorized``) and
     # ``no/lovtid/2005-06-17-98`` (enters ``contingent``). None leaves.
-    assert len(index.entries) == 2565
+    # 2,565 -> 2,568 at W-66b: THREE acts gain their first entry off the same
+    # relabel one depth word down — ``no/lovtid/2001-12-21-111`` and
+    # ``no/lovtid/2022-06-10-38`` (both ``dated``, own plain date) and
+    # ``no/lovtid/2005-06-17-92`` (``instrument_authorized``, 2006-01-01 via
+    # ``no/forskrift/2005-12-16-1517``). None leaves, and the status histogram
+    # moves by exactly those three and nothing else.
+    assert len(index.entries) == 2568
     bindings = {
         (entry.source_id, base_id) for entry in index.entries for base_id in entry.base_ids
     }
@@ -1824,7 +1876,16 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # removed; no base act gains its first op, so the amended-law population stays
     # at 784. All three bases have no original-act source in the archive, so the
     # bindings are declared-and-lowered but never replayed. Signed off 2026-08-12.
-    assert len(bindings) == 6496
+    # 6,496 -> 6,502 at W-66b: six (act, law) pairs bind for the first time, and
+    # the W-34/W-35 conservation is again exact — the binding gain equals the
+    # unbound-pair drop (6 = 6), ZERO targets newly unbound and NOTHING rebound.
+    # They are the two declared targets each of the three instruments that gain
+    # their FIRST index entry off the sibling-set relabel at punktum depth
+    # (``no/lovtid/2001-12-21-111``, ``no/lovtid/2005-06-17-92``,
+    # ``no/lovtid/2022-06-10-38``). One base act receives its FIRST op ever —
+    # ``no/lov/2004-12-10-77`` — taking the amended-law population 784 -> 785,
+    # which is the same move the sweep baseline records.
+    assert len(bindings) == 6502
     # 26,218 at W-30; +2 at W-24, both reconciled to a named erratum and neither
     # touching this test's own subject. W-24 lowered two Del-scoped Rettelser
     # corrections into the law each part amends — ``2019-12-20-110`` Del I into
@@ -1963,7 +2024,15 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # act with no replayed source at all, that 2 sit under a ledd missing from the
     # replayed tree, or that 1 carries only a case-variant of its term. Those four
     # refuse at apply, typed, where the evidence for refusing exists.
-    assert sum(entry.n_ops for entry in index.entries) == 28384
+    #
+    # 28,384 -> 28,545 at W-66b: +161 RENUMBER legs and nothing lost. The number
+    # is not rounded to fit — it is EXACTLY the leg count the frozen expected
+    # withdrawal set predicted before any production code was written (112
+    # lowering lead occurrences over 59 distinct leads, minting 161 legs), so
+    # this pin and the parse-plane receipt census reconcile to the same
+    # arithmetic from two directions. Every leg is a sibling-set relabel at
+    # PUNKTUM depth, ``(section, subsection, sentence)`` on both sides.
+    assert sum(entry.n_ops for entry in index.entries) == 28545
 
 
 def test_no_amendment_index_staleness_report_detects_archive_change(tmp_path) -> None:

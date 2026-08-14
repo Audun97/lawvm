@@ -2824,6 +2824,21 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             "no/lov/2019-12-20-109",
             "no/lov/2020-04-17-29",
             "no/lov/2021-06-11-79",
+            # W-66b: ARRIVES from `untouched_drift`, and like W-66's
+            # `2012-01-27-9` above this is the W-23 predicate doing its job rather
+            # than membership drift — but in the REFUSING direction, which is the
+            # more interesting one. `no/lovtid/2022-06-10-38` carries exactly two
+            # instructions: "§ 20 første ledd annet punktum oppheves." and
+            # "Nåværende tredje punktum blir annet punktum." The punktum relabel
+            # now lowers; the punktum-depth REPEAL does not, because no production
+            # reads one. So the relabel's destination is still occupied by the live
+            # second sentence when the leg runs, and W-66's apply-plane guard
+            # REFUSES it (blocking, nothing written) rather than take the θ
+            # (RENUMBER, dest_occupied) recovery, which would have deleted that
+            # sentence — W-54's `removal_wrong` shape, one depth word down.
+            # The law's § 20 første ledd row is therefore no longer "untouched":
+            # something addressed it and declined. 22 -> 23.
+            "no/lov/2021-06-18-121",
             "no/lov/2022-03-11-9",
         ],
         "untouched_drift": [
@@ -2853,7 +2868,8 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             "no/lov/2020-06-19-77",
             "no/lov/2020-12-04-136",
             "no/lov/2021-04-16-18",
-            "no/lov/2021-06-18-121",
+            # W-66b: `no/lov/2021-06-18-121` LEAVES for `replay_defect`; see the
+            # note there. 20 -> 19.
             "no/lov/2022-06-17-49",
             "no/lov/2022-12-20-118",
             "no/lov/2022-12-20-97",

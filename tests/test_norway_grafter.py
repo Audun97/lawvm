@@ -28,6 +28,7 @@ from lawvm.replay_adjudication import CompileAdjudication
 from lawvm.norway.grafter import (
     NO_PARSE_COLLECTIVE_REENACTMENT_PART_UNRESOLVED,
     NO_PARSE_LEDD_SET_RELABEL_ADDRESS_UNRESOLVED,
+    NO_PARSE_PUNKTUM_SET_RELABEL_LEDD_UNRESOLVED,
     NO_PARSE_SUBSTITUTION_ANNOUNCEMENT_NOT_LOWERED,
     NO_PARSE_SUBSTITUTION_MULTI_BASE_ADDRESS_LIST,
     NO_PARSE_SUBSTITUTION_MULTIPLE_ANNOUNCEMENTS,
@@ -48,8 +49,10 @@ from lawvm.norway.grafter import (
     _normalize_no_chapter_scoped_section_lead,
     _no_element_lead_text,
     _no_unstructured_law_switch_lead_base_id,
+    _no_antecedent_ledd_label,
     _no_antecedent_section_label,
     _no_ledd_set_relabel_pairs,
+    _no_punktum_set_relabel_pairs,
     _no_move_attr_skeleton,
     _no_normalize_move_attr,
     _no_ordered_set_relabel_pairs,
@@ -9814,6 +9817,490 @@ def test_no_w66_relabel_refuses_whole_rather_than_eat_an_occupant() -> None:
     # the shipped code exempts from the occupancy check because the ordering
     # promises it will have been vacated. Once a leg may refuse that promise is
     # void, and the receipt records which case it was.
+    assert [(a.detail or {}).get("destination_was_renumber_source") for a in refusals] == [False, True]
+    assert not [
+        a for a in adjudications if a.kind == "no_replay_renumber_occupied_destination_removed"
+    ]
+
+
+# ── W-66b: the same sibling-set relabel, one depth word down (PUNKTUM) ────────
+
+
+def test_no_w66b_punktum_relabel_grammar_accepts_the_corpus_shapes() -> None:
+    """W-66b: every shape the 112 lowering occurrences actually take.
+
+    The return is ``(section, ledd, pairs, pattern)``: BOTH address levels may be
+    spelled or left to the antecedent, and the pattern names the winner so the
+    additive ordering below is a test's fact.
+    """
+    # The dominant shape: neither level spelled, both inherited (135 of 165).
+    assert _no_punktum_set_relabel_pairs("Nåværende annet punktum blir nytt tredje punktum.") == (
+        "",
+        "",
+        [(2, 3)],
+        "punktum",
+    )
+    # A pair relabel, overlapping source and destination sets.
+    assert _no_punktum_set_relabel_pairs(
+        "Nåværende annet og tredje punktum blir nye tredje og fjerde punktum."
+    ) == ("", "", [(2, 3), (3, 4)], "punktum")
+    # The currency qualifier is drawn from W-61's measured set, exactly as at ledd
+    # depth, and it may sit on either side of the ``§``.
+    assert _no_punktum_set_relabel_pairs("Gjeldende tredje punktum blir nytt fjerde punktum.") == (
+        "",
+        "",
+        [(3, 4)],
+        "punktum",
+    )
+    assert _no_punktum_set_relabel_pairs("Nåværende § 155 annet punktum blir tredje punktum.") == (
+        "155",
+        "",
+        [(2, 3)],
+        "punktum",
+    )
+    assert _no_punktum_set_relabel_pairs(
+        "§ 23-4 a nåværende tredje punktum blir nytt fjerde punktum."
+    ) == ("23-4a", "", [(3, 4)], "punktum")
+    # BOTH levels spelled — the ledd phrase is split off the SOURCE side and read
+    # through the shipped ordinal vocabulary.
+    assert _no_punktum_set_relabel_pairs(
+        "Nåværende § 14-70 tredje ledd annet punktum blir nytt tredje punktum."
+    ) == ("14-70", "3", [(2, 3)], "punktum")
+    assert _no_punktum_set_relabel_pairs(
+        "Nåværende annet ledd annet punktum blir nytt tredje punktum."
+    ) == ("", "2", [(2, 3)], "punktum")
+    # ``til`` ranges and the ``nytt``/``nye`` newness markers behave exactly as at
+    # ledd depth, because they go through the same helper.
+    assert _no_punktum_set_relabel_pairs(
+        "Nåværende annet til fjerde punktum blir nye tredje til femte punktum."
+    ) == ("", "", [(2, 3), (3, 4), (4, 5)], "punktum")
+    # A decreasing relabel is not special-cased anywhere.
+    assert _no_punktum_set_relabel_pairs("Någjeldende fjerde punktum blir tredje punktum.") == (
+        "",
+        "",
+        [(4, 3)],
+        "punktum",
+    )
+    # No trailing full stop — one corpus lead is spelled that way.
+    assert _no_punktum_set_relabel_pairs("Nåværende annet punktum blir nytt tredje punktum") == (
+        "",
+        "",
+        [(2, 3)],
+        "punktum",
+    )
+
+
+def test_no_w66b_punktum_relabel_grammar_refuses_what_it_must() -> None:
+    """W-66b: the 16 corpus leads this grammar declines, one limb each.
+
+    The destination-side limb is the safety-critical one. A destination that
+    respells a ledd is a RELOCATION out of the sibling set, which is W-69's
+    territory and the one thing this production must never lower — so the
+    destination is read as ordinals ALONE and the cross-container case is
+    impossible by construction rather than by a check that can be deleted.
+    """
+    # Cross-container: the destination names a DIFFERENT ledd.
+    assert (
+        _no_punktum_set_relabel_pairs(
+            "Nåværende annet til fjerde punktum blir nytt fjerde ledd første til tredje punktum."
+        )
+        is None
+    )
+    # Same ledd, respelled on the destination side. Refused too, and deliberately:
+    # the grammar does not get to decide which restatements are harmless.
+    assert (
+        _no_punktum_set_relabel_pairs(
+            "Nåværende første ledd annet, tredje og fjerde punktum blir "
+            "første ledd tredje, fjerde og femte punktum."
+        )
+        is None
+    )
+    # A ``bokstav``/``nr.`` container between the ledd and the punktum is an
+    # address level this production does not model; the residue is not ordinals.
+    assert (
+        _no_punktum_set_relabel_pairs(
+            "§ 18-3 nåværende annet ledd bokstav b annet punktum blir nytt tredje punktum."
+        )
+        is None
+    )
+    assert (
+        _no_punktum_set_relabel_pairs("Noverande § 21 nr. 2 tredje punktum blir nytt fjerde punktum.")
+        is None
+    )
+    # The currency qualifier is REQUIRED, for W-66's reason: a sentence that does
+    # not say which edition its ordinals are read against cannot be read against
+    # the pre-operation snapshot, which is this production's premise.
+    assert _no_punktum_set_relabel_pairs("Annet punktum blir nytt tredje punktum.") is None
+    # A payload tail. The pattern is anchored end to end.
+    assert (
+        _no_punktum_set_relabel_pairs("Nåværende annet punktum blir nytt tredje punktum og skal lyde:")
+        is None
+    )
+    assert _no_punktum_set_relabel_pairs("Gjeldande andre punktum blir til nytt tredje punktum.") is None
+    # The WRONG depth word is simply a different sentence.
+    assert _no_punktum_set_relabel_pairs("Nåværende annet ledd blir nytt tredje ledd.") is None
+    assert _no_punktum_set_relabel_pairs("Nåværende bokstav b blir ny bokstav c.") is None
+    # The ordinal vocabulary is ``_NORWEGIAN_ORDINALS`` verbatim — not widened
+    # here any more than it was at ledd depth.
+    assert _no_punktum_set_relabel_pairs("Gjeldande sjette punktum blir nytt sjuande punktum.") is None
+    # A parenthetical currency aside is not an ordinal list.
+    assert (
+        _no_punktum_set_relabel_pairs(
+            "Nåværende (vedtatt, ikke ikrafttrådt) annet punktum blir nytt tredje punktum."
+        )
+        is None
+    )
+    # Degenerate pair sets, refused exactly as W-66 refuses them.
+    assert _no_punktum_set_relabel_pairs("Nåværende tredje punktum blir tredje punktum.") is None
+    assert (
+        _no_punktum_set_relabel_pairs("Nåværende tredje og fjerde punktum blir femte punktum.") is None
+    )
+
+
+def test_no_w66b_punktum_grammar_leaves_the_shipped_ledd_grammar_alone() -> None:
+    """W-66b is strictly ADDITIVE: the two grammars are disjoint by their anchors.
+
+    The ledd grammar is tried first at the call site. Pinning the disjointness
+    here means the ordering can never become load-bearing by accident — nothing
+    W-66 lowers today can be captured by the new production, and nothing the new
+    production lowers was reachable before.
+    """
+    ledd_sentence = "Nåværende femte og sjette ledd blir sjette og sjuende ledd."
+    punktum_sentence = "Nåværende annet punktum blir nytt tredje punktum."
+    assert _no_ledd_set_relabel_pairs(ledd_sentence) == ("", [(5, 6), (6, 7)], "shipped")
+    assert _no_punktum_set_relabel_pairs(ledd_sentence) is None
+    assert _no_ledd_set_relabel_pairs(punktum_sentence) is None
+    assert _no_punktum_set_relabel_pairs(punktum_sentence) == ("", "", [(2, 3)], "punktum")
+
+
+def test_no_w66b_ledd_inheritance_reads_the_same_antecedent_as_the_section() -> None:
+    """W-66b: two levels, ONE antecedent node.
+
+    That both come from the same ``article.defaultP`` is what makes the pair
+    coherent — "§ 3-4 fjerde ledd nytt annet punktum skal lyde:" followed by
+    "Nåværende annet punktum blir nytt tredje punktum." is one instruction in two
+    sentences. Reading the section from one antecedent and the ledd from another
+    could compose an address neither sentence names.
+    """
+    children = _w66_children(
+        '<article class="defaultP">§ 3-4 fjerde ledd nytt annet punktum skal lyde:</article>',
+        '<article class="legalP">Departementet kan gi forskrift om beregningen.</article>',
+        '<article class="defaultP">Nåværende annet punktum blir nytt tredje punktum.</article>',
+    )
+    assert _no_antecedent_section_label(children, [0, 0, 0], 2) == ("3-4", "antecedent_names_section")
+    assert _no_antecedent_ledd_label(children, [0, 0, 0], 2) == ("4", "antecedent_names_ledd")
+    # The ordinal vocabulary is the shipped one, and both spellings of "2" work.
+    assert _no_antecedent_ledd_label(
+        _w66_children(
+            '<article class="defaultP">§ 5-2 andre ledd nytt annet punktum skal lyde:</article>',
+            '<article class="defaultP">Nåværende annet punktum blir nytt tredje punktum.</article>',
+        ),
+        [0, 0],
+        1,
+    ) == ("2", "antecedent_names_ledd")
+
+
+def test_no_w66b_ledd_inheritance_refuses_rather_than_guesses() -> None:
+    """W-66b: every way the LEDD half can fail, and the typed reason for it.
+
+    ``antecedent_is_not_punktum_depth`` is the conjunct W-66 has no need of. An
+    antecedent that names a ledd while talking about whole ledds establishes that
+    ledd as a PAYLOAD — its text is given in full, so it has no "nåværende"
+    punktums for a follower to relabel, and inheriting from it would renumber the
+    sentences of a provision that was just written. It changes no element of the
+    measured corpus population; it is carried for W-66's cycle-guard reason.
+    """
+    shift = '<article class="defaultP">Nåværende annet punktum blir nytt tredje punktum.</article>'
+    # 27 corpus refusals, every one of them this reason: a punktum hanging
+    # directly under a section, or under a container the ledd reader cannot see.
+    assert _no_antecedent_ledd_label(
+        _w66_children('<article class="defaultP">§ 12 nytt annet punktum skal lyde:</article>', shift),
+        [0, 0],
+        1,
+    ) == (None, "antecedent_names_no_ledd")
+    assert _no_antecedent_ledd_label(
+        _w66_children(
+            '<article class="defaultP">§ 48 nr. 5 nytt annet punktum skal lyde:</article>', shift
+        ),
+        [0, 0],
+        1,
+    ) == (None, "antecedent_names_no_ledd")
+    # Two ledd named: nothing unambiguous to inherit.
+    assert _no_antecedent_ledd_label(
+        _w66_children(
+            '<article class="defaultP">§ 59 første ledd og tredje ledd nytt annet punktum skal lyde:</article>',
+            shift,
+        ),
+        [0, 0],
+        1,
+    ) == (None, "antecedent_names_several_ledd")
+    # A whole-ledd antecedent: names a ledd, but not at punktum depth.
+    assert _no_antecedent_ledd_label(
+        _w66_children('<article class="defaultP">§ 13 nytt tredje ledd skal lyde:</article>', shift),
+        [0, 0],
+        1,
+    ) == (None, "antecedent_is_not_punktum_depth")
+    # W-66's meta-amendment guard, unchanged and for the same reason.
+    assert _no_antecedent_ledd_label(
+        _w66_children(
+            '<article class="defaultP">I endringen av § 19-8 skal nytt sjette ledd annet punktum lyde:</article>',
+            shift,
+        ),
+        [0, 0],
+        1,
+    ) == (None, "antecedent_is_meta_amendment")
+    # A part boundary stops the search, exactly as it does for the section half.
+    assert _no_antecedent_ledd_label(
+        _w66_children(
+            '<article class="defaultP">§ 4 tredje ledd annet punktum skal lyde:</article>', shift
+        ),
+        [0, 1],
+        1,
+    ) == (None, "part_has_no_antecedent_lead")
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w66b_punktum_relabel_lowers_on_the_corpus_witness() -> None:
+    """W-66b corpus witness: ``no/lovtid/2001-12-21-117`` → ``no/lov/1985-06-21-83``.
+
+    The instrument carries the family's canonical pair twice: a "§ X <ord> ledd
+    nytt <ord> punktum skal lyde:" INSERT and, right after it, "Nåværende annet
+    punktum blir nytt tredje punktum." Before W-66b the second node refused whole.
+
+    Three facts are pinned, because three things have to be right:
+      1. the relabel lowers to a RENUMBER at SENTENCE depth whose ledd came from
+         the antecedent and whose section came from the same node;
+      2. the co-located payload op is already there at the very address the
+         relabel vacates — which is what makes "insert a new second punktum and
+         push the old one down" expressible at all;
+      3. the op carries W-66's provenance tag, so the apply-plane refuse-on-
+         occupied branch sees it without any change of its own.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2001-12-21-117", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    adjudications: list[CompileAdjudication] = []
+    grouped = dict(
+        iter_no_document_change_ops(html_bytes, "no/lovtid/2001-12-21-117", adjudications_out=adjudications)
+    )
+    ops = grouped["no/lov/1985-06-21-83"]
+
+    relabel = [
+        op
+        for op in ops
+        if op.action is StructuralAction.RENUMBER
+        and op.source is not None
+        and op.source.raw_text == "Nåværende annet punktum blir nytt tredje punktum."
+    ]
+    assert [(op.target.path, cast(LegalAddress, op.destination).path) for op in relabel] == [
+        (
+            (("section", "3-4"), ("subsection", "4"), ("sentence", "2")),
+            (("section", "3-4"), ("subsection", "4"), ("sentence", "3")),
+        ),
+        (
+            (("section", "3-27"), ("subsection", "2"), ("sentence", "2")),
+            (("section", "3-27"), ("subsection", "2"), ("sentence", "3")),
+        ),
+    ]
+    from lawvm.norway.grafter import NO_LEDD_SET_RELABEL_PROVENANCE_TAG
+
+    assert all(
+        NO_LEDD_SET_RELABEL_PROVENANCE_TAG in (op.provenance_tags or ()) for op in relabel
+    )
+    assert {op.witness_rule_id for op in relabel} == {"no_section_renumber_relabel"}
+
+    # The co-located payload sits at the address the relabel vacates.
+    payload = [
+        op
+        for op in ops
+        if op.target.path == (("section", "3-4"), ("subsection", "4"), ("sentence", "2"))
+        and op.action is not StructuralAction.RENUMBER
+    ]
+    assert [str(op.action.value) for op in payload] == ["insert"]
+
+    assert "Nåværende annet punktum blir nytt tredje punktum." not in {
+        (item.detail or {}).get("source_excerpt")
+        for item in adjudications
+        if item.kind == "no_parse_unstructured_lead_unmatched"
+    }
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w66b_unresolvable_ledd_gets_a_typed_receipt_not_a_guess() -> None:
+    """W-66b: 27 corpus refusals resolve their SECTION but not their LEDD.
+
+    The same witness instrument carries one: "§ 10-18 nytt annet punktum skal
+    lyde:" names a section but no ledd, because that punktum hangs directly under
+    the section. The relabel after it gets the new typed receipt — carrying the
+    section it DID resolve, so the receipt says exactly how far the address got —
+    and mints nothing.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2001-12-21-117", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    adjudications: list[CompileAdjudication] = []
+    grouped = dict(
+        iter_no_document_change_ops(html_bytes, "no/lovtid/2001-12-21-117", adjudications_out=adjudications)
+    )
+    typed = [item for item in adjudications if item.kind == NO_PARSE_PUNKTUM_SET_RELABEL_LEDD_UNRESOLVED]
+    assert [
+        (
+            (item.detail or {}).get("base_id"),
+            (item.detail or {}).get("section"),
+            (item.detail or {}).get("address_reason"),
+            (item.detail or {}).get("ledd_reason"),
+            (item.detail or {}).get("pattern"),
+        )
+        for item in typed
+    ] == [("no/lov/1997-06-13-44", "10-18", "antecedent_names_section", "antecedent_names_no_ledd", "punktum")]
+    # Nothing was minted at that address on a guessed ledd.
+    assert not [
+        op
+        for op in grouped.get("no/lov/1997-06-13-44", ())
+        if op.action is StructuralAction.RENUMBER and op.target.path[0] == ("section", "10-18")
+    ]
+
+
+def _w66b_relabel_op(sequence: int, section: str, ledd: str, src: int, dst: int) -> LegalOperation:
+    from lawvm.norway.grafter import NO_LEDD_SET_RELABEL_PROVENANCE_TAG
+
+    return LegalOperation(
+        op_id=f"no/lovtid/9999-01-01-1:{sequence}",
+        sequence=sequence,
+        action=StructuralAction.RENUMBER,
+        target=LegalAddress(
+            path=(("section", section), ("subsection", ledd), ("sentence", str(src)))
+        ),
+        destination=LegalAddress(
+            path=(("section", section), ("subsection", ledd), ("sentence", str(dst)))
+        ),
+        source=OperationSource(statute_id="no/lovtid/9999-01-01-1", raw_text="punktum relabel", title="x"),
+        provenance_tags=(
+            "base_act:no/lov/1999-01-01-1",
+            "fallback:unstructured",
+            NO_LEDD_SET_RELABEL_PROVENANCE_TAG,
+        ),
+        group_id=f"no/lovtid/9999-01-01-1:{sequence}",
+        witness_rule_id="no_section_renumber_relabel",
+    )
+
+
+def _w66b_statute(ledd_text: str) -> IRStatute:
+    """A one-ledd section carrying TEXT, not sentence children.
+
+    That is the corpus shape, and it is the whole reason this production depended
+    on W-69b: a ``setning/N`` address does not resolve until the parent ledd's
+    text has been split into sentence children.
+    """
+    return IRStatute(
+        statute_id="no/lov/1999-01-01-1",
+        title="Testlov",
+        body=IRNode(
+            kind=IRNodeKind.BODY,
+            children=(
+                IRNode(
+                    kind=IRNodeKind.SECTION,
+                    label="7",
+                    children=(IRNode(kind=IRNodeKind.SUBSECTION, label="4", text=ledd_text),),
+                ),
+            ),
+        ),
+    )
+
+
+def test_no_w66b_punktum_relabel_materializes_its_sibling_set_then_applies() -> None:
+    """W-66b apply: the ordinary case, and it proves the W-69b dependency.
+
+    The destination sibling set is SENTENCE children, which do not exist until
+    something materializes them — the base ledd is a single text node. W-69b
+    moved ``_materialize_sentence_parent_for`` ahead of target resolution on both
+    dispatch arms, so a punktum-depth RENUMBER reaches it: the parent ledd is
+    split into sentence children, the ``setning/2`` target then resolves, and slot
+    3 does not exist so nothing is written over.
+
+    The materialization is read-only on CONTENT: space-joining the sentence
+    children reproduces the former ledd text exactly, which is asserted here
+    rather than assumed.
+    """
+    before = _w66b_statute("Setning en. Setning to.")
+    ops = [_w66b_relabel_op(1, "7", "4", 2, 3)]
+    adjudications: list[CompileAdjudication] = []
+    result = apply_no_ops(before, ops, adjudications_out=adjudications)
+
+    ledd = result.body.children[0].children[0]
+    assert [(child.label, child.text) for child in ledd.children] == [
+        ("1", "Setning en."),
+        ("3", "Setning to."),
+    ]
+    assert " ".join(child.text or "" for child in ledd.children) == "Setning en. Setning to."
+    # The shipped materialization receipt fired, and it is the shipped kind: the
+    # mechanism is unchanged, only its reachability from this op is new.
+    materialized = [
+        a for a in adjudications if a.kind == "no_replay_sentence_children_materialized"
+    ]
+    assert [(a.detail or {}).get("materialized_parent_path") for a in materialized] == [
+        "section:7/subsection:4"
+    ]
+    assert not [
+        a
+        for a in adjudications
+        if a.kind == "no_replay_ledd_set_relabel_occupied_destination_refused"
+    ]
+
+
+def test_no_w66b_punktum_relabel_refuses_whole_rather_than_eat_an_occupant() -> None:
+    """W-66b apply: the safety property CASCADES at punktum depth unchanged.
+
+    A three-sentence ledd is the shape of a base edition that already carries the
+    amendment being replayed — W-66's ``removal_wrong`` hazard, one depth down.
+    "Current second and third become third and fourth" against it: the 3 → 4 leg
+    finds slot 4 free and lands, but this statute has only three sentences, so the
+    2 → 3 leg's destination is the slot the first leg just vacated.
+
+    The case pinned here is the one that has teeth: a FOUR-sentence ledd, where
+    the 3 → 4 leg lands on live text. It refuses, slot 3 is therefore still
+    occupied when the 2 → 3 leg runs, so that one refuses too, and the ledd comes
+    out untouched rather than half-shifted. No θ cell is reached.
+
+    And "untouched" is literal, down to the SHAPE: a refused op's tentative state
+    is discarded whole, so the materialization it performed to resolve its own
+    target is rolled back with it. The ledd is still the single text node it was.
+    That is worth pinning — a read-only shape change that SURVIVED a refusal
+    would leave the statute in a form no landed op produced.
+    """
+    before = _w66b_statute("Setning en. Setning to. Setning tre. Setning fire.")
+    ops = [_w66b_relabel_op(1, "7", "4", 3, 4), _w66b_relabel_op(2, "7", "4", 2, 3)]
+    adjudications: list[CompileAdjudication] = []
+    result = apply_no_ops(before, ops, adjudications_out=adjudications)
+
+    ledd = result.body.children[0].children[0]
+    assert ledd.children == ()
+    assert ledd.text == "Setning en. Setning to. Setning tre. Setning fire."
+    assert ledd.text == before.body.children[0].children[0].text
+    refusals = [
+        a
+        for a in adjudications
+        if a.kind == "no_replay_ledd_set_relabel_occupied_destination_refused"
+    ]
+    assert [a.op_id for a in refusals] == [
+        "no/lovtid/9999-01-01-1:1",
+        "no/lovtid/9999-01-01-1:2",
+    ]
+    assert all(a.blocking for a in refusals)
+    assert [(a.detail or {}).get("destination_path") for a in refusals] == [
+        "section:7/subsection:4/sentence:4",
+        "section:7/subsection:4/sentence:3",
+    ]
+    # The second leg's destination IS a source of the same group — the exemption
+    # W-66 had to move the check in front of. Once a leg may refuse, the vacate
+    # promise is void, and checking occupancy for real is what makes the whole
+    # relabel drop together.
     assert [(a.detail or {}).get("destination_was_renumber_source") for a in refusals] == [False, True]
     assert not [
         a for a in adjudications if a.kind == "no_replay_renumber_occupied_destination_removed"

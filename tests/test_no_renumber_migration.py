@@ -1526,7 +1526,29 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # 168 corpus-wide: a relocation moves content, it never removes any, and the
     # two writes that stop being destructive were REPLACEMENTS, which record
     # ``replaced_paths`` and never ``removed_paths``.
-    "hazard_destructive_writes": 3827,
+    #
+    # 3,827 -> 3,828 at W-66b, and it is ONE law: ``no/lov/2008-05-15-35``
+    # ``[262, 8] -> [263, 8]``. The delta is +1 but the movement underneath it is
+    # +3 and -2, and both halves are W-66's own mechanism one depth word down:
+    #   * +3 RENUMBER, the three punktum-relabel legs that LAND on this law
+    #     (``§73/ledd/4/setning/3->4`` from ``no/lovtid/2009-12-18-132``, and
+    #     ``§92/ledd/4/setning/5->6`` and ``4->5`` from ``no/lovtid/2018-04-20-9``).
+    #     A RENUMBER is destructive by this census's definition because it moves
+    #     existing content; none of the three REMOVES any, so the per-law
+    #     content-removing figure stays 8 and the corpus figure stays 168.
+    #   * -2 REPLACE, because a relabel that vacates a slot before the co-located
+    #     payload lands turns an overwrite into an insertion. One is the shipped
+    #     ``_promote_no_replace_with_following_renumber_insert`` waking up (this
+    #     law's ``no_parse_replace_promoted_to_insert_for_same_target_renumber``
+    #     goes 4 -> 5); the other is an INSERT that no longer has to recover onto
+    #     an occupant (``no_replay_insert_occupied_target_replaced`` 10 -> 9).
+    #     Corpus-wide the same two counters move +9 and -4.
+    # Membership is unchanged: the only other laws this item touches at all are
+    # ``no/lov/2004-12-10-77`` (2 ops, both ``replay_unresolved_target``, so it
+    # takes no write and enters no population here) and ``no/lov/2005-06-17-62``
+    # (2 further ops behind a PRE-EXISTING mid-apply abort, same error string, so
+    # it still takes no writes). Signed off 2026-08-14.
+    "hazard_destructive_writes": 3828,
     # 167 -> 168, and the +1 is NOT a relabel op. ``no/lov/2016-05-27-14`` gains
     # ``no/lovtid/2021-12-22-158:1``, a REPEAL of § 7-6 annet ledd that could not
     # bind before because that law's ledd sequence was one slot out of step; with
@@ -1555,7 +1577,9 @@ _NO_INCOMPLETE_BASE_HAZARD_LAWS_DIGEST = (
     # W-70b: membership unchanged; the SAME law's row moves again, [7, 0] ->
     # [11, 0], as its six relocation legs land and two INSERTs stop recovering
     # onto an occupant. It is the ONLY row that moves.
-    "e5938f2f5f4102c35d1bb7e49479520be0bdd9427821668239e28cd0e9617ee0"
+    # W-66b: membership unchanged again; ONE row moves, ``no/lov/2008-05-15-35``
+    # [262, 8] -> [263, 8]. See the count note above for the +3/-2 underneath it.
+    "d76bd46d679ff6a42e03226a3217127aa4eb7bf1ff799d9761a10b1cbc0758e3"
 )
 
 _REGENERATE = (
@@ -1662,7 +1686,12 @@ def test_no_occupied_destination_sweep_baseline_is_not_stale(
     # ("Någjeldende annet ledd blir tredje ledd." in ``no/lovtid/2018-06-15-38``,
     # § 30 inherited from the preceding lead). It is not a scan candidate, so the
     # scoreboard does not see it; this census does.
-    assert len(swept) == baseline["swept"]["base_laws"] == 784
+    #
+    # 784 -> 785 at W-66b, and by exactly the same mechanism one depth word down:
+    # ``no/lov/2004-12-10-77`` enters on its first lowered op, a sibling-set
+    # PUNKTUM relabel whose section AND ledd both come from the DOM-local
+    # antecedent. It is likewise not a scan candidate.
+    assert len(swept) == baseline["swept"]["base_laws"] == 785
     assert sorted(set(swept)) == swept
     assert set(_NO_OCCUPIED_DESTINATION_LAWS) <= set(swept)
     # 440 laws error before a single op is applied — F-09's sparse-source class,
