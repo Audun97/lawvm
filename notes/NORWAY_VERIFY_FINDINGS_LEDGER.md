@@ -5136,23 +5136,108 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    all unmoved.
 
 80. **W-70b (Lovdata destination-section repair on `data-move-part`,
-   behind a population tripwire):** OPEN, unauthorized. Opened at
-   the W-69c sign-off. `no/lovtid/2025-06-20-42`'s §3 attribute
-   writes `§3/ledd/2;;§2/ledd/3 §3/ledd/3;;§2/ledd/4` where its own
-   annotated prose commands an intra-§3 shift — the same class of
-   source defect as W-70's separator damage: the attribute
+   behind a population tripwire):** DONE (`a915f7d69`, 2026-08-14;
+   artifacts `.tmp/w70b/`). Opened at the W-69c sign-off; landed one
+   session later at exactly the size it was priced at. As opened:
+   `no/lovtid/2025-06-20-42`'s §3 attribute writes
+   `§3/ledd/2;;§2/ledd/3 §3/ledd/3;;§2/ledd/4` where its own
+   annotated prose commands an intra-§3 shift — the attribute
    contradicts the prose it annotates, and the prose is the
-   authority. A W-70-shaped repair (normalize the destination
-   section to the change block's own section when the prose
-   announces an intra-section shift; refuse anything unprovable;
-   population tripwire so a growing family fails closed) would turn
-   the six W-69c refusals on `no/lov/2009-06-19-44` back into a
-   provable relocation, recover the two provisions item 79's θ cell
-   replaced, and land the under-applied shift. Sizing: ONE
-   instrument in the population today (census before building, per
-   W-70's discipline); small. Prerequisite: none — W-69c's refusal
-   keeps the law safe meanwhile, which is exactly the
-   refusal-first contract working as intended.
+   authority. **The two provisions item 79's θ cell replaced are
+   RECOVERED and in force** — base `§ 2 tredje ledd`
+   ("Enkeltpersonar kan vende seg direkte til
+   krisesentertilbodet…") now `§ 2 fjerde ledd`, base `§ 3 andre
+   ledd` ("Kommunen skal sørgje for å ta vare på barn…") now `§ 3
+   tredje ledd` — and the whole six-leg component applies:
+   `no_replay_relocation_order_unprovable_refused` **6 → 0** at
+   apply (the parse-plane group on `no/lov/1981-05-22-25` remains,
+   F-09-blocked; W-69d will meet it),
+   `no_replay_insert_occupied_target_replaced` **139 → 137** (the
+   law's `section:4` one is from `no/lovtid/2021-06-11-78`,
+   unrelated, deliberately left standing).
+   **The population, censused BEFORE building and pinned by
+   content** (`.tmp/w70b/expected_population.json`): of the
+   corpus's 286 `data-move-part` attributes / 504 legs, **35
+   attributes carry a leg whose resolved destination section
+   differs from its own source section** (54 legs). By leg shape:
+   51 legs / 33 attrs `section → section` (ordinary section
+   renumbering — the differing section IS the instruction;
+   untouched), 1 leg `sentence → section` (a genuine promotion,
+   `no/lovtid/2024-04-12-14`; untouched), 2 legs / 1 attr
+   `subsection → subsection` — the defect, and the production's
+   entire reach. Post: **35/35 accounted, 1 repaired, 34 declined
+   typed, 0 strays; 285/286 attributes byte-identical through the
+   seam.** A cross-base boundary case outside the resolved
+   population (`no/lovtid/2025-06-20-70`, destination does not
+   lower) is pinned in the untouched set via a deliberately dumber
+   string-level census on the test side — a strict superset that
+   cannot go blind on an unresolvable leg.
+   **The prose-proof rule is a SEVEN-LIMB conjunction, each limb
+   with its own typed decline reason**: every leg
+   `<prefix>/ledd/<n>` on both sides (suffix test, not regex, so a
+   deeper address cannot enter); one shared source and one shared
+   destination prefix, differing; both resolving to sections of
+   the block's own base act (cross-base declines first, W-70's
+   precedent); the block's own announcement parsing via the SHIPPED
+   relabel grammars (W-56 first, W-66's widened sibling after — no
+   new sentence grammar minted) and spelling a section; that
+   section being the SOURCE; the prose shift map equalling the
+   markup's ledd map pair for pair (the prose may correct the
+   section and nothing else); and no other section named anywhere
+   in the announcement. The rewrite is structurally confined: each
+   destination is rebuilt as
+   `<source prefix>/ledd/<declared destination ordinal>`, so the
+   production cannot move a leg to a ledd the markup did not
+   declare. Receipt
+   `no_parse_structured_move_attr_destination_section_normalized`
+   (non-blocking, APPLY disposition), cataloged; the production
+   runs LAST of the three move-attr lanes so the shipped path sees
+   base bytes. **Limbs 4–7 have no corpus witness** (all 34
+   decliners fall at limb 1) and are held by a seven-case synthetic
+   decline suite — kept rather than trimmed, because the limbs
+   exist for the member that arrives with a future corpus refresh,
+   and the tripwire routes it to a human first. Ratified at
+   sign-off.
+   **Adjudicated ledd-by-ledd against the instrument's four change
+   blocks** (`.tmp/w70b/adjudication_2009-06-19-44.txt`): § 2 goes
+   6 → 7 ledd and § 3 goes 3 → 4, both "Noverande …" announcements
+   satisfied element for element; every other section
+   byte-identical; `statute_len` +302 = exactly the two recovered
+   provisions.
+   **Measured.** Exactly ONE law of 784 moves. Ops 7,340 flat at
+   replay (a destination rewritten, not an op minted; the index
+   op-count pin 28,384 unchanged); receipts 6,074 → 6,080 (+6
+   landed RENUMBER writes); adjudications 37,255 → 37,248 (−6
+   refusals − 2 replacements + 1 receipt); destructive writes
+   4,591 → 4,595 (law row `[7,0] → [11,0]`: +6 RENUMBERs, −2
+   INSERT recoveries; 7+6−2=11); **content-removing 207 → 207** —
+   the disappearing replacements were destructive-but-not-removing
+   (`replaced_paths`, never `removed_paths`), so nothing moves.
+   **Firings 10 → 10 element for element; no new firing, no
+   `removal_wrong`.** Scan totals measured unmoved: 76 candidates,
+   29/47/0, total 1,471, ceiling 1,011, unexplained 460, all 76
+   candidate rows byte-identical. Sweep baseline: 5 keys moved,
+   each adjudicated (the code digests — grafter alone of 79
+   modules — `hazard_destructive_writes` 3,823 → 3,827, the law's
+   row, its `laws_digest`); firings, corpus digest,
+   content-removing (168/65), membership (162/266/199) all
+   unmoved.
+   **W-69c pins moved consciously**: the corpus witness
+   `test_no_w69c_witness_2009_06_19_44_replays_to_completion`
+   rewritten from pinning the LOSS to pinning the RECOVERY — 0
+   refusals, both provisions asserted BY TEXT (not just label), §2
+   labels 1..7, §3 labels 1..4, `insert_occupied ==
+   ["section:4"]`, docstring carrying all three states (pre-W-69c
+   abort → W-69c typed refusal → W-70b repair); the hazard
+   count/digest pins; the blind-spot comment (which claimed "every
+   relocation leg refuses", now false — the occupied-destination
+   answer stays zero for a DIFFERENT reason: proven-safe ordering,
+   not "nothing ran"). Population tripwire
+   `test_no_move_attr_destination_section_population_is_pinned`
+   (3,089 artifacts, both halves by content) plus
+   `test_no_genuine_cross_section_moves_are_never_normalized`, the
+   must-not-repair set split out so its failure cannot read as
+   drift.
 
 ## 5. Demo / Inspection Tooling
 
@@ -5170,6 +5255,31 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-14 (W-70b — Lovdata destination-section repair on
+  `data-move-part`, behind a population tripwire; `a915f7d69`)** —
+  **The two provisions W-69c's landing exposed as overwritten are
+  recovered and in force, and the six-leg relocation on
+  `no/lov/2009-06-19-44` applies in full** — refusals 6 → 0,
+  `insert_occupied_target_replaced` 139 → 137, `statute_len` +302 =
+  exactly the two provisions, adjudicated ledd-by-ledd against the
+  instrument's four change blocks. The repair is a prose-gated
+  destination-section normalizer, W-70's shape: of 35 censused
+  cross-section attributes (frozen before building), exactly ONE —
+  the `subsection → subsection` defect — passes the seven-limb
+  prose proof; 33 ordinary section renumberings and 1 genuine
+  sentence→section promotion decline typed and pass through
+  byte-identical, pinned by content on both halves so a growing
+  family fails closed and a regression that "repairs" genuine moves
+  fails loudly. The rewrite is structurally confined to the
+  destination's section component; the shipped relabel grammars
+  prove the prose (no new sentence grammar); limbs 4–7 are held by
+  a synthetic decline suite pending a corpus witness. Firings 10 →
+  10, no `removal_wrong`, content-removing 207/168 unmoved, scan
+  totals unmoved (76 / 29-47-0 / 1,471 / 1,011 / 460); hazard
+  3,823 → 3,827, all the one law's own writes. The W-69c witness
+  is rewritten from pinning the loss to pinning the recovery, by
+  text.
 
 - **2026-08-13 (W-69c — the atomic relocation ordering generalized
   to `(parent_path, label)`, as a provability refusal;
