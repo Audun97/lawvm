@@ -4678,7 +4678,9 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    in the generic refusal receipt.
 
 76. **W-66b (the sibling set relabel at PUNKTUM depth — W-66's
-   item (b), now priced):** OPENED 2026-08-12 by W-69's design
+   item (b), now priced):** DONE (`f1673a96c`, 2026-08-14;
+   artifacts `.tmp/w66b/`; landing narrative appended after the
+   original charter below). OPENED 2026-08-12 by W-69's design
    pass, which found it while censusing something else and is
    recording it as its own item rather than burying it inside a
    relocation item where nobody would look. W-66 left non-`ledd`
@@ -4723,6 +4725,113 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    uncounted here: the `bokstav` and `nr.` depths, which the same
    census sees but which W-69's tightened classifier did not
    separate — size them in the same pass.
+   **LANDED (`f1673a96c`), sizing pass first as charted, no stop
+   condition fired, whole scope, no safe-subset split.**
+   **The sizing pass, and two charter corrections.** (i) The
+   population re-derived UNTRUNCATED at base `5c0fb190d` is **165
+   refusals / 84 leads / 115 instruments / 78 base acts** — up from
+   144/63/100/69 on all four axes across the five intervening
+   landings; the design's D-arm regex also made the trailing depth
+   word optional where the shipped grammar anchors it. (ii)
+   **`bokstav`/`nr.` are NOT this grammar one word further down** —
+   `ledd`/`punktum` POSTFIX the depth word to a Norwegian ordinal,
+   `bokstav`/`nr.` PREFIX it to a letter or arabic numeral; zero of
+   the 8,583 refusals match the postfix shape at either depth.
+   Sized with a correctly-shaped classifier: **27 refusals / 23
+   leads / 17 bases (`bokstav`), 36 / 33 / 19 (`nr.`)** — a real
+   family, a different sentence grammar over a different label
+   vocabulary, a different item (not opened at this landing). The
+   address-coincidence join reproduced the design's finding exactly:
+   ONE candidate base (`no/lov/2021-06-18-121`), 1 of its 2 rows
+   address-coincident, projected yield ≤ 1; **realized 0**, and the
+   zero is structural — see below.
+   **What was built.** `_no_punktum_set_relabel_pairs`, W-66's
+   anchored sentence with `punktum` for `ledd`, tried strictly
+   BEHIND the shipped ledd grammar (disjoint by tail anchor, pinned
+   as a test's fact); the optional source-side `<ordinal> ledd`
+   phrase split off in code so the ledd ordinal reads through the
+   ONE shipped ordinal vocabulary. **The destination side reduces
+   to ordinals ALONE** — a destination that respells a ledd cannot
+   parse, so the cross-container relocation shape (W-69's
+   territory) is impossible by construction rather than by a
+   deletable check; 5 leads pay for it, including harmless same-ledd
+   restatements (the grammar does not get to decide which
+   restatements are harmless). `_no_antecedent_ledd_label` reads
+   the LEDD from the SAME `defaultP` antecedent node as the section
+   — two levels from one node is what makes the pair coherent —
+   with one conjunct W-66 needs not have: the antecedent must
+   itself be punktum-depth (an antecedent naming a whole ledd
+   establishes a PAYLOAD, and inheriting from it would renumber
+   sentences of a provision just written; zero measured elements,
+   carried on W-66's cycle-guard reasoning). Ordering:
+   `_no_ordered_set_relabel_pairs` reused unchanged (charter (c)
+   confirmed). Receipts: new parse-plane
+   `no_parse_punktum_set_relabel_ledd_unresolved` (charter (a));
+   the section half REUSES `no_parse_ledd_set_relabel_address_unresolved`
+   — same reader failing the same way; the shipped constant name is
+   now historical, noted rather than renamed. **Apply plane: zero
+   edits** — the ops carry W-66's own
+   `NO_LEDD_SET_RELABEL_PROVENANCE_TAG` (the refuse-on-occupied
+   branch is depth-agnostic; a sibling tag would have needed a
+   duplicated branch on a load-bearing safety seam and made punktum
+   firings invisible to W-72's sweep — the wrong polarity;
+   ratified). The new kind, being parse-plane, is cataloged but
+   correctly NOT in `_NO_SKIP_ADJUDICATION_KINDS`.
+   **Frozen before implementing, matched after, element for
+   element** (`.tmp/w66b/expected_withdrawal_set.json`, simulated
+   against antecedents captured from the walk itself): **165/165 —
+   112 lowered (59 leads, 161 legs), 27 new-kind refusals (all
+   `antecedent_names_no_ledd`), 10 reused-kind refusals, 16
+   grammar-declined; 0 strays either direction.** Unstructured
+   refusals **8,583 → 8,434 (−149)**; ops **28,384 → 28,545
+   (+161)**, exactly the frozen leg count, independently derived
+   from the index side.
+   **Charter (b) confirmed on the real path**: a punktum RENUMBER's
+   `setning/N` target materializes via W-69b's
+   `_materialize_sentence_parent_for` on the structural arm before
+   resolution; corpus receipts 822 → 824 (+2 — idempotent where
+   earlier ops already split the ledd). Finding pinned: **on a
+   refused op the materialization rolls back with it**, so no
+   statute keeps a shape no landed op produced. W-69c's guard:
+   0 → 0, no punktum group unprovable.
+   **Blast**: 785 laws (the population GROWS — `no/lov/2004-12-10-77`
+   enters on its first lowered ops, both `replay_unresolved_target`,
+   no write), 14 movers ALL inside the derived expected set, 771
+   byte-identical. The 56 expected non-movers each attributed: **49
+   have no original-act source** (the family concentrates on
+   pre-2001 acts — the structural reason the row yield is zero), 3
+   typed-refusal-only, 4 lowered-but-scanned-not-applied
+   (contingent commencement, pre-existing). Index: three
+   instruments gain their FIRST entry (2,565 → 2,568); bindings
+   6,496 → 6,502 with W-34/W-35 conservation exact (+6 = −6
+   unbound pairs).
+   **Firings 10 → 10 element for element, content-keyed; zero new
+   firings; the `removal_wrong` stop the charter budgeted for never
+   engaged.** The one new apply-plane refusal (set-relabel refusals
+   31 → 32, 12th law) is the item's most instructive artifact,
+   DOM-adjudicated: `no/lovtid/2022-06-10-38` on
+   `no/lov/2021-06-18-121` § 20 første ledd commands "annet punktum
+   oppheves." then "Nåværende tredje punktum blir annet punktum."
+   The relabel now lowers; **the punktum-depth REPEAL does not (no
+   production reads one)**, so slot 2 is live and W-66's guard
+   refuses — had the θ cell fired it would have deleted the
+   sentence, W-54's `removal_wrong` shape one depth down,
+   prevented. This flips the candidate's scan bucket
+   `untouched_drift` → `replay_defect` (the W-23 predicate in the
+   refusing direction; scoreboard unmoved) and names the unlock:
+   **item 81**.
+   **Scan discipline: every number unmoved** — 76 candidates,
+   29/47/0, total 1,471, ceiling 1,011, unexplained 460, 0 rows
+   opened, 0 closed. Hazard re-pinned consciously: 3,827 → **3,828**,
+   one law (`no/lov/2008-05-15-35` [262,8] → [263,8]; +3 landed
+   punktum RENUMBERs − 2 REPLACEs as the shipped promotion helper
+   wakes at this depth: `replace_promoted_to_insert` 113 → 122,
+   `insert_occupied_target_replaced` 137 → 133); membership,
+   content-removing (168/65), incomplete (199) unmoved. Sweep
+   baseline keys all adjudicated (code digests — grafter alone —
+   the hazard row, `base_laws` 784 → 785 with the entrant, and
+   `no/lov/2005-06-17-62` gaining 2 ops behind its PRE-EXISTING
+   abort, identical error string).
 
 77. **W-69a (the addressed word substitution, lowered for real):**
    DONE (`17e5dcfb4`, 2026-08-12; artifacts `.tmp/w69a/`). From
@@ -5239,6 +5348,34 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    must-not-repair set split out so its failure cannot read as
    drift.
 
+81. **W-66c (the punktum-depth REPEAL production):** OPEN,
+   unauthorized. Opened at the W-66b sign-off as the named unlock
+   for that item's machinery. The witness is exact and
+   DOM-adjudicated (`.tmp/w66b/`): `no/lovtid/2022-06-10-38`
+   commands "§ 20 første ledd annet punktum oppheves." then
+   "Nåværende tredje punktum blir annet punktum." on
+   `no/lov/2021-06-18-121`. W-66b lowers the relabel; **no
+   production reads a punktum-depth REPEAL**, so slot 2 stays
+   occupied by live text and the relabel leg refuses under W-66's
+   occupied-destination guard — the refusal is correct (the θ cell
+   would have deleted an in-force sentence, W-54's `removal_wrong`
+   shape one depth down) and it is exactly the relationship W-66
+   had with the chapter-repeal gap: the relabel item makes the gap
+   VISIBLE AND SAFE; the repeal item closes it. Payoff when built:
+   the repeal vacates the slot, the relabel lands, and the one
+   address-coincident unexplained row on `no/lov/2021-06-18-121`
+   (§ 20/ledd/1) becomes closable — the punktum lane's first
+   scoreboard row. Scope sketch: the `<address> punktum oppheves`
+   sentence family at ledd context (census before building, W-70's
+   discipline; the same DOM-local antecedent inheritance W-66b
+   ships; materialization already reachable via W-69b; the vacated
+   slot then satisfies W-66's guard with no apply-plane edit).
+   Sizing: the family's oppheves leads were not separately counted
+   at W-66b — census first. Small-to-medium. Standing caution from
+   W-66b's coverage finding: 42 of the 59 punktum-written bases
+   have no replayable original-act source, so size yield against
+   source availability FIRST.
+
 ## 5. Demo / Inspection Tooling
 
 Browser views of any replayable law across its own amendment dates, plus an
@@ -5255,6 +5392,39 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-14 (W-66b — the sibling-set relabel at PUNKTUM depth;
+  `f1673a96c`)** — **The largest refusal withdrawal since W-66
+  itself: unstructured refusals 8,583 → 8,434 (−149), ops 28,384 →
+  28,545 (+161, exactly the frozen leg count), zero scoreboard rows
+  — honestly measured, structurally explained — and one would-be
+  wrongful sentence deletion prevented by the reused guard.** The
+  mandated sizing pass ran first: population re-derived untruncated
+  at 165 refusals / 84 leads / 115 instruments / 78 bases (grown
+  from the design's 144), the address-coincidence join reproduced
+  the single-candidate finding (projected ≤ 1 row), and
+  `bokstav`/`nr.` turn out NOT to be this grammar one word down —
+  they PREFIX their depth word to letters/numerals (27 and 36
+  refusals with a correctly-shaped classifier; a separate item, not
+  opened). What shipped: W-66's grammar with `punktum`, strictly
+  behind the shipped ledd lane; destination reduces to ordinals
+  ALONE so the cross-container relocation is impossible by
+  construction; two-level antecedent inheritance from ONE
+  `defaultP` node; new parse-plane kind
+  `no_parse_punktum_set_relabel_ledd_unresolved` (27); W-66's
+  ordering, tag, and occupied-destination guard reused with ZERO
+  apply-plane edits. Frozen set 165/165 element-for-element (112
+  lowered / 37 typed / 16 declined, 0 strays). Firings 10 → 10;
+  statute diff 14 movers all expected, 771 byte-identical; hazard
+  3,827 → 3,828 (+3 RENUMBER −2 REPLACE, one law); base-law
+  population 784 → 785; three instruments gain first index entries,
+  binding conservation exact. The one new apply-plane refusal is
+  the item's finding: `no/lov/2021-06-18-121`'s relabel refuses
+  because its companion punktum-depth REPEAL has no production —
+  had θ fired it would have deleted an in-force sentence. **Item 81
+  (W-66c) opened** for the repeal; the family's zero yield is
+  otherwise structural (42 of 59 written bases have no original-act
+  source).
 
 - **2026-08-14 (W-70b — Lovdata destination-section repair on
   `data-move-part`, behind a population tripwire; `a915f7d69`)** —
