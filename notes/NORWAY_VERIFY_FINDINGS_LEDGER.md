@@ -188,6 +188,22 @@ addresses of which one refuses `inflection_only` on a capitalised
 `Tilsettingsmyndigheten`, so that row correctly stays open — the
 whole-word/exact-case trade costing what it says it costs.
 
+W-66c note (the scan's shape changes for the first time since W-73,
+in BOTH directions): candidates **76 → 75** and scoreboard **29/47/0
+→ 29/46/0** — the punktum-repeal production gives
+`no/lovtid/2013-01-11-3` ("fra den tid Kongen bestemmer") its first
+lowered ops, and the contingent binding that was always in the
+source downgrades two candidate bases to `blocked_contingent`:
+`no/lov/2011-06-24-39` departs with its 5 rows and
+`no/lov/2010-06-04-21` with 1, while `no/lov/2009-05-15-28` enters
+with 2. W-73's mechanism running backwards; honest exposure, not
+coverage. On the STAYING candidates **3 rows genuinely close**, all
+named in advance by the coincidence join: `2001-06-15-75` § 31
+tredje ledd, `2016-06-17-29` § 5 første ledd, and the witness
+`2021-06-18-121` § 20 første ledd (which returns to
+`untouched_drift`, closing W-66b's loop). 0 opened. Totals
+`total=1464 (ceiling=1011, unexplained=453)`; ceiling untouched.
+
 Batch 03 increased coverage rather than changing an existing verdict: all 20
 old rows stayed byte-identical, and 38 laws that had previously been excluded
 for unresolved commencement entered the scan. Their first durable baseline is:
@@ -5348,9 +5364,10 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    must-not-repair set split out so its failure cannot read as
    drift.
 
-81. **W-66c (the punktum-depth REPEAL production):** OPEN,
-   unauthorized. Opened at the W-66b sign-off as the named unlock
-   for that item's machinery. The witness is exact and
+81. **W-66c (the punktum-depth REPEAL production):** DONE
+   (`b7a2d76e9`, 2026-08-14; artifacts `.tmp/w66c/`; landing
+   narrative appended after the charter below). Opened at the
+   W-66b sign-off as the named unlock for that item's machinery. The witness is exact and
    DOM-adjudicated (`.tmp/w66b/`): `no/lovtid/2022-06-10-38`
    commands "§ 20 første ledd annet punktum oppheves." then
    "Nåværende tredje punktum blir annet punktum." on
@@ -5375,6 +5392,85 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    W-66b's coverage finding: 42 of the 59 punktum-written bases
    have no replayable original-act source, so size yield against
    source availability FIRST.
+   **LANDED (`b7a2d76e9`), census first as charted, no stop
+   condition fired, whole scope.** The charter's "small" was off by
+   an order: the census found **293 refusals / 235 leads / 135
+   instruments / 136 base acts** of the strict `oppheves` shape
+   (the witness was one lead of 235), plus 202 refusals declined by
+   the shipped-shape grammar (run-ons 63, nynorsk verb 41, `siste
+   punktum` 33, cross-act inverted 18, sub-containers 9, other 38)
+   and a wide-verb arm priced at +24 for a future widening. The
+   source-availability join re-derived: only 46 of the 136 written
+   bases replay at all; the coincidence join projected ≤ 5 rows on
+   5 addresses; **realized 4 rows moved on candidates, 3 genuine
+   closes, zero realized-but-unprojected**.
+   **What was built.** `_no_punktum_repeal_targets` — W-66b's
+   address arithmetic with the shipped ledd-depth repeal lane's own
+   verb anchor: `oppheves` ALONE (24 nynorsk refusals priced and
+   kept), the sentence must END at the verb (every run-on
+   declines: lowering only the destroying half of a run-on would
+   mis-number the statute), `siste punktum` declines even though
+   `sentence/last` resolves (a repeal that destroys by counting is
+   the one shape this item must not take on trust), and a ledd is
+   REQUIRED (43 typed refusals rather than a shallow-host guess
+   about which sentence dies). Plural and range ordinals read
+   through the one shipped vocabulary. Op: the SHIPPED
+   `StructuralAction.REPEAL` at a sentence leaf — no new op kind,
+   no provenance tag (a repeal has no destination for the guard to
+   key on; mirrors the shipped repeal lane), zero apply-plane
+   edits. Call site LAST in the unstructured walk, which is the
+   additivity proof. **The ordering that makes the repeal-relabel
+   pair work is the kernel's structural-vacate stage** (every
+   REPEAL in a group runs before every RENUMBER; one instrument at
+   one moment is always one group) — pinned by a test that hands
+   the ops in the wrong order deliberately.
+   **The destroys-text discipline, first use at scale.** The
+   census froze the withdrawal set (293) AND the destroyed-sentence
+   set (33 destructions over 29 bases, each with the sentence's own
+   text) before any production code; both matched element for
+   element after (0 unfrozen destructions, 0 lost; one apparent
+   stray on the first pass was the freeze script's own
+   label-normalization bug — fixed by importing the shipped
+   normalizer, re-derived clean). **All 33 adjudicated individually
+   against their instrument's DOM: every one commanded by a lead
+   spelling its own section and ledd — not a single destruction
+   rests on an inherited address.** Op fate over all 279 minted
+   legs: 182 on error-before-reach bases, 35 never reach apply, 6
+   refuse typed, 33 destroy.
+   **Measured.** Unstructured refusals **8,434 → 8,141 (−293)**;
+   ledd-unresolved receipt 27 → 70, address kind 50 → 52 (both
+   REUSED with a `production` detail key — naming debt noted at the
+   code); ops **28,545 → 28,824 (+279)**, the frozen leg count
+   exactly; set-relabel refusals **32 → 31** (W-66b's witness leg
+   converts to a landing); materialization 824 → 854; bindings
+   6,502 → 6,543 (+41, including 8 UNDECLARED bindings on
+   `no/lovtid/2009-06-19-74` whose `changesToDocuments` never named
+   them); three more base laws enter the sweep (785 → 788, two with
+   no source). **Firings 10 → 10, baseline blocks byte-identical,
+   no `removal_wrong`.** Statute diff: 38 movers, 0 outside the
+   expected set, 747 byte-identical; the two destruction bases with
+   no visible text move are later-amendment overwrites, adjudicated
+   (`2008-05-15-35` § 76, `2008-06-27-71` § 12-14 — the destruction
+   is real at its moment and invisible at the PIT).
+   **The two firsts, ratified at sign-off.** (i) **The candidate
+   set SHRINKS 76 → 75** (scoreboard 29/47/0 → 29/46/0): the
+   production gives `no/lovtid/2013-01-11-3` its first lowered ops
+   and the contingent binding that was always in the source
+   downgrades `no/lov/2011-06-24-39` (−5 rows) and
+   `no/lov/2010-06-04-21` (−1) to `blocked_contingent`, while
+   `no/lov/2009-05-15-28` enters (+2) — W-73's mechanism running
+   backwards, accepted as the honest label rather than worked
+   around. (ii) **The content-removing column moves for the first
+   time in the series**: corpus 207 → 240 (+33 = the destructions,
+   exactly), hazard 168 → 198 over 65 → 77 laws, 30 of 33 landing
+   in known-incomplete bases — which is precisely why the
+   destruction set is pinned BY CONTENT (tripwire 2), with the
+   pinned population derived from the minted-leg tripwire so a base
+   that starts destroying when its source arrives is caught, not
+   missed. Totals: **total 1,464 / ceiling 1,011 UNMOVED /
+   unexplained 453**; the witness § 20 første ledd row closes, the
+   law returns to `untouched_drift`, and W-66b's loop is closed
+   end to end with the final ledd pinned by text.
 
 ## 5. Demo / Inspection Tooling
 
@@ -5392,6 +5488,34 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-14 (W-66c — the punktum-depth REPEAL production;
+  `b7a2d76e9`)** — **The first landing to move the
+  content-removing column (207 → 240, all 33 destructions frozen
+  before implementation, matched element-for-element after, and
+  individually DOM-adjudicated — none rests on an inherited
+  address), and the first to SHRINK the candidate set (76 → 75,
+  honest exposure: a newly lowered instruction reveals a contingent
+  binding that was always in the source — W-73 backwards).** The
+  charter's "small" was off by an order: 293 refusals / 235 leads /
+  136 bases of the strict `oppheves` shape withdraw (8,434 → 8,141),
+  +279 REPEAL ops (28,545 → 28,824). Grammar drawn tighter than the
+  relabel because it destroys: verb anchored to `oppheves` alone
+  (24 nynorsk refusals priced), sentence must end at the verb,
+  `siste punktum` refuses on principle, a ledd is required. Shipped
+  REPEAL action one level deeper, zero apply-plane edits; the
+  repeal-before-relabel ordering is the kernel's structural-vacate
+  stage, pinned with deliberately mis-ordered ops. The witness
+  closes W-66b's loop: repeal lands, slot vacates, the refused
+  relabel converts (32 → 31), § 20 første ledd pinned by text, the
+  law returns to `untouched_drift`. Scan: 3 genuine closes (all
+  join-projected), 0 opened, total 1,464 / ceiling 1,011 unmoved /
+  **unexplained 453**. Firings 10 → 10 byte-identical; 38 statute
+  movers all expected, 747 byte-identical; three base laws enter
+  the sweep; 8 undeclared bindings surfaced on
+  `no/lovtid/2009-06-19-74`; hazard content-removing 168 → 198 over
+  77 laws with the destruction set pinned by content as its
+  tripwire.
 
 - **2026-08-14 (W-66b — the sibling-set relabel at PUNKTUM depth;
   `f1673a96c`)** — **The largest refusal withdrawal since W-66
