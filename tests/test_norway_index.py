@@ -1269,7 +1269,16 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # the destination is occupied). It still earns an index entry, and that is
         # correct rather than sloppy — the index is a PARSE-plane fact about which
         # base act an instrument binds, and the refusal is an apply-plane one.
-        "dated": 1051,
+        #
+        # 1051 -> 1054 at W-66c, and the whole of the punktum-depth REPEAL's
+        # effect on the act-level histogram is THREE acts gaining their FIRST
+        # index entry, all three on a plain own date, so all three land here:
+        # ``no/lovtid/2002-09-27-69`` (2002-09-27), ``no/lovtid/2017-12-19-127``
+        # (2018-01-01) and ``no/lovtid/2021-12-22-169`` (2021-12-22). Exactly
+        # conserving: entries 2,568 -> 2,571, nothing lost, and no existing
+        # entry's status moves — ``contingent`` stays at exactly 535 and
+        # ``instrument_authorized`` at exactly 979.
+        "dated": 1054,
         "immediate": 1,
         # 976 -> 977 at W-67, and the whole of this landing's effect on the
         # act-level histogram is ONE act gaining its FIRST index entry — the same
@@ -1621,7 +1630,17 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     # and each enters the scan candidate set with it. The other 14 laws the five
     # acts bind still carry some OTHER contingent amendment and stay blocked;
     # husbankloven is one of them (`2025-04-25-12` is still `Kongen bestemmer`).
-    assert len(fully_replayable) == 76
+    # 76 -> 75 at W-66c, and it is the FIRST time this number has gone DOWN. The
+    # mechanism is this test's own, run backwards: a base is fully replayable
+    # only while every act that binds it is dated or instrument-authorized, and
+    # the punktum-depth repeal gives ``no/lovtid/2013-01-11-3`` — commencement
+    # "fra den tid Kongen bestemmer" — its FIRST lowered ops against
+    # ``no/lov/2010-06-04-21`` and ``no/lov/2011-06-24-39``. One contingent
+    # binding is enough, so both leave; ``no/lov/2009-05-15-28`` enters on a
+    # first binding that is `dated`. The two leavers are not less replayable than
+    # they were — the contingent act always amended them, and the index could not
+    # see it until a production lowered the instruction. Signed off 2026-08-14.
+    assert len(fully_replayable) == 75
     assert set(fully_replayable) >= {
         "no/lov/2001-06-15-75",
         "no/lov/2004-03-26-17",
@@ -1774,9 +1793,20 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # ``no/lovtid/2022-06-10-38``. Each declared TWO targets and bound neither,
     # so each loses its gap ENTIRELY: receipts fall by 3 and pairs by 6 (2,504 ->
     # 2,498). ZERO targets newly unbound and NOTHING rebound.
-    assert len(unbound) == 944
-    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2498
-    assert len({diagnostic["source_id"] for diagnostic in unbound}) == 944
+    # 944 -> 938 receipts and 2,498 -> 2,465 pairs at W-66c, the same shape as
+    # W-66b's entry above but wider, because a punktum REPEAL binds where a
+    # relabel could not. SIX instruments lose their declared-vs-bound gap
+    # ENTIRELY. Three of them gain their FIRST index entry off the repeal
+    # (``no/lovtid/2002-09-27-69``, ``no/lovtid/2017-12-19-127``,
+    # ``no/lovtid/2021-12-22-169``, all `dated`); the other three
+    # (``no/lovtid/2003-06-20-43``, ``no/lovtid/2017-06-16-55``,
+    # ``no/lovtid/2017-12-15-104``) were already indexed and simply bind their
+    # last unbound declared target. ZERO targets newly unbound and NOTHING
+    # rebound — the receipt drop is 6 and the pair drop 33 because the six acts
+    # between them declared 33 targets they bound none of.
+    assert len(unbound) == 938
+    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2465
+    assert len({diagnostic["source_id"] for diagnostic in unbound}) == 938
 
     # 64 acts gain their FIRST index entry: they announced every one of their
     # parts with an unlisted tail, so they had bound no law at all.
@@ -1835,7 +1865,11 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # ``no/lovtid/2005-06-17-92`` (``instrument_authorized``, 2006-01-01 via
     # ``no/forskrift/2005-12-16-1517``). None leaves, and the status histogram
     # moves by exactly those three and nothing else.
-    assert len(index.entries) == 2568
+    # 2,568 -> 2,571 at W-66c: THREE more acts gain their first entry, this time
+    # off the punktum-depth REPEAL — ``no/lovtid/2002-09-27-69``,
+    # ``no/lovtid/2017-12-19-127`` and ``no/lovtid/2021-12-22-169``, all three
+    # ``dated`` on their own plain date. None leaves.
+    assert len(index.entries) == 2571
     bindings = {
         (entry.source_id, base_id) for entry in index.entries for base_id in entry.base_ids
     }
@@ -1885,7 +1919,21 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # ``no/lovtid/2022-06-10-38``). One base act receives its FIRST op ever —
     # ``no/lov/2004-12-10-77`` — taking the amended-law population 784 -> 785,
     # which is the same move the sweep baseline records.
-    assert len(bindings) == 6502
+    # 6,502 -> 6,543 at W-66c: FORTY-ONE (act, law) pairs bind for the first
+    # time, ZERO rebound and ZERO removed. The W-34/W-35 conservation holds on
+    # the declared half exactly — all 33 pairs the unbound census loses become
+    # bindings, and no cleared pair fails to — but it does NOT account for the
+    # whole gain, and the residue is stated rather than netted: EIGHT of the 41
+    # had no unbound receipt to lose, because ``no/lovtid/2009-06-19-74``'s
+    # ``changesToDocuments`` list never DECLARED them. An undeclared binding is
+    # the honest shape for that act: it is an omnibus straffelov consequential
+    # act whose declared list is short of the laws its parts actually amend, and
+    # the repeal lead is what makes each one visible. 33 + 8 = 41.
+    # THREE base acts receive their FIRST op ever — ``no/lov/1991-11-29-78``,
+    # ``no/lov/1998-07-17-54`` and ``no/lov/2009-05-15-28`` — taking the
+    # amended-law population 785 -> 788, the same move the sweep baseline
+    # records.
+    assert len(bindings) == 6543
     # 26,218 at W-30; +2 at W-24, both reconciled to a named erratum and neither
     # touching this test's own subject. W-24 lowered two Del-scoped Rettelser
     # corrections into the law each part amends — ``2019-12-20-110`` Del I into
@@ -2032,7 +2080,17 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # this pin and the parse-plane receipt census reconcile to the same
     # arithmetic from two directions. Every leg is a sibling-set relabel at
     # PUNKTUM depth, ``(section, subsection, sentence)`` on both sides.
-    assert sum(entry.n_ops for entry in index.entries) == 28545
+    #
+    # 28,545 -> 28,824 at W-66c: +279 REPEAL ops and nothing lost. Same
+    # reconciliation as W-66b's, from the other action: 279 is EXACTLY the leg
+    # count the frozen expected withdrawal set predicted before any production
+    # code was written (248 lowering lead occurrences over 207 distinct leads,
+    # minting 279 legs — one per named punktum), and the parse-plane receipt
+    # census reaches it independently (``no_parse_unstructured_lead_unmatched``
+    # 8,434 -> 8,141, of which 43 + 2 take a typed address receipt instead).
+    # Every one of the 279 targets ``(section, subsection, sentence)`` and
+    # carries no destination — a repeal has nowhere to go.
+    assert sum(entry.n_ops for entry in index.entries) == 28824
 
 
 def test_no_amendment_index_staleness_report_detects_archive_change(tmp_path) -> None:

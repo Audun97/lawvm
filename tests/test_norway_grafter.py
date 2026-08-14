@@ -52,6 +52,7 @@ from lawvm.norway.grafter import (
     _no_antecedent_ledd_label,
     _no_antecedent_section_label,
     _no_ledd_set_relabel_pairs,
+    _no_punktum_repeal_targets,
     _no_punktum_set_relabel_pairs,
     _no_move_attr_skeleton,
     _no_normalize_move_attr,
@@ -7215,12 +7216,26 @@ def test_no_w35_w21_section_412_witness_is_byte_identical() -> None:
 
     grouped = iter_no_document_change_ops(html_bytes, "no/lovtid/2009-06-19-74")
 
-    assert len(grouped) == 218
+    # 218 -> 227 at W-66c, and it is the group COUNT moving for the first time
+    # since W-28 — the property this pin was written for. Nine base acts gain a
+    # group of their own because the punktum-depth REPEAL is the FIRST op this
+    # omnibus straffelov consequential act lowers for them, and eight of the nine
+    # were never in its ``changesToDocuments`` list at all (see the binding note
+    # in ``tests/test_norway_index.py``). Nothing is regrouped and no group is
+    # lost.
+    assert len(grouped) == 227
     # 484 -> 493 at W-66: nine sibling-set ledd relabel legs across six of this
     # act's consequential items (straffeloven 2005 § 5, straffeprosessloven
     # § 13, § 41 a, § 32, § 47, § 50). The group COUNT is unmoved, which is the
     # base-binding property this pin was written for.
-    assert sum(len(ops) for _base_id, ops in grouped) == 493
+    # 493 -> 527 at W-66c: THIRTY-FOUR punktum-depth repeals, this act being the
+    # single largest carrier of the family in the corpus. Six of them come from
+    # three PLURAL leads ("§ 56 annet ledd første og annet punktum oppheves.",
+    # "§ 17 første ledd annet og tredje punktum oppheves.", "§ 7 første ledd
+    # annet og tredje punktum oppheves.") and each pair emits DESCENDING —
+    # ``sentence:2`` before ``sentence:1`` — which is the production's own
+    # ordering rule visible in the stream.
+    assert sum(len(ops) for _base_id, ops in grouped) == 527
 
     by_base = dict(grouped)
     assert len(by_base["no/lov/2005-05-20-28"]) == 24
@@ -7247,7 +7262,10 @@ def test_no_w35_w21_section_412_witness_is_byte_identical() -> None:
     # so the digest necessarily moves with them. Everything the digest was written
     # to hold — which base act each op binds to, and the payload under each — is
     # asserted above it and is unchanged.
-    assert digest.hexdigest()[:32] == "555a43dda16e9e319209a15d6d4596b3"
+    # W-66c re-digest, for the same reason and with the same guarantee: the 34
+    # punktum repeals join the digested stream. They carry no payload at all, so
+    # every payload the digest already held is byte-identical under it.
+    assert digest.hexdigest()[:32] == "ff7a0c564d7010fb149941598f4f2e83"
 
 
 # ---------------------------------------------------------------------------
@@ -10305,6 +10323,394 @@ def test_no_w66b_punktum_relabel_refuses_whole_rather_than_eat_an_occupant() -> 
     assert not [
         a for a in adjudications if a.kind == "no_replay_renumber_occupied_destination_removed"
     ]
+
+
+# ── W-66c: the punktum-depth REPEAL, the relabel's companion ─────────────────
+
+
+def test_no_w66c_punktum_repeal_grammar_accepts_the_corpus_shapes() -> None:
+    """W-66c: every shape the 248 lowering occurrences actually take.
+
+    Measured over the 8,434 ``no_parse_unstructured_lead_unmatched`` refusals at
+    the base pin, harvested UNTRUNCATED: 293 refusals / 235 distinct leads / 135
+    instruments / 136 base acts, of which 248 lower over 279 REPEAL legs. The
+    four address shapes below are the whole vocabulary — section and ledd both
+    spelled, section spelled and ledd inherited, both inherited, and the plural /
+    range target list.
+    """
+    assert _no_punktum_repeal_targets("§ 20 første ledd annet punktum oppheves.") == (
+        "20",
+        "1",
+        [2],
+    )
+    # Section spelled, ledd absent: it must reach the antecedent, so the grammar
+    # returns an empty ledd rather than declining. 43 corpus refusals take this
+    # route and every one of them ends up refused typed.
+    assert _no_punktum_repeal_targets("§ 16 annet punktum oppheves.") == ("16", "", [2])
+    # Both inherited. The lead is a bare sentence; the antecedent carries it.
+    assert _no_punktum_repeal_targets("Annet punktum oppheves.") == ("", "", [2])
+    # A currency qualifier in front of the ordinal is absorbed by the SHIPPED
+    # ordinal vocabulary (``_no_strip_ledd_shift_newness``), not by a second
+    # alternation of this grammar's own.
+    assert _no_punktum_repeal_targets("Nåværende tredje punktum oppheves.") == ("", "", [3])
+    # Plural and range target lists, both through ``_no_ledd_shift_ordinals``.
+    assert _no_punktum_repeal_targets("§ 27 tredje og fjerde punktum oppheves.") == (
+        "27",
+        "",
+        [3, 4],
+    )
+    assert _no_punktum_repeal_targets(
+        "§ 10-34 annet ledd femte til syvende punktum oppheves."
+    ) == ("10-34", "2", [5, 6, 7])
+    # Hyphenated and letter-suffixed section labels, normalized by the shipped
+    # helper exactly as the relabel's are.
+    assert _no_punktum_repeal_targets("§ 19-1 tredje ledd første punktum oppheves.") == (
+        "19-1",
+        "3",
+        [1],
+    )
+    assert _no_punktum_repeal_targets("§ 38b annet ledd fjerde og femte punktum oppheves.") == (
+        "38b",
+        "2",
+        [4, 5],
+    )
+
+
+def test_no_w66c_punktum_repeal_grammar_refuses_what_it_must() -> None:
+    """W-66c: the corpus leads this grammar declines, one limb each.
+
+    A production that DESTROYS TEXT is drawn tighter than its relabel sibling,
+    and every limb below is paid for in leads that keep their shipped refusal.
+    """
+    # THE VERB IS ``oppheves`` ALONE — the shipped ledd-depth repeal lane's own
+    # anchor. 24 refusals / 24 leads / 15 base acts spell the nynorsk forms and
+    # stay refused. Widening the verb of a destroying production is a separate
+    # decision from founding it.
+    assert _no_punktum_repeal_targets("§ 3-2 andre punktum blir oppheva.") is None
+    assert _no_punktum_repeal_targets("§ 12-12 andre ledd tredje punktum skal opphevast.") is None
+    assert _no_punktum_repeal_targets("§ 32 første ledd andre punktum opphevast.") is None
+    # THE SENTENCE MUST END AT THE VERB. Every run-on carries a second
+    # instruction this grammar does not read, and lowering only the destroying
+    # half would leave the statute mis-numbered.
+    assert (
+        _no_punktum_repeal_targets(
+            "§ 8-7 første ledd annet punktum oppheves. Nåværende tredje punktum blir annet punktum."
+        )
+        is None
+    )
+    # ``siste`` IS an address the apply plane can resolve (``sentence/last``),
+    # and it declines here anyway: "the last sentence" is a count of what is
+    # standing, and a repeal that destroys by counting is the one shape this item
+    # must not take on trust.
+    assert _no_punktum_repeal_targets("§ 20 første ledd siste punktum oppheves.") is None
+    # ``bokstav``/``nr.`` sub-containers between the ledd and the punktum decline
+    # at the ordinal vocabulary — the residue is not a list of ordinals, and
+    # lowering them needs an address level this production does not model.
+    assert _no_punktum_repeal_targets("§ 5 b første ledd nr. 3 annet punktum oppheves.") is None
+    assert _no_punktum_repeal_targets("§ 3-13 nr. 2 bokstav f siste punktum oppheves.") is None
+    assert _no_punktum_repeal_targets("§ 10-6 nr. 1 første punktum oppheves.") is None
+    # A MULTI-ADDRESS repeal list names two ledds; the residue does not reduce.
+    assert (
+        _no_punktum_repeal_targets(
+            "§ 58 første ledd annet punktum og tredje ledd første punktum oppheves."
+        )
+        is None
+    )
+    # The section-list repeal that merely CONTAINS a punktum item is not this
+    # family: it does not end at ``punktum oppheves``.
+    assert (
+        _no_punktum_repeal_targets(
+            "§ 27 annet ledd tredje punktum, §§ 34 til 38, § 59 og § 59 a oppheves."
+        )
+        is None
+    )
+    # The cross-act inverted form ("I lov … oppheves § X … punktum.") puts the
+    # verb before the address and is a different family.
+    assert (
+        _no_punktum_repeal_targets(
+            "2. I lov 29. november 1996 nr. 72 om petroleumsvirksomhet oppheves "
+            "§ 11-3 annet ledd annet punktum."
+        )
+        is None
+    )
+    # A repeated ordinal would mint two REPEALs at one address, the second of
+    # which destroys whatever the relabel arithmetic has since moved in.
+    assert _no_punktum_repeal_targets("§ 7 annet og annet punktum oppheves.") is None
+    # An ordinal outside ``_NORWEGIAN_ORDINALS`` declines, one ordinal grammar.
+    assert _no_punktum_repeal_targets("§ 7 sjuande punktum oppheves.") is None
+
+
+def test_no_w66c_punktum_repeal_leaves_the_shipped_lanes_alone() -> None:
+    """W-66c is strictly ADDITIVE, and the block's POSITION is the proof.
+
+    The repeal block sits LAST in the unstructured walk, immediately ahead of the
+    operative fallback, so a lead only reaches it once every shipped family has
+    declined. Two of those families are close enough to be worth pinning from
+    both sides: the shipped ledd-depth repeal, whose anchor is ``ledd
+    oppheves``, and W-66b's punktum relabel, whose anchor is ``punktum.``.
+    """
+    # The shipped ledd-depth repeal's own lead is not a punktum repeal.
+    assert _no_punktum_repeal_targets("§ 8-2 første ledd oppheves.") is None
+    # W-66b's relabel lead is not a repeal, and this grammar's own lead is not a
+    # relabel — the two are disjoint by their tails, in both directions.
+    assert _no_punktum_repeal_targets("Nåværende annet punktum blir nytt tredje punktum.") is None
+    assert _no_punktum_set_relabel_pairs("§ 20 første ledd annet punktum oppheves.") is None
+    # The section-level repeal lanes are untouched.
+    assert _no_punktum_repeal_targets("§ 20 oppheves.") is None
+    assert _no_punktum_repeal_targets("§§ 10 og 11 oppheves.") is None
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w66c_punktum_repeal_lowers_on_the_corpus_witness() -> None:
+    """W-66c corpus witness, parse plane: ``no/lovtid/2022-06-10-38``.
+
+    The instrument commands exactly two instructions on ``no/lov/2021-06-18-121``
+    § 20 første ledd, in two ``defaultP`` nodes:
+
+        § 20 første ledd annet punktum oppheves.
+        Nåværende tredje punktum blir annet punktum.
+
+    W-66b lowered the second and left the first refused, which is why its relabel
+    leg then refused at apply. Both now lower, and the pair is pinned here as a
+    pair — a repeal at ``setning/2`` and a relabel from ``setning/3`` INTO the
+    slot that repeal vacates.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2022-06-10-38", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    adjudications: list[CompileAdjudication] = []
+    grouped = dict(
+        iter_no_document_change_ops(
+            html_bytes, "no/lovtid/2022-06-10-38", adjudications_out=adjudications
+        )
+    )
+    ops = grouped["no/lov/2021-06-18-121"]
+
+    assert [
+        (
+            str(op.action.value),
+            op.target.path,
+            None if op.destination is None else op.destination.path,
+            None if op.source is None else op.source.raw_text,
+        )
+        for op in ops
+    ] == [
+        (
+            "repeal",
+            (("section", "20"), ("subsection", "1"), ("sentence", "2")),
+            None,
+            "§ 20 første ledd annet punktum oppheves.",
+        ),
+        (
+            "renumber",
+            (("section", "20"), ("subsection", "1"), ("sentence", "3")),
+            (("section", "20"), ("subsection", "1"), ("sentence", "2")),
+            "Nåværende tredje punktum blir annet punktum.",
+        ),
+    ]
+    # The repeal mirrors the SHIPPED ledd-depth repeal lane's op shape exactly:
+    # no destination, no relabel provenance tag, no witness rule id. A repeal has
+    # no destination for the occupied-destination guard to key on, so a tag whose
+    # only purpose was this item's own bookkeeping would be dead weight on a
+    # load-bearing safety seam.
+    repeal = ops[0]
+    assert repeal.destination is None
+    assert repeal.witness_rule_id is None
+    assert set(repeal.provenance_tags or ()) == {
+        "base_act:no/lov/2021-06-18-121",
+        "fallback:unstructured",
+    }
+    assert "§ 20 første ledd annet punktum oppheves." not in {
+        (item.detail or {}).get("source_excerpt")
+        for item in adjudications
+        if item.kind == "no_parse_unstructured_lead_unmatched"
+    }
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w66c_unresolvable_ledd_gets_a_typed_receipt_not_a_guess() -> None:
+    """W-66c: 43 corpus refusals resolve their SECTION but not their LEDD.
+
+    A punktum hanging directly under a section ("§ 16 annet punktum oppheves.")
+    has no ledd to inherit, and the apply plane's shallow-sentence-host rebinding
+    would in fact resolve such an address. This production does not use it: a
+    guess about WHICH container holds the sentences is a guess about which
+    sentence gets destroyed. The receipt kind is W-66b's, REUSED — the same
+    reader failing the same way — and the ``production`` detail key is what tells
+    a repeal refusal from a relabel one in a census.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2009-06-19-74", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    adjudications: list[CompileAdjudication] = []
+    grouped = dict(
+        iter_no_document_change_ops(
+            html_bytes, "no/lovtid/2009-06-19-74", adjudications_out=adjudications
+        )
+    )
+    typed = [
+        item
+        for item in adjudications
+        if item.kind == NO_PARSE_PUNKTUM_SET_RELABEL_LEDD_UNRESOLVED
+        and (item.detail or {}).get("production") == "punktum_repeal"
+    ]
+    assert typed, "the punktum-repeal ledd receipt is missing"
+    assert {(item.detail or {}).get("section") for item in typed} >= {"4", "5", "6", "7"}
+    assert {(item.detail or {}).get("ledd_reason") for item in typed} <= {
+        "antecedent_names_no_ledd",
+        "antecedent_is_not_punktum_depth",
+        "antecedent_names_several_ledd",
+        "part_has_no_antecedent_lead",
+        "antecedent_is_meta_amendment",
+    }
+    # Nothing was minted for any of them — not at a guessed ledd, not anywhere.
+    # Keyed on the refused LEAD rather than on its section label, because a
+    # section number refused against one base act is routinely a live section of
+    # another act the same omnibus instrument amends.
+    refused_leads = {(item.detail or {}).get("source_excerpt") for item in typed}
+    assert not [
+        op
+        for base_ops in grouped.values()
+        for op in base_ops
+        if op.source is not None and op.source.raw_text in refused_leads
+    ]
+
+
+def _w66c_repeal_op(sequence: int, section: str, ledd: str, sentence: int) -> LegalOperation:
+    return LegalOperation(
+        op_id=f"no/lovtid/9999-01-01-1:{sequence}",
+        sequence=sequence,
+        action=StructuralAction.REPEAL,
+        target=LegalAddress(
+            path=(("section", section), ("subsection", ledd), ("sentence", str(sentence)))
+        ),
+        source=OperationSource(
+            statute_id="no/lovtid/9999-01-01-1", raw_text="punktum repeal", title="x"
+        ),
+        provenance_tags=("base_act:no/lov/1999-01-01-1", "fallback:unstructured"),
+        group_id=f"no/lovtid/9999-01-01-1:{sequence}",
+    )
+
+
+def test_no_w66c_punktum_repeal_materializes_its_parent_then_removes_one_sentence() -> None:
+    """W-66c apply: the ordinary case, and the W-69b dependency it shares.
+
+    The parent ledd is a single text node, so ``setning/2`` does not resolve
+    until W-69b's ``_materialize_sentence_parent_for`` has split it. The REPEAL
+    branch is then the shipped ``tree_ops.remove_at`` and is depth-agnostic: ZERO
+    apply-plane edits were needed for this item.
+
+    What is asserted is the DESTRUCTION, by text: sentence two is gone and the
+    other two are byte-identical. A repeal that trimmed a neighbour would pass a
+    label-only assertion.
+    """
+    before = _w66b_statute("Setning en. Setning to. Setning tre.")
+    adjudications: list[CompileAdjudication] = []
+    result = apply_no_ops(before, [_w66c_repeal_op(1, "7", "4", 2)], adjudications_out=adjudications)
+
+    ledd = result.body.children[0].children[0]
+    assert [(child.label, child.text) for child in ledd.children] == [
+        ("1", "Setning en."),
+        ("3", "Setning tre."),
+    ]
+    materialized = [
+        a for a in adjudications if a.kind == "no_replay_sentence_children_materialized"
+    ]
+    assert [(a.detail or {}).get("materialized_sentence_count") for a in materialized] == [3]
+
+
+def test_no_w66c_repeal_vacates_the_slot_the_relabel_needs() -> None:
+    """W-66c: the interplay, and the ORDERING that makes it hold.
+
+    This is the corpus witness's shape in one statute: repeal sentence two, then
+    relabel sentence three into slot two. The ops are handed to the apply lane in
+    the WRONG order on purpose — the relabel first — because the ordering that
+    makes the pair work is not the order they were minted in.
+
+    ``no_ordering_profile``'s structural-vacate stage runs every REPEAL in a
+    group before every RENUMBER in it, and ``_no_group_key`` is ``(effective,
+    enacted, source_id)`` — so a repeal and a relabel from ONE instrument at ONE
+    moment are always in one group and the repeal always runs first. Without it
+    the relabel would find slot two occupied and refuse under W-66's guard, which
+    is exactly what the corpus did before this item.
+    """
+    before = _w66b_statute("Setning en. Setning to. Setning tre.")
+    ops = [_w66b_relabel_op(1, "7", "4", 3, 2), _w66c_repeal_op(2, "7", "4", 2)]
+    adjudications: list[CompileAdjudication] = []
+    result = apply_no_ops(before, ops, adjudications_out=adjudications)
+
+    ledd = result.body.children[0].children[0]
+    assert [(child.label, child.text) for child in ledd.children] == [
+        ("1", "Setning en."),
+        ("2", "Setning tre."),
+    ]
+    # The guard did not fire, and neither did the θ cell it stands in front of.
+    assert not [
+        a
+        for a in adjudications
+        if a.kind == "no_replay_ledd_set_relabel_occupied_destination_refused"
+    ]
+    assert not [
+        a for a in adjudications if a.kind == "no_replay_renumber_occupied_destination_removed"
+    ]
+
+
+def test_no_w66c_relabel_still_refuses_when_no_repeal_vacates_the_slot() -> None:
+    """W-66c does NOT weaken W-66's guard: the refusal is still there for the
+    relabel that has no companion repeal.
+
+    Same statute, same relabel, no repeal. Slot two is live text the relabel does
+    not move, so the leg refuses and the ledd comes out untouched — down to the
+    shape, the read-only materialization rolled back with the refused op. This is
+    the state the corpus witness was in at the W-66b landing, and it must stay
+    reachable, because the only thing that changed it there was a repeal proving
+    its own address.
+    """
+    before = _w66b_statute("Setning en. Setning to. Setning tre.")
+    adjudications: list[CompileAdjudication] = []
+    result = apply_no_ops(
+        before, [_w66b_relabel_op(1, "7", "4", 3, 2)], adjudications_out=adjudications
+    )
+
+    ledd = result.body.children[0].children[0]
+    assert ledd.children == ()
+    assert ledd.text == "Setning en. Setning to. Setning tre."
+    refusals = [
+        a
+        for a in adjudications
+        if a.kind == "no_replay_ledd_set_relabel_occupied_destination_refused"
+    ]
+    assert [(a.detail or {}).get("destination_path") for a in refusals] == [
+        "section:7/subsection:4/sentence:2"
+    ]
+
+
+def test_no_w66c_plural_repeal_legs_are_order_independent() -> None:
+    """W-66c: a plural repeal names two sentences, and neither order can go wrong.
+
+    ``tree_ops.remove_at`` removes a node without relabelling its siblings, so
+    ``setning/2`` still means the same sentence after ``setning/3`` is gone. The
+    production emits DESCENDING anyway; both orders are pinned here so that a
+    future sibling-compaction cannot make the emission order load-bearing in
+    silence.
+    """
+    for ordinals in ((3, 2), (2, 3)):
+        before = _w66b_statute("Setning en. Setning to. Setning tre. Setning fire.")
+        ops = [
+            _w66c_repeal_op(i, "7", "4", ordinal) for i, ordinal in enumerate(ordinals, start=1)
+        ]
+        result = apply_no_ops(before, ops, adjudications_out=[])
+        ledd = result.body.children[0].children[0]
+        assert [(child.label, child.text) for child in ledd.children] == [
+            ("1", "Setning en."),
+            ("4", "Setning fire."),
+        ], ordinals
 
 
 # ── W-69c: the atomic ordering generalized to (parent_path, label) ────────────

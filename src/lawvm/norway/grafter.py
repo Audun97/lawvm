@@ -1807,6 +1807,111 @@ def _no_punktum_set_relabel_pairs(
     )
 
 
+# ── W-66c: the punktum-depth REPEAL, the relabel's companion ──────────────────
+#
+# THE CONSTRUCT. "§ 20 første ledd annet punktum oppheves." — the shipped
+# ledd-depth repeal lane one address level down, with the SAME address
+# arithmetic W-66b established for the relabel: a section spelled or inherited,
+# then a ledd spelled or inherited, both from the ONE ``defaultP`` antecedent.
+# The op is the SHIPPED ``StructuralAction.REPEAL`` at a ``sentence`` leaf, which
+# is the ledd-depth lane's own op shape with the target one level deeper: the
+# apply-plane REPEAL branch is ``tree_ops.remove_at(body, resolved_path)`` and is
+# depth-agnostic, and W-69b's ``_materialize_sentence_parent_for`` runs
+# unconditionally ahead of target resolution on the structural arm, so a
+# ``setning/N`` target resolves without one apply-plane edit.
+#
+# WHY IT MATTERS BEYOND ITS OWN LEADS. W-66b's one candidate-coincident relabel
+# leg (`no/lovtid/2022-06-10-38` on `no/lov/2021-06-18-121` § 20 første ledd)
+# refuses at apply under W-66's occupied-destination guard, because the slot the
+# relabel aims at is still held by the sentence THIS production repeals. The
+# ordering that makes the pair work is not document order and not luck: the
+# kernel's structural-vacate stage (``no_ordering_profile``, ``_no_group_key`` =
+# ``(effective, enacted, source_id)``) runs every REPEAL in a group before every
+# RENUMBER in it, and both legs come from one instrument at one moment, so they
+# are always in one group and the repeal always runs first.
+#
+# THIS PRODUCTION DESTROYS TEXT, which no other lowering item in this programme
+# has done at this scale, and the grammar is drawn tighter than the relabel's
+# because of it:
+#
+#   * The verb is ``oppheves`` ALONE — the shipped ledd-depth lane's own anchor
+#     (``r"^§ … ledd oppheves\.?$"``), not W-74's wider
+#     ``(?:blir\s+)?opphev(?:es|a)``. Measured cost of the narrowing: 24 refusals
+#     / 24 leads / 15 base acts spell ``blir oppheva``/``opphevast``/``skal
+#     opphevast``, and they keep their shipped refusal. Widening the verb of a
+#     text-destroying production is a separate decision from founding it.
+#   * The sentence must END at the verb. Every run-on ("§ 8-7 første ledd annet
+#     punktum oppheves. Nåværende tredje punktum blir annet punktum.") declines,
+#     because its second sentence is a relabel this grammar does not read and
+#     lowering only the destroying half would leave the statute mis-numbered.
+#   * The target side reduces through ``_no_ledd_shift_ordinals`` VERBATIM, so
+#     ``siste punktum`` (an address the apply plane can in fact resolve, via
+#     ``sentence/last``) declines here: "the last sentence" is a count of what is
+#     standing, and a repeal that destroys by counting is the one shape this item
+#     must not take on trust. ``bokstav``/``nr.`` sub-containers between the ledd
+#     and the punktum decline at the same vocabulary.
+#   * A LEDD is REQUIRED. 43 refusals spell a section and no ledd
+#     ("§ 16 annet punktum oppheves.") — a punktum hanging directly under a
+#     section — and take the typed ledd receipt rather than a shallow-host guess.
+#
+# Measured over the 8,434 ``no_parse_unstructured_lead_unmatched`` refusals at
+# the W-66c base pin (``f076323d8``), harvested UNTRUNCATED: the family is 293
+# refusals / 235 distinct leads / 135 instruments / 136 base acts, of which 248
+# lower (207 leads, 279 REPEAL legs over 120 bases), 43 take the ledd receipt and
+# 2 the section receipt. Only 46 of the 136 written bases have a replayable
+# source at all (item 81's standing caution, re-derived), which is why 279 minted
+# legs are a much smaller number of actual destructions.
+_NO_PUNKTUM_REPEAL_PATTERN = (
+    r"^(?:§\s*(?P<section>" + _NO_SET_RELABEL_SECTION_LABEL + r")\s+)?"
+    r"(?P<targets>.+?)\s+punktum\s+oppheves\.?$"
+)
+
+
+def _no_punktum_repeal_targets(lead: str) -> Optional[tuple[str, str, list[int]]]:
+    """``§ 20 første ledd annet punktum oppheves.`` → ``("20", "1", [2])``.
+
+    Returns ``(section_label, ledd_label, [ordinal, …])``. ``section_label`` and
+    ``ledd_label`` are ``""`` when the sentence does not spell one (the caller
+    then inherits from the DOM-local antecedent, exactly as the relabel does),
+    and the whole result is ``None`` when this grammar declines the sentence.
+
+    The optional ``<ordinal> ledd`` phrase is split off the residue in code
+    rather than spelled as a group in the pattern, for W-66b's reason: the ledd
+    ordinal then reads through the SAME ``_no_ledd_shift_ordinals`` vocabulary as
+    every other ordinal in this module.
+    """
+    # Inline ``re.match`` rather than a compiled classifier constant, for the
+    # reason W-66's and W-66b's siblings record: the adjacent ``(.+?)`` span
+    # cannot pass ``compile_classifier_regex``'s backtracking lint.
+    # lawvm-regex: owning_parser this IS the punktum-depth repeal sentence parser
+    match = re.match(_NO_PUNKTUM_REPEAL_PATTERN, _normalize_space(lead), re.IGNORECASE)
+    if match is None:
+        return None
+    residue = match.group("targets")
+    ledd_label = ""
+    # lawvm-regex: owning_parser the same parser's optional ledd-phrase split, validated by the ordinal vocabulary below
+    ledd_split = re.match(_NO_SET_RELABEL_PUNKTUM_LEDD_SPLIT, residue, re.IGNORECASE)
+    if ledd_split is not None:
+        ledd_ordinals = _no_ledd_shift_ordinals(ledd_split.group("ledd"))
+        if ledd_ordinals is None or len(ledd_ordinals) != 1:
+            return None
+        ledd_label = str(ledd_ordinals[0])
+        residue = ledd_split.group("rest")
+    targets = _no_ledd_shift_ordinals(residue)
+    if not targets:
+        return None
+    # A repeated ordinal would mint two REPEALs at one address, the second of
+    # which destroys whatever the relabel arithmetic has since moved into it.
+    if len(set(targets)) != len(targets):
+        return None
+    section = match.group("section")
+    return (
+        _normalize_no_section_label(section) if section else "",
+        ledd_label,
+        targets,
+    )
+
+
 # ── W-70b: the ``data-move-part`` that names the WRONG destination SECTION ─────
 #
 # THE DEFECT, read off the ``article.change`` node the parser reads.
@@ -4557,6 +4662,107 @@ def _iter_unstructured_no_change_groups(
                         ),
                         group_id=f"{source_id}:{lead_base_id}:{sequence}",
                         witness_rule_id="no_section_renumber_relabel",
+                    )
+                )
+                sequence += 1
+            idx = cursor
+            continue
+
+        # W-66c, and it sits LAST — behind every shipped production and
+        # immediately ahead of the operative fallback. The position is the
+        # additivity proof rather than a preference: a lead only reaches here
+        # once every other family has declined it, so this block can convert
+        # nothing but leads that carry ``no_parse_unstructured_lead_unmatched``
+        # today. For a production that DESTROYS TEXT that guarantee is worth
+        # more than the tail-anchor disjointness argument W-66b could make.
+        #
+        # The receipt kinds are REUSED, both of them, and the reuse is W-66b's
+        # own precedent one step further: the section half already reuses W-66's
+        # ``..._ADDRESS_UNRESOLVED`` because it is the same helper failing the
+        # same way, and the ledd half reuses W-66b's ``..._LEDD_UNRESOLVED`` for
+        # the same reason — the reader, the DOM-local antecedent rule and the
+        # failure are identical; only the production that goes unlowered
+        # differs. The shipped constant names say ``set_relabel`` and are now
+        # historical twice over; a census tells a repeal refusal from a relabel
+        # one by the ``production`` detail key below, which is the same answer
+        # W-66b gave at the apply plane (a punktum firing is told from a ledd one
+        # by the receipt's own paths, not by a second kind).
+        punktum_repeal = _no_punktum_repeal_targets(lead)
+        if punktum_repeal is not None:
+            repeal_section, repeal_ledd, repeal_targets = punktum_repeal
+            repeal_address_reason = "lead_names_section"
+            if not repeal_section:
+                inherited_section, repeal_address_reason = _no_antecedent_section_label(
+                    children, child_part_indexes, idx
+                )
+                repeal_section = inherited_section or ""
+            if not repeal_section:
+                _append_no_unstructured_parse_adjudication(
+                    adjudications_out,
+                    kind=NO_PARSE_LEDD_SET_RELABEL_ADDRESS_UNRESOLVED,
+                    message=(
+                        "Norway punktum repeal named no section of its own and no unambiguous "
+                        "antecedent supplied one; nothing was repealed."
+                    ),
+                    source_id=source_id,
+                    lead=lead,
+                    base_id=lead_base_id,
+                    detail={
+                        "production": "punktum_repeal",
+                        "address_reason": repeal_address_reason,
+                        "targets": tuple(str(ordinal) for ordinal in repeal_targets),
+                    },
+                )
+                idx += 1
+                continue
+            repeal_ledd_reason = "lead_names_ledd"
+            if not repeal_ledd:
+                inherited_ledd, repeal_ledd_reason = _no_antecedent_ledd_label(
+                    children, child_part_indexes, idx
+                )
+                repeal_ledd = inherited_ledd or ""
+            if not repeal_ledd:
+                _append_no_unstructured_parse_adjudication(
+                    adjudications_out,
+                    kind=NO_PARSE_PUNKTUM_SET_RELABEL_LEDD_UNRESOLVED,
+                    message=(
+                        "Norway punktum repeal named no ledd of its own and no unambiguous "
+                        "antecedent supplied one; nothing was repealed."
+                    ),
+                    source_id=source_id,
+                    lead=lead,
+                    base_id=lead_base_id,
+                    detail={
+                        "production": "punktum_repeal",
+                        "section": repeal_section,
+                        "address_reason": repeal_address_reason,
+                        "ledd_reason": repeal_ledd_reason,
+                        "targets": tuple(str(ordinal) for ordinal in repeal_targets),
+                    },
+                )
+                idx += 1
+                continue
+            # Descending order, and it is not cosmetic. ``tree_ops.remove_at``
+            # removes a node without relabelling its siblings, so the legs are
+            # order-independent TODAY; emitting the highest ordinal first keeps
+            # them order-independent under any future sibling-compaction, which
+            # is the direction a repeal at this depth would plausibly grow.
+            for target_ordinal in sorted(repeal_targets, reverse=True):
+                doc_ops.append(
+                    LegalOperation(
+                        op_id=f"{source_id}:{sequence}",
+                        sequence=sequence,
+                        action=StructuralAction.REPEAL,
+                        target=LegalAddress(
+                            path=(
+                                ("section", repeal_section),
+                                ("subsection", repeal_ledd),
+                                ("sentence", str(target_ordinal)),
+                            )
+                        ),
+                        source=OperationSource(statute_id=source_id, raw_text=lead, title=lead_base_id),
+                        provenance_tags=(f"base_act:{lead_base_id}", "fallback:unstructured"),
+                        group_id=f"{source_id}:{lead_base_id}:{sequence}",
                     )
                 )
                 sequence += 1

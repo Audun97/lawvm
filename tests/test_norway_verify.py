@@ -2652,8 +2652,24 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # unexplained both move by the same +27, so W-73 explains nothing away — it
     # admits 27 rows on three laws that were previously unreachable. The honest
     # cost of new coverage, exactly as at W-39, W-47 and W-53.
-    assert report["scanned_count"] == 76
-    assert report["summary"] == {"consistent": 29, "divergent": 47, "error": 0}
+    # W-66c (2026-08-14). 76 -> 75 candidates and 29/47 -> 29/46, and this is the
+    # FIRST landing in the series where the candidate set SHRINKS. The cause is
+    # mechanical and is the W-73 mechanism running backwards: a base's replay
+    # status is derived from the statuses of the amendments that BIND to it, and
+    # the punktum-depth repeal gives ``no/lovtid/2013-01-11-3`` — an instrument
+    # whose commencement is CONTINGENT — its first lowered ops against
+    # ``no/lov/2010-06-04-21`` and ``no/lov/2011-06-24-39``. One contingent
+    # binding downgrades a base from `fully_replayable` to `blocked_contingent`,
+    # so both laws leave the candidate set. Their replays are not worse; the
+    # LABEL is more honest, because the binding was always in the source and the
+    # system simply could not see it. ONE law enters to partly offset:
+    # ``no/lov/2009-05-15-28`` takes its first lowered op ever from a `dated`
+    # instrument and arrives divergent at 2 rows.
+    #   * candidates 76 -> 75  (-2010-06-04-21, -2011-06-24-39, +2009-05-15-28)
+    #   * divergent  47 -> 46  (the two leavers were both divergent; the entrant
+    #     is too), consistent unmoved at 29, error unmoved at 0.
+    assert report["scanned_count"] == 75
+    assert report["summary"] == {"consistent": 29, "divergent": 46, "error": 0}
     # W-67 + W-74 (2026-08-11). The first landing in this series that moves the
     # scoreboard by CLOSING rows rather than by admitting laws: the candidate set
     # is unmoved at 76 element for element, the summary is unmoved at 29/47/0, and
@@ -2767,7 +2783,27 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # candidate, so the repair is invisible here by construction. Recorded rather
     # than skipped: "no movement" is the measurement this ledger exists for, and
     # a landing that moved these numbers unexpectedly would be the finding.
-    assert report["divergence_totals"] == {"total": 1471, "ceiling": 1011, "unexplained": 460}
+    #
+    # W-66c (2026-08-14). Total and unexplained both fall by the same 7, the
+    # CEILING is untouched at 1,011 for the twelfth landing running, and ZERO
+    # rows open anywhere. The 7 decomposes exactly, and only 3 of the 7 are rows
+    # this item explains away:
+    #   * -5  ``no/lov/2011-06-24-39`` LEAVES the candidate set with its rows
+    #         (one of which the item had just closed; see the membership note);
+    #   * -1  ``no/lov/2010-06-04-21`` LEAVES with its single row;
+    #   * +2  ``no/lov/2009-05-15-28`` ENTERS with two;
+    #   * -3  three rows CLOSE on candidates that stay, each one a punktum repeal
+    #         landing at the ledd the row is addressed to:
+    #           ``no/lov/2001-06-15-75``  9 -> 8  (§31 tredje ledd)
+    #           ``no/lov/2016-06-17-29`` 21 -> 20 (§5 første ledd)
+    #           ``no/lov/2021-06-18-121`` 2 -> 1  (§20 første ledd — W-66b's own
+    #             witness, closed by the repeal that vacates the slot its relabel
+    #             was refused for).
+    # -5 -1 +2 -3 = -7. The address-coincidence join predicted five row-closing
+    # candidates and four realized; the fifth (``no/lov/2022-03-11-9``) takes the
+    # write at an address its row is at and keeps the row, which is the honest
+    # outcome rather than a defect.
+    assert report["divergence_totals"] == {"total": 1464, "ceiling": 1011, "unexplained": 453}
     # 3 -> 2 at W-34: no/lov/2001-01-05-1 gains 4 bound ops from
     # no/lovtid/2015-06-19-65 item 178, so its indexed history is no longer
     # sparse. Its 83 divergences do not move; only the bucket does.
@@ -2798,7 +2834,11 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             # left, so the W-23 predicate re-buckets it — the predicate doing what
             # it was built for, not a membership drift. 23 -> 22.
             "no/lov/2010-06-25-28",
-            "no/lov/2011-06-24-39",
+            # W-66c: `no/lov/2011-06-24-39` LEAVES — not for another bucket but
+            # off the board entirely. The punktum repeal binds
+            # `no/lovtid/2013-01-11-3` (contingent commencement) to it for the
+            # first time, so the law downgrades to `blocked_contingent` and stops
+            # being a scan candidate. 24 -> 23.
             # W-66: ARRIVES from `untouched_drift`, and the direction is the point.
             # Its § 46 fjerde ledd row used to sit at an address no op touched;
             # the sibling-set ledd relabel now LANDS there (the row goes
@@ -2838,7 +2878,12 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             # sentence — W-54's `removal_wrong` shape, one depth word down.
             # The law's § 20 første ledd row is therefore no longer "untouched":
             # something addressed it and declined. 22 -> 23.
-            "no/lov/2021-06-18-121",
+            #
+            # W-66c: and it LEAVES again, back to `untouched_drift`, closing the
+            # loop W-66b opened. The companion punktum REPEAL now lowers, vacates
+            # slot 2, the relabel lands behind it, and the § 20 første ledd row
+            # CLOSES. Nothing on this law declines any more, so the W-23 predicate
+            # buckets its one remaining row as ordinary drift. 23 -> 22.
             "no/lov/2022-03-11-9",
         ],
         "untouched_drift": [
@@ -2848,7 +2893,15 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             # W-67 + W-74: arrives from `replay_defect` with its two OPS_MISSING
             # rows closed; the one MISMATCH row it keeps is untouched drift.
             # 19 -> 20.
-            "no/lov/2010-06-04-21",
+            # W-66c: and LEAVES the board entirely, the same way
+            # `no/lov/2011-06-24-39` leaves `replay_defect` — the punktum repeal
+            # binds `no/lovtid/2013-01-11-3` (contingent) to it for the first
+            # time and the law downgrades to `blocked_contingent`. 20 -> 19.
+            # W-66c: `no/lov/2009-05-15-28` ENTERS the candidate set on its first
+            # lowered op ever (a punktum repeal from a `dated` instrument),
+            # divergent at 2 rows, neither a ceiling row nor traceable to a
+            # replay defect. 19 -> 20.
+            "no/lov/2009-05-15-28",
             # W-66: `no/lov/2012-01-27-9` LEAVES for `replay_defect`; see the note
             # there. 20 -> 19.
             # W-34: enters the candidate set with its first indexed amendment.
@@ -2870,6 +2923,10 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             "no/lov/2021-04-16-18",
             # W-66b: `no/lov/2021-06-18-121` LEAVES for `replay_defect`; see the
             # note there. 20 -> 19.
+            # W-66c: and RETURNS, with the row that sent it away CLOSED — the
+            # punktum repeal vacates the slot, the W-66b relabel lands behind it,
+            # and § 20 første ledd matches the consolidation. 19 -> 20.
+            "no/lov/2021-06-18-121",
             "no/lov/2022-06-17-49",
             "no/lov/2022-12-20-118",
             "no/lov/2022-12-20-97",
@@ -2964,8 +3021,10 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # Complete and disjoint, asserted directly rather than inferred from the
     # per-bucket lists.
     routed = [item["base_id"] for bucket in partitions.values() for item in bucket]
-    assert len(routed) == 76
-    assert len(set(routed)) == 76
+    # 76 -> 75 at W-66c: two candidates downgrade to `blocked_contingent` on a
+    # newly-visible contingent binding and one enters. See the membership note.
+    assert len(routed) == 75
+    assert len(set(routed)) == 75
 
     # Every member of the ceiling bucket is ceiling-DOMINATED, and the margin
     # to the routing boundary is enormous in both directions: the smallest

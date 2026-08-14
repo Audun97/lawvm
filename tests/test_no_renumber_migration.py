@@ -36,7 +36,9 @@ from pathlib import Path as _Path
 
 import pytest
 
-from lawvm.core.ir import LegalOperation
+from collections.abc import Sequence
+
+from lawvm.core.ir import IRNode, LegalOperation
 from lawvm.core.semantic_types import IRNodeKind, StructuralAction
 from lawvm.norway.grafter import (
     apply_no_ops_conserved,
@@ -1448,7 +1450,15 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # 198 -> 199 at W-66: ``no/lov/2017-06-16-53`` ENTERS the amended-law
     # population (783 -> 784 base laws with sources) because the sibling-set
     # relabel gives it its first lowered op, and it arrives known-incomplete.
-    "incomplete_bases": 199,
+    # 199 -> 201 at W-66c, and it is the SAME two laws that leave the scan
+    # candidate set in the same landing: ``no/lov/2010-06-04-21`` and
+    # ``no/lov/2011-06-24-39``. The punktum-depth repeal gives
+    # ``no/lovtid/2013-01-11-3`` (commencement "fra den tid Kongen bestemmer")
+    # its first lowered ops against both, so both replays now receipt a
+    # CONTINGENT skip and both become known-incomplete. Nothing leaves. This is
+    # a base becoming OBSERVABLE rather than a new hazard being created — the
+    # contingent act always amended them.
+    "incomplete_bases": 201,
     # 265 -> 266 and 161 -> 162 at W-69c, and it is ONE law ENTERING the census:
     # ``no/lov/2009-06-19-44``. It was already counted incomplete (four
     # `contingent` skips, which the replay receipts before it applies anything,
@@ -1459,7 +1469,12 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # movement W-72's blind-spot narrative said to expect the moment one of the
     # four aborting laws was repaired.
     "bases_with_destructive_writes": 266,
-    "hazard_bases": 162,
+    # 162 -> 164 at W-66c: the two laws named in the ``incomplete_bases`` note
+    # above ENTER the intersection. Both already took destructive writes (6 and
+    # 12 of them), so they arrive with a full row rather than a zero one; nothing
+    # leaves, and ``hazard_by_skip_kind`` moves by the same two under
+    # ``contingent``.
+    "hazard_bases": 164,
     # 3,713 -> 3,706 at W-75, and exactly one law moves: ``no/lov/2008-06-27-71``
     # [73, 2] -> [66, 2]. Refusing the word-substitution address lists stops seven
     # REPLACEs that had been writing the amendment's own prose into plan- og
@@ -1548,7 +1563,20 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # takes no write and enters no population here) and ``no/lov/2005-06-17-62``
     # (2 further ops behind a PRE-EXISTING mid-apply abort, same error string, so
     # it still takes no writes). Signed off 2026-08-14.
-    "hazard_destructive_writes": 3828,
+    #
+    # 3,828 -> 3,875 at W-66c (+47), and this is the largest move this census
+    # has made since W-66 — read the polarity above before reading the number.
+    # It decomposes exactly, and the two halves are different in kind:
+    #   * +29 across 24 laws already in the intersection, every one a landed
+    #     punktum-depth REPEAL. A repeal is destructive by this census's
+    #     definition twice over: it removes existing content, and unlike a
+    #     RENUMBER it does not put it back anywhere.
+    #   * +18 arriving whole with the two ENTERING laws — ``no/lov/2010-06-04-21``
+    #     [6, 0] and ``no/lov/2011-06-24-39`` [12, 2]. Those writes are not new;
+    #     the laws are new to the census, for the reason the ``incomplete_bases``
+    #     note gives.
+    # 29 + 18 = 47, and no law's row moves for any other reason.
+    "hazard_destructive_writes": 3875,
     # 167 -> 168, and the +1 is NOT a relabel op. ``no/lov/2016-05-27-14`` gains
     # ``no/lovtid/2021-12-22-158:1``, a REPEAL of § 7-6 annet ledd that could not
     # bind before because that law's ledd sequence was one slot out of step; with
@@ -1557,8 +1585,28 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # occupant — § 7-6 itself survives, and the receipt's section-level
     # ``removed_paths`` is the known ``no_receipt_storage_path_resolution``
     # projection. Signed off 2026-08-12.
-    "hazard_content_removing_writes": 168,
-    "hazard_bases_removing_content": 65,
+    #
+    # 168 -> 198 (+30) over 65 -> 77 laws at W-66c, and THIS is the number this
+    # item exists to be judged on. Every previous landing in this series moved
+    # ``hazard_destructive_writes`` while leaving content-removing flat, because
+    # a RENUMBER moves content and a substitution replaces it. A punktum REPEAL
+    # DELETES a sentence of in-force law, so for the first time the destroying
+    # column moves, and it moves inside bases the system already knows are
+    # incomplete — precisely the posture that destroyed husbankloven § 13.
+    #
+    # It is not accepted on trust. All 33 corpus destructions are pinned BY
+    # CONTENT (base act, address, the sentence's own text) in
+    # ``_W66C_CORPUS_DESTRUCTIONS`` below, and every one was adjudicated against
+    # its instrument's own ``article.defaultP`` node before landing: 33 of 33
+    # name their section AND their ledd in their own text, so not one landed
+    # destruction rests on an inherited address. The corpus-wide content-removing
+    # figure moves 207 -> 240 in step (+33), of which 30 fall inside this
+    # intersection: 28 on laws already in it, and 2 arriving with
+    # ``no/lov/2011-06-24-39``, one of which is its own pre-existing write.
+    # ``hazard_bases_removing_content`` 65 -> 77 is the 11 laws whose row goes
+    # from 0 removals to some, plus that entrant.
+    "hazard_content_removing_writes": 198,
+    "hazard_bases_removing_content": 77,
 }
 
 #: Content hash of the per-law hazard list (base_id -> [destructive, removing]).
@@ -1579,7 +1627,12 @@ _NO_INCOMPLETE_BASE_HAZARD_LAWS_DIGEST = (
     # onto an occupant. It is the ONLY row that moves.
     # W-66b: membership unchanged again; ONE row moves, ``no/lov/2008-05-15-35``
     # [262, 8] -> [263, 8]. See the count note above for the +3/-2 underneath it.
-    "d76bd46d679ff6a42e03226a3217127aa4eb7bf1ff799d9761a10b1cbc0758e3"
+    # W-66c: the second MEMBERSHIP change since W-66 — two laws ENTER
+    # (``no/lov/2010-06-04-21`` [6, 0], ``no/lov/2011-06-24-39`` [12, 2]),
+    # nothing leaves, and 24 further rows move by the punktum repeals they take.
+    # Both columns move on 24 of the 26; the destroying column moving at all is
+    # this landing's headline, and the destructions are pinned by content below.
+    "e8c9edc09d2acc4c29ec0a5d182cc67754a2bb117d77c5447219010de10e331f"
 )
 
 _REGENERATE = (
@@ -1691,13 +1744,23 @@ def test_no_occupied_destination_sweep_baseline_is_not_stale(
     # ``no/lov/2004-12-10-77`` enters on its first lowered op, a sibling-set
     # PUNKTUM relabel whose section AND ledd both come from the DOM-local
     # antecedent. It is likewise not a scan candidate.
-    assert len(swept) == baseline["swept"]["base_laws"] == 785
+    #
+    # 785 -> 788 at W-66c, three at once and the same mechanism a third time:
+    # ``no/lov/1991-11-29-78``, ``no/lov/1998-07-17-54`` and
+    # ``no/lov/2009-05-15-28`` enter on their first lowered op ever, each a
+    # punktum-depth REPEAL. Two of the three have no original-act source
+    # (``errored_before_any_op`` moves 440 -> 442 with them); the third,
+    # ``no/lov/2009-05-15-28``, replays and ENTERS the scan candidate set, which
+    # is the first time an entrant to this census has also been an entrant there.
+    assert len(swept) == baseline["swept"]["base_laws"] == 788
     assert sorted(set(swept)) == swept
     assert set(_NO_OCCUPIED_DESTINATION_LAWS) <= set(swept)
     # 440 laws error before a single op is applied — F-09's sparse-source class,
     # no original-act bytes at all — so "no firing here" is a complete answer for
     # them, not an unobserved one.
-    assert baseline["swept"]["errored_before_any_op"] == 440
+    # 440 -> 442 at W-66c: two of the three entrants above have no original-act
+    # bytes either, so they join this class on arrival.
+    assert baseline["swept"]["errored_before_any_op"] == 442
     # THE SWEEP'S BLIND SPOT, and W-69c has taken it from four laws to THREE.
     # These abort mid-apply on a replay invariant violation, which discards the
     # apply plane's receipts and adjudications along with the statute, so whether
@@ -2004,7 +2067,9 @@ def test_no_incomplete_base_destructive_write_census_is_pinned(
     assert len(hazard["laws"]) == _NO_INCOMPLETE_BASE_HAZARD["hazard_bases"]
     # Every hazard law is incomplete for a reason the replay receipted, and
     # ``contingent`` still dominates — the class husbankloven was in.
-    assert hazard["hazard_by_skip_kind"]["contingent"] == 162
+    # 162 -> 164 at W-66c: the two entrants are both contingent-skip laws, which
+    # keeps the dominance argument exact rather than merely still true.
+    assert hazard["hazard_by_skip_kind"]["contingent"] == 164
     assert hazard["hazard_by_skip_kind"]["missing_source"] == 0
     # Husbankloven is the witness this census exists for, and it is STILL IN THE
     # SET — 8 destructive writes, 3 of them content-removing. W-73 repaired the
@@ -3054,3 +3119,482 @@ def test_no_well_formed_intra_section_move_attr_is_left_exactly_alone() -> None:
         ("section:3/subsection:2", "section:3/subsection:3"),
     ]
     assert [a for a in adjudications if a.kind == _DESTINATION_SECTION_KIND] == []
+
+
+# ── W-66c: the punktum-depth REPEAL, and the two tripwires it owes ────────────
+#
+# READ THE POLARITY FIRST, because it is not the hazard census's. Every element
+# of the table below is a sentence of in-force Norwegian law that this system
+# DELETES. That is what the instruments command — "§ 20 første ledd annet
+# punktum oppheves." — and each one was adjudicated against its own
+# ``article.defaultP`` node's own text before the production landed
+# (``.tmp/w66c/dom_adjudications.json``: 33 of 33, and none of them inherited —
+# every landed destruction's lead spells BOTH its section and its ledd). But a
+# destroying production is the one place in this programme where "the number
+# moved" is not a re-pin, and these two tests exist so that it cannot be.
+#
+# TWO tripwires, because the destroying surface has two sizes and only one of
+# them is visible in the replayed corpus:
+#
+#   1. the PARSE-plane population — every ``setning/N`` REPEAL the production
+#      mints corpus-wide, 279 legs over 120 base acts. This is what COULD be
+#      destroyed, and it grows with a new lead shape or an archive refresh.
+#      Digested rather than listed, because 279 addresses in a test file is a
+#      wall nobody reads; the failure message says where the list lives.
+#   2. the APPLY-plane set — the 33 sentences actually removed, pinned BY
+#      CONTENT (base act, address, the sentence's own text). Most of the 279
+#      never destroy anything: the 279 ops name 256 distinct addresses (23 are
+#      commanded twice, mostly by the twin omnibus acts ``no/lovtid/2009-06-19-74``
+#      and ``no/lovtid/2015-06-19-65``), and of those 256, 182 sit on one of the
+#      73 base acts whose replay errors before reaching them — no replayable
+#      original-act source (item 81's standing caution, re-derived) — 35 never
+#      reach the apply plane, 6 refuse there typed, and 33 destroy.
+#      The base acts replayed here are DERIVED from tripwire 1
+#      rather than listed, so a law that starts destroying because its source
+#      arrived in a refresh is caught here instead of missed.
+#
+# A NEW row in either is a finding: read the instrument's own DOM node, decide
+# whether it commands the destruction of that sentence at that address, and
+# record it in the ledger before touching either table. A row that DISAPPEARS is
+# equally a finding — a repeal that stops landing means a provision this system
+# had removed is standing again.
+_W66C_DESTRUCTION_INSTRUCTION = (
+    "The punktum-depth repeal's destroying surface moved. Do NOT relax this pin. "
+    "For each destruction that ENTERED: read the lead off the `article.defaultP` "
+    "node the parser reads (never a text-plane grep), confirm it names THAT "
+    "section, THAT ledd and THAT ordinal, and confirm the removed text is the "
+    "sentence that ordinal counts to. For each that LEFT: say in the ledger which "
+    "item stopped the repeal landing, because a provision this system had removed "
+    "is standing again. Re-derive with `.tmp/w66c/s11_removals.py` at both pins "
+    "and `.tmp/w66c/s13_destruction_diff.py`."
+)
+
+#: Every ``setning/N`` REPEAL the production mints, corpus-wide, as
+#: ``<base_id>|<address>`` lines joined by newlines and sha256'd. Regenerate with
+#: ``.tmp/w66c/s25_emit_pin.py``.
+_W66C_MINTED_REPEAL_LEGS_DIGEST = (
+    "2a1577d65bddff9732b169e30a69d97adb7b966861953c70472e214a1ddafdfd"
+)
+
+# 33 destructions over 29 base acts
+_W66C_CORPUS_DESTRUCTIONS: tuple[tuple[str, str, str], ...] = (
+    (
+        'no/lov/2001-05-18-21',
+        'section:16a/subsection:2/sentence:2',
+        'Kriminalomsorgen skal vurdere innsatte i avdeling med særlig høyt sikkerhetsnivå for overføring til fengsel med høyt sikkerhetsnivå med ikke mer enn 6 måneders mellomrom.',
+    ),
+    (
+        'no/lov/2001-06-15-75',
+        'section:31/subsection:3/sentence:2',
+        'Det betales i disse tilfelle et gebyr etter en norm som departementet fastsetter.',
+    ),
+    (
+        'no/lov/2002-06-21-34',
+        'section:26/subsection:3/sentence:3',
+        'Avtalefriheten gjelder likevel ikke for installeringsforpliktelser som inngår i salgsavtalen.',
+    ),
+    (
+        'no/lov/2003-02-21-12',
+        'section:18/subsection:2/sentence:2',
+        'Medvirkning straffes på samme måte.',
+    ),
+    (
+        'no/lov/2003-06-27-64',
+        'section:9/subsection:2/sentence:2',
+        'Medvirkning straffes på samme måte.',
+    ),
+    (
+        'no/lov/2003-07-04-80',
+        'section:19/subsection:2/sentence:2',
+        'Like med offentlige organer regnes organisasjoner og private som utfører oppgaver for stat, fylkeskommune eller kommune.',
+    ),
+    (
+        'no/lov/2005-04-01-15',
+        'section:3-5/subsection:5/sentence:2',
+        'Departementet kan i forskrift gi regler om NOKUTs ansvar og myndighet.',
+    ),
+    (
+        'no/lov/2005-05-20-28',
+        'section:72/subsection:2/sentence:2',
+        'Dette gjelder likevel ikke for formuesgoder som ble overdratt mer enn 5 år før den handling som danner grunnlag for inndragningen, ble begått, eller formuesgoder som er mottatt til vanlig underhold fra en som plikter å yte slikt underhold.',
+    ),
+    (
+        'no/lov/2005-06-10-51',
+        'section:20/subsection:1/sentence:2',
+        'Melderen må godtgjøre at vedkommende senest ved ervervet er løst fra annet statsborgerskap.',
+    ),
+    (
+        'no/lov/2005-06-17-67',
+        'section:11-4/subsection:2/sentence:2',
+        'I saker om kildeskatt på utbytte beregnes renten fra det ferdige skatteoppgjøret etter ordinær avregning ble sendt selskapet som har trukket kildeskatten.',
+    ),
+    (
+        'no/lov/2006-06-16-20',
+        'section:7/subsection:2/sentence:2',
+        'Videre kan en brukerkontakt som nevnt i folketrygdloven § 15-12 femte ledd få oppgitt navn og adresse på enslige forsørgere som mottar overgangsstønad innenfor brukerkontaktens virkeområde.',
+    ),
+    (
+        'no/lov/2007-06-29-44',
+        'section:8/subsection:1/sentence:3',
+        'Departementet oppnevner to varamedlemmer til styret.',
+    ),
+    (
+        'no/lov/2007-06-29-81',
+        'section:8/subsection:2/sentence:2',
+        'Umyndige kan ikkje vere stiftarar.',
+    ),
+    (
+        'no/lov/2008-05-15-35',
+        'section:76/subsection:2/sentence:2',
+        'Departementet kan heller ikke instruere Utlendingsnemnda om lovtolkning eller skjønnsutøvelse.',
+    ),
+    (
+        'no/lov/2008-05-15-35',
+        'section:76/subsection:2/sentence:3',
+        'Slikt vedtak kan ikke iverksettes før grunnlaget for utsendelsesvernet er bortfalt.',
+    ),
+    (
+        'no/lov/2008-06-27-71',
+        'section:12-14/subsection:2/sentence:2',
+        'Små endringer kan delegeres til administrasjonen.',
+    ),
+    (
+        'no/lov/2009-04-17-19',
+        'section:62/subsection:4/sentence:1',
+        'Medvirkning straffes på samme måte.',
+    ),
+    (
+        'no/lov/2009-06-19-101',
+        'section:13/subsection:1/sentence:2',
+        'Undersøkelsesrett kan bare nektes dersom søkeren tidligere har brutt vesentlige bestemmelser gitt i eller i medhold av denne lov.',
+    ),
+    (
+        'no/lov/2009-06-19-58',
+        'section:15-8/subsection:2/sentence:3',
+        'Oppgave som er levert på papir anses kommet fram hvis den er poststemplet innen utløpet av fristen.',
+    ),
+    (
+        'no/lov/2009-06-19-58',
+        'section:22-1/subsection:1/sentence:2',
+        'Omsetningsoppgave som er levert på papir skal undertegnes.',
+    ),
+    (
+        'no/lov/2009-06-19-97',
+        'section:36/subsection:1/sentence:2',
+        'På samme måte straffes medvirkning.',
+    ),
+    (
+        'no/lov/2009-06-19-97',
+        'section:37/subsection:1/sentence:2',
+        'På samme måte straffes medvirkning.',
+    ),
+    (
+        'no/lov/2010-03-26-9',
+        'section:68/subsection:1/sentence:2',
+        'Retten kan oppnevne verge, jf. 25 første ledd annet punktum.',
+    ),
+    (
+        'no/lov/2011-06-24-29',
+        'section:18/subsection:1/sentence:2',
+        'Medvirkning straffes på samme måte.',
+    ),
+    (
+        'no/lov/2011-06-24-30',
+        'section:10-2/subsection:2/sentence:2',
+        'Fylkesnemnda skal samtidig ta stilling til om det skal være adgang til å ta urinprøver av pasienten under institusjonsoppholdet.',
+    ),
+    (
+        'no/lov/2011-06-24-30',
+        'section:10-3/subsection:1/sentence:2',
+        'Fylkesnemnda skal samtidig ta stilling til om det skal være adgang til å ta urinprøver av pasienten under institusjonsoppholdet.',
+    ),
+    (
+        'no/lov/2011-06-24-39',
+        'section:18/subsection:1/sentence:3',
+        'Elsertifikatplikten skal likevel alltid omfatte minst ett elsertifikat.',
+    ),
+    (
+        'no/lov/2012-06-22-43',
+        'section:5/subsection:1/sentence:2',
+        'Skattedirektoratet kan etter søknad samtykke til papirinnlevering for private arbeidsgivere.',
+    ),
+    (
+        'no/lov/2016-05-27-14',
+        'section:7-5/subsection:1/sentence:2',
+        'Den som mot godtgjøring har formidlet leie av fast eiendom, skal gi opplysninger om inngåtte kontrakter siste år med den enkelte utleier, avtalt leie og i tilfelle leie som er påløpt, og leie som vedkommende har betalt eller formidlet betaling av.',
+    ),
+    (
+        'no/lov/2016-06-17-29',
+        'section:5/subsection:1/sentence:2',
+        'Kravet gjelder ikke for Forbrukerrådet.',
+    ),
+    (
+        'no/lov/2020-11-06-127',
+        'section:47/subsection:1/sentence:2',
+        'Departementet er klageinstans for enkeltvedtak etter § 46 første ledd bokstav j.',
+    ),
+    (
+        'no/lov/2021-06-18-121',
+        'section:20/subsection:1/sentence:2',
+        'Unntatt fra dette er regjeringsnotater og dokumenter direkte knyttet til disse.',
+    ),
+    (
+        'no/lov/2022-03-11-9',
+        'section:2-3/subsection:1/sentence:3',
+        'Melding kan gis av andre på førerens vegne.',
+    ),
+)
+
+
+@pytest.fixture(scope="module")
+def _no_w66c_minted_repeals():
+    """Corpus-wide: every op the punktum-depth repeal production mints.
+
+    Re-derived from a live parse of every amendment artifact through the
+    production entry point — the same instrument W-70's malformed-attr census
+    uses, and for the same reason: a receipt-plane census cannot see a lead the
+    parser has STOPPED refusing.
+
+    The ops are identified by what they ARE, not by a tag: action ``REPEAL``, a
+    ``sentence`` leaf, and the unstructured provenance. The structured
+    ``data-repeal-part`` lane also reaches sentence leaves (7 corpus-wide) and
+    carries only ``base_act:``, so the ``fallback:unstructured`` conjunct is what
+    separates the two. That every survivor's own ``raw_text`` re-parses through
+    the shipped grammar to the very ordinal the op targets is asserted below
+    rather than assumed — the cheapest available proof that the emission site and
+    the grammar have not drifted apart.
+    """
+    if not _REAL_ARCHIVE.exists():
+        pytest.skip("requires the local Lovdata archive (data/norway.farchive)")
+    from lawvm.norway.grafter import parse_no_amendment_groups
+    from lawvm.norway.sources import iter_no_amendment_artifacts
+
+    legs: list[dict] = []
+    artifacts = 0
+    for artifact in iter_no_amendment_artifacts(_REAL_ARCHIVE):
+        artifacts += 1
+        for base_id, ops in parse_no_amendment_groups(
+            artifact.payload, artifact.logical_id, adjudications_out=[]
+        ):
+            for op in ops:
+                if op.action is not StructuralAction.REPEAL:
+                    continue
+                if op.target.leaf_kind() != "sentence":
+                    continue
+                if "fallback:unstructured" not in (op.provenance_tags or ()):
+                    continue
+                legs.append(
+                    {
+                        "base_id": base_id,
+                        "address": "/".join(f"{k}:{v}" for k, v in op.target.path),
+                        "lead": op.source.raw_text if op.source is not None else "",
+                        "source_id": artifact.logical_id,
+                    }
+                )
+    return {"artifacts": artifacts, "legs": legs}
+
+
+@pytest.mark.skipif(
+    not _REAL_ARCHIVE.exists(),
+    reason="requires the local Lovdata archive (data/norway.farchive)",
+)
+def test_no_w66c_minted_punktum_repeal_population_is_pinned(_no_w66c_minted_repeals) -> None:
+    """Tripwire 1: what the production COULD destroy, corpus-wide."""
+    import hashlib
+
+    from lawvm.norway.grafter import _no_punktum_repeal_targets
+
+    population = _no_w66c_minted_repeals
+    assert population["artifacts"] == 3089, (
+        f"the amendment plane holds {population['artifacts']} artifacts, not 3,089; "
+        "the census below is measured over a different corpus. "
+        + _W66C_DESTRUCTION_INSTRUCTION
+    )
+    legs = population["legs"]
+    assert len(legs) == 279, _W66C_DESTRUCTION_INSTRUCTION
+    assert len({leg["base_id"] for leg in legs}) == 120, _W66C_DESTRUCTION_INSTRUCTION
+    assert len({leg["lead"] for leg in legs}) == 207, _W66C_DESTRUCTION_INSTRUCTION
+
+    digest = hashlib.sha256(
+        "\n".join(sorted(f"{leg['base_id']}|{leg['address']}" for leg in legs)).encode("utf-8")
+    ).hexdigest()
+    assert digest == _W66C_MINTED_REPEAL_LEGS_DIGEST, (
+        "The ADDRESSES the punktum repeal mints are not the pinned set. "
+        + _W66C_DESTRUCTION_INSTRUCTION
+    )
+
+    # The emission site and the grammar still agree, leg by leg: every op's own
+    # lead re-parses, and the ordinal it names is the one the op targets.
+    for leg in legs:
+        parsed = _no_punktum_repeal_targets(leg["lead"])
+        assert parsed is not None, leg
+        _section, _ledd, ordinals = parsed
+        assert leg["address"].rsplit(":", 1)[1] in {str(o) for o in ordinals}, leg
+
+
+def _w66c_removal_probe(original, sink: list[tuple[str, str]]):
+    """A ``tree_ops.remove_at`` that records the node it is about to remove.
+
+    A FACTORY rather than a closure written at the loop body, because both
+    linters have an opinion and they pull in opposite directions: a closure over
+    the loop's own names is ruff's B023, and a probe with extra defaulted
+    parameters does not match the attribute's declared signature. Binding the
+    two values as arguments here satisfies both and makes the capture explicit.
+    """
+
+    def probe(tree: IRNode, path: Sequence[tuple[str, str]]) -> IRNode:
+        from lawvm.core import tree_ops
+
+        node = tree_ops.resolve(tree, path)
+        if node is not None and path:
+            sink.append((f"{path[-1][0]}:{path[-1][1]}", node.text or ""))
+        return original(tree, path)
+
+    return probe
+
+
+@pytest.fixture(scope="module")
+def _no_w66c_realized_destructions(_no_w66c_minted_repeals):
+    """The sentences the corpus replay actually removes, with their own text.
+
+    ``tree_ops.remove_at`` is the single seam every removal in the NO apply plane
+    goes through, so wrapping it captures the node BEFORE it is gone — which no
+    receipt can do, because a receipt names paths and not text. The receipts are
+    what ATTRIBUTES a removal, and the minted set from tripwire 1 is what tells
+    this production's sentence repeals from the STRUCTURED lane's: seven
+    ``data-repeal-part`` repeals reach a sentence leaf corpus-wide, two of them on
+    a base act this fixture replays (``no/lov/2008-05-15-35`` § 27 første ledd
+    tredje and fjerde punktum), and a receipt carries no provenance tag to
+    separate them by. Joining on the ADDRESS the parse plane minted does.
+    """
+    from lawvm.core import tree_ops
+    from lawvm.norway.index import build_no_amendment_index
+
+    minted = {
+        (leg["base_id"], leg["address"]) for leg in _no_w66c_minted_repeals["legs"]
+    }
+    index = build_no_amendment_index(_REAL_ARCHIVE)
+    out: list[tuple[str, str, str]] = []
+    for base_id in sorted({leg["base_id"] for leg in _no_w66c_minted_repeals["legs"]}):
+        removed: list[tuple[str, str]] = []
+        with pytest.MonkeyPatch.context() as patch:
+            patch.setattr(
+                tree_ops, "remove_at", _w66c_removal_probe(tree_ops.remove_at, removed)
+            )
+            replay = replay_no_to_pit(
+                base_id, as_of="2026-07-10", data_dir=_REAL_ARCHIVE, index=index
+            )
+        by_leaf: dict[str, list[str]] = {}
+        for leaf, text in removed:
+            by_leaf.setdefault(leaf, []).append(text)
+        for receipt in replay.write_receipts:
+            bound = tuple(receipt.bound_target_path or ())
+            if str(receipt.action) != "repeal" or not bound or bound[-1][0] != "sentence":
+                continue
+            if not receipt.removed_paths:
+                continue
+            address = "/".join(f"{k}:{v}" for k, v in bound)
+            if (base_id, address) not in minted:
+                continue
+            texts = by_leaf.get(f"{bound[-1][0]}:{bound[-1][1]}") or []
+            out.append((base_id, address, texts.pop(0) if texts else ""))
+    return sorted(out)
+
+
+@pytest.mark.skipif(
+    not _REAL_ARCHIVE.exists(),
+    reason="requires the local Lovdata archive (data/norway.farchive)",
+)
+def test_no_w66c_corpus_destruction_set_is_pinned_by_content(
+    _no_w66c_realized_destructions,
+) -> None:
+    """Tripwire 2: what the production ACTUALLY destroys, by text.
+
+    33 sentences over 29 base acts. Pinned with their own TEXT rather than by
+    address alone, because an address-only pin would pass while the sentence
+    splitter counted to a different sentence — which is the one way this
+    production can be wrong and stay quiet.
+    """
+    realized = _no_w66c_realized_destructions
+    assert len(realized) == 33, _W66C_DESTRUCTION_INSTRUCTION
+    assert len({row[0] for row in realized}) == 29, _W66C_DESTRUCTION_INSTRUCTION
+    assert tuple(realized) == _W66C_CORPUS_DESTRUCTIONS, _W66C_DESTRUCTION_INSTRUCTION
+
+
+@pytest.mark.skipif(
+    not _REAL_ARCHIVE.exists(),
+    reason="requires the local Lovdata archive (data/norway.farchive)",
+)
+def test_no_w66c_witness_law_reads_as_the_instrument_commands(
+    _no_w66c_realized_destructions,
+) -> None:
+    """W-66c's corpus witness, end to end and BY TEXT.
+
+    ``no/lovtid/2022-06-10-38`` commands exactly two instructions on
+    ``no/lov/2021-06-18-121`` § 20 første ledd, and until this item only the
+    second of them lowered:
+
+        § 20 første ledd annet punktum oppheves.
+        Nåværende tredje punktum blir annet punktum.
+
+    Three states, in order. At W-66 the ledd was one text node and nothing
+    addressed it. At W-66b the relabel lowered and REFUSED at apply, because slot
+    2 was still held by the sentence this item repeals — had W-66's guard not
+    been there the θ ``(RENUMBER, dest_occupied)`` cell would have deleted that
+    sentence as a side effect of a renumber, which is W-54's ``removal_wrong``
+    shape one depth word down. Now both lower: the repeal runs FIRST (the
+    kernel's structural-vacate stage orders every REPEAL in a group ahead of
+    every RENUMBER, and ``_no_group_key`` is ``(effective, enacted, source_id)``,
+    so one instrument at one moment is one group), the slot is vacated, the
+    relabel lands behind it with no apply-plane edit of any kind, and the law's
+    § 20 første ledd divergence row CLOSES.
+
+    The surviving text is what is asserted, in order: the repealed sentence
+    absent, the relabelled sentence standing in slot 2.
+    """
+    from lawvm.norway.index import build_no_amendment_index
+
+    index = build_no_amendment_index(_REAL_ARCHIVE)
+    replay = replay_no_to_pit(
+        "no/lov/2021-06-18-121", as_of="2026-07-10", data_dir=_REAL_ARCHIVE, index=index
+    )
+    assert replay.error is None
+    assert replay.replayed is not None
+
+    ledd = None
+    for chapter in replay.replayed.body.children:
+        for section in chapter.children:
+            if section.label != "20":
+                continue
+            for child in section.children:
+                if child.kind is IRNodeKind.SUBSECTION and child.label == "1":
+                    ledd = child
+    assert ledd is not None
+    assert [(child.label, child.text) for child in ledd.children] == [
+        (
+            "1",
+            "Sivilombudet kan, uten hinder av taushetsplikt, pålegge den som er "
+            "omfattet av arbeidsområdet i § 4, å gi enhver opplysning og ethvert "
+            "dokument som er nødvendig for å utøve oppgaver etter loven her.",
+        ),
+        ("2", "Ombudet kan fastsette en frist for å etterkomme et slikt pålegg."),
+    ]
+    # The sentence that is GONE, named: it is in the corpus destruction table
+    # above, and it was the occupant that made W-66b's relabel refuse.
+    assert (
+        "no/lov/2021-06-18-121",
+        "section:20/subsection:1/sentence:2",
+        "Unntatt fra dette er regjeringsnotater og dokumenter direkte knyttet til disse.",
+    ) in _no_w66c_realized_destructions
+    # The relabel LANDED — W-66b's refusal is gone from this law — and it landed
+    # as a renumber into a vacated slot, not as a θ recovery that ate an occupant.
+    assert not [
+        a
+        for a in replay.adjudications
+        if a.kind == "no_replay_ledd_set_relabel_occupied_destination_refused"
+    ]
+    assert not [
+        a
+        for a in replay.adjudications
+        if a.kind == "no_replay_renumber_occupied_destination_removed"
+    ]
