@@ -2758,6 +2758,15 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # which case-sensitive whole-word matching declines (``inflection_only``).
     # ``tredje punktum`` lands, the ledd still diverges on the first, and the row
     # correctly stays open. Seven landings over seven ledd close six rows.
+    #
+    # W-70b (2026-08-14). NOTHING moves: candidates unmoved at 76, summary
+    # unmoved at 29/47/0, totals unmoved at 1,471 / 1,011 / 460, and all 76
+    # candidate rows byte-identical. The item repairs one ``data-move-part``
+    # whose destination named the wrong section, and the ONE law whose statute it
+    # changes — ``no/lov/2009-06-19-44``, krisesenterlova — is not a scan
+    # candidate, so the repair is invisible here by construction. Recorded rather
+    # than skipped: "no movement" is the measurement this ledger exists for, and
+    # a landing that moved these numbers unexpectedly would be the finding.
     assert report["divergence_totals"] == {"total": 1471, "ceiling": 1011, "unexplained": 460}
     # 3 -> 2 at W-34: no/lov/2001-01-05-1 gains 4 bound ops from
     # no/lovtid/2015-06-19-65 item 178, so its indexed history is no longer

@@ -314,6 +314,24 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "well-formed, stays refused. Non-blocking: the legs LANDED, and this is "
         "their provenance. W-70."
     ),
+    "no_parse_structured_move_attr_destination_section_normalized": (
+        "A Norway ``data-move-part``'s legs named a DESTINATION SECTION other "
+        "than the section their own sources sit in, while the change block's own "
+        "announcement provably commands an intra-section ledd shift; the "
+        "destination section was rewritten to the source's and the legs lowered. "
+        "The proof is a conjunction: every leg ledd-addressed on both sides, one "
+        "shared source prefix and one shared destination prefix that differ, both "
+        "resolving to SECTIONS of the block's own base act, an announcement that "
+        "parses as a ledd-set relabel SPELLING that source section, a prose shift "
+        "map equal to the markup's pair for pair, and no other section named "
+        "anywhere in the announcement. Only the section component is rewritten — "
+        "each destination is rebuilt from its own declared ordinal — so the "
+        "repair cannot move a leg to a ledd the markup did not declare. An "
+        "attribute whose prose cannot prove the repair keeps its declared "
+        "destination and goes on refusing under the relocation-provability guard, "
+        "which is the correct standing state. Non-blocking: the legs LANDED, and "
+        "this is their provenance. W-70b."
+    ),
     "no_parse_structured_move_legs_completed_from_lead_prose": (
         "A Norway structured change block's ``data-move-part`` declared FEWER "
         "ledd move legs than its own lead sentence spells; the missing legs were "

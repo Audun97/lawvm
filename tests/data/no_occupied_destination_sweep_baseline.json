@@ -2,7 +2,7 @@
  "_doc": "Corpus-wide (RENUMBER, dest_occupied) firing sweep + the known-incomplete-base destructive-write census, over EVERY Norway base law. Cached because the sweep is ~10 CPU-minutes and the norway shard is not. `corpus` and `code` are the staleness receipt: tests/test_no_renumber_migration.py recomputes both and FAILS when either moved, rather than passing on a stale measurement. Regenerate with `uv run python scripts/inventory_no_occupied_destination_sweep.py --update-baseline`. NOTE: this file is a RECEIPT of what the corpus does, never a statement of what it should do -- a new firing row here is an unadjudicated firing, and it must be adjudicated W-54 style before the verdict table in the test is extended.",
  "as_of": "2026-07-10",
  "code": {
-  "digest": "4f6e66dbcca983b65550adf1f38a620369accb009b341dd1903a85776482a491",
+  "digest": "102061b30d2807340ed18ec3a285bc55b65f36c2c83c6bd52362107d8b527592",
   "files": [
    {
     "digest": "e3c727b378ae497fa2fc65a174f837dff2a8417dd458378ac22af35d4bf339fb",
@@ -269,7 +269,7 @@
     "module": "lawvm.norway.commencement_instruments"
    },
    {
-    "digest": "5f1d04e8d82761121789dfbe87e5a47e099e6091ba3687a8af86115e87abee5b",
+    "digest": "b9f2468bb6055c11045e756f3ce8cdb0c8b2ab366b382ced652f52289ad8cb29",
     "module": "lawvm.norway.grafter"
    },
    {
@@ -456,7 +456,7 @@
    "unknown_effective": 1
   },
   "hazard_content_removing_writes": 168,
-  "hazard_destructive_writes": 3823,
+  "hazard_destructive_writes": 3827,
   "incomplete_bases": 199,
   "laws": {
    "no/lov/2001-04-20-13": [
@@ -808,7 +808,7 @@
     0
    ],
    "no/lov/2009-06-19-44": [
-    7,
+    11,
     0
    ],
    "no/lov/2009-06-19-58": [
@@ -1108,7 +1108,7 @@
     0
    ]
   },
-  "laws_digest": "85e47aa4d4953a820cb67988a3e2de6f6f71cf04980924d15ade71e984fc0700"
+  "laws_digest": "e5938f2f5f4102c35d1bb7e49479520be0bdd9427821668239e28cd0e9617ee0"
  },
  "rule_id": "no_replay_renumber_occupied_destination_removed",
  "runtime": {

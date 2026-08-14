@@ -30,6 +30,7 @@ form: a guard that exists but is unreachable from production).
 from __future__ import annotations
 
 import io
+import re
 import tarfile
 from pathlib import Path as _Path
 
@@ -1514,7 +1515,18 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # ``hazard_bases_removing_content`` below are unchanged. Its six relocation
     # legs, which WOULD have been destructive, all refuse typed
     # (``no_replay_relocation_order_unprovable_refused``) and write nothing.
-    "hazard_destructive_writes": 3823,
+    #
+    # 3,823 -> 3,827 at W-70b, and it is the SAME law again: ``[7, 0] -> [11, 0]``.
+    # With the §3 attribute's destination section repaired, all SIX relocation
+    # legs land, and a RENUMBER is destructive by this census's definition — but
+    # two of the INSERTs stop being destructive at the same time, because they now
+    # arrive at slots the shift genuinely vacated instead of recovering onto an
+    # occupant. 7 + 6 - 2 = 11, which is the whole delta; no other law's row
+    # moves and membership is unchanged. Content-removing stays 0 on this law and
+    # 168 corpus-wide: a relocation moves content, it never removes any, and the
+    # two writes that stop being destructive were REPLACEMENTS, which record
+    # ``replaced_paths`` and never ``removed_paths``.
+    "hazard_destructive_writes": 3827,
     # 167 -> 168, and the +1 is NOT a relabel op. ``no/lov/2016-05-27-14`` gains
     # ``no/lovtid/2021-12-22-158:1``, a REPEAL of § 7-6 annet ledd that could not
     # bind before because that law's ledd sequence was one slot out of step; with
@@ -1540,7 +1552,10 @@ _NO_INCOMPLETE_BASE_HAZARD_LAWS_DIGEST = (
     # ([80, 2] -> [86, 2]) as its six sentence-depth substitution addresses land.
     # W-69c: the first MEMBERSHIP change since W-66 — ``no/lov/2009-06-19-44``
     # enters at [7, 0], nothing leaves, no other law's row moves.
-    "85e47aa4d4953a820cb67988a3e2de6f6f71cf04980924d15ade71e984fc0700"
+    # W-70b: membership unchanged; the SAME law's row moves again, [7, 0] ->
+    # [11, 0], as its six relocation legs land and two INSERTs stop recovering
+    # onto an occupant. It is the ONLY row that moves.
+    "e5938f2f5f4102c35d1bb7e49479520be0bdd9427821668239e28cd0e9617ee0"
 )
 
 _REGENERATE = (
@@ -1674,11 +1689,17 @@ def test_no_occupied_destination_sweep_baseline_is_not_stale(
     # ``no/lovtid/2025-06-20-42`` — a cross-container in-migration
     # ``§3/ledd/3 → §2/ledd/4`` and the destination parent's own vacate shift
     # ``§2/ledd/3 → §2/ledd/4`` — claim ONE destination, which no ordering can
-    # satisfy. It now replays to completion with the component refused typed
-    # (``no_replay_relocation_order_unprovable_refused``), so its
-    # ``(RENUMBER, dest_occupied)`` behaviour is observable, and the answer is
-    # that it has NONE: every one of its relocation legs refuses, the firing
-    # census above stays 10, and the verdict table gains no row. The witness is
+    # satisfy. W-69c made it replay by refusing the whole component typed
+    # (``no_replay_relocation_order_unprovable_refused``, 6 legs), which made its
+    # ``(RENUMBER, dest_occupied)`` behaviour observable for the first time.
+    #
+    # W-70b then removed the CAUSE: the §3 attribute named the wrong destination
+    # section, its own announcement proves the shift is intra-§3, and the repaired
+    # legs contest nothing. So the refusals are 6 → 0, the relocation LANDS, and
+    # the occupied-destination answer is unchanged and still ZERO — the shift
+    # vacates before it occupies, the firing census above stays 10, and the
+    # verdict table gains no row. The witness, which now pins the recovery of the
+    # two provisions W-69c had to record as overwritten, is
     # ``test_no_w69c_witness_2009_06_19_44_replays_to_completion`` below.
     assert baseline["swept"]["errored_with_ops_applied"] == [
         "no/lov/2003-07-04-74",
@@ -1692,33 +1713,39 @@ def test_no_occupied_destination_sweep_baseline_is_not_stale(
     reason="requires the local Lovdata archive (data/norway.farchive)",
 )
 def test_no_w69c_witness_2009_06_19_44_replays_to_completion() -> None:
-    """W-69c's corpus witness: the law that used to abort now produces a statute.
+    """W-69c's corpus witness, now pinning W-70b's RECOVERY of two provisions.
 
-    At HEAD this replay returned no statute at all —
-    ``Norway replay invariant violation after renumber
-    (('section','2'),('subsection','3')) from no/lovtid/2025-06-20-42:
-    body/section:2: duplicate subsection:4`` — and an aborted apply discards the
-    law's ENTIRE receipt and adjudication plane, which is why the law sat in
-    W-72's blind spot.
+    THE HISTORY, in three states, because this one law is where three items meet.
+    Before W-69c the replay returned no statute at all — ``Norway replay
+    invariant violation after renumber (('section','2'),('subsection','3')) from
+    no/lovtid/2025-06-20-42: body/section:2: duplicate subsection:4`` — and an
+    aborted apply discards the law's ENTIRE receipt and adjudication plane, which
+    is why the law sat in W-72's blind spot. W-69c made it replay by refusing the
+    unsatisfiable relocation component typed, at the cost of two in-force
+    provisions the un-vacated INSERTs then overwrote. W-70b removes the cause.
 
-    WHY IT COULD NOT BE ORDERED, which is the finding and not a detail.
-    ``no/lovtid/2025-06-20-42`` carries two ``data-move-part`` attributes. The §2
-    one is a clean +1 shift (``3→4, 4→5, 5→6, 6→7``). The §3 one reads
-    ``§3/ledd/2 ;; §2/ledd/3`` and ``§3/ledd/3 ;; §2/ledd/4`` — it sends §3's
-    ledd into §2 — while the prose it annotates says "Noverande § 3 andre og
-    tredje ledd blir tredje og nytt fjerde ledd", an intra-§3 shift. **The
-    Lovdata attribute names the wrong section**; the lowering is faithful to it.
-    So ``§2/ledd/3 → §2/ledd/4`` and ``§3/ledd/3 → §2/ledd/4`` both claim
-    ``§2/ledd/4``, no permutation satisfies both, and the honest answer is a
-    typed refusal of the whole component rather than a guess at which of two
-    contradictory instructions the drafter meant. Repairing the ATTRIBUTE is a
-    lowering change and belongs to its own item with its own before/after (W-70's
-    precedent); this item does not touch which ops are minted.
+    WHY IT COULD NOT BE ORDERED. ``no/lovtid/2025-06-20-42`` carries two
+    ``data-move-part`` attributes. The §2 one is a clean +1 shift
+    (``3→4, 4→5, 5→6, 6→7``). The §3 one read ``§3/ledd/2 ;; §2/ledd/3`` and
+    ``§3/ledd/3 ;; §2/ledd/4`` — it sent §3's ledd into §2 — while the prose it
+    annotates says "Noverande § 3 andre og tredje ledd blir tredje og nytt fjerde
+    ledd", an intra-§3 shift. **The Lovdata attribute named the wrong section.**
+    So ``§2/ledd/3 → §2/ledd/4`` and ``§3/ledd/3 → §2/ledd/4`` both claimed
+    ``§2/ledd/4``, no permutation satisfied both, and W-69c's provability guard
+    refused all six legs of the connected component.
 
-    The occupied-destination payoff, which is what W-72 pinned this law for: the
-    answer is that the law fires the ``(RENUMBER, dest_occupied)`` recovery ZERO
-    times, because every one of its relocation legs refuses first. The corpus
-    firing census therefore stays at 10 and the verdict table gains no row.
+    W-70b repairs the ATTRIBUTE at the lowering, on the block's own announcement
+    (``no_parse_structured_move_attr_destination_section_normalized``). The two
+    legs become ``§3/ledd/2 → §3/ledd/3`` and ``§3/ledd/3 → §3/ledd/4``, nothing
+    contests §2 any more, the component is provable, and the whole shift LANDS.
+    W-69c's guard is untouched — it simply has nothing to refuse here now, which
+    is why the refusal list below is asserted EMPTY rather than deleted.
+
+    The occupied-destination answer W-72 pinned this law for is unchanged and
+    still ZERO: the relocation vacates before it occupies, so the corpus firing
+    census stays at 10 and the verdict table gains no row. What changes is WHY —
+    at W-69c nothing fired because nothing ran; now nothing fires because the
+    ordering is proven safe.
     """
     from lawvm.norway.index import build_no_amendment_index
 
@@ -1738,70 +1765,83 @@ def test_no_w69c_witness_2009_06_19_44_replays_to_completion() -> None:
         for a in result.adjudications
         if a.kind == "no_replay_relocation_order_unprovable_refused"
     )
-    # ALL SIX legs of the single connected component — §2's own four-leg shift
-    # chain plus §3's two in-migrations — drop together. The chain is provable in
-    # isolation but shares ``§2/ledd/4`` with the contested pair, and refusing a
-    # leg out of the middle of a chain is the W-56 half-application failure.
-    assert refusals == [
-        ("section:2/subsection:3", "section:2/subsection:4"),
-        ("section:2/subsection:4", "section:2/subsection:5"),
-        ("section:2/subsection:5", "section:2/subsection:6"),
-        ("section:2/subsection:6", "section:2/subsection:7"),
-        ("section:3/subsection:2", "section:2/subsection:3"),
-        ("section:3/subsection:3", "section:2/subsection:4"),
-    ]
+    # 6 -> 0 at W-70b. All six were ONE connected component — §2's four-leg shift
+    # chain plus §3's two in-migrations, joined at the contested ``§2/ledd/4`` —
+    # so repairing the two mis-addressed legs releases the other four with them.
+    assert refusals == []
+    # W-70b is a LOWERING repair and must stay one: it may not reach the apply
+    # plane's recoveries. The relocation still never writes onto a live sibling.
     assert not [
         a
         for a in result.adjudications
         if a.kind == "no_replay_renumber_occupied_destination_removed"
     ]
+    repairs = [
+        a
+        for a in result.adjudications
+        if a.kind == "no_parse_structured_move_attr_destination_section_normalized"
+    ]
+    assert len(repairs) == 1, [a.kind for a in result.adjudications]
+    assert repairs[0].detail["normalized_legs"] == (
+        "lov/2009-06-19-44/§3/ledd/2;;lov/2009-06-19-44/§3/ledd/3",
+        "lov/2009-06-19-44/§3/ledd/3;;lov/2009-06-19-44/§3/ledd/4",
+    )
 
-    def _labels(section_label: str) -> list[str]:
-        section = next(
+    def _section(section_label: str):
+        return next(
             child
             for child in replayed.body.children
             if (child.kind.value if hasattr(child.kind, "value") else str(child.kind)) == "section"
             and child.label == section_label
         )
+
+    def _ledd(section_label: str) -> list[tuple[str, str]]:
         return [
-            child.label or ""
-            for child in section.children
+            (child.label or "", (child.text or "").strip())
+            for child in _section(section_label).children
             if (child.kind.value if hasattr(child.kind, "value") else str(child.kind))
             == "subsection"
         ]
 
-    # THE HONEST COST, pinned rather than hidden. With the shift refused, the
-    # instrument's "§ 2 andre og tredje ledd skal lyde" INSERT lands on a slot
-    # that was never vacated, and the SHIPPED ``(INSERT, occupied)`` θ cell
-    # recovers by replacing the occupant — so base §2 ledd 3 ("Enkeltpersonar kan
-    # vende seg direkte til krisesentertilbodet …") and base §3 ledd 2 ("Kommunen
-    # skal sørgje for å ta vare på barn …") are overwritten instead of shifted.
-    # Both losses carry a typed blocking
-    # ``no_replay_insert_occupied_target_replaced`` receipt, and W-69c neither
-    # created nor touched that recovery — it made it OBSERVABLE, which is exactly
-    # what leaving the blind spot is supposed to do. The under-applied shift is a
-    # divergence row; the correct repair is at the lowering (the wrong section in
-    # the ``data-move-part`` attribute), not here.
+    # THE PAYOFF, adjudicated ledd by ledd against the instrument's own four
+    # change blocks rather than by count. §2 gains its seventh ledd and §3 its
+    # fourth, and the two provisions W-69c had to record as overwritten are back
+    # at the addresses the shift sends them to.
     #
-    # §2 therefore ends with SIX ledd where a faithful application of the §2
-    # attribute alone would give seven, and §3 with three where it would give
-    # four.
-    assert _labels("2") == ["1", "2", "3", "4", "5", "6"]
-    assert _labels("3") == ["1", "2", "3"]
+    #   block 1  "§ 2 andre og tredje ledd skal lyde:"  -> REPLACE §2/2, INSERT §2/3
+    #   block 2  "Noverande § 2 tredje til sjette ledd blir fjerde til nytt
+    #             sjuande ledd."                        -> §2 3→4, 4→5, 5→6, 6→7
+    #   block 3  "§ 3 første og andre ledd skal lyde:"  -> REPLACE §3/1, INSERT §3/2
+    #   block 4  "Noverande § 3 andre og tredje ledd blir tredje og nytt fjerde
+    #             ledd."                                -> §3 2→3, 3→4  (W-70b)
+    section_2 = _ledd("2")
+    assert [label for label, _text in section_2] == ["1", "2", "3", "4", "5", "6", "7"]
+    # ledd 3 is block 1's INSERT; ledd 4 is base § 2 tredje ledd, RECOVERED — it
+    # was the provision the un-vacated INSERT used to replace.
+    assert section_2[2][1].startswith("Tilbodet skal gi brukarane støtte")
+    assert section_2[3][1].startswith("Enkeltpersonar kan vende seg direkte")
+    assert section_2[4][1].startswith("Kommunen skal sørgje for god kvalitet")
+    assert section_2[5][1].startswith("Butilbodet til kvinner")
+    assert section_2[6][1].startswith("Departementet kan gi forskrift")
+
+    section_3 = _ledd("3")
+    assert [label for label, _text in section_3] == ["1", "2", "3", "4"]
+    # ledd 2 is block 3's INSERT; ledd 3 is base § 3 andre ledd, RECOVERED.
+    assert section_3[1][1].startswith("Dei særskilde rettane til samiske brukarar")
+    assert section_3[2][1].startswith("Kommunen skal sørgje for å ta vare på barn")
+    assert section_3[3][1].startswith("Kommunen skal sørgje for at brukarar av bu- og dagtilbodet")
+
     replaced = sorted(
         str((a.detail or {}).get("resolved_path"))
         for a in result.adjudications
         if a.kind == "no_replay_insert_occupied_target_replaced"
     )
-    # ``section:4`` is NOT W-69c's: it comes from ``no/lovtid/2021-06-11-78``, an
-    # earlier affecting-act group that ran to completion before the abort point
-    # at HEAD too, and the corpus census confirms it is unmoved (137 → 139
-    # corpus-wide, both new rows on this law's §2 and §3).
-    assert replaced == [
-        "section:2/subsection:3",
-        "section:3/subsection:2",
-        "section:4",
-    ], replaced
+    # 3 -> 1, corpus-wide 139 -> 137. ``section:4`` is neither W-69c's nor
+    # W-70b's: it comes from ``no/lovtid/2021-06-11-78``, an earlier affecting-act
+    # group that ran to completion even before W-69c, and it is deliberately left
+    # standing — this item repairs one mis-addressed attribute, not every
+    # occupied INSERT on the law.
+    assert replaced == ["section:4"], replaced
 
 
 def test_no_corpus_wide_occupied_destination_firings_are_all_adjudicated(
@@ -2386,3 +2426,602 @@ def _no_walk_nodes(node):
         current = stack.pop()
         yield current
         stack.extend(current.children or ())
+
+
+# ---- W-70b: the WRONG DESTINATION SECTION population, and its tripwire -------
+#
+# W-70 above repairs a ``data-move-part`` whose SEPARATORS are malformed. This
+# one repairs a ``data-move-part`` that is perfectly well-formed and names the
+# WRONG SECTION — a defect no token grammar can see, because every token parses.
+# ``no/lovtid/2025-06-20-42`` sends krisesenterlova § 3's ledd into § 2 while its
+# own announcement says "Noverande § 3 andre og tredje ledd blir tredje og nytt
+# fjerde ledd."; see the block comment on
+# ``grafter._no_normalize_move_attr_destination_section`` for the full defect and
+# the seven-limb proof the repair is gated on.
+#
+# TWO POPULATIONS, and both are pinned, because the two failure directions are
+# opposite. UNDER-application (a defective attribute the prose cannot prove) is
+# safe: the legs keep refusing under W-69c's provability guard. OVER-application
+# — "repairing" a genuine cross-section move — would relabel provisions the
+# instrument deliberately relocated. So the REPAIRED half is pinned by content
+# (which provision moves where, plus which prose pattern proved it) and the
+# UNTOUCHED half is pinned by content too, so a regression that starts rewriting
+# genuine section renumbering fails here rather than in a statute nobody reads.
+#
+# The census is re-derived from a live parse of every amendment artifact, so a
+# corpus refresh that adds a member fails HERE and forces its own prose
+# adjudication before any repair can fire on it.
+_DESTINATION_SECTION_KIND = "no_parse_structured_move_attr_destination_section_normalized"
+
+_DESTINATION_SECTION_POPULATION_INSTRUCTION = (
+    "The `data-move-part` cross-section population moved. Do NOT relax this pin. "
+    "For each attribute that ENTERED: read it off the `article.change` node the parser "
+    "reads (never a text-plane grep), read the change node's OWN announcement AND its "
+    "preceding sibling, and decide whether the prose commands an INTRA-section ledd "
+    "shift (then the attribute is defective and the repair may fire) or a genuine "
+    "cross-section move (then it must stay untouched). An attribute you cannot prove "
+    "either way STAYS UNTOUCHED and goes in `_NO_MOVE_ATTR_CROSS_SECTION_UNTOUCHED`: "
+    "leaving it refused under the relocation-provability guard is the correct standing "
+    "state, and guessing a destination writes live law to an address no instrument "
+    "names. If an attribute moves into `_NO_MOVE_ATTR_DESTINATION_SECTION_REPAIRED` its "
+    "new legs are new RENUMBERs against live law: re-run "
+    "`scripts/inventory_no_occupied_destination_sweep.py --update-baseline` and "
+    "adjudicate every new firing W-54 style. A `removal_wrong` verdict is a STOP."
+)
+
+#: The ONE attribute whose destination section the prose proves wrong, with the
+#: legs before and after. Content, not counts: these two legs move live law, and
+#: the pin exists so a refresh cannot change WHICH provision lands WHERE in
+#: silence. Keyed ``(instrument, base_id)`` on W-70's convention.
+_NO_MOVE_ATTR_DESTINATION_SECTION_REPAIRED: dict[tuple[str, str], dict[str, object]] = {
+    ("no/lovtid/2025-06-20-42", "no/lov/2009-06-19-44"): {
+        "prose_pattern": "shipped",
+        "declared_destination_section": "2",
+        "normalized_destination_section": "3",
+        "declared_legs": (
+            "lov/2009-06-19-44/§3/ledd/2;;lov/2009-06-19-44/§2/ledd/3",
+            "lov/2009-06-19-44/§3/ledd/3;;lov/2009-06-19-44/§2/ledd/4",
+        ),
+        "normalized_legs": (
+            "lov/2009-06-19-44/§3/ledd/2;;lov/2009-06-19-44/§3/ledd/3",
+            "lov/2009-06-19-44/§3/ledd/3;;lov/2009-06-19-44/§3/ledd/4",
+        ),
+    },
+}
+
+#: Every OTHER corpus ``data-move-part`` leg whose destination names a different
+#: section from its source — 53 legs over 24 (instrument, base act) pairs — with
+#: the leg text the lowering must hand through BYTE-IDENTICAL. Adjudicated by
+#: shape, and the shapes are why the repair above can be this narrow:
+#:
+#: * 51 legs are ``§X ;; §Y`` SECTION relabels ("Nåværende §§ 41 til 43 blir nye
+#:   §§ 48 til 50."). The destination section differing IS the instruction.
+#: * 1 leg is ``§3/ledd/1/setning/2 ;; §4`` (``no/lovtid/2024-04-12-14``,
+#:   "Nåværende § 3 første ledd andre punktum blir ny § 4.") — a genuine
+#:   promotion out of its container, commanded by the prose.
+#: * 1 leg is ``lov/1972-05-12-28/§55a/ledd/5;;4`` under base
+#:   ``no/lov/2018-06-22-76``, which is both CROSS-BASE (the archive filed a
+#:   strålevernloven endringsdel under the preceding act) and unresolvable on the
+#:   destination side. It refuses at the shipped
+#:   ``no_parse_cross_base_structured_renumber_skipped`` seam and must never
+#:   reach this production at all.
+#:
+#: Not one of them is ledd-addressed on BOTH sides, which is limb 1 of the proof
+#: — so the whole set declines at the first conjunct today. The set is still
+#: pinned by content rather than by that count, because the day a member arrives
+#: that DOES clear limb 1, its prose has to be read before anything moves.
+_NO_MOVE_ATTR_CROSS_SECTION_UNTOUCHED: dict[tuple[str, str], tuple[str, ...]] = {
+    ("no/lovtid/2024-04-12-14", "no/lov/1994-07-01-49"): (
+        "lov/1994-07-01-49/§3/ledd/1/setning/2;;lov/1994-07-01-49/§4",
+    ),
+    ("no/lovtid/2024-04-12-14", "no/lov/2010-06-25-28"): (
+        "lov/2010-06-25-28/§6;;lov/2010-06-25-28/§15",
+        "lov/2010-06-25-28/§7;;lov/2010-06-25-28/§6",
+        "lov/2010-06-25-28/§8;;lov/2010-06-25-28/§17",
+    ),
+    ("no/lovtid/2024-05-03-20", "no/lov/2011-06-24-30"): (
+        "lov/2011-06-24-30/§3-9a;;lov/2011-06-24-30/§3-9b",
+        "lov/2011-06-24-30/§3-9b;;lov/2011-06-24-30/§3-9c",
+    ),
+    ("no/lovtid/2024-12-20-100", "no/lov/2004-03-05-12"): (
+        "lov/2004-03-05-12/§41;;lov/2004-03-05-12/§48",
+        "lov/2004-03-05-12/§42;;lov/2004-03-05-12/§49",
+        "lov/2004-03-05-12/§43;;lov/2004-03-05-12/§50",
+    ),
+    ("no/lovtid/2024-12-20-80", "no/lov/2021-04-16-18"): (
+        "lov/2021-04-16-18/§8;;lov/2021-04-16-18/§9",
+        "lov/2021-04-16-18/§9;;lov/2021-04-16-18/§10",
+    ),
+    ("no/lovtid/2024-12-20-86", "no/lov/1999-03-26-14"): (
+        "lov/1999-03-26-14/§7-11;;lov/1999-03-26-14/§7-12",
+    ),
+    ("no/lovtid/2024-12-20-93", "no/lov/2005-06-10-44"): (
+        "lov/2005-06-10-44/§4-17;;lov/2005-06-10-44/§4-21",
+        "lov/2005-06-10-44/§4-18;;lov/2005-06-10-44/§4-22",
+    ),
+    ("no/lovtid/2025-02-07-1", "no/lov/2015-06-19-70"): (
+        "lov/2015-06-19-70/§21;;lov/2015-06-19-70/§22",
+    ),
+    ("no/lovtid/2025-04-04-7", "no/lov/2008-05-15-35"): (
+        "lov/2008-05-15-35/§90a;;lov/2008-05-15-35/§90g",
+    ),
+    ("no/lovtid/2025-04-10-10", "no/lov/2007-06-29-73"): (
+        "lov/2007-06-29-73/§6-8;;lov/2007-06-29-73/§6-9",
+        "lov/2007-06-29-73/§6-9;;lov/2007-06-29-73/§6-10",
+        "lov/2007-06-29-73/§8-9;;lov/2007-06-29-73/§8-10",
+    ),
+    ("no/lovtid/2025-06-06-22", "no/lov/1947-06-19-5"): (
+        "lov/1947-06-19-5/§2;;lov/1947-06-19-5/§3",
+    ),
+    ("no/lovtid/2025-06-20-100", "no/lov/2005-06-17-64"): (
+        "lov/2005-06-17-64/§14;;lov/2005-06-17-64/§14a",
+        "lov/2005-06-17-64/§14a;;lov/2005-06-17-64/§14c",
+    ),
+    ("no/lovtid/2025-06-20-101", "no/lov/2018-06-08-28"): (
+        "lov/2018-06-08-28/§14a;;lov/2018-06-08-28/§28b",
+    ),
+    ("no/lovtid/2025-06-20-111", "no/lov/2002-06-21-45"): (
+        "lov/2002-06-21-45/§9b;;lov/2002-06-21-45/§9c",
+        "lov/2002-06-21-45/§9c;;lov/2002-06-21-45/§9d",
+        "lov/2002-06-21-45/§9d;;lov/2002-06-21-45/§9e",
+        "lov/2002-06-21-45/§9e;;lov/2002-06-21-45/§9g",
+        "lov/2002-06-21-45/§9f;;lov/2002-06-21-45/§9h",
+        "lov/2002-06-21-45/§9g;;lov/2002-06-21-45/§9i",
+    ),
+    ("no/lovtid/2025-06-20-46", "no/lov/1990-06-29-50"): (
+        "lov/1990-06-29-50/§2-1;;lov/1990-06-29-50/§2-2",
+        "lov/1990-06-29-50/§2-2;;lov/1990-06-29-50/§2-4",
+        "lov/1990-06-29-50/§2-3;;lov/1990-06-29-50/§2-5",
+    ),
+    ("no/lovtid/2025-06-20-58", "no/lov/1999-03-26-14"): (
+        "lov/1999-03-26-14/§14-82;;lov/1999-03-26-14/§14-83",
+        "lov/1999-03-26-14/§14-83;;lov/1999-03-26-14/§14-84",
+    ),
+    ("no/lovtid/2025-06-20-64", "no/lov/2016-05-27-14"): (
+        "lov/2016-05-27-14/§7-11;;lov/2016-05-27-14/§7-13",
+        "lov/2016-05-27-14/§7-12;;lov/2016-05-27-14/§7-14",
+        "lov/2016-05-27-14/§7-13;;lov/2016-05-27-14/§7-15",
+    ),
+    ("no/lovtid/2025-06-20-70", "no/lov/2018-06-22-76"): (
+        "lov/1972-05-12-28/§55a/ledd/5;;4",
+    ),
+    ("no/lovtid/2025-06-20-90", "no/lov/2017-06-16-60"): (
+        "lov/2017-06-16-60/§4;;lov/2017-06-16-60/§5",
+        "lov/2017-06-16-60/§5;;lov/2017-06-16-60/§6",
+        "lov/2017-06-16-60/§6;;lov/2017-06-16-60/§7",
+        "lov/2017-06-16-60/§7;;lov/2017-06-16-60/§8",
+    ),
+    ("no/lovtid/2025-06-20-98", "no/lov/2003-07-04-84"): (
+        "lov/2003-07-04-84/§7-2c;;lov/2003-07-04-84/§7-2d",
+    ),
+    ("no/lovtid/2026-06-19-40", "no/lov/2005-06-10-44"): (
+        "lov/2005-06-10-44/§9-1;;lov/2005-06-10-44/§9-4",
+    ),
+    ("no/lovtid/2026-06-19-40", "no/lov/2015-04-10-17"): (
+        "lov/2015-04-10-17/§22-5;;lov/2015-04-10-17/§22-6",
+        "lov/2015-04-10-17/§22-6;;lov/2015-04-10-17/§22-7",
+        "lov/2015-04-10-17/§22-7;;lov/2015-04-10-17/§22-8",
+    ),
+    ("no/lovtid/2026-06-19-40", "no/lov/2024-06-21-40"): (
+        "lov/2024-06-21-40/§10;;lov/2024-06-21-40/§11",
+        "lov/2024-06-21-40/§11;;lov/2024-06-21-40/§12",
+        "lov/2024-06-21-40/§8;;lov/2024-06-21-40/§9",
+        "lov/2024-06-21-40/§9;;lov/2024-06-21-40/§10",
+    ),
+    ("no/lovtid/2026-06-19-41", "no/lov/2005-06-17-67"): (
+        "lov/2005-06-17-67/§10-31;;lov/2005-06-17-67/§10-40",
+        "lov/2005-06-17-67/§10-32;;lov/2005-06-17-67/§10-41",
+    ),
+}
+
+
+def _no_move_attr_leg_section(path: str) -> str:
+    """The ``§X`` step of a Lovdata path, or ``""`` when it names none.
+
+    A deliberately DUMBER reader than the parser's: it works on the raw attribute
+    text rather than on a resolved ``LegalAddress``, so the census below stays a
+    superset of the resolved population and cannot go blind on a leg whose
+    address does not lower (``…§55a/ledd/5;;4`` is exactly that leg).
+    """
+    match = re.search(r"/(§[^/]+)", path)
+    return match.group(1) if match else ""
+
+
+@pytest.fixture(scope="module")
+def _no_move_attr_destination_section_population():
+    """Re-derive the whole cross-section ``data-move-part`` census, live.
+
+    Two halves from one pass: the REPAIRED half off the typed receipt (so the pin
+    reads what the production actually claims it did) and the UNTOUCHED half off
+    the legs ``_split_move_attr`` hands the lowering (so the pin reads what the
+    rest of the corpus actually gets, not what the receipt is silent about).
+    """
+    if not _REAL_ARCHIVE.exists():
+        pytest.skip("requires the local Lovdata archive (data/norway.farchive)")
+    from lawvm.norway.grafter import (
+        _classes,
+        _iter_change_descendants,
+        _parse_document,
+        _split_move_attr,
+        normalize_lovdata_refid,
+        parse_no_amendment_groups,
+    )
+    from lawvm.norway.sources import iter_no_amendment_artifacts
+
+    repaired: dict[tuple[str, str], dict[str, object]] = {}
+    untouched: dict[tuple[str, str], tuple[str, ...]] = {}
+    attributes = 0
+    artifacts = 0
+    for artifact in iter_no_amendment_artifacts(_REAL_ARCHIVE):
+        artifacts += 1
+        adjudications: list = []
+        parse_no_amendment_groups(
+            artifact.payload, artifact.logical_id, adjudications_out=adjudications
+        )
+        for item in adjudications:
+            if item.kind != _DESTINATION_SECTION_KIND:
+                continue
+            detail = item.detail or {}
+            repaired[(artifact.logical_id, str(detail.get("base_id", "")))] = {
+                "prose_pattern": str(detail.get("prose_pattern", "")),
+                "declared_destination_section": str(
+                    detail.get("declared_destination_section", "")
+                ),
+                "normalized_destination_section": str(
+                    detail.get("normalized_destination_section", "")
+                ),
+                "declared_legs": tuple(detail.get("declared_legs", ())),
+                "normalized_legs": tuple(detail.get("normalized_legs", ())),
+            }
+        root = _parse_document(artifact.payload)
+        for doc_change in root.iter():
+            if "document-change" not in _classes(doc_change):
+                continue
+            base_id = (
+                normalize_lovdata_refid((doc_change.get("data-document") or "").strip()) or ""
+            )
+            for change_el in _iter_change_descendants(doc_change):
+                value = change_el.get("data-move-part", "")
+                if not value.strip():
+                    continue
+                attributes += 1
+                differing = [
+                    f"{source};;{destination}"
+                    for source, destination in _split_move_attr(value, base_id=base_id)
+                    if _no_move_attr_leg_section(source) != _no_move_attr_leg_section(destination)
+                ]
+                if differing:
+                    key = (artifact.logical_id, base_id)
+                    untouched[key] = tuple(sorted(set(untouched.get(key, ())) | set(differing)))
+    for key in repaired:
+        untouched.pop(key, None)
+    return {
+        "artifacts": artifacts,
+        "attributes": attributes,
+        "repaired": repaired,
+        "untouched": untouched,
+        "untouched_legs": sum(len(legs) for legs in untouched.values()),
+    }
+
+
+@pytest.mark.skipif(
+    not _REAL_ARCHIVE.exists(),
+    reason="requires the local Lovdata archive (data/norway.farchive)",
+)
+def test_no_move_attr_destination_section_population_is_pinned(
+    _no_move_attr_destination_section_population,
+) -> None:
+    """W-70b's standing tripwire: the cross-section population, both halves.
+
+    286 of the corpus's amendment change blocks carry a ``data-move-part``. In
+    exactly ONE the destination section is provably wrong, and it is repaired; in
+    24 more (53 legs) the destination section differs because the instrument says
+    so, and every one of those legs passes through byte-identical. Anything else
+    — a second repair, a leg that stops being handed through, a new cross-section
+    attribute nobody has read the prose of — is a finding, and this is where it
+    surfaces.
+    """
+    population = _no_move_attr_destination_section_population
+    assert population["artifacts"] == 3089, (
+        f"the amendment plane holds {population['artifacts']} artifacts, not 3,089; "
+        "the census below is measured over a different corpus. "
+        + _DESTINATION_SECTION_POPULATION_INSTRUCTION
+    )
+    assert population["attributes"] == 286, (
+        f"{population['attributes']} change blocks carry `data-move-part`, not 286. "
+        + _DESTINATION_SECTION_POPULATION_INSTRUCTION
+    )
+    assert population["repaired"] == _NO_MOVE_ATTR_DESTINATION_SECTION_REPAIRED, (
+        "The REPAIRED cross-section `data-move-part` attributes, or the legs they "
+        "lower, are not the pinned set. These legs move live law. "
+        + _DESTINATION_SECTION_POPULATION_INSTRUCTION
+    )
+    assert population["untouched"] == _NO_MOVE_ATTR_CROSS_SECTION_UNTOUCHED, (
+        "The UNTOUCHED cross-section `data-move-part` legs are not the pinned set. A "
+        "leg that LEFT this set was rewritten by the destination-section normalizer: "
+        "if its prose does not prove an intra-section shift that is a STOP, not a pin "
+        "to update. " + _DESTINATION_SECTION_POPULATION_INSTRUCTION
+    )
+    assert population["untouched_legs"] == 53
+
+
+@pytest.mark.skipif(
+    not _REAL_ARCHIVE.exists(),
+    reason="requires the local Lovdata archive (data/norway.farchive)",
+)
+def test_no_genuine_cross_section_moves_are_never_normalized(
+    _no_move_attr_destination_section_population,
+) -> None:
+    """W-70b's must-not-repair set, asserted on its own.
+
+    Split out from the census so its failure cannot be mistaken for ordinary
+    population drift. These three are the shapes a careless widening would eat
+    first: an ordinary section renumber, a genuine promotion out of a container,
+    and a cross-base leg the archive mis-filed. Each is named with the prose that
+    makes the destination section CORRECT, so "repairing" it would move a
+    provision to an address no instrument names.
+    """
+    population = _no_move_attr_destination_section_population
+    for key, leg in (
+        # "Nåværende §§ 41 til 43 blir nye §§ 48 til 50." — a section renumber.
+        (
+            ("no/lovtid/2024-12-20-100", "no/lov/2004-03-05-12"),
+            "lov/2004-03-05-12/§41;;lov/2004-03-05-12/§48",
+        ),
+        # "Nåværende § 3 første ledd andre punktum blir ny § 4." — a genuine
+        # promotion of a sentence out of its ledd and into its own section.
+        (
+            ("no/lovtid/2024-04-12-14", "no/lov/1994-07-01-49"),
+            "lov/1994-07-01-49/§3/ledd/1/setning/2;;lov/1994-07-01-49/§4",
+        ),
+        # A strålevernloven address filed under the preceding base act, whose
+        # destination does not even lower. Cross-base first, unresolvable second.
+        (
+            ("no/lovtid/2025-06-20-70", "no/lov/2018-06-22-76"),
+            "lov/1972-05-12-28/§55a/ledd/5;;4",
+        ),
+    ):
+        assert key not in population["repaired"], (
+            f"{key[0]} was REPAIRED under base {key[1]}. Its destination section is what "
+            "the instrument commands. This is a STOP, not a pin to update. "
+            + _DESTINATION_SECTION_POPULATION_INSTRUCTION
+        )
+        assert leg in population["untouched"].get(key, ()), (
+            f"{leg} is no longer handed through byte-identical. "
+            + _DESTINATION_SECTION_POPULATION_INSTRUCTION
+        )
+
+
+def _wrong_destination_section_amendment_xml(
+    move: str = (
+        "lov/2025-01-01-1/&#167;3/ledd/2;;lov/2025-01-01-1/&#167;2/ledd/3 "
+        "lov/2025-01-01-1/&#167;3/ledd/3;;lov/2025-01-01-1/&#167;2/ledd/4"
+    ),
+    lead: str = "Noverande &#167; 3 andre og tredje ledd blir tredje og nytt fjerde ledd.",
+) -> bytes:
+    """``no/lovtid/2025-06-20-42``'s § 3 block in miniature.
+
+    A well-formed ``data-move-part`` whose legs are ledd-addressed on both sides
+    and whose destinations name § 2, under an announcement that spells § 3 and
+    the same 2→3, 3→4 shift.
+    """
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="dateInForce">2025-01-01</dd>
+    <article class="document-change" data-document="lov/2025-01-01-1">
+      <article class="change" data-move-part="{move}">
+        <article class="defaultP">{lead}</article>
+      </article>
+    </article>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def test_no_wrong_destination_section_is_normalized_from_the_blocks_own_prose() -> None:
+    """W-70b: the legs land in the section the announcement names, not the one
+    the attribute names.
+
+    The ledd ordinals are asserted alongside the section because the repair is
+    only allowed to touch the section component: 2→3 and 3→4 must survive the
+    rewrite exactly as the markup declared them.
+    """
+    ops = parse_no_amendment_ops(
+        _wrong_destination_section_amendment_xml(), "no/lovtid/2025-02-02-5"
+    )
+    assert [(str(op.target), str(op.destination)) for op in _renumber_ops(ops)] == [
+        ("section:3/subsection:3", "section:3/subsection:4"),
+        ("section:3/subsection:2", "section:3/subsection:3"),
+    ]
+
+
+def test_no_wrong_destination_section_repair_is_receipted() -> None:
+    """W-70b: the rewrite is never silent — the receipt carries the attribute as
+    declared, the attribute as normalized, and WHICH prose grammar proved it."""
+    adjudications: list = []
+    parse_no_amendment_ops(
+        _wrong_destination_section_amendment_xml(),
+        "no/lovtid/2025-02-02-5",
+        adjudications_out=adjudications,
+    )
+    receipts = [a for a in adjudications if a.kind == _DESTINATION_SECTION_KIND]
+    assert len(receipts) == 1, [a.kind for a in adjudications]
+    receipt = receipts[0]
+    assert receipt.blocking is False
+    assert receipt.detail["reason"] == "prose_names_source_section_only"
+    assert receipt.detail["prose_pattern"] == "shipped"
+    assert receipt.detail["declared_destination_section"] == "2"
+    assert receipt.detail["normalized_destination_section"] == "3"
+    assert receipt.detail["declared_legs"] == (
+        "lov/2025-01-01-1/§3/ledd/2;;lov/2025-01-01-1/§2/ledd/3",
+        "lov/2025-01-01-1/§3/ledd/3;;lov/2025-01-01-1/§2/ledd/4",
+    )
+    assert receipt.detail["normalized_legs"] == (
+        "lov/2025-01-01-1/§3/ledd/2;;lov/2025-01-01-1/§3/ledd/3",
+        "lov/2025-01-01-1/§3/ledd/3;;lov/2025-01-01-1/§3/ledd/4",
+    )
+
+
+@pytest.mark.parametrize(
+    ("case", "move", "lead", "expected"),
+    [
+        # Limb 4/5: the announcement must name the SOURCE section. Here it names
+        # the DESTINATION's, so the sentence is evidence FOR the attribute, not
+        # against it, and the attribute stands.
+        (
+            "prose_names_the_destination_section",
+            None,
+            "Noverande &#167; 2 andre og tredje ledd blir tredje og nytt fjerde ledd.",
+            [
+                ("section:3/subsection:3", "section:2/subsection:4"),
+                ("section:3/subsection:2", "section:2/subsection:3"),
+            ],
+        ),
+        # Limb 4: no currency qualifier, so the sentence never says which edition
+        # its ordinals are read against — W-66's deliberate refusal, inherited.
+        (
+            "prose_has_no_currency_qualifier",
+            None,
+            "&#167; 3 andre og tredje ledd blir tredje og nytt fjerde ledd.",
+            [
+                ("section:3/subsection:3", "section:2/subsection:4"),
+                ("section:3/subsection:2", "section:2/subsection:3"),
+            ],
+        ),
+        # Limb 4: the announcement spells no section at all, so nothing in it
+        # says the shift is intra-§3 rather than the move the markup declares.
+        (
+            "prose_spells_no_section",
+            None,
+            "Noverande andre og tredje ledd blir tredje og nytt fjerde ledd.",
+            [
+                ("section:3/subsection:3", "section:2/subsection:4"),
+                ("section:3/subsection:2", "section:2/subsection:3"),
+            ],
+        ),
+        # Limb 6: the prose commands 2→4 and 3→5, the markup declares 2→3 and
+        # 3→4. The two disagree about WHICH ledd moves where, which is a larger
+        # instruction than a section correction, so nothing is rewritten.
+        (
+            "prose_shift_map_disagrees",
+            None,
+            "Noverande &#167; 3 andre og tredje ledd blir fjerde og nytt femte ledd.",
+            [
+                ("section:3/subsection:3", "section:2/subsection:4"),
+                ("section:3/subsection:2", "section:2/subsection:3"),
+            ],
+        ),
+        # Limb 7: one stray cross-reference and the announcement stops being
+        # unambiguously about a single section.
+        (
+            "prose_names_another_section",
+            None,
+            (
+                "Noverande &#167; 3 andre og tredje ledd blir tredje og nytt fjerde "
+                "ledd, jf. &#167; 5."
+            ),
+            [
+                ("section:3/subsection:3", "section:2/subsection:4"),
+                ("section:3/subsection:2", "section:2/subsection:3"),
+            ],
+        ),
+        # Limb 1: a destination one step deeper than a ledd. Its section is not
+        # separably wrong — the whole container might be — so it is out of reach.
+        (
+            "destination_is_deeper_than_a_ledd",
+            (
+                "lov/2025-01-01-1/&#167;3/ledd/2;;lov/2025-01-01-1/&#167;2/ledd/3/setning/1"
+            ),
+            "Noverande &#167; 3 andre ledd blir tredje ledd.",
+            [("section:3/subsection:2", "section:2/subsection:3/sentence:1")],
+        ),
+        # Limb 2: two DIFFERENT destination sections in one attribute. There is no
+        # single wrong section to correct, and picking one would be a guess.
+        (
+            "destinations_disagree_on_their_section",
+            (
+                "lov/2025-01-01-1/&#167;3/ledd/2;;lov/2025-01-01-1/&#167;2/ledd/3 "
+                "lov/2025-01-01-1/&#167;3/ledd/3;;lov/2025-01-01-1/&#167;4/ledd/4"
+            ),
+            "Noverande &#167; 3 andre og tredje ledd blir tredje og nytt fjerde ledd.",
+            [
+                ("section:3/subsection:3", "section:4/subsection:4"),
+                ("section:3/subsection:2", "section:2/subsection:3"),
+            ],
+        ),
+    ],
+)
+def test_no_wrong_destination_section_repair_declines_without_a_full_proof(
+    case: str, move: object, lead: str, expected: list[tuple[str, str]]
+) -> None:
+    """W-70b's polarity, limb by limb: anything unproven passes through UNCHANGED.
+
+    Every case here is the SAME defective-looking attribute with one limb of the
+    conjunction knocked out, and in every one the declared legs survive verbatim.
+    Under-application is the safe direction — an unrepaired leg that contests a
+    slot goes on refusing under W-69c's provability guard, which is the correct
+    standing state for an instruction the system cannot read.
+    """
+    adjudications: list = []
+    kwargs = {"lead": lead} if move is None else {"move": str(move), "lead": lead}
+    ops = parse_no_amendment_ops(
+        _wrong_destination_section_amendment_xml(**kwargs),  # type: ignore[arg-type]
+        "no/lovtid/2025-02-02-5",
+        adjudications_out=adjudications,
+    )
+    assert [(str(op.target), str(op.destination)) for op in _renumber_ops(ops)] == expected, case
+    assert [a for a in adjudications if a.kind == _DESTINATION_SECTION_KIND] == [], case
+
+
+def test_no_wrong_destination_section_repair_declines_a_cross_base_attribute() -> None:
+    """W-70b limb 3, on W-70's precedent: the archive mis-files endringsdeler
+    under the preceding base act, and a repair applied on top of that would
+    relabel provisions of a law the block does not amend at that address.
+
+    The legs are refused at the shipped cross-base seam, so nothing lowers — and
+    crucially no repair receipt is minted either, because the decline happens
+    before the prose is ever consulted.
+    """
+    adjudications: list = []
+    ops = parse_no_amendment_ops(
+        _wrong_destination_section_amendment_xml(
+            move=(
+                "lov/2019-01-01-9/&#167;3/ledd/2;;lov/2019-01-01-9/&#167;2/ledd/3 "
+                "lov/2019-01-01-9/&#167;3/ledd/3;;lov/2019-01-01-9/&#167;2/ledd/4"
+            )
+        ),
+        "no/lovtid/2025-02-02-5",
+        adjudications_out=adjudications,
+    )
+    assert _renumber_ops(ops) == []
+    assert [a for a in adjudications if a.kind == _DESTINATION_SECTION_KIND] == []
+    assert [a.kind for a in adjudications] == [
+        "no_parse_cross_base_structured_renumber_skipped",
+        "no_parse_cross_base_structured_renumber_skipped",
+    ]
+
+
+def test_no_well_formed_intra_section_move_attr_is_left_exactly_alone() -> None:
+    """W-70b's additive guarantee: an attribute whose destination section already
+    agrees with its source's is not touched, and mints no receipt.
+
+    This is the 180-attribute majority of the corpus, and the shipped lowering
+    must be byte-identical for every one of them.
+    """
+    adjudications: list = []
+    ops = parse_no_amendment_ops(
+        _wrong_destination_section_amendment_xml(
+            move=(
+                "lov/2025-01-01-1/&#167;3/ledd/2;;lov/2025-01-01-1/&#167;3/ledd/3 "
+                "lov/2025-01-01-1/&#167;3/ledd/3;;lov/2025-01-01-1/&#167;3/ledd/4"
+            )
+        ),
+        "no/lovtid/2025-02-02-5",
+        adjudications_out=adjudications,
+    )
+    assert [(str(op.target), str(op.destination)) for op in _renumber_ops(ops)] == [
+        ("section:3/subsection:3", "section:3/subsection:4"),
+        ("section:3/subsection:2", "section:3/subsection:3"),
+    ]
+    assert [a for a in adjudications if a.kind == _DESTINATION_SECTION_KIND] == []

@@ -1014,6 +1014,11 @@ NO_PARSE_MOVE_LEGS_COMPLETED_FROM_LEAD_PROSE = "no_parse_structured_move_legs_co
 #: W-70. Non-blocking: the attribute was repaired and its legs LOWERED, so this
 #: is a provenance receipt for a write that happened, not a refusal.
 NO_PARSE_STRUCTURED_MOVE_ATTR_NORMALIZED = "no_parse_structured_move_attr_normalized"
+#: W-70b. Same polarity as its W-70 sibling: the legs LANDED, and this receipt is
+#: their provenance plus the prose sentence that proved the repair.
+NO_PARSE_STRUCTURED_MOVE_ATTR_DESTINATION_SECTION_NORMALIZED = (
+    "no_parse_structured_move_attr_destination_section_normalized"
+)
 
 
 def _structured_move_attr_skip_reason(token: str) -> Optional[str]:
@@ -1659,6 +1664,242 @@ def _no_ledd_set_relabel_pairs(lead: str) -> Optional[tuple[str, list[tuple[int,
         _normalize_no_section_label(section) if section else "",
         list(zip(sources, destinations, strict=True)),
         "widened",
+    )
+
+
+# ── W-70b: the ``data-move-part`` that names the WRONG destination SECTION ─────
+#
+# THE DEFECT, read off the ``article.change`` node the parser reads.
+# ``no/lovtid/2025-06-20-42`` amends ``no/lov/2009-06-19-44`` with two move
+# attributes. Its §2 block is a clean +1 vacate chain
+# (``3→4, 4→5, 5→6, 6→7``). Its §3 block reads
+#
+#     §3/ledd/2 ;; §2/ledd/3      §3/ledd/3 ;; §2/ledd/4
+#
+# — it sends §3's ledd INTO §2 — while the announcement it annotates says
+# "Noverande § 3 andre og tredje ledd blir tredje og nytt fjerde ledd.", an
+# intra-§3 shift, under a §3 block whose sibling op inserts a new §3 andre ledd.
+# The ATTRIBUTE names the wrong destination section; the prose is the authority.
+#
+# WHAT THE DEFECT COST, before this production. ``§2/ledd/3 → §2/ledd/4`` (the
+# §2 chain's own leg) and ``§3/ledd/3 → §2/ledd/4`` (the mis-addressed leg) claim
+# ONE destination, so W-69c's provability guard correctly refuses the whole
+# six-leg component. Nothing is vacated, and the instrument's two "skal lyde"
+# INSERTs then land on live slots, where the shipped ``(INSERT, occupied)`` cell
+# recovers by REPLACING the occupant: base § 2 tredje ledd ("Enkeltpersonar kan
+# vende seg direkte …") and base § 3 andre ledd ("Kommunen skal sørgje for å ta
+# vare på barn …") were overwritten instead of shifted down. Repairing the
+# attribute makes the component provable, the relocation lands, and both
+# provisions are recovered.
+#
+# THE POPULATION, censused BEFORE this production was written and pinned by
+# content in ``tests/test_no_renumber_migration.py``. Of the corpus's 286
+# ``data-move-part`` attributes / 504 legs, 35 attributes carry at least one leg
+# whose RESOLVED destination section differs from that same leg's resolved source
+# section — 54 such legs. They split cleanly by leg SHAPE, and the split is why
+# this production can be narrow:
+#
+#   * 51 legs over 33 attributes are ``section -> section``: ordinary section
+#     renumbering ("Nåværende §§ 4 til 7 blir § 5 til ny § 8."). The destination
+#     section differing IS the instruction. Untouched.
+#   * 1 leg is ``sentence -> section`` (``no/lovtid/2024-04-12-14``:
+#     ``§3/ledd/1/setning/2 ;; §4``, "Nåværende § 3 første ledd andre punktum
+#     blir ny § 4."). A genuine promotion out of its container, commanded by the
+#     prose. Untouched.
+#   * 2 legs over 1 attribute are ``subsection -> subsection`` — and they are the
+#     defect above. This production's entire reach.
+#
+# THE PROOF, and it is a CONJUNCTION every limb of which must hold. Nothing is
+# repaired on a resemblance:
+#
+#   1. Every leg reads ``<prefix>/ledd/<n>`` on BOTH sides — the only shape whose
+#      destination section is separable from the rest of the address.
+#   2. One shared source prefix, one shared destination prefix, and they DIFFER
+#      (otherwise there is no defect to repair and the value passes through).
+#   3. Both prefixes resolve, both are SECTION addresses, and both name the
+#      block's own base act. A cross-base value is declined before anything else,
+#      on W-70's precedent: the archive mis-attributes some endringsdeler, and a
+#      "repair" there would relabel a law the instrument never addressed.
+#   4. The block's OWN announcement parses as a ledd-set relabel that SPELLS its
+#      section (``_no_ledd_set_relabel_pairs``, W-56's shipped grammar first and
+#      W-66's widened sibling after — no new sentence grammar is minted here).
+#   5. The section the prose spells is the SOURCE section. The prose is talking
+#      about the block's own provisions, which is what makes it authority over
+#      where they go.
+#   6. The prose's shift map EQUALS the markup's ledd map, pair for pair. The
+#      prose is allowed to correct the SECTION and nothing else; a prose that
+#      disagreed about which ledd moves where would be a different (larger)
+#      instruction and is refused.
+#   7. NO OTHER SECTION is named ANYWHERE in the announcement. A single stray
+#      ``jf. § 4`` is enough to decline, because then the sentence is no longer
+#      unambiguously about one section.
+#
+# WHAT IS REWRITTEN: the destination's SECTION component, to the source's. The
+# ledd ordinals on both sides, the base act, and every other path step are
+# carried through untouched — the repaired value is rebuilt as
+# ``<source prefix>/ledd/<declared destination ordinal>``, so this production is
+# structurally incapable of moving a leg to a different ledd than the markup
+# declared.
+#
+# POLARITY. Under-application is safe and over-application is not. An attribute
+# whose prose cannot prove the repair keeps its declared destination and, if it
+# contests a slot, keeps refusing under W-69c's guard — which is the correct
+# standing state for an instruction the system cannot read. The 34 members this
+# production leaves alone are pinned byte-identical through the lowering, and the
+# whole 35-member population is pinned by content, so a corpus refresh that grows
+# the family FAILS the tripwire and the new member gets its own prose
+# adjudication before any repair can fire on it.
+_NO_MOVE_ATTR_DESTINATION_SECTION_RULE = "prose_names_source_section_only"
+_NO_MOVE_ATTR_DESTINATION_DECLINED_NOT_LEDD_LEGS = "declined:legs_not_ledd_addressed"
+_NO_MOVE_ATTR_DESTINATION_DECLINED_SECTION_AGREES = "declined:destination_section_agrees"
+_NO_MOVE_ATTR_DESTINATION_DECLINED_PREFIX_NOT_SECTION = "declined:prefix_not_a_section_address"
+_NO_MOVE_ATTR_DESTINATION_DECLINED_CROSS_BASE = "declined:cross_base_prefix"
+_NO_MOVE_ATTR_DESTINATION_DECLINED_NO_PROSE = "declined:announcement_not_a_ledd_set_relabel"
+_NO_MOVE_ATTR_DESTINATION_DECLINED_PROSE_SECTION = "declined:announcement_section_is_not_the_source"
+_NO_MOVE_ATTR_DESTINATION_DECLINED_PROSE_MAP = "declined:announcement_shift_map_disagrees"
+_NO_MOVE_ATTR_DESTINATION_DECLINED_OTHER_SECTION = "declined:announcement_names_another_section"
+
+
+@dataclass(frozen=True)
+class _NOMoveAttrDestinationSectionNormalization:
+    """The verdict on one ``data-move-part``'s destination SECTION.
+
+    ``legs`` is ``None`` when nothing was rewritten and ``reason`` then names why
+    (a ``declined:`` string); otherwise ``reason`` is the rule that fired and
+    ``pattern`` names which sentence grammar proved it. Both are reported on the
+    receipt, so which limb of the conjunction declined is a test's fact rather
+    than a comment's claim.
+    """
+
+    legs: Optional[Tuple[Tuple[str, str], ...]]
+    reason: str
+    pattern: str = ""
+    source_section: str = ""
+    destination_section: str = ""
+
+
+def _no_split_ledd_leg(path: str) -> Optional[tuple[str, int]]:
+    """``"lov/X/§3/ledd/2"`` → ``("lov/X/§3", 2)``; anything else → ``None``.
+
+    Deliberately a suffix test rather than a regex: the ordinal must be the LAST
+    step, so a ``…/ledd/2/setning/3`` address (whose destination section is not
+    separable from a deeper container) cannot enter this production.
+    """
+    prefix, separator, ordinal = path.rpartition(_NO_LEDD_PATH_STEP)
+    if not separator or not prefix or not ordinal.isdigit():
+        return None
+    return prefix, int(ordinal)
+
+
+def _no_normalize_move_attr_destination_section(
+    legs: Sequence[tuple[str, str]],
+    *,
+    announcement: str,
+    base_id: str,
+) -> _NOMoveAttrDestinationSectionNormalization:
+    """Repair a ``data-move-part`` whose destination names the wrong SECTION.
+
+    Returns rewritten legs only when the block's own announcement PROVES the
+    shift is intra-section — the seven-limb conjunction in the block comment
+    above. Order-insensitive: each leg's destination is rebuilt from its own
+    declared ordinal, so the caller may pass the legs in markup or reversed order
+    and get the same answer in the same order.
+    """
+    if not base_id or not legs:
+        return _NOMoveAttrDestinationSectionNormalization(
+            None, _NO_MOVE_ATTR_DESTINATION_DECLINED_NOT_LEDD_LEGS
+        )
+    split: list[tuple[str, int, str, int]] = []
+    for source, destination in legs:
+        source_parts = _no_split_ledd_leg(source)
+        destination_parts = _no_split_ledd_leg(destination)
+        if source_parts is None or destination_parts is None:
+            return _NOMoveAttrDestinationSectionNormalization(
+                None, _NO_MOVE_ATTR_DESTINATION_DECLINED_NOT_LEDD_LEGS
+            )
+        split.append((source_parts[0], source_parts[1], destination_parts[0], destination_parts[1]))
+    source_prefixes = {prefix for prefix, _n, _dp, _dn in split}
+    destination_prefixes = {prefix for _sp, _n, prefix, _dn in split}
+    if len(source_prefixes) != 1 or len(destination_prefixes) != 1:
+        return _NOMoveAttrDestinationSectionNormalization(
+            None, _NO_MOVE_ATTR_DESTINATION_DECLINED_NOT_LEDD_LEGS
+        )
+    source_prefix = next(iter(source_prefixes))
+    destination_prefix = next(iter(destination_prefixes))
+    if source_prefix == destination_prefix:
+        return _NOMoveAttrDestinationSectionNormalization(
+            None, _NO_MOVE_ATTR_DESTINATION_DECLINED_SECTION_AGREES
+        )
+    if (
+        normalize_lovdata_refid(source_prefix) != base_id
+        or normalize_lovdata_refid(destination_prefix) != base_id
+    ):
+        return _NOMoveAttrDestinationSectionNormalization(
+            None, _NO_MOVE_ATTR_DESTINATION_DECLINED_CROSS_BASE
+        )
+    source_address = lovdata_path_to_address(source_prefix)
+    destination_address = lovdata_path_to_address(destination_prefix)
+    if (
+        source_address is None
+        or destination_address is None
+        or source_address.leaf_kind() != "section"
+        or destination_address.leaf_kind() != "section"
+    ):
+        return _NOMoveAttrDestinationSectionNormalization(
+            None, _NO_MOVE_ATTR_DESTINATION_DECLINED_PREFIX_NOT_SECTION
+        )
+    source_section = source_address.path[-1][1]
+    destination_section = destination_address.path[-1][1]
+    prose = _no_ledd_set_relabel_pairs(announcement)
+    if prose is None or not prose[0]:
+        return _NOMoveAttrDestinationSectionNormalization(
+            None,
+            _NO_MOVE_ATTR_DESTINATION_DECLINED_NO_PROSE,
+            source_section=source_section,
+            destination_section=destination_section,
+        )
+    prose_section, prose_pairs, pattern = prose
+    if prose_section != _normalize_no_section_label(source_section):
+        return _NOMoveAttrDestinationSectionNormalization(
+            None,
+            _NO_MOVE_ATTR_DESTINATION_DECLINED_PROSE_SECTION,
+            pattern=pattern,
+            source_section=source_section,
+            destination_section=destination_section,
+        )
+    if sorted(prose_pairs) != sorted((n, dn) for _sp, n, _dp, dn in split):
+        return _NOMoveAttrDestinationSectionNormalization(
+            None,
+            _NO_MOVE_ATTR_DESTINATION_DECLINED_PROSE_MAP,
+            pattern=pattern,
+            source_section=source_section,
+            destination_section=destination_section,
+        )
+    # Limb 7. Every ``§`` the announcement spells must be the one section this
+    # sentence is about; one stray cross-reference and the sentence stops being
+    # unambiguous evidence about where these ledd go.
+    named: set[str] = set()
+    # Reused verbatim rather than as a second, drifting copy of the same reader.
+    # lawvm-regex: owning_parser this IS the shipped section-address reader for a node's own text
+    for match in _NO_ANTECEDENT_SECTION_RE.finditer(announcement):
+        named.add(_normalize_no_section_label(match.group(1)))
+    if named != {prose_section}:
+        return _NOMoveAttrDestinationSectionNormalization(
+            None,
+            _NO_MOVE_ATTR_DESTINATION_DECLINED_OTHER_SECTION,
+            pattern=pattern,
+            source_section=source_section,
+            destination_section=destination_section,
+        )
+    return _NOMoveAttrDestinationSectionNormalization(
+        tuple(
+            (f"{prefix}{_NO_LEDD_PATH_STEP}{n}", f"{prefix}{_NO_LEDD_PATH_STEP}{dn}")
+            for prefix, n, _dp, dn in split
+        ),
+        _NO_MOVE_ATTR_DESTINATION_SECTION_RULE,
+        pattern=pattern,
+        source_section=source_section,
+        destination_section=destination_section,
     )
 
 
@@ -6272,6 +6513,54 @@ def iter_no_document_change_ops(
                     ),
                 )
                 renumber_specs = list(reversed(completed_move_legs))
+            # W-70b: the destination may name the WRONG SECTION. Runs LAST of the
+            # three ``data-move-part`` productions — after W-70's separator repair
+            # and after W-56's completion — so both see exactly the legs they saw
+            # before this item, and the section repair applies to whatever leg set
+            # they settled on. It is order-insensitive anyway (each destination is
+            # rebuilt from its own declared ordinal), so ``renumber_specs`` stays
+            # in the reversed convention it arrives in.
+            if renumber_specs:
+                destination_normalization = _no_normalize_move_attr_destination_section(
+                    renumber_specs, announcement=lead_text, base_id=base_id
+                )
+                if destination_normalization.legs is not None:
+                    _append_no_parse_adjudication(
+                        adjudications_out,
+                        kind=NO_PARSE_STRUCTURED_MOVE_ATTR_DESTINATION_SECTION_NORMALIZED,
+                        message=(
+                            "Norway parser rewrote a structured move attribute's destination "
+                            "section to the change block's own section, on the block's own "
+                            "announcement prose."
+                        ),
+                        source_id=source_id,
+                        detail=diagnostic_detail(
+                            rule_id=NO_PARSE_STRUCTURED_MOVE_ATTR_DESTINATION_SECTION_NORMALIZED,
+                            phase="parse",
+                            family="source_pathology",
+                            blocking=False,
+                            quirks_disposition=QuirksDisposition.APPLY,
+                            reason=destination_normalization.reason,
+                            base_id=base_id,
+                            source_doc=source_doc,
+                            attr_name="data-move-part",
+                            prose_pattern=destination_normalization.pattern,
+                            declared_destination_section=(
+                                destination_normalization.destination_section
+                            ),
+                            normalized_destination_section=destination_normalization.source_section,
+                            declared_legs=tuple(
+                                f"{src};;{dst}" for src, dst in reversed(renumber_specs)
+                            ),
+                            normalized_legs=tuple(
+                                f"{src};;{dst}"
+                                for src, dst in reversed(destination_normalization.legs)
+                            ),
+                            announcement=lead_text,
+                            raw_text=raw_text,
+                        ),
+                    )
+                    renumber_specs = list(destination_normalization.legs)
             specs.extend(_split_change_attr(change_el.get("data-change-part", ""), "replace"))
             specs.extend(_split_change_attr(change_el.get("data-add-new-part", ""), "insert"))
             specs.extend(_split_change_attr(change_el.get("data-remove-part", ""), "repeal"))
