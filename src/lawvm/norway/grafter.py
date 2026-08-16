@@ -7332,8 +7332,28 @@ NO_REPLAY_SUBSTITUTION_TERM_NOT_UNIQUELY_PRESENT = (
 # tilhørende forskrifter:" (no/lovtid/2025-04-25-12) is ordinary payload prose
 # containing the same words mid-sentence, and an unanchored test refuses two
 # genuine replacements on it.
+#
+# W-78: the NOUN after ``følgende`` is decoration, and enumerating it was the
+# defect. W-69a's list (``bestemmelser|bestemmelse|paragrafer|paragraf|
+# lovbestemmelser|lover``) does not contain ``steder``, so
+# "Følgende steder endres ordene «X» til «Y»: <address list>" — the same
+# construct, seven nodes over ``no/lovtid/2026-06-19-45`` and
+# ``no/lovtid/2026-06-12-31`` — fell past this predicate into the structured
+# payload lane, which read the flat ``data-change-part`` list as REPLACE targets
+# and the node's own text as their payload: 116 REPLACE ops writing the
+# announcement sentence itself into in-force law. The opener is therefore
+# generalised to ``følgende`` sentence-initially (the leading ``i`` optional,
+# since "Følgende steder …" has none), and the weight is carried instead by the
+# conjuncts that are actually load-bearing: a quoted FROM term and a
+# substitution verb, both BEFORE the node's payload-introducing colon (so the
+# instruction is complete without the list), plus the caller's operative-payload
+# veto. Measured over every ``data-change-part`` node in the corpus (2,704):
+# governing nodes 17 → 24, the seven added being exactly the defect; the five
+# nodes that carry a quoted term and a substitution verb in their head AND
+# declare their own payload ("§ 55 a første ledd nr. 4 skal lyde: …") stay
+# declined on the operative conjunct.
 _NO_SUBSTITUTION_ANNOUNCEMENT_OPENER_RE = compile_classifier_regex(
-    r"^i\s+følgende\s+(?:bestemmelser|bestemmelse|paragrafer|paragraf|lovbestemmelser|lover)\b",
+    r"^(?:i\s+følgende|følgende)\b",
     re.IGNORECASE,
     classifier_id="norway.grafter.substitution_announcement_opener",
 )
@@ -7370,8 +7390,14 @@ _NO_SUBSTITUTION_ANNOUNCEMENT_OPERATIVE_RE = compile_classifier_regex(
 # that node's, i.e. later-announcement addresses measured against the first
 # announcement's pair. Such a node refuses WHOLE; partial acceptance is
 # forbidden. (The W-69 design says 9 of 13; re-derived at this base it is 8.)
+#
+# W-78 generalises it in lockstep with the anchored opener above — a counter
+# that cannot see the new dialect would mis-type every "Følgende steder …" node
+# as S1 "more than one announcement". Verdicts are unchanged on every governing
+# text in the corpus: each of the 23 single-announcement texts counts exactly 1,
+# and ``2026-06-19-48`` still counts more than 1.
 _NO_SUBSTITUTION_ANNOUNCEMENT_OPENER_SCAN_RE = compile_classifier_regex(
-    r"\bi\s+følgende\s+(?:bestemmelser|bestemmelse|paragrafer|paragraf|lovbestemmelser|lover)\b",
+    r"\bfølgende\b",
     re.IGNORECASE,
     classifier_id="norway.grafter.substitution_announcement_opener_scan",
 )
@@ -7403,16 +7429,30 @@ _NO_SUBSTITUTION_HENHOLDSVIS_RE = compile_classifier_regex(
 
 
 def _no_text_announces_word_substitution(text: str) -> bool:
-    """Is this text a multi-provision word-substitution announcement?"""
+    """Is this text a multi-provision word-substitution announcement?
+
+    W-78: the quoted term and the substitution verb must both stand in the HEAD
+    — everything before the first colon, which is exactly the span
+    :func:`_extract_no_substitution_pairs` reads. That is what makes the colon a
+    LIST introducer rather than a payload introducer: the instruction is already
+    complete without whatever follows it. Requiring it also keeps the loosened
+    opener honest — "Følgende endringer gjøres: … «X» endres til «Y» …" declares
+    its substitution inside a payload, not in an announcement head, and this
+    conjunct declines it where the old closed noun list did the work by accident.
+    Every one of the 24 governing nodes in the corpus satisfies it.
+    """
     text = _normalize_space(text)
+    if ":" not in text:
+        return False
+    head = text.split(":", 1)[0]
     # lawvm-regex: owning_parser this IS the substitution-announcement parser
-    if _NO_SUBSTITUTION_ANNOUNCEMENT_OPENER_RE.match(text) is None:
+    if _NO_SUBSTITUTION_ANNOUNCEMENT_OPENER_RE.match(head) is None:
         return False
     # lawvm-regex: owning_parser this IS the substitution-announcement parser
-    if _NO_SUBSTITUTION_ANNOUNCEMENT_TERM_RE.search(text) is None:
+    if _NO_SUBSTITUTION_ANNOUNCEMENT_TERM_RE.search(head) is None:
         return False
     # lawvm-regex: owning_parser this IS the substitution-announcement parser
-    return _NO_SUBSTITUTION_ANNOUNCEMENT_VERB_RE.search(text) is not None
+    return _NO_SUBSTITUTION_ANNOUNCEMENT_VERB_RE.search(head) is not None
 
 
 def _no_substitution_announcement_governing(

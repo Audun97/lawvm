@@ -2211,7 +2211,31 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # 8,078 -> 7,853, of which 73 take the new item-depth ledd receipt, 7 the new
     # address one and 1 the new payload-extent one; 144 + 81 = 225). Every op
     # targets ``(section, subsection, item)`` and carries an ``item`` payload.
-    assert sum(entry.n_ops for entry in index.entries) == 29051
+    #
+    # 29,051 -> 29,225 at W-78: -116 REPLACE, +290 addressed ``TEXT_PATCH``, and
+    # this one is a CORRECTNESS fix, not coverage — read the two halves
+    # separately. The 116 WITHDRAWN are the defective ops W-77's collateral
+    # finding named: seven change nodes over ``no/lovtid/2026-06-19-45`` (87) and
+    # ``no/lovtid/2026-06-12-31`` (29) announce a word substitution as "Følgende
+    # steder endres ordene «X» til «Y»: <address list>", W-69a's opener
+    # enumerated the noun after ``følgende`` and did not contain ``steder``, and
+    # the structured payload lane therefore read the ``data-change-part`` list as
+    # REPLACE targets and the announcement sentence itself as their payload.
+    # Every one was a wrong-text write. The frozen defective set (base act,
+    # address, payload text) predicted exactly 116 before any production code was
+    # written and the content-keyed op diff withdraws exactly those 116, 0 strays
+    # and 0 lost. The 290 GAINED are the same 116 addresses re-lowered through
+    # W-69a's shipped production — one op per (address x announced pair), which
+    # is 3 pairs on the 85 lowerable addresses of the ``namsmann`` announcement,
+    # 2 on one ``biometrisk`` announcement and 1 elsewhere — every one carrying
+    # ``NO_SUBSTITUTION_PROVENANCE_TAG``, i.e. every one gated by the apply-plane
+    # conjunct that makes it prove its announced FROM term uniquely present as a
+    # whole word before it writes. The parse-plane receipt census reconciles
+    # independently: total parse adjudications 10,339 -> 10,339 with exactly one
+    # pair moving, ``no_parse_unresolved_structured_target_skipped`` 112 -> 111
+    # and ``no_parse_substitution_address_not_lowerable`` 0 -> 1 (the one address
+    # of the 117 that does not lower, now refusing under its own typed receipt).
+    assert sum(entry.n_ops for entry in index.entries) == 29225
 
 
 def test_no_amendment_index_staleness_report_detects_archive_change(tmp_path) -> None:

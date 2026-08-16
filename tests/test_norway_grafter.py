@@ -9089,13 +9089,141 @@ def test_no_w75_announcement_must_open_the_sentence() -> None:
     # All three conjuncts are load-bearing.
     assert not _no_text_announces_word_substitution("I følgende bestemmelser skal § 13 endres:")
     assert not _no_text_announces_word_substitution("I følgende bestemmelser skal «X» lyde slik:")
-    assert not _no_text_announces_word_substitution("I følgende registre skal «X» endres til «Y»:")
     assert _no_text_announces_word_substitution(
         "I følgende bestemmelser skal ordet «tilsettingsmyndigheten» endres til «ansettelsesmyndigheten»:"
     )
     assert _no_text_announces_word_substitution(
         "I følgende bestemmelser erstattes uttrykket «politi- og lensmannsetaten» av «politiet»: §§ 1, 18, 21 og 24 b."
     )
+
+
+def test_no_w78_announcement_opener_is_not_a_closed_noun_list() -> None:
+    """W-78: the noun after ``følgende`` is decoration, and enumerating it was the defect.
+
+    W-69a's opener listed ``bestemmelser|bestemmelse|paragrafer|paragraf|
+    lovbestemmelser|lover``. ``no/lovtid/2026-06-19-45`` and
+    ``no/lovtid/2026-06-12-31`` write the SAME construct as "Følgende steder
+    endres …", which the list did not contain — so seven nodes fell past this
+    predicate into the structured payload lane and minted 116 REPLACE ops whose
+    payload was the announcement sentence itself.
+
+    The opener is therefore ``følgende`` sentence-initially (the leading ``i``
+    optional), and the load-bearing conjuncts are that a quoted FROM term and a
+    substitution verb both stand BEFORE the payload-introducing colon: the
+    instruction is complete without the list, which is exactly what makes the
+    colon a LIST introducer.
+    """
+    from lawvm.norway.grafter import _no_text_announces_word_substitution
+
+    # The W-78 dialect, in all four surfaces the two instruments print.
+    assert _no_text_announces_word_substitution(
+        "Følgende steder endres ordet «ansiktsfoto» til «ansiktsbilde»: § 100 første ledd."
+    )
+    assert _no_text_announces_word_substitution(
+        "Følgende steder endres «den biometriske informasjonen» til «de biometriske "
+        "opplysningene»: § 100 a fjerde ledd."
+    )
+    assert _no_text_announces_word_substitution(
+        "Følgende steder endres ordene «namsmann» og «namsmannen» til henholdsvis ordene "
+        "«namsfogd» og «namsfogden»: §§ 2-1 og 2-2."
+    )
+    assert _no_text_announces_word_substitution("Følgende steder endres ordet «namsmenn» til ordet «namsfogder»: §§ 5-2 og 5-7.")
+
+    # The W-69a dialect is unchanged.
+    assert _no_text_announces_word_substitution(
+        "I følgende bestemmelser skal ordet «tilsettingsmyndigheten» endres til «ansettelsesmyndigheten»:"
+    )
+
+    # A text with no colon cannot be an announcement: there is no list to govern.
+    assert not _no_text_announces_word_substitution("Følgende steder endres ordet «X» til «Y»")
+    # The instruction must be COMPLETE before the colon. A node whose quoted term
+    # and verb only appear AFTER it is declaring a payload, not an address list.
+    assert not _no_text_announces_word_substitution(
+        "Følgende endringer gjøres: ordet «X» endres til «Y» i § 13 første ledd."
+    )
+    # Still sentence-initial: the W-75 payload-prose false positive stays refused.
+    assert not _no_text_announces_word_substitution(
+        "Plikten til å gi opplysninger etter denne lov omfatter opplysninger som skal gis "
+        "med hjemmel i følgende bestemmelser med tilhørende forskrifter: skatteforvaltningsloven "
+        "«§ 7-2» endres til «§ 7-3»"
+    )
+
+
+def test_no_w78_folgende_steder_address_list_lowers_as_addressed_substitution() -> None:
+    """W-78: the defect, end to end — announcement text must never become payload.
+
+    Before the fix this node minted one REPLACE per ``data-change-part`` address
+    whose payload was the announcement head ("Følgende steder endres ordet
+    «ansiktsfoto» til «ansiktsbilde»:"), writing the amendment's own prose into
+    in-force law at every listed provision. It must now reach the W-69a
+    production and mint addressed TEXT_PATCHes instead.
+    """
+    adjudications: list[CompileAdjudication] = []
+    grouped = iter_no_document_change_ops(
+        _w75_substitution_change_html(
+            announcement_node='<article class="defaultP">II</article>',
+            change_node=(
+                '<article class="change" data-change-part="lov/2015-06-19-70/§13/ledd/1 '
+                'lov/2015-06-19-70/§14/ledd/2">'
+                '<article class="defaultP">Følgende steder endres ordet «ansiktsfoto» '
+                "til «ansiktsbilde»: § 13 første ledd og § 14 andre ledd.</article>"
+                "</article>"
+            ),
+        ),
+        "no/lovtid/2026-06-12-31",
+        adjudications_out=adjudications,
+    )
+
+    assert not [a for a in adjudications if a.kind.startswith("no_parse_substitution")]
+    ops = _no_substitution_ops(grouped)
+    assert len(ops) == 2
+    assert {op.action for op in ops} == {StructuralAction.TEXT_PATCH}
+    assert {op.text_patch.selector.match_text for op in ops if op.text_patch} == {"ansiktsfoto"}
+    assert {op.text_patch.replacement for op in ops if op.text_patch} == {"ansiktsbilde"}
+    # …and nothing carries the announcement as a payload, in any op on the block.
+    assert not [
+        op
+        for _base, block in grouped
+        for op in block
+        if op.payload is not None and "Følgende steder" in (op.payload.text or "")
+    ]
+
+
+def test_no_w78_a_real_replacement_after_a_folgende_steder_announcement_still_lowers() -> None:
+    """W-78: the operative conjunct is what keeps the widening off genuine payloads.
+
+    Both instruments interleave the new-dialect announcements with ordinary
+    ``§ X skal lyde: <payload>`` change nodes. Corpus-wide there are five
+    ``data-change-part`` nodes that carry a quoted term AND a substitution verb
+    in their head and yet declare their own payload; every one must keep lowering
+    as a REPLACE. Under-application is safe here; withdrawing a real replacement
+    is not.
+    """
+    adjudications: list[CompileAdjudication] = []
+    grouped = dict(
+        iter_no_document_change_ops(
+            _w75_substitution_change_html(
+                announcement_node=(
+                    '<article class="defaultP">Følgende steder endres ordet «namsmann» '
+                    "til «namsfogd»: §§ 176, 198.</article>"
+                ),
+                change_node=(
+                    '<article class="change" data-change-part="lov/2015-06-19-70/§13/ledd/1">'
+                    '<article class="defaultP">§ 13 første ledd skal lyde: ordet «namsmann» '
+                    "endres til «namsfogd» i vedtaket.</article>"
+                    "</article>"
+                ),
+            ),
+            "no/lovtid/2026-06-19-45",
+            adjudications_out=adjudications,
+        )
+    )
+
+    assert not [a for a in adjudications if a.kind.startswith("no_parse_substitution")]
+    ops = grouped["no/lov/2015-06-19-70"]
+    assert [(op.action, op.target.path) for op in ops] == [
+        (StructuralAction.REPLACE, (("section", "13"), ("subsection", "1"))),
+    ]
 
 
 @pytest.mark.skipif(

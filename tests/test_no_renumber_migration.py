@@ -1620,7 +1620,30 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # force at base. The corpus-wide ``remove_at`` probe agrees: 240 -> 240
     # content-removing writes, 2,107 -> 2,107 ``remove_at`` calls, 307 -> 307
     # sentence removals.
-    "hazard_destructive_writes": 3885,
+    #
+    # 3,885 -> 3,870 at W-78 (-15), and this is the FIRST SHRINKAGE this census
+    # has recorded — read the polarity note above: shrinkage means an item
+    # repaired a base, and this is which. ONE law's row moves,
+    # ``no/lov/2008-05-15-35`` [269, 10] -> [254, 10], and the whole delta is the
+    # substitution-announcement mis-lowering W-77's collateral finding named.
+    # ``no/lovtid/2026-06-12-31`` writes "Følgende steder endres ordene «X» til
+    # «Y»: <address list>"; W-69a's announcement opener enumerated the noun after
+    # ``følgende`` and did not contain ``steder``, so the node fell into the
+    # structured payload lane, which read its ``data-change-part`` list as
+    # REPLACE targets and the announcement sentence itself as their payload.
+    # 23 of those defective REPLACEs LANDED on utlendingsloven, a
+    # `blocked_contingent` law no scan candidate covers — this census and the
+    # corpus statute diff were the only pins that could see them at all. The 23
+    # withdraw and 8 correct addressed TEXT_PATCHes take their place (each having
+    # proved its announced FROM term uniquely present as a whole word before
+    # writing), which is 23 - 8 = 15.
+    # The content-removing column does NOT move, on this law (10) or corpus-wide
+    # (198 over 77 laws): the withdrawn writes were REPLACEs, which record
+    # ``replaced_paths`` and never ``removed_paths``. The corpus-wide
+    # ``remove_at`` probe agrees: 240 -> 240 content-removing writes, 2,107 ->
+    # 2,107 ``remove_at`` calls, 307 -> 307 sentence removals, and the removed-node
+    # multiset on this law is identical at 134 before and after.
+    "hazard_destructive_writes": 3870,
     # 167 -> 168, and the +1 is NOT a relabel op. ``no/lov/2016-05-27-14`` gains
     # ``no/lovtid/2021-12-22-158:1``, a REPEAL of § 7-6 annet ledd that could not
     # bind before because that law's ledd sequence was one slot out of step; with
@@ -1690,7 +1713,12 @@ _NO_INCOMPLETE_BASE_HAZARD_LAWS_DIGEST = (
     # removing column is byte-identical. The five writes are not this
     # production's — they are downstream REPLACEs that stopped refusing once the
     # item they address existed; see the count note above.
-    "927f06f1f87dd267ea30916232bd58a7bcd2ae5dd009b790757c48d8def0fad1"
+    # W-78: MEMBERSHIP UNCHANGED (164 laws, same set). ONE row moves, and only in
+    # the destructive column: ``no/lov/2008-05-15-35`` [269, 10] -> [254, 10] —
+    # the first SHRINKAGE in this series, and the credit belongs to withdrawing
+    # 23 REPLACEs that were writing an amendment's own announcement sentence into
+    # in-force law. See the count note above.
+    "88e3f7b881c77eaeb5ea335984f6de03ca0411e9c0cb3e242410c4ad326920aa"
 )
 
 _REGENERATE = (
