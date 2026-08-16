@@ -204,6 +204,22 @@ tredje ledd, `2016-06-17-29` § 5 første ledd, and the witness
 `untouched_drift`, closing W-66b's loop). 0 opened. Totals
 `total=1464 (ceiling=1011, unexplained=453)`; ceiling untouched.
 
+W-77 note (candidates hold at 75, scoreboard holds at 29/46/0, but
+the pinned MEMBERSHIP swaps two laws): the item-depth payload
+production closes **2 rows** — `no/lov/2004-03-26-17` § 2/1/g
+(OPS_MISSING, the row the coincidence join projected) goes 1 → 0
+and the law moves to `consistent`, and `no/lov/2012-01-27-9` goes
+5 → 4 (OPS_MISSING) — and **opens 1**, adjudicated deliberate:
+klimaloven `no/lov/2017-06-16-60` § 7 andre ledd bokstav e,
+CONSOLIDATED_MISSING, moves the law `consistent → replay_defect`.
+`no/lovtid/2021-06-18-129` commands the bokstav-e insertion at § 6
+andre ledd with "trer i kraft straks", the write lands verbatim and
+the 2025 §§ 4–7 renumber carries it to § 7 — but Lovdata's archived
+consolidation carries only a–d. An honest report of a gap between
+the instrument and the consolidation, not a defect in the lowering.
+Totals `total=1463 (ceiling=1011, unexplained=452)`; ceiling
+untouched.
+
 Batch 03 increased coverage rather than changing an existing verdict: all 20
 old rows stayed byte-identical, and 38 laws that had previously been excluded
 for unresolved commencement entered the scan. Their first durable baseline is:
@@ -5552,7 +5568,9 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    14).
 
 83. **W-77 (the item-depth PAYLOAD production — `§ X <ledd> ny
-   bokstav|nr Y skal lyde:`):** OPEN. Named at W-76's landing as
+   bokstav|nr Y skal lyde:`):** DONE (`9c81b2c90`, 2026-08-16;
+   artifacts `.tmp/w77/`; landing narrative appended after the
+   charter below). Named at W-76's landing as
    the highest-value follow-up: **146 refusals / 146 leads / 113
    instruments / 64 base acts** at base `2e667312f`. The shipped
    item-target reader requires `ledd bokstav` adjacency and the
@@ -5573,6 +5591,120 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    to refuse. Content-ADDING at scale, so the statute-diff
    discipline (movers all expected, byte-identical count) is the
    load-bearing check. Medium.
+   **LANDED (`9c81b2c90`), census first as charted, whole family,
+   no stop condition fired — and the census DOUBLED the charter:
+   225 refusals / 225 leads / 165 instruments / 96 base acts** (the
+   charter's 146 was the spelled-ledd cut of the same family; 148
+   of the 225 spell their ledd, 217 their section; 125 bokstav /
+   100 nr.; 16 multi-label). The whole family shipped — the
+   widening is the same grammar with W-76's antecedent inheritance,
+   not new machinery — ratified at sign-off.
+   **What was built.** `_no_item_insert_payload_target` — a sibling
+   production, NOT a widening of the shipped item-target reader
+   (that reader is a pure `lead → specs` function shared by four
+   call sites, DOM-blind, so it can inherit nothing) — anchored
+   END TO END on the announcing node's OWN text
+   (`_node_text_without_structural_children`): 178 of 225 carry
+   the payload as a `<ul>` INSIDE the announcing node, so the
+   walk's `lead` is announcement+payload concatenated and an
+   unbounded-tail grammar could not tell a payload from a run-on
+   (the 10 run-on refusals are exactly what that would have
+   swallowed) — the W-75 discipline stated positively. Payload
+   extent PROVED on `_extract_items` (top-level items; the
+   flattened candidate map cannot tell nesting from mis-sizing —
+   measured, 3 correct ops' difference): list labels must equal
+   announced labels one-for-one in order, all-or-nothing;
+   multi-label announcements handled provably (13 lowerings won);
+   text carriers admitted only single-label/single-node
+   `article.legalP` (`numberedLegalP` declines — its leading
+   numerator is a second address claim; 1 refusal, sized).
+   Address is W-76's arithmetic (ledd REQUIRED on the 1,529-node
+   probe; inheritance kept though nearly inert — it supplies 1
+   ledd and 1 section). Three new parse kinds
+   (`no_parse_item_insert_payload_{address_unresolved(7),
+   ledd_unresolved(73), extent_unprovable(1)}`), one new
+   apply-plane refusal in the skip set:
+   `no_replay_item_insert_payload_occupied_target_refused`, gated
+   on new tag `no_item_insert_payload` BEFORE the shipped θ
+   `(INSERT, target_occupied)` recovery — an announcement saying
+   NY that finds the label standing means the vacate did not
+   happen, so the occupant's in-force text must not be replaced;
+   **fires zero times corpus-wide**, carried on the cycle-guard
+   rule; the shipped θ census is untouched (133 → 133 over 55
+   laws, element-for-element). The relabel+payload pair composes
+   in the kernel's structural-vacate stage (REPEAL → RENUMBER →
+   everything else within `(effective, enacted, source_id)`),
+   pinned by test.
+   **Measured.** Both frozen sets matched exactly: withdrawal
+   225/225, added-content 160/160 (0 strays, 0 lost). Refusals
+   **8,078 → 7,853 (−225)**; ops **28,891 → 29,051 (+160
+   INSERTs)**. Statute text: 15 laws move, **22 nodes added, 0
+   destroyed, 0 changed in place**, every addition individually
+   DOM-adjudicated (16 verbatim W-77 payloads, 5 later-amendment
+   REPLACEs landing in now-existing slots, 1 renumber carry).
+   Content-removing **240/198/77 unchanged**; firings 10 → 10;
+   hazard destructive 3,880 → 3,885 (five downstream REPLACEs now
+   resolving, attributed, membership unchanged). Index 2,572 →
+   2,578; grants 541 → 542. **Scoreboard: unexplained 453 → 452**
+   — the projected row on `2004-03-26-17` closes (law →
+   `consistent`), `2012-01-27-9` 5 → 4, and ONE row opens,
+   adjudicated deliberate: klimaloven `2017-06-16-60` § 7/2/e
+   CONSOLIDATED_MISSING (see the W-77 scan note) — the instrument
+   commands it, the consolidation never carried it, the law moves
+   `consistent → replay_defect`. Candidates 75, scoreboard
+   29/46/0, ceiling 1,011 untouched, totals 1,463.
+   **Gap cases from the charter.** (a) `2005-06-17-90` § 6-2:
+   CLOSED — første ledd now `a–f`, byte-identical to Lovdata's
+   consolidation, bokstav c verbatim from `no/lovtid/2007-01-26-3`,
+   W-76's relabel vacating first in the kernel's ordering. (b)
+   straffeloven `2005-05-20-28` § 37: **honestly a DIFFERENT
+   family, not closed** — its payload half is a two-label REPLACE
+   the shipped multi-item reader already lowers; what is missing
+   is W-76's spelled-ledd relabel limb plus a `(REPLACE,
+   target_absent)` decision at item depth (recorded as sized
+   follow-up, not opened).
+   **The collateral finding (item 84, W-78, opened).** W-77 makes
+   a PRE-EXISTING mis-lowering reachable at one address:
+   `no/lovtid/2026-06-12-31` carries a W-69a-style substitution
+   announcement whose ADDRESS LIST is mis-read as a `skal lyde`
+   payload target, minting REPLACE ops whose payload is the
+   announcement sentence itself. **116 such defective REPLACE ops
+   exist at base over 2 instruments (`2026-06-19-45`: 87,
+   `2026-06-12-31`: 29); 27 already LAND at base over 2
+   non-candidate laws** (28 post — W-77's marginal +1 overwrites
+   text W-77 itself created, not in-force law; ratified at
+   sign-off as JC-8: a correct op is not withheld to keep a latent
+   bug latent). Sized-not-opened follow-ups: mixed
+   existing+new label lists (55, a widening of the shipped
+   multi-item reader), the spelled-ledd relabel limb (26, the
+   straffeloven § 37 prerequisite), `numberedLegalP` carriers (5),
+   nested item addresses (20, against 52 attested nodes).
+
+84. **W-78 (the substitution-announcement address list mis-lowered
+   as a payload target):** OPEN. The highest-value finding W-77
+   surfaced, and a CORRECTNESS defect, not coverage: a W-69a-style
+   substitution announcement ("Følgende steder endres ordene «X»
+   til «Y»: …") has its trailing ADDRESS LIST mis-read by an
+   existing production as a `skal lyde` payload, minting REPLACE
+   ops that would write the announcement sentence itself into the
+   statute at the listed addresses. Sized at W-77's landing: **116
+   defective REPLACE ops over 2 instruments (`no/lovtid/
+   2026-06-19-45`: 87, `no/lovtid/2026-06-12-31`: 29); 27 land at
+   base over 2 laws** (28 after W-77 — the marginal one at
+   `no/lov/2008-05-15-35` § 17/1/n replaces W-77's own created
+   text). Neither law is a scan candidate and no base-present text
+   is destroyed, which is why this sat invisible. Scope sketch:
+   find the mis-firing production (the payload-target reader that
+   accepts an announcement-with-address-list node), census the
+   defective-op population frozen by content, fix the
+   discriminator per the W-75 rule (the node must declare its own
+   operative payload — an address list is not one), and show the
+   116 ops withdraw element-for-element with the 27-28 landed
+   writes reverting to refusals or correct substitution ops.
+   Blast discipline in full; the two instruments are 2026 laws so
+   commencement handling needs care. Small-to-medium, high value:
+   every op this closes is a wrong-text write waiting for its
+   target to exist.
 
 ## 5. Demo / Inspection Tooling
 
@@ -5590,6 +5722,32 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-16 (W-77 — the item-depth payload production;
+  `9c81b2c90`)** — **The programme's first content-ADDING
+  production at scale, and the first scoreboard movement since
+  W-66c: unexplained 453 → 452** (two rows close — the projected
+  `2004-03-26-17` § 2/1/g, whose law returns to `consistent`, and
+  `2012-01-27-9` 5 → 4 — and one opens deliberately: klimaloven
+  `2017-06-16-60` § 7/2/e CONSOLIDATED_MISSING, an honest
+  instrument-vs-consolidation gap). Refusals **8,078 → 7,853
+  (−225)**, the census having DOUBLED the charter (225/96, the
+  charter's 146 was the spelled-ledd cut); ops +160 INSERTs; both
+  frozen sets (withdrawal AND added-content — the discipline's new
+  second half) matched exactly. Grammar anchored end-to-end on the
+  announcing node's OWN text (the payload sits inside it as a
+  `<ul>`); extent proved label-for-label on top-level items,
+  all-or-nothing, multi-label handled provably; occupied targets
+  REFUSE via a tag-gated guard ahead of the shipped θ recovery
+  (fires zero times; θ census 133 → 133 untouched); the
+  relabel+payload pair composes in the kernel's vacate ordering.
+  **22 statute nodes added, 0 destroyed**, each DOM-adjudicated;
+  `2005-06-17-90` § 6-2 is byte-identical to Lovdata's
+  consolidation (W-76's gap closed); straffeloven § 37 honestly
+  reclassified as a different family. **Item 84 (W-78) opened**:
+  a pre-existing mis-lowering W-77 made reachable — substitution
+  announcements' address lists mis-read as payloads, 116 defective
+  REPLACE ops, 27 already landing at base on 2 non-candidate laws.
 
 - **2026-08-16 (W-76 — the sibling-set relabel at item depth
   (`bokstav`/`nr.`), the prefix grammar; `82a0c2adc`)** —
