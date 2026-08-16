@@ -316,6 +316,34 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "which at this depth would also mean a first-match DFS picking whichever "
         "ledd's bokstav carried the label. W-76."
     ),
+    "no_parse_item_insert_payload_address_unresolved": (
+        "A Norway item-depth NEWNESS PAYLOAD announcement (\"§ 6-2 første ledd ny "
+        "bokstav c skal lyde: …\", \"Første ledd nye nr. 15 til 19 skal lyde: …\") "
+        "spelled no section of its own and the DOM-local antecedent supplied "
+        "none, named several, or was a meta-amendment. The INSERT is refused "
+        "rather than attached to a guessed section. W-77."
+    ),
+    "no_parse_item_insert_payload_ledd_unresolved": (
+        "A Norway item-depth NEWNESS PAYLOAD announcement resolved its SECTION "
+        "but not the LEDD the new bokstav/nr. hangs below: it spelled no ledd and "
+        "the DOM-local antecedent supplied none, named several, was a "
+        "meta-amendment, or was not itself an instruction at this depth. Every "
+        "corpus item node sits under a ledd, and the resolver's find is a "
+        "first-match DFS, so a shallow (section, item) address would silently "
+        "pick whichever ledd's bokstav carried the label. Refused instead. W-77."
+    ),
+    "no_parse_item_insert_payload_extent_unprovable": (
+        "A Norway item-depth NEWNESS PAYLOAD announcement resolved its address "
+        "but the payload's EXTENT could not be proved against the announced "
+        "labels: the list carrier's top-level item labels did not equal the "
+        "announced labels one for one and in order, or there was no list and the "
+        "text carrier was not exactly one article.legalP for exactly one "
+        "announced label (a numberedLegalP opens with its own numerator, which is "
+        "a second address claim this production will not discard on trust). The "
+        "whole lead is refused rather than lowered against a guessed split — the "
+        "all-or-nothing rule, because a production that ADDS text owes the reader "
+        "a proof of WHICH text. W-77."
+    ),
     "no_parse_ledd_set_relabel_order_unprovable": (
         "A Norway sibling-set ledd relabel's source and destination sets form a "
         "CYCLE (a pure swap), so no vacate-before-occupy order exists and no "
@@ -658,6 +686,20 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "survives, the op is rejected with a typed blocking receipt, and the "
         "refusal CASCADES down the relabel's vacate-before-occupy chain so the set "
         "drops whole rather than in halves. W-66."
+    ),
+    "no_replay_item_insert_payload_occupied_target_refused": (
+        "A W-77 item-depth newness payload INSERT found its target label already "
+        "OCCUPIED when it ran. The declared θ (INSERT, target_occupied) recovery "
+        "REPLACES the occupant, which is right for the \"ny § 4 a skal lyde\" "
+        "surface §2.3 documents and wrong here: an announcement that says NY "
+        "bokstav c and finds bokstav c standing means the relabel that should "
+        "have vacated it did not fire, or the archived base edition already "
+        "carries this amendment — and in neither reading is the occupant's "
+        "in-force text the thing to delete (W-66 measured exactly that "
+        "destruction at the ledd depth). This production refuses instead: no "
+        "write lands, the occupant survives, and the op is rejected with a typed "
+        "blocking receipt. The shipped θ cell keeps its RECOVER polarity for "
+        "every op that is not this production's. W-77."
     ),
     "no_replay_relocation_order_unprovable_refused": (
         "A leg of a Norway RENUMBER relocation whose atomic group admits NO order "

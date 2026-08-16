@@ -2803,7 +2803,35 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # candidates and four realized; the fifth (``no/lov/2022-03-11-9``) takes the
     # write at an address its row is at and keeps the row, which is the honest
     # outcome rather than a defect.
-    assert report["divergence_totals"] == {"total": 1464, "ceiling": 1011, "unexplained": 453}
+    #
+    # W-76 (2026-08-16) left these totals at 1,464 / 1,011 / 453 — its 67 relabel
+    # legs land on no scan candidate at all.
+    #
+    # W-77 (2026-08-16). Total and unexplained both fall by ONE, the CEILING is
+    # untouched at 1,011 for the fourteenth landing running, and the candidate set
+    # is unmoved at 75 with the summary unmoved at 29/46/0. The -1 is a NET, and it
+    # decomposes into three rows on three candidates rather than one:
+    #   * -1  ``no/lov/2004-03-26-17``  1 -> 0 rows: the ``OPS_MISSING`` row at
+    #         § 2 første ledd bokstav g CLOSES, because the item-depth newness
+    #         payload production writes the bokstav the instrument commanded (and a
+    #         later amendment's REPLACE, which had been refusing at an absent
+    #         target, then lands on it);
+    #   * -1  ``no/lov/2012-01-27-9``   5 -> 4 rows: the ``OPS_MISSING`` row at
+    #         § 1 første ledd bokstav k closes the same way;
+    #   * +1  ``no/lov/2017-06-16-60``  0 -> 1 row: a ``CONSOLIDATED_MISSING`` row
+    #         OPENS at § 7 andre ledd bokstav e. This one is adjudicated and
+    #         deliberate: ``no/lovtid/2021-06-18-129`` commands "§ 6 annet ledd ny
+    #         bokstav e skal lyde: …" and "Loven trer i kraft straks"; the write
+    #         lands verbatim at the address the instrument names, and a later act's
+    #         §§ 4–7 renumber carries it to § 7. Lovdata's archived consolidation
+    #         of klimaloven does not carry that bokstav. The row is the honest
+    #         report of a gap between the instrument and the consolidation, not a
+    #         defect in the lowering.
+    # -1 -1 +1 = -1. The address-coincidence join, run at the base pin before any
+    # production code existed, predicted exactly ONE row-closing candidate
+    # (``no/lov/2004-03-26-17``); the second closure and the one opening were not
+    # projected, and both are recorded here rather than netted.
+    assert report["divergence_totals"] == {"total": 1463, "ceiling": 1011, "unexplained": 452}
     # 3 -> 2 at W-34: no/lov/2001-01-05-1 gains 4 bound ops from
     # no/lovtid/2015-06-19-65 item 178, so its indexed history is no longer
     # sparse. Its 83 divergences do not move; only the bucket does.
@@ -2824,9 +2852,16 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
         # W-47: three of the seven entrants land here. 15 -> 18.
         # W-53: three of the eight entrants land here. 18 -> 21.
         "replay_defect": [
+            # W-77: ``no/lov/2004-03-26-17`` LEAVES for `consistent` (its single
+            # OPS_MISSING row closes when the item-depth newness payload lands
+            # § 2 første ledd bokstav g) and ``no/lov/2017-06-16-60`` ENTERS from
+            # `consistent` (a CONSOLIDATED_MISSING row opens at § 7 andre ledd
+            # bokstav e — the write the instrument commands, which Lovdata's
+            # archived consolidation of klimaloven does not carry). One in, one
+            # out: the SUMMARY holds at 29/46/0 and only the membership moves,
+            # which is exactly what this pin exists to catch.
             "no/lov/2001-06-15-65",
             "no/lov/2001-06-15-75",
-            "no/lov/2004-03-26-17",
             "no/lov/2004-05-28-29",
             "no/lov/2004-12-17-101",
             # W-67 + W-74: ``no/lov/2010-06-04-21`` LEAVES for `untouched_drift`.
@@ -2859,6 +2894,9 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             "no/lov/2016-06-17-46",
             "no/lov/2017-05-22-29",
             "no/lov/2017-05-22-30",
+            # W-77: ARRIVES from `consistent`. See the note at the head of this
+            # bucket.
+            "no/lov/2017-06-16-60",
             "no/lov/2019-06-14-21",
             "no/lov/2019-06-21-63",
             "no/lov/2019-12-20-109",
@@ -2981,7 +3019,11 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
         # them (2004-12-17-99, klimakvoteloven) is the law W-52's receipt fix was
         # opened for. 25 -> 29.
         "consistent": [
+            # W-77: ``no/lov/2004-03-26-17`` ENTERS here from `replay_defect` and
+            # ``no/lov/2017-06-16-60`` LEAVES for it. See the note on the
+            # `replay_defect` bucket above.
             "no/lov/2001-01-05-1",
+            "no/lov/2004-03-26-17",
             "no/lov/2004-05-14-25",
             "no/lov/2004-12-17-99",
             "no/lov/2005-06-03-34",
@@ -2990,7 +3032,6 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             "no/lov/2013-06-07-31",
             "no/lov/2016-12-16-92",
             "no/lov/2017-04-28-23",
-            "no/lov/2017-06-16-60",
             "no/lov/2018-06-15-44",
             "no/lov/2019-06-21-70",
             "no/lov/2020-05-07-38",

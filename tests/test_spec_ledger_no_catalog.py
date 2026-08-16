@@ -43,6 +43,15 @@ _NON_RULE_LITERALS = frozenset(
         #                         mark, not a hypothesis a replay could falsify. The rule it
         #                         gates (no_replay_ledd_set_relabel_occupied_destination_
         #                         refused) IS cataloged.
+        "no_item_insert_payload",  # W-77 PROVENANCE TAG stamped on the item-depth newness
+        #                            payload production's INSERT ops (grafter.py
+        #                            NO_ITEM_INSERT_PAYLOAD_PROVENANCE_TAG). It is how the
+        #                            apply seam recognises its own ops and refuses an
+        #                            occupied target instead of taking the shipped
+        #                            (INSERT, target_occupied) recovery — a carrier mark,
+        #                            not a hypothesis a replay could falsify. The rule it
+        #                            gates (no_replay_item_insert_payload_occupied_target_
+        #                            refused) IS cataloged.
         "no_addressed_substitution",  # W-69a PROVENANCE TAG stamped on the addressed
         #                               word-substitution production's TEXT_PATCH ops
         #                               (grafter.py NO_SUBSTITUTION_PROVENANCE_TAG). It is

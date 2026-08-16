@@ -1536,6 +1536,26 @@ NO_LEDD_SET_RELABEL_PROVENANCE_TAG = "no_ledd_set_relabel"
 NO_REPLAY_LEDD_SET_RELABEL_OCCUPIED_DESTINATION_REFUSED = (
     "no_replay_ledd_set_relabel_occupied_destination_refused"
 )
+#: W-77, the item-depth PAYLOAD production's three parse-plane refusals. The
+#: address and ledd members are kinds of their own rather than reuses of W-66's
+#: and W-76's: this production resolves the SAME two helpers but it is a
+#: different instruction failing (a payload that cannot be placed, not a relabel
+#: that cannot be spelled), and a census must be able to tell the two apart
+#: without reading a detail key. The extent member has no sibling at any depth —
+#: it is what a production that ADDS text owes the reader when it cannot prove
+#: which text. All three are parse-plane and therefore OUT of
+#: ``_NO_SKIP_ADJUDICATION_KINDS`` (the conserved-partition rule); the apply-plane
+#: refusal below is IN it.
+NO_PARSE_ITEM_INSERT_PAYLOAD_ADDRESS_UNRESOLVED = "no_parse_item_insert_payload_address_unresolved"
+NO_PARSE_ITEM_INSERT_PAYLOAD_LEDD_UNRESOLVED = "no_parse_item_insert_payload_ledd_unresolved"
+NO_PARSE_ITEM_INSERT_PAYLOAD_EXTENT_UNPROVABLE = "no_parse_item_insert_payload_extent_unprovable"
+#: Stamped on every op W-77 mints, and read by the apply seam. It is the ONLY
+#: thing that tells the (INSERT, target_occupied) branch that this op must refuse
+#: rather than replace the occupant — see the block comment there.
+NO_ITEM_INSERT_PAYLOAD_PROVENANCE_TAG = "no_item_insert_payload"
+NO_REPLAY_ITEM_INSERT_PAYLOAD_OCCUPIED_TARGET_REFUSED = (
+    "no_replay_item_insert_payload_occupied_target_refused"
+)
 
 # ── W-69c: the same atomic ordering, generalized to (parent_path, label) ──────
 #
@@ -2197,6 +2217,280 @@ def _no_item_set_relabel_pairs(lead: str) -> Optional[tuple[str, str, list[tuple
             list(zip(sources, destinations, strict=True)),
         )
     return None
+
+
+# ── W-77: the item-depth PAYLOAD production ───────────────────────────────────
+#
+# WHAT THIS CLOSES. A relabel at this depth is HALF of a two-part instruction.
+# W-76 lowers the half that makes room ("Nåværende bokstav c blir ny bokstav d.");
+# the other half is the announcement that fills the vacated label
+# ("§ 6-2 første ledd ny bokstav c skal lyde: …") and nothing lowers it today.
+# The shipped item-target reader
+# (``_infer_same_base_item_target_specs_from_lead``) requires ``ledd bokstav``
+# ADJACENCY, which the ``ny`` marker breaks, so the payload half is never minted
+# and W-76's relabel vacates a label nothing refills. This production mints that
+# INSERT.
+#
+# WHY A SIBLING PRODUCTION RATHER THAN A WIDENING OF THE SHIPPED READER. The
+# shipped reader is a pure ``lead -> specs`` function: it has no access to the
+# DOM, so it cannot inherit a section or a ledd from an antecedent, and this
+# family needs both (8 of the 225 refusals spell no section, 77 spell no ledd).
+# It also reads the node's FULL text, payload included, which this family cannot
+# afford — see the next paragraph. Widening it would therefore mean either
+# threading the walk's node list through a reader that four other call sites
+# share, or accepting a shallower address. Both are worse than a block that sits
+# where W-76's sits and reads what W-76 reads.
+#
+# THE ANNOUNCEMENT IS READ OFF THE LEAD NODE'S OWN TEXT, not off the walk's
+# ``lead``. Lovdata carries this family's payload INSIDE the announcing node, as
+# a ``<ul>`` sibling of the sentence's text: 178 of the 225 refusals are shaped
+#
+#     <article class="defaultP">§ 6-2 første ledd ny bokstav c skal lyde:
+#       <ul class="defaultList"><li data-name="c)">…the new item's text…</li></ul>
+#     </article>
+#
+# so the walk's ``lead`` (the node's full ``itertext``) is announcement AND
+# payload concatenated. A grammar reading that string would have to end in an
+# unbounded tail, and an unbounded tail cannot tell a payload from a run-on
+# second instruction. ``_node_text_without_structural_children`` excludes
+# ``ul``/``li``/``article``, so the announcement can be anchored END TO END —
+# which is the W-75 discipline stated positively: the node must declare its own
+# operative payload, and here it does, in its own text. The remaining 47
+# refusals carry the payload in following siblings and their own text is the
+# announcement already, so ONE anchored grammar reads both carriers.
+#
+# THE ADDRESS is W-76's, and the measurement it rests on is W-76's 1,529-node
+# probe: every ``item`` in every replayed base tree hangs below a ``subsection``.
+# So the address is a section (spelled, or inherited through
+# ``_no_antecedent_section_label``), then a LEDD that must itself resolve
+# (spelled, or inherited through ``_no_antecedent_ledd_label`` with its depth
+# conjunct retargeted to this depth's word), then the item label. The ledd is
+# REQUIRED for that reason and because ``tree_ops.find`` is a first-match DFS: a
+# shallow ``(section, item)`` address would silently pick whichever ledd's
+# bokstav "b" it reached first. UNLIKE W-76 the ledd IS usually spelled here
+# (148 of 225), and where it is not the inheritance is nearly inert — measured,
+# it supplies the ledd for exactly ONE lowered lead and the section for exactly
+# one other. It is carried anyway, for W-66's cycle-guard reason.
+#
+# THE PAYLOAD EXTENT IS PROVED, never assumed, and the proof is what bounds a
+# production that ADDS text at scale:
+#
+#   * A LIST CARRIER (inline ``<ul>``, or a following sibling that carries one)
+#     must yield top-level items whose labels EQUAL the announced labels, IN
+#     ORDER, one for one. ``_extract_items`` is used rather than
+#     ``_extract_payload_candidates``: the latter FLATTENS nested items into the
+#     candidate map, so a payload with sub-items ("ny bokstav q skal lyde: …
+#     1. … 2. … 3. …") presents labels ``q, 1, 2, 3`` and no extent test on that
+#     map can tell a nested payload from a mis-sized one. Top-level items keep
+#     the nesting inside the payload where it belongs; measured, this is the
+#     difference between refusing and lowering 3 corpus ops.
+#   * A TEXT CARRIER (no list anywhere) is admitted only in the single-label
+#     case, with EXACTLY ONE following payload node, and only when that node is
+#     an ``article.legalP``. ``numberedLegalP`` declines: its text opens with its
+#     own numerator ("(4) opplysninger om …", "3. Dersom skyldneren …"), which is
+#     a second address claim this production would have to discard on trust. One
+#     corpus refusal costs that; it is a sized follow-up, not a guess.
+#   * Anything else — no payload at all, several payload nodes, a list whose
+#     labels do not match — refuses with
+#     ``NO_PARSE_ITEM_INSERT_PAYLOAD_EXTENT_UNPROVABLE``.
+#
+# MULTI-LABEL ANNOUNCEMENTS ARE HANDLED, and provably: 16 of the 225 announce
+# several labels ("ny bokstav g og h skal lyde:", "nye nr. 15 til 19 skal
+# lyde:"), and in every one the DOM carries one top-level ``<li>`` per announced
+# label, in order, each with its own ``data-name``. The extent test above IS the
+# W-32(a)/W-19 all-or-nothing rule at this depth: the labels match one for one or
+# the whole lead refuses. A range is EXPANDED over the shared vocabulary, never
+# counted on trust.
+#
+# THE OCCUPIED DESTINATION is the heart of this item, and this production does
+# not take the shipped recovery. θ ``(INSERT, target_occupied)`` recovers by
+# REPLACING the occupant — correct for the "ny § 4 a skal lyde" surface the
+# table documents, and wrong here. An announcement that says "NY bokstav c" and
+# finds bokstav c standing means one of: the relabel that should have vacated it
+# did not fire, or the archived base edition already carries this amendment. In
+# neither case is the occupant's in-force text the thing to delete. So the op
+# carries ``NO_ITEM_INSERT_PAYLOAD_PROVENANCE_TAG`` and the apply seam refuses
+# it, exactly as W-66 refuses its own occupied relabel destinations — same
+# polarity, same shape, and the shipped θ cell is untouched for every op that is
+# not this production's, so the corpus-wide firing census cannot move.
+#
+# THE PAIR COMPOSES, and the ordering proof is the kernel's rather than this
+# module's. ``no_ordering_profile`` sets ``renumber_vacate=True`` with
+# ``renumber_group_key=_no_group_key`` = ``(effective, enacted, source_id)``, and
+# ``_structural_vacate_order`` emits, WITHIN each group: REPEALs by sequence,
+# then RENUMBERs topologically, then EVERY OTHER OP by sequence. An INSERT is in
+# that third stage. The relabel and the payload announcement come from the same
+# instrument and the same commencement, so they share a group, so the RENUMBER
+# that vacates bokstav c is ordered before the INSERT that fills it — not by
+# luck of ``sequence`` but by the stage split. Where the relabel does NOT fire,
+# the slot is still occupied when the INSERT runs and the guard above refuses it.
+#
+# THE MEASURED POPULATION, re-derived UNTRUNCATED at the W-77 base pin
+# (``e260e5930``) over 8,078 ``no_parse_unstructured_lead_unmatched`` refusals —
+# the shipped adjudication detail clips ``source_excerpt`` at 240 chars, and in
+# this family the clip is fatal, because the payload sits in the same string:
+#
+#   225 refusals / 225 distinct leads / 165 instruments / 96 base acts
+#   (125 bokstav, 100 nr.; 148 spell their ledd, 217 spell their section,
+#    16 announce several labels)
+#
+# Split by what this production does with them: 144 LOWER, minting 160 INSERT
+# ops over 62 base acts and 112 instruments; 73 refuse
+# ``NO_PARSE_ITEM_INSERT_PAYLOAD_LEDD_UNRESOLVED`` (29
+# ``antecedent_is_not_item_depth``, 28 ``antecedent_names_no_ledd``, 15
+# ``part_has_no_antecedent_lead``, 1 ``antecedent_names_several_ledd``); 7 refuse
+# ``NO_PARSE_ITEM_INSERT_PAYLOAD_ADDRESS_UNRESOLVED``; 1 refuses
+# ``NO_PARSE_ITEM_INSERT_PAYLOAD_EXTENT_UNPROVABLE`` (the ``numberedLegalP``
+# carrier). Nothing is cyclic and nothing declines at the label vocabulary.
+#
+# WHAT IS DELIBERATELY LEFT REFUSED, each limb sized against the 99 refusals that
+# mention ``ny`` next to an item depth word and ``lyde`` but decline here:
+#   * A MIXED LIST that names existing labels AND a new one ("§ 78 bokstav h og
+#     ny bokstav i skal lyde:", "§ 5 a annet ledd nr. 7 og ny nr. 8 skal lyde:").
+#     55 refusals, and they are a DIFFERENT instruction: part REPLACE, part
+#     INSERT, with the split carried by which member the ``ny`` sits in front of.
+#     The shipped multi-item reader already models mixed lists at the adjacent
+#     surface; widening it is its own item, not a limb of this one.
+#   * A NESTED item address ("§ 2-30 første ledd bokstav g ny nr. 7 skal lyde:",
+#     "§ 23-3 annet ledd nr. 1 ny bokstav d skal lyde:"). 21 refusals. The
+#     address has a fourth step this grammar cannot spell, and the 1,529-node
+#     probe attests only 52 such nodes corpus-wide — too thin a population to
+#     write an address arithmetic against.
+#   * A DEEPER or OTHER depth between the ledd and the item ("§ 59 a første ledd
+#     første punktum nytt nr. 6 skal lyde:"). 10 refusals; punktum-depth
+#     containers are W-66b/W-66c territory.
+#   * A RUN-ON or a relabel with a payload tail ("§ 8-10 nr. 3 blir ny nr. 2. Ny
+#     nr. 2 skal lyde:"). 8 refusals. The own-text anchor declines them by
+#     construction, which is the point of anchoring end to end.
+#   * Letters outside ``a``–``z``, and every counted address ("siste bokstav").
+#     W-76's limbs verbatim, for W-76's reasons: the vocabulary is explicit
+#     expansion, and ``æ``/``ø``/``å``'s position in Lovdata's lettering is
+#     unproven. Zero corpus cost.
+#
+#: The LEDD ordinal alternation, DERIVED from ``_NORWEGIAN_ORDINALS`` rather than
+#: spelled a second time, so the regex and the lookup that follows it cannot
+#: disagree about which words are ordinals. Longest-first for determinism.
+_NO_ITEM_INSERT_PAYLOAD_LEDD_ALTERNATION = "|".join(
+    sorted(_NORWEGIAN_ORDINALS, key=lambda word: (-len(word), word))
+)
+#: Per depth: (the depth WORD as the announcement spells it, the LABEL-LIST
+#: shape). The separators are W-76's ``_NO_SET_RELABEL_ITEM_SEPARATOR`` — the one
+#: separator vocabulary at this depth — and the label classes are W-76's widened
+#: by the LIST PUNCTUATION this family prints ("ny bokstav t) skal lyde:").
+_NO_ITEM_INSERT_PAYLOAD_DEPTHS: dict[str, tuple[str, str]] = {
+    "bokstav": (
+        r"bokstav(?:ene|ane)?",
+        r"[a-z]\)?(?:" + _NO_SET_RELABEL_ITEM_SEPARATOR + r"[a-z]\)?)*",
+    ),
+    "nr": (
+        r"(?:nummer|nr\.?)",
+        r"[0-9]+(?:" + _NO_SET_RELABEL_ITEM_SEPARATOR + r"(?:nr\.?\s*)?[0-9]+)*",
+    ),
+}
+#: Anchored END TO END on the lead node's OWN text — see the block comment. The
+#: section head is optional (inherited when absent) and so is the ledd; the
+#: newness marker is admitted ONCE, immediately in front of the depth word, which
+#: is what keeps a mixed list ("bokstav h og ny bokstav i") out.
+_NO_ITEM_INSERT_PAYLOAD_PATTERNS: dict[str, str] = {
+    depth: (
+        r"^(?:§\s*(?P<section>" + _NO_SET_RELABEL_SECTION_LABEL + r")\s+)?"
+        r"(?:(?P<ledd>" + _NO_ITEM_INSERT_PAYLOAD_LEDD_ALTERNATION + r")\s+ledd\s+)?"
+        r"ny(?:tt|e)?\s+" + word + r"\s+(?P<labels>" + labels + r")\s+skal\s+lyde\s*:?$"
+    )
+    for depth, (word, labels) in _NO_ITEM_INSERT_PAYLOAD_DEPTHS.items()
+}
+
+
+def _no_item_insert_payload_indexes(depth: str, phrase: str) -> Optional[list[int]]:
+    """``"g og h"`` → ``[7, 8]``; ``"nr. 15 til 19"`` → ``[15, …, 19]``.
+
+    W-76's ``_no_item_relabel_indexes`` with ONE pre-step: this family spells its
+    labels with the list punctuation Lovdata prints them with ("bokstav t)",
+    "bokstav e) og f)"), which the relabel family never does. The punctuation is
+    stripped per token BEFORE the shared vocabulary sees it, so there is exactly
+    one label vocabulary at this depth rather than two that could drift apart.
+    """
+    # lawvm-regex: owning_parser this IS the item-insert label-list punctuation stripper; every token it yields is validated by W-76's shared vocabulary
+    stripped = re.sub(r"([0-9A-Za-z])\)", r"\1", _normalize_space(phrase))
+    indexes = _no_item_relabel_indexes(depth, stripped)
+    if indexes is None or len(set(indexes)) != len(indexes):
+        return None
+    return indexes
+
+
+def _no_item_insert_payload_target(own_text: str) -> Optional[tuple[str, str, str, list[str]]]:
+    """``§ 6-2 første ledd ny bokstav c skal lyde:`` → the address and labels.
+
+    Returns ``(section_label, ledd_label, depth, [item_label, …])``.
+    ``section_label`` and ``ledd_label`` are ``""`` when the sentence spells
+    neither (the caller then inherits them from the DOM-local antecedent), and
+    the whole result is ``None`` when this grammar declines the sentence.
+
+    ``own_text`` is the announcing node's text WITHOUT its structural children —
+    see the block comment: the payload is a ``<ul>`` inside that same node, and
+    excluding it is what lets the sentence be anchored end to end.
+
+    ``depth`` is ``"bokstav"`` or ``"nr"``; it names WHICH pattern matched, so
+    the two-depth dispatch is a test's fact rather than a comment's claim, and it
+    selects both the label vocabulary and the antecedent's depth conjunct. The
+    two patterns are mutually exclusive by their depth words, so the iteration
+    order over them is immaterial — pinned as a test fact.
+    """
+    normalized = _normalize_space(own_text)
+    for depth, pattern in _NO_ITEM_INSERT_PAYLOAD_PATTERNS.items():
+        # Inline ``re.match`` rather than a compiled classifier constant, for the
+        # reason every sibling production above records: the adjacent label spans
+        # cannot pass ``compile_classifier_regex``'s backtracking lint.
+        # lawvm-regex: owning_parser this IS the item-depth newness-payload announcement parser
+        match = re.match(pattern, normalized, re.IGNORECASE)
+        if match is None:
+            continue
+        indexes = _no_item_insert_payload_indexes(depth, match.group("labels"))
+        if indexes is None:
+            return None
+        section = match.group("section")
+        ledd_word = match.group("ledd")
+        return (
+            _normalize_no_section_label(section) if section else "",
+            _NORWEGIAN_ORDINALS[_normalize_space(ledd_word).casefold()] if ledd_word else "",
+            depth,
+            [_no_item_relabel_label(depth, index) for index in indexes],
+        )
+    return None
+
+
+def _no_item_insert_payloads(
+    lead_node: etree._Element,
+    payload_nodes: Sequence[etree._Element],
+    labels: Sequence[str],
+) -> Optional[list[IRNode]]:
+    """The item payloads an item-depth newness announcement introduces.
+
+    ``None`` means the extent is UNPROVABLE and the whole lead must refuse — the
+    all-or-nothing rule, because a lead that declares several labels is one
+    indivisible instruction and a payload that does not split to match it is no
+    evidence for which label the halves belong to.
+
+    Two carriers, in this order and no others; see the block comment for why the
+    list test runs on ``_extract_items`` rather than on the flattened candidate
+    map, and why ``numberedLegalP`` is not admitted here.
+    """
+    items = _extract_items(lead_node)
+    if not items:
+        items = [item for node in payload_nodes for item in _extract_items(node)]
+    if items:
+        if [(item.label or "").casefold() for item in items] != [label.casefold() for label in labels]:
+            return None
+        return [_with_no_node_label(item, label) for item, label in zip(items, labels, strict=True)]
+    if len(labels) != 1 or len(payload_nodes) != 1:
+        return None
+    node = payload_nodes[0]
+    if _local_name(node) != "article" or "legalP" not in _classes(node):
+        return None
+    text = _node_text_without_structural_children(node)
+    if not text:
+        return None
+    return [IRNode(kind=IRNodeKind.ITEM, label=labels[0], text=text)]
 
 
 # ── W-70b: the ``data-move-part`` that names the WRONG destination SECTION ─────
@@ -5193,6 +5487,134 @@ def _iter_unstructured_no_change_groups(
                         ),
                         group_id=f"{source_id}:{lead_base_id}:{sequence}",
                         witness_rule_id="no_section_renumber_relabel",
+                    )
+                )
+                sequence += 1
+            idx = cursor
+            continue
+
+        # W-77, and it sits LAST — behind W-76 and immediately ahead of the
+        # operative fallback. The position is the additivity proof rather than a
+        # preference, exactly as it is for the two blocks above: a lead only
+        # reaches here once every other family has declined it, so this block can
+        # convert nothing but leads that carry
+        # ``no_parse_unstructured_lead_unmatched`` today. See the block comment
+        # on ``_no_item_insert_payload_target`` for the measurement, the payload
+        # extent proof, the occupied-destination polarity and what is
+        # deliberately left refused.
+        #
+        # The grammar reads the announcing node's OWN text, not ``lead``: this
+        # family's payload sits INSIDE the announcing node as a ``<ul>``, so
+        # ``lead`` is announcement and payload concatenated and cannot be
+        # anchored. ``payload_nodes`` is still the boundary's answer for the
+        # sibling-carried shape, and both carriers go through one extent proof.
+        item_insert = _no_item_insert_payload_target(
+            _repair_no_mojibake(_node_text_without_structural_children(child))
+        )
+        if item_insert is not None:
+            insert_section, insert_ledd, insert_depth, insert_labels = item_insert
+            insert_address_reason = "lead_names_section"
+            if not insert_section:
+                inherited_section, insert_address_reason = _no_antecedent_section_label(
+                    children, child_part_indexes, idx
+                )
+                insert_section = inherited_section or ""
+            if not insert_section:
+                _append_no_unstructured_parse_adjudication(
+                    adjudications_out,
+                    kind=NO_PARSE_ITEM_INSERT_PAYLOAD_ADDRESS_UNRESOLVED,
+                    message=(
+                        "Norway item-depth newness payload named no section of its own and no "
+                        "unambiguous antecedent supplied one; nothing was lowered."
+                    ),
+                    source_id=source_id,
+                    lead=lead,
+                    base_id=lead_base_id,
+                    detail={
+                        "production": "item_insert_payload",
+                        "depth": insert_depth,
+                        "address_reason": insert_address_reason,
+                        "labels": tuple(insert_labels),
+                    },
+                )
+                idx += 1
+                continue
+            insert_ledd_reason = "lead_names_ledd"
+            if not insert_ledd:
+                inherited_ledd, insert_ledd_reason = _no_antecedent_ledd_label(
+                    children,
+                    child_part_indexes,
+                    idx,
+                    depth_name="item",
+                    depth_markers=_NO_ITEM_RELABEL_ANTECEDENT_MARKERS[insert_depth],
+                )
+                insert_ledd = inherited_ledd or ""
+            if not insert_ledd:
+                _append_no_unstructured_parse_adjudication(
+                    adjudications_out,
+                    kind=NO_PARSE_ITEM_INSERT_PAYLOAD_LEDD_UNRESOLVED,
+                    message=(
+                        "Norway item-depth newness payload resolved its section but no unambiguous "
+                        "antecedent supplied the ledd its item hangs below; nothing was lowered."
+                    ),
+                    source_id=source_id,
+                    lead=lead,
+                    base_id=lead_base_id,
+                    detail={
+                        "production": "item_insert_payload",
+                        "depth": insert_depth,
+                        "section": insert_section,
+                        "address_reason": insert_address_reason,
+                        "ledd_reason": insert_ledd_reason,
+                        "labels": tuple(insert_labels),
+                    },
+                )
+                idx += 1
+                continue
+            insert_payloads = _no_item_insert_payloads(child, payload_nodes, insert_labels)
+            if insert_payloads is None:
+                _append_no_unstructured_parse_adjudication(
+                    adjudications_out,
+                    kind=NO_PARSE_ITEM_INSERT_PAYLOAD_EXTENT_UNPROVABLE,
+                    message=(
+                        "Norway item-depth newness payload resolved its address but the payload's "
+                        "extent could not be proved against the announced labels; nothing was lowered."
+                    ),
+                    source_id=source_id,
+                    lead=lead,
+                    base_id=lead_base_id,
+                    detail={
+                        "production": "item_insert_payload",
+                        "depth": insert_depth,
+                        "section": insert_section,
+                        "ledd": insert_ledd,
+                        "labels": tuple(insert_labels),
+                        "payload_node_count": len(payload_nodes),
+                    },
+                )
+                idx += 1
+                continue
+            for insert_label, insert_payload in zip(insert_labels, insert_payloads, strict=True):
+                doc_ops.append(
+                    LegalOperation(
+                        op_id=f"{source_id}:{sequence}",
+                        sequence=sequence,
+                        action=StructuralAction.INSERT,
+                        target=LegalAddress(
+                            path=(
+                                ("section", insert_section),
+                                ("subsection", insert_ledd),
+                                ("item", insert_label),
+                            )
+                        ),
+                        payload=insert_payload,
+                        source=OperationSource(statute_id=source_id, raw_text=lead, title=lead_base_id),
+                        provenance_tags=(
+                            f"base_act:{lead_base_id}",
+                            "fallback:unstructured",
+                            NO_ITEM_INSERT_PAYLOAD_PROVENANCE_TAG,
+                        ),
+                        group_id=f"{source_id}:{lead_base_id}:{sequence}",
                     )
                 )
                 sequence += 1
@@ -9959,6 +10381,57 @@ def _apply_no_ops_fold(
 
             elif op.action is StructuralAction.INSERT and op.payload is not None:
                 payload = op.payload
+                # W-77, and it is the reason the item-depth payload production
+                # can be shipped at all. It sits BEFORE the θ cell below, and
+                # the placement is the whole point.
+                #
+                # θ ``(INSERT, target_occupied)`` recovers by REPLACING the
+                # occupant, which is right for the surface §2.3 documents: a
+                # "ny § 4 a skal lyde" whose slot the archived edition already
+                # carries, where the replacement is content-identical or a
+                # later revision of the same provision. It is NOT right for an
+                # item-depth newness payload. That announcement is half of a
+                # two-part instruction whose other half VACATES the label; if
+                # the label is standing when this op runs, the vacate did not
+                # happen — either because the relabel declined at the parse
+                # plane, or because the archived base edition already carries
+                # this amendment and the replay is landing it a second time. In
+                # neither reading is the occupant's in-force text the thing to
+                # delete. W-66 measured exactly that failure at the ledd depth
+                # (straffeloven 2005 § 3 femte ledd, verdipapirhandelloven
+                # § 9-21 fjerde ledd) and it is W-54's ``removal_wrong``.
+                #
+                # So this production does not take the recovery: it refuses,
+                # with a typed receipt and no write. Under-applying leaves the
+                # new item missing, which is a divergence row; over-applying
+                # destroys law that is in force. The guard is gated on the
+                # production's own provenance tag, so the shipped θ cell is
+                # UNTOUCHED for every op that is not this production's and the
+                # corpus-wide firing census cannot move.
+                if resolved_path is not None and NO_ITEM_INSERT_PAYLOAD_PROVENANCE_TAG in (
+                    op.provenance_tags or ()
+                ):
+                    standing = tree_ops.resolve(body, resolved_path)
+                    _append_no_replay_adjudication(
+                        adjudications_out,
+                        kind=NO_REPLAY_ITEM_INSERT_PAYLOAD_OCCUPIED_TARGET_REFUSED,
+                        message=(
+                            "Norway replay refused an item-depth newness payload whose target "
+                            "label is still occupied when the insert runs."
+                        ),
+                        op=op,
+                        detail={
+                            "rule_id": NO_REPLAY_ITEM_INSERT_PAYLOAD_OCCUPIED_TARGET_REFUSED,
+                            "family": "unsupported_or_unresolved_action",
+                            "target": str(op.target),
+                            "resolved_path": _no_path_label(resolved_path),
+                            "occupant_kind": _no_kind_value(standing.kind) if standing is not None else "",
+                            "occupant_label": (standing.label or "") if standing is not None else "",
+                            **_no_replay_payload_detail(payload),
+                        },
+                    )
+                    _assert_no_invariant_violations(op)
+                    return
                 if resolved_path is not None:
                     # θ: (INSERT, target_occupied) — the table declares NO
                     # recovers by rewriting to REPLACE (§2.3). The rule_id the
@@ -10694,6 +11167,11 @@ _NO_SKIP_ADJUDICATION_KINDS = frozenset(
         # Same shape as W-66's: a REFUSAL, no write, so the conserved partition
         # must see it as rejected rather than as a recovery that applied.
         NO_REPLAY_RELOCATION_ORDER_UNPROVABLE_REFUSED,
+        # W-77: an item-depth newness payload whose target label is still
+        # occupied when the insert runs. Same shape as W-66's: a REFUSAL, no
+        # write, so the conserved partition must see it as rejected rather than
+        # as the recovery the shipped θ cell would have performed.
+        NO_REPLAY_ITEM_INSERT_PAYLOAD_OCCUPIED_TARGET_REFUSED,
     }
 )
 

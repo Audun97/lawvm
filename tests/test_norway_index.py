@@ -1107,7 +1107,15 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
     # ledd blir nytt tredje og fjerde ledd." that W-61's widening lowers, so the
     # act had bound no law at all and could never be offered. ``plain``, not
     # staged, effective 2014-07-01; the eight staged re-datings are unaffected.
-    assert len(authorized_ids) == 541
+    # 541 -> 542 at W-77, and again the offer gate and its conjuncts are
+    # untouched — only the OFFERING grew. ``no/lovtid/2008-06-27-50`` gains its
+    # FIRST index entry: its only operative lead against folketrygdloven was the
+    # item-depth newness payload "§ 10-8 tredje ledd ny bokstav h skal lyde:",
+    # which nothing lowered before this item, so the act had bound no law at all
+    # and could never be offered. ``plain``, not staged, effective 2008-07-01 via
+    # its own ``no/forskrift/2008-06-27-722``; the eight staged re-datings are
+    # unaffected.
+    assert len(authorized_ids) == 542
     # W-53: the widened whole-act route. 430 acts whose single operative block
     # commences them as a whole in wording ``_WHOLE_ACT_RE`` does not match.
     # Disjoint from the shipped set by construction, and the two together are
@@ -1233,7 +1241,12 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # 534 -> 535 at W-66: ``no/lovtid/2005-06-17-98`` gains its FIRST index
         # entry off the sibling-set ledd relabel and its commencement is
         # contingent. A first-time entry; no existing entry's status moves.
-        "contingent": 535,
+        # 535 -> 536 at W-77: ``no/lovtid/2012-12-07-75`` gains its FIRST index
+        # entry off the item-depth newness payload production ("§ 3-15 annet ledd
+        # ny bokstav f skal lyde:", folketrygdloven) and its commencement is "fra
+        # den tid Kongen bestemmer". A first-time entry; no existing entry's
+        # status moves.
+        "contingent": 536,
         # 1021 -> 1020 at W-15 (multi-part misbinding fix): the sole moved entry
         # is no/lovtid/2018-12-20-119, whose only "op" was its own part II
         # commencement sentence ("Lova tek til å gjelde straks.") swallowed as a
@@ -1288,7 +1301,15 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # existing entry's status moves, and ``contingent`` (535),
         # ``instrument_authorized`` (979), ``immediate`` (1) and ``unknown`` (2)
         # are byte-identical. The staged population above is untouched at 175.
-        "dated": 1055,
+        # 1,055 -> 1,059 at W-77: FOUR of the six acts gaining their first index
+        # entry off the item-depth newness payload production commence on a plain
+        # own date and land here — ``no/lovtid/2001-06-15-44`` (2001-06-15),
+        # ``no/lovtid/2001-12-21-103`` (2001-12-21), ``no/lovtid/2007-02-16-7``
+        # (2007-02-16) and ``no/lovtid/2010-12-10-68`` (2011-01-01). The other two
+        # land in ``instrument_authorized`` and ``contingent``. Exactly
+        # conserving: entries 2,572 -> 2,578, nothing lost, and no existing
+        # entry's status moves.
+        "dated": 1059,
         "immediate": 1,
         # 976 -> 977 at W-67, and the whole of this landing's effect on the
         # act-level histogram is ONE act gaining its FIRST index entry — the same
@@ -1322,7 +1343,12 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # PRE-EXISTING entry's ``effective_status`` changes, so the three new
         # entries land in exactly two buckets (+1 here, +2 dated) and
         # ``contingent``/``unknown``/``immediate`` all hold.
-        "instrument_authorized": 979,
+        # 979 -> 980 at W-77: ``no/lovtid/2008-06-27-50`` gains its FIRST index
+        # entry off the item-depth newness payload production and is dated
+        # 2008-07-01 by its own ``no/forskrift/2008-06-27-722``, ``plain`` rather
+        # than staged. One of SIX entrants; four land in ``dated`` and one in
+        # ``contingent``. ``unknown`` and ``immediate`` hold.
+        "instrument_authorized": 980,
         "unknown": 2,
     }
 
@@ -1467,14 +1493,20 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     # shape, one depth word down. W-66b's other two entrants carry their own
     # plain date and never reach this route, so the whole of the move again lands
     # in the non-staged half and the staged pin does not budge.
-    assert len(authorized) == 979
+    # 979 -> 980 (and 966 -> 967 non-staged, 13 staged unmoved) at W-77: the
+    # single new act ``no/lovtid/2008-06-27-50``, dated 2008-07-01 by its own
+    # ``no/forskrift/2008-06-27-722`` and measured ``plain`` rather than staged,
+    # so the whole of the move lands in the non-staged half and the staged pin
+    # does not budge. W-77's other five entrants carry their own plain date or
+    # are contingent and never reach this route.
+    assert len(authorized) == 980
     assert (
         len([
             entry
             for entry in authorized
             if entry.commencement_shape != NOCommencementShape.STAGED_DELEGATED
         ])
-        == 966
+        == 967
     )
     assert all(entry.effective_date for entry in authorized)
     authorization_receipts = [
@@ -1505,7 +1537,13 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     # ``no/lovtid/2005-06-17-92`` is authorized by the WIDENED route and the
     # shipped receipt count is again unmoved. Its two sibling entrants are dated
     # by their own date and take no authorization receipt at all.
-    assert len(authorization_receipts) == 541
+    # 542 + 438 = 980 at W-77, and this is the FIRST time since W-61 that the
+    # SHIPPED receipt count moves rather than the widened one:
+    # ``no/lovtid/2008-06-27-50`` is dated by its own kongelig resolusjon
+    # ``no/forskrift/2008-06-27-722``, which the shipped whole-act route admits,
+    # so the widened count is unmoved. Its five sibling entrants are dated by
+    # their own date or are contingent and take no authorization receipt at all.
+    assert len(authorization_receipts) == 542
     assert len(widened_receipts) == 438
     assert {d["source_id"] for d in authorization_receipts + widened_receipts} == {
         entry.source_id for entry in authorized
@@ -1822,9 +1860,20 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # ``no/lovtid/2011-12-09-55`` (1 -> 0, binds ``no/lov/1997-02-28-19``), the
     # last losing its gap ENTIRELY and thereby gaining its first index entry.
     # ZERO targets newly unbound and NOTHING rebound.
-    assert len(unbound) == 937
-    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2462
-    assert len({diagnostic["source_id"] for diagnostic in unbound}) == 937
+    # 937 -> 926 receipts and 2,462 -> 2,444 pairs at W-77, the same shape a
+    # third time at ITEM depth and the widest instance of it since W-66c. The
+    # item-depth newness PAYLOAD production binds 18 (act, law) pairs the
+    # ``changesToDocuments`` list had always declared and the index had always
+    # receipted as unbound, over 18 instruments; ELEVEN of those lose their gap
+    # ENTIRELY (``2001-06-15-44``, ``2001-12-21-103``, ``2001-12-21-113``,
+    # ``2002-12-13-74``, ``2007-02-16-7``, ``2008-06-27-50``, ``2008-06-27-62``,
+    # ``2010-12-10-68``, ``2012-12-07-75``, ``2014-12-19-93``, ``2017-02-10-6``),
+    # which is why the receipt count falls by 11 while the pair count falls by 18.
+    # The W-34/W-35 conservation is exact: the pair drop equals the binding gain
+    # (18 = 18), ZERO targets newly unbound and NOTHING rebound.
+    assert len(unbound) == 926
+    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2444
+    assert len({diagnostic["source_id"] for diagnostic in unbound}) == 926
 
     # 64 acts gain their FIRST index entry: they announced every one of their
     # parts with an unlisted tail, so they had bound no law at all.
@@ -1891,7 +1940,14 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # at ITEM depth (bokstav / nr.) — ``no/lovtid/2011-12-09-55``, ``dated`` on
     # its own plain date 2011-12-09. Its only lowerable lead corpus-wide is
     # "Nåværende bokstav e, f og g blir bokstav d, e og f." None leaves.
-    assert len(index.entries) == 2572
+    # 2,572 -> 2,578 at W-77: SIX acts gain their first entry off the item-depth
+    # newness PAYLOAD production — ``no/lovtid/2001-06-15-44``,
+    # ``no/lovtid/2001-12-21-103``, ``no/lovtid/2007-02-16-7`` and
+    # ``no/lovtid/2010-12-10-68`` (all ``dated`` on their own plain date),
+    # ``no/lovtid/2008-06-27-50`` (``instrument_authorized``, 2008-07-01 via
+    # ``no/forskrift/2008-06-27-722``) and ``no/lovtid/2012-12-07-75``
+    # (``contingent``). None leaves.
+    assert len(index.entries) == 2578
     bindings = {
         (entry.source_id, base_id) for entry in index.entries for base_id in entry.base_ids
     }
@@ -1962,7 +2018,14 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # ``2002-06-21-45``, ``2011-12-09-55`` -> ``1997-02-28-19``). NO base act
     # receives its first op ever, so the amended-law population stays at 788 and
     # the sweep baseline's ``swept`` block is byte-identical.
-    assert len(bindings) == 6546
+    # 6,546 -> 6,564 at W-77: EIGHTEEN (act, law) pairs bind for the first time,
+    # ZERO rebound and ZERO removed, and the W-34/W-35 conservation again holds
+    # with no residue — all eighteen are exactly the eighteen pairs the unbound
+    # census loses (see the note on ``len(unbound)`` above; eleven of the
+    # eighteen instruments lose their declared-vs-bound gap entirely). NO base
+    # act receives its first op ever, so the amended-law population stays at 788
+    # and the sweep baseline's ``swept`` block is byte-identical.
+    assert len(bindings) == 6564
     # 26,218 at W-30; +2 at W-24, both reconciled to a named erratum and neither
     # touching this test's own subject. W-24 lowered two Del-scoped Rettelser
     # corrections into the law each part amends — ``2019-12-20-110`` Del I into
@@ -2135,7 +2198,20 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # ``_promote_no_replace_with_following_renumber_insert`` waking up where a
     # relabel vacates the slot its co-located payload was going to overwrite.
     # Five lost keys, 72 gained, 72 - 5 = 67.
-    assert sum(entry.n_ops for entry in index.entries) == 28891
+    #
+    # 28,891 -> 29,051 at W-77: +160 INSERT ops, and the reconciliation is exact
+    # from all three directions with NO net residue this time. The frozen
+    # expected added-content set predicted 160 elements (base act, address,
+    # payload text) before any production code was written, over 144 lowering
+    # lead occurrences on 112 instruments and 62 base acts; the content-keyed op
+    # diff gains exactly those 160 — every one an INSERT carrying
+    # ``NO_ITEM_INSERT_PAYLOAD_PROVENANCE_TAG`` — and loses NONE, so no op
+    # changes action or path; and the parse-plane receipt census reaches the same
+    # arithmetic independently (``no_parse_unstructured_lead_unmatched``
+    # 8,078 -> 7,853, of which 73 take the new item-depth ledd receipt, 7 the new
+    # address one and 1 the new payload-extent one; 144 + 81 = 225). Every op
+    # targets ``(section, subsection, item)`` and carries an ``item`` payload.
+    assert sum(entry.n_ops for entry in index.entries) == 29051
 
 
 def test_no_amendment_index_staleness_report_detects_archive_change(tmp_path) -> None:

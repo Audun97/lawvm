@@ -2,7 +2,7 @@
  "_doc": "Corpus-wide (RENUMBER, dest_occupied) firing sweep + the known-incomplete-base destructive-write census, over EVERY Norway base law. Cached because the sweep is ~10 CPU-minutes and the norway shard is not. `corpus` and `code` are the staleness receipt: tests/test_no_renumber_migration.py recomputes both and FAILS when either moved, rather than passing on a stale measurement. Regenerate with `uv run python scripts/inventory_no_occupied_destination_sweep.py --update-baseline`. NOTE: this file is a RECEIPT of what the corpus does, never a statement of what it should do -- a new firing row here is an unadjudicated firing, and it must be adjudicated W-54 style before the verdict table in the test is extended.",
  "as_of": "2026-07-10",
  "code": {
-  "digest": "77a1b3dec3602a1bbd1c01fc9c3604ffb7650a7f3fe720ac0f32e72a8ea33029",
+  "digest": "a899d929cc3bea96973bbd6988760e33f3c86956e35d106b80dd3889fbb6d4cc",
   "files": [
    {
     "digest": "e3c727b378ae497fa2fc65a174f837dff2a8417dd458378ac22af35d4bf339fb",
@@ -269,7 +269,7 @@
     "module": "lawvm.norway.commencement_instruments"
    },
    {
-    "digest": "3a6b7348dd5f2b16ef56694bcade4d9b307278912b45d957f61875bb79c2d1f6",
+    "digest": "af61a3f3753db771f1e846181409ebd5ac4063a23c8cc6da86899c38051e2bd2",
     "module": "lawvm.norway.grafter"
    },
    {
@@ -456,7 +456,7 @@
    "unknown_effective": 1
   },
   "hazard_content_removing_writes": 198,
-  "hazard_destructive_writes": 3880,
+  "hazard_destructive_writes": 3885,
   "incomplete_bases": 201,
   "laws": {
    "no/lov/2001-04-20-13": [
@@ -688,7 +688,7 @@
     1
    ],
    "no/lov/2005-06-17-67": [
-    314,
+    316,
     12
    ],
    "no/lov/2005-06-17-79": [
@@ -756,7 +756,7 @@
     4
    ],
    "no/lov/2008-05-15-35": [
-    266,
+    269,
     10
    ],
    "no/lov/2008-06-06-37": [
@@ -1116,7 +1116,7 @@
     0
    ]
   },
-  "laws_digest": "d6df420f8de37d20680201882d0d1fe722a9afb688338e1e54424ec52b4768c8"
+  "laws_digest": "927f06f1f87dd267ea30916232bd58a7bcd2ae5dd009b790757c48d8def0fad1"
  },
  "rule_id": "no_replay_renumber_occupied_destination_removed",
  "runtime": {

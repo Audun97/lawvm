@@ -11559,3 +11559,538 @@ def test_no_w76_unresolvable_ledd_gets_a_typed_receipt_not_a_guess() -> None:
         for op in base_ops
         if op.source is not None and op.source.raw_text in refused_leads
     ]
+
+
+# ── W-77: the item-depth PAYLOAD production (``ny bokstav|nr Y skal lyde:``) ───
+
+
+def test_no_w77_item_insert_grammar_accepts_the_corpus_shapes() -> None:
+    """W-77: every shape the 225 censused refusals actually take.
+
+    The return is ``(section, ledd, depth, labels)``. ``section`` and ``ledd`` are
+    ``""`` when the announcement spells neither (the call site then inherits them
+    from the DOM-local antecedent), ``depth`` names WHICH pattern matched — it
+    selects the label vocabulary AND the antecedent's depth conjunct — and the
+    labels are already normalized to the form the emitted op path uses.
+
+    The argument is the announcing node's OWN text, not the walk's ``lead``: this
+    family's payload sits INSIDE the announcing node as a ``<ul>``, so ``lead``
+    is announcement and payload concatenated and cannot be anchored end to end.
+    """
+    from lawvm.norway.grafter import _no_item_insert_payload_target
+
+    # The dominant shape: section and ledd both spelled, one new label.
+    assert _no_item_insert_payload_target("§ 6-2 første ledd ny bokstav c skal lyde:") == (
+        "6-2",
+        "1",
+        "bokstav",
+        ["c"],
+    )
+    assert _no_item_insert_payload_target("§ 5 b første ledd ny nr. 15 skal lyde:") == (
+        "5b",
+        "1",
+        "nr",
+        ["15"],
+    )
+    # ``nytt``/``nye`` are the same marker; ``nummer`` is the same depth word.
+    assert _no_item_insert_payload_target("§ 3 første ledd nytt nr. 13 skal lyde:") == (
+        "3",
+        "1",
+        "nr",
+        ["13"],
+    )
+    assert _no_item_insert_payload_target("§ 4 nytt nummer 9 og 10 skal lyde:") == (
+        "4",
+        "",
+        "nr",
+        ["9", "10"],
+    )
+    # Multi-label announcements: a list, and a RANGE that is EXPANDED rather than
+    # counted on trust. 16 of the 225 are shaped this way.
+    assert _no_item_insert_payload_target("§ 2 første ledd ny bokstav g og h skal lyde:") == (
+        "2",
+        "1",
+        "bokstav",
+        ["g", "h"],
+    )
+    assert _no_item_insert_payload_target("§ 13 første ledd ny bokstav c, d, e og f skal lyde:") == (
+        "13",
+        "1",
+        "bokstav",
+        ["c", "d", "e", "f"],
+    )
+    assert _no_item_insert_payload_target("Første ledd nye nr. 15 til 19 skal lyde:") == (
+        "",
+        "1",
+        "nr",
+        ["15", "16", "17", "18", "19"],
+    )
+    # The LIST PUNCTUATION Lovdata prints its letters with. W-76's family never
+    # spells it; this one does, and it is stripped before the SHARED vocabulary
+    # sees the token rather than by a second vocabulary of its own.
+    assert _no_item_insert_payload_target("§ 4 første ledd ny bokstav t) skal lyde:") == (
+        "4",
+        "1",
+        "bokstav",
+        ["t"],
+    )
+    assert _no_item_insert_payload_target("§ 2 første ledd ny bokstav e) og f) skal lyde:") == (
+        "2",
+        "1",
+        "bokstav",
+        ["e", "f"],
+    )
+    # Neither the section nor the ledd is required in the sentence; both are then
+    # inherited, and the caller refuses when the antecedent cannot supply them.
+    assert _no_item_insert_payload_target("§ 5-31 ny bokstav c skal lyde:") == (
+        "5-31",
+        "",
+        "bokstav",
+        ["c"],
+    )
+    assert _no_item_insert_payload_target("Nytt nr. 10 skal lyde:") == ("", "", "nr", ["10"])
+    # The colon is optional (``no/lovtid/2003-12-12-105`` spells none) and the
+    # older ordinals resolve through the SHARED ordinal table.
+    assert _no_item_insert_payload_target("§ 4-7 nytt nr. 3 skal lyde") == ("4-7", "", "nr", ["3"])
+    assert _no_item_insert_payload_target("§ 14-43 annet ledd ny bokstav c skal lyde:") == (
+        "14-43",
+        "2",
+        "bokstav",
+        ["c"],
+    )
+    assert _no_item_insert_payload_target("§ 18-3 sjette ledd ny bokstav b skal lyde:") == (
+        "18-3",
+        "6",
+        "bokstav",
+        ["b"],
+    )
+
+
+def test_no_w77_item_insert_grammar_declines_the_neighbouring_shapes() -> None:
+    """W-77: the limbs deliberately left refused, each one a sized population.
+
+    Every assertion here is a shape that occurs in the corpus neighbourhood and
+    that this production declines AT THE GRAMMAR — so it keeps its existing
+    ``no_parse_unstructured_lead_unmatched`` receipt rather than gaining a typed
+    W-77 one. Under-application is safe; a guess at any of them is not.
+    """
+    from lawvm.norway.grafter import _no_item_insert_payload_target
+
+    # A MIXED list: existing labels AND a new one. 55 refusals, and a different
+    # instruction — part REPLACE, part INSERT.
+    assert _no_item_insert_payload_target("§ 78 bokstav h og ny bokstav i skal lyde:") is None
+    assert _no_item_insert_payload_target("§ 5 a annet ledd nr. 7 og ny nr. 8 skal lyde:") is None
+    assert (
+        _no_item_insert_payload_target("§ 12 første ledd bokstav i til ny bokstav k skal lyde:")
+        is None
+    )
+    # A NESTED item address (an item below an item). 21 refusals; the address has
+    # a fourth step this grammar cannot spell.
+    assert _no_item_insert_payload_target("§ 2-30 første ledd bokstav g ny nr. 7 skal lyde:") is None
+    assert _no_item_insert_payload_target("§ 23-3 annet ledd nr. 1 ny bokstav d skal lyde:") is None
+    # A DEEPER or other depth between the ledd and the item.
+    assert (
+        _no_item_insert_payload_target("§ 59 a første ledd første punktum nytt nr. 6 skal lyde:")
+        is None
+    )
+    # A RUN-ON, or a relabel carrying a payload tail. The end-to-end anchor
+    # declines them by construction, which is the point of anchoring at all.
+    assert _no_item_insert_payload_target("§ 8-10 nr. 3 blir ny nr. 2. Ny nr. 2 skal lyde:") is None
+    assert (
+        _no_item_insert_payload_target(
+            "Nåværende bokstav f og g blir ny bokstav g og h. Ny bokstav h skal lyde:"
+        )
+        is None
+    )
+    # Other depths entirely: ``ny`` in front of a punktum or a whole ledd.
+    assert _no_item_insert_payload_target("§ 21 nr. 2 nytt tredje punktum skal lyde:") is None
+    assert _no_item_insert_payload_target("§ 2-1 nytt åttende ledd skal lyde:") is None
+    # A plain REPLACE with no newness marker at all is the SHIPPED reader's.
+    assert _no_item_insert_payload_target("§ 6-2 første ledd bokstav c skal lyde:") is None
+    # Letters outside ``a``–``z``, a spelled-out numeral, and every COUNTED
+    # address. W-76's limbs verbatim: the vocabulary is explicit expansion.
+    assert _no_item_insert_payload_target("§ 9 første ledd ny bokstav ø skal lyde:") is None
+    assert _no_item_insert_payload_target("§ 9 første ledd ny nr. tre skal lyde:") is None
+    assert _no_item_insert_payload_target("§ 9 første ledd ny siste bokstav skal lyde:") is None
+    # A descending range names nothing, and a repeated label is not a set.
+    assert _no_item_insert_payload_target("§ 9 første ledd nye nr. 8 til 5 skal lyde:") is None
+    assert _no_item_insert_payload_target("§ 9 første ledd ny bokstav c og c skal lyde:") is None
+
+
+def test_no_w77_item_insert_grammar_is_disjoint_from_the_shipped_readers() -> None:
+    """W-77 is strictly ADDITIVE, and its POSITION in the walk is the proof.
+
+    The block sits LAST, behind W-76's and immediately ahead of the operative
+    fallback, so a lead only reaches it once every shipped family has declined it.
+    The grammar disjointness says the same thing independently and is pinned here
+    from BOTH sides: the shipped item-target reader requires ``ledd bokstav``
+    ADJACENCY (which the ``ny`` marker breaks) and W-76's relabel requires a
+    currency qualifier and the verb ``blir`` (which this family never spells).
+    """
+    from lawvm.norway.grafter import (
+        _NO_ITEM_INSERT_PAYLOAD_LEDD_ALTERNATION,
+        _NO_ITEM_INSERT_PAYLOAD_PATTERNS,
+        _NORWEGIAN_ORDINALS,
+        _infer_same_base_item_target_specs_from_lead,
+        _no_item_insert_payload_target,
+    )
+
+    mine = (
+        "§ 6-2 første ledd ny bokstav c skal lyde:",
+        "§ 5 b første ledd ny nr. 15 skal lyde:",
+        "§ 2 første ledd ny bokstav g og h skal lyde:",
+    )
+    shipped_item = "§ 6-2 første ledd bokstav c skal lyde:"
+    shipped_relabel = "Nåværende bokstav c blir ny bokstav d."
+    shipped_ledd_relabel = "Nåværende femte og sjette ledd blir sjette og sjuende ledd."
+    for lead in mine:
+        # The shipped item-target reader cannot span the ``ny`` marker: this is
+        # exactly the adjacency break that left the payload half unminted.
+        assert _infer_same_base_item_target_specs_from_lead(lead) == []
+        assert _no_item_set_relabel_pairs(lead) is None
+        assert _no_ledd_set_relabel_pairs(lead) is None
+        assert _no_punktum_set_relabel_pairs(lead) is None
+    for shipped in (shipped_item, shipped_relabel, shipped_ledd_relabel):
+        assert _no_item_insert_payload_target(shipped) is None
+    # And the shipped reader still owns the no-``ny`` variant, whose REPLACE
+    # ``_promote_no_replace_with_following_renumber_insert`` promotes to the same
+    # INSERT — the five corpus ops W-76 recorded. This production does not touch
+    # that lane.
+    assert _infer_same_base_item_target_specs_from_lead(shipped_item) == [
+        (
+            StructuralAction.REPLACE,
+            LegalAddress(path=(("section", "6-2"), ("subsection", "1"), ("item", "c"))),
+        )
+    ]
+    # The two item patterns are mutually exclusive by their depth words, so the
+    # iteration order over them is immaterial rather than load-bearing.
+    assert set(_NO_ITEM_INSERT_PAYLOAD_PATTERNS) == {"bokstav", "nr"}
+    bokstav = _no_item_insert_payload_target("§ 9 første ledd ny bokstav b skal lyde:")
+    numeral = _no_item_insert_payload_target("§ 9 første ledd ny nr. 2 skal lyde:")
+    assert bokstav is not None and bokstav[2] == "bokstav"
+    assert numeral is not None and numeral[2] == "nr"
+    # The ledd alternation is DERIVED from the ordinal table it then looks up in,
+    # so the regex and the lookup cannot disagree about which words are ordinals.
+    assert set(_NO_ITEM_INSERT_PAYLOAD_LEDD_ALTERNATION.split("|")) == set(_NORWEGIAN_ORDINALS)
+
+
+def _w77_lead_node(html: str) -> etree._Element:
+    return etree.fromstring(html.encode("utf-8"))
+
+
+def test_no_w77_payload_extent_is_proved_against_the_announced_labels() -> None:
+    """W-77: the extent proof, which is what bounds a production that ADDS text.
+
+    Two carriers and no others. A LIST carrier must yield top-level items whose
+    labels equal the announced labels one for one and in order; a TEXT carrier is
+    admitted only for a single label, a single following payload node, and only
+    when that node is an ``article.legalP``. Anything else refuses whole.
+    """
+    from lawvm.norway.grafter import _no_item_insert_payloads
+
+    # The dominant carrier: the payload is a ``<ul>`` INSIDE the announcing node.
+    # Verbatim markup from ``no/lovtid/2007-01-26-3`` (the § 6-2 gap case).
+    inline = _w77_lead_node(
+        '<article class="defaultP">§ 6-2 første ledd ny bokstav c skal lyde:'
+        '<ul class="defaultList"><li data-li-identifier="c)" data-name="c)">'
+        '<article class="listArticle"><article class="legalP">saker om patenter,'
+        " kretsmønstre til integrerte kretser, planteforedlerretter, varemerker og design,"
+        "</article></article></li></ul></article>"
+    )
+    payloads = _no_item_insert_payloads(inline, [], ["c"])
+    assert payloads is not None
+    assert [(_kind_value(p.kind), p.label) for p in payloads] == [("item", "c")]
+    assert payloads[0].text == (
+        "saker om patenter, kretsmønstre til integrerte kretser, planteforedlerretter,"
+        " varemerker og design,"
+    )
+    # A multi-label announcement: one top-level ``<li>`` per announced label, in
+    # order, each with its own ``data-name``.
+    multi = _w77_lead_node(
+        '<article class="defaultP">§ 2 første ledd ny bokstav g og h skal lyde:'
+        '<ul class="defaultList">'
+        '<li data-name="g)"><article class="legalP">skriftlig: elektronisk melding.</article></li>'
+        '<li data-name="h)"><article class="legalP">nedtegning og protokollering.</article></li>'
+        "</ul></article>"
+    )
+    assert [p.label for p in (_no_item_insert_payloads(multi, [], ["g", "h"]) or [])] == ["g", "h"]
+    # NESTED sub-items stay INSIDE the payload. This is why the extent test runs
+    # on ``_extract_items`` rather than on the flattened candidate map, which
+    # would present ``q, 1, 2`` and make a nested payload indistinguishable from
+    # a mis-sized one. Measured: 3 corpus ops turn on this.
+    nested = _w77_lead_node(
+        '<article class="defaultP">§ 5-15 første ledd ny bokstav q skal lyde:'
+        '<ul class="defaultList"><li data-name="q."><article class="listArticle">'
+        '<article class="legalP">arbeidsgivers dekning av følgende merkostnader:</article>'
+        '<ul class="defaultList">'
+        '<li data-name="1."><article class="legalP">Kostutgifter.</article></li>'
+        '<li data-name="2."><article class="legalP">Losji.</article></li>'
+        "</ul></article></li></ul></article>"
+    )
+    nested_payloads = _no_item_insert_payloads(nested, [], ["q"])
+    assert nested_payloads is not None
+    assert [p.label for p in nested_payloads] == ["q"]
+    assert [(c.label, c.text) for c in nested_payloads[0].children] == [
+        ("1", "Kostutgifter."),
+        ("2", "Losji."),
+    ]
+    # The SIBLING carrier: no list anywhere, one announced label, exactly one
+    # following ``article.legalP``.
+    bare = _w77_lead_node('<article class="defaultP">§ 1-6 ny bokstav m skal lyde:</article>')
+    sibling = _w77_lead_node(
+        '<article class="legalP">Oppstrøms gassrørledningsnett, enhver gassrørledning.</article>'
+    )
+    text_payloads = _no_item_insert_payloads(bare, [sibling], ["m"])
+    assert text_payloads is not None
+    assert [(_kind_value(p.kind), p.label, p.text) for p in text_payloads] == [
+        ("item", "m", "Oppstrøms gassrørledningsnett, enhver gassrørledning.")
+    ]
+    # ``numberedLegalP`` DECLINES: its text opens with its own numerator, which is
+    # a second address claim this production will not discard on trust. One
+    # corpus refusal costs that.
+    numbered = _w77_lead_node(
+        '<article class="numberedLegalP">(4) opplysninger om navn og adresse.</article>'
+    )
+    assert _no_item_insert_payloads(bare, [numbered], ["m"]) is None
+    # No payload at all, several payload nodes, and a heading + text pair: all
+    # unprovable extents, all refused whole.
+    assert _no_item_insert_payloads(bare, [], ["m"]) is None
+    assert _no_item_insert_payloads(bare, [sibling, sibling], ["m"]) is None
+    heading = _w77_lead_node('<article class="defaultP">(Fravikelighet)</article>')
+    assert _no_item_insert_payloads(bare, [heading, sibling], ["m"]) is None
+    # The all-or-nothing rule: a list that does not split to match the declared
+    # arity is no evidence for which label the halves belong to.
+    assert _no_item_insert_payloads(multi, [], ["g"]) is None
+    assert _no_item_insert_payloads(multi, [], ["g", "h", "i"]) is None
+    assert _no_item_insert_payloads(multi, [], ["h", "g"]) is None
+    assert _no_item_insert_payloads(inline, [], ["d"]) is None
+    # …and the text carrier is single-label only, for the same reason.
+    assert _no_item_insert_payloads(bare, [sibling], ["m", "n"]) is None
+
+
+def _w77_insert_op(sequence: int, section: str, ledd: str, item: str, text: str) -> LegalOperation:
+    from lawvm.norway.grafter import NO_ITEM_INSERT_PAYLOAD_PROVENANCE_TAG
+
+    return LegalOperation(
+        op_id=f"no/lovtid/9999-01-01-1:{sequence}",
+        sequence=sequence,
+        action=StructuralAction.INSERT,
+        target=LegalAddress(path=(("section", section), ("subsection", ledd), ("item", item))),
+        payload=IRNode(kind=IRNodeKind.ITEM, label=item, text=text),
+        source=OperationSource(
+            statute_id="no/lovtid/9999-01-01-1", raw_text="item insert payload", title="x"
+        ),
+        provenance_tags=(
+            "base_act:no/lov/1999-01-01-1",
+            "fallback:unstructured",
+            NO_ITEM_INSERT_PAYLOAD_PROVENANCE_TAG,
+        ),
+        group_id=f"no/lovtid/9999-01-01-1:{sequence}",
+    )
+
+
+def test_no_w77_item_insert_refuses_an_occupied_target_rather_than_replace() -> None:
+    """W-77 apply: the occupied destination, and the polarity is the whole item.
+
+    The declared θ ``(INSERT, target_occupied)`` cell RECOVERS by replacing the
+    occupant. That is right for the ``ny § 4 a skal lyde`` surface §2.3
+    documents and wrong for an item-depth newness payload: an announcement that
+    says NY bokstav c and finds bokstav c standing means the vacate did not
+    happen, and the occupant's in-force text is not the thing to delete. W-66
+    measured exactly that destruction one depth up.
+    """
+    before = _w76_statute("a", "b", "c")
+    ops = [_w77_insert_op(1, "9", "1", "c", "den nye bokstav c")]
+    adjudications: list[CompileAdjudication] = []
+    result = apply_no_ops(before, ops, adjudications_out=adjudications)
+
+    ledd = result.body.children[0].children[0]
+    # Nothing landed and, crucially, the occupant survives byte-identical.
+    assert [(child.label, child.text) for child in ledd.children] == [
+        ("a", "bokstav a"),
+        ("b", "bokstav b"),
+        ("c", "bokstav c"),
+    ]
+    refusals = [
+        a for a in adjudications if a.kind == "no_replay_item_insert_payload_occupied_target_refused"
+    ]
+    assert [a.op_id for a in refusals] == ["no/lovtid/9999-01-01-1:1"]
+    assert all(a.blocking for a in refusals)
+    assert (refusals[0].detail or {}).get("resolved_path") == "section:9/subsection:1/item:c"
+    assert (refusals[0].detail or {}).get("occupant_label") == "c"
+    # The shipped θ cell did NOT fire: it keeps its RECOVER polarity for every op
+    # that is not this production's, which is why the corpus firing census cannot
+    # move.
+    assert not [a for a in adjudications if a.kind == "no_replay_insert_occupied_target_replaced"]
+    # A conserved apply sees the op as REJECTED rather than as a recovery that
+    # applied — the reason the kind is in ``_NO_SKIP_ADJUDICATION_KINDS``.
+    conserved = apply_no_ops_conserved(before, ops, adjudications_out=[])
+    assert conserved.applied_ops == ()
+    assert len(conserved.skipped_items) == 1
+    # An UNoccupied target is the ordinary path and lands.
+    landed = apply_no_ops(_w76_statute("a", "b"), ops, adjudications_out=[])
+    landed_ledd = landed.body.children[0].children[0]
+    assert [(child.label, child.text) for child in landed_ledd.children] == [
+        ("a", "bokstav a"),
+        ("b", "bokstav b"),
+        ("c", "den nye bokstav c"),
+    ]
+
+
+def test_no_w77_relabel_and_payload_compose_in_the_kernels_vacate_order() -> None:
+    """W-77: the pair composes, and the ordering proof is the KERNEL's.
+
+    ``no_ordering_profile`` sets ``renumber_vacate=True`` with
+    ``renumber_group_key=_no_group_key`` = ``(effective, enacted, source_id)``,
+    and ``_structural_vacate_order`` emits, within each group: REPEALs by
+    sequence, then RENUMBERs topologically, then EVERY OTHER OP by sequence. An
+    INSERT is in that third stage — so the relabel that vacates bokstav c is
+    ordered before the INSERT that fills it, and NOT by luck of ``sequence``.
+
+    The ops are handed to ``apply_no_ops`` in MINT order, which on the corpus
+    witness puts the INSERT first (the announcement precedes the relabel in the
+    instrument). Read in that order the INSERT would land on a live bokstav c and
+    refuse; ordered, it lands in an empty slot.
+    """
+    before = _w76_statute("a", "b", "c", "d", "e")
+    ops = [
+        _w77_insert_op(1, "9", "1", "c", "den nye bokstav c"),
+        _w76_relabel_op(2, "9", "1", "c", "d"),
+        _w76_relabel_op(3, "9", "1", "d", "e"),
+        _w76_relabel_op(4, "9", "1", "e", "f"),
+    ]
+    adjudications: list[CompileAdjudication] = []
+    result = apply_no_ops(before, ops, adjudications_out=adjudications)
+
+    ledd = result.body.children[0].children[0]
+    assert [(child.label, child.text) for child in ledd.children] == [
+        ("a", "bokstav a"),
+        ("b", "bokstav b"),
+        ("c", "den nye bokstav c"),
+        ("d", "bokstav c"),
+        ("e", "bokstav d"),
+        ("f", "bokstav e"),
+    ]
+    # No leg refused, and the INSERT did not take the shipped occupied recovery.
+    assert not [
+        a
+        for a in adjudications
+        if a.kind
+        in {
+            "no_replay_item_insert_payload_occupied_target_refused",
+            "no_replay_ledd_set_relabel_occupied_destination_refused",
+            "no_replay_insert_occupied_target_replaced",
+        }
+    ]
+    # And where the relabel is ABSENT, the same INSERT refuses rather than eating
+    # the occupant — the two halves are independent and the polarity holds.
+    solo: list[CompileAdjudication] = []
+    apply_no_ops(before, [ops[0]], adjudications_out=solo)
+    assert [a.kind for a in solo if a.blocking] == [
+        "no_replay_item_insert_payload_occupied_target_refused"
+    ]
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w77_item_insert_lowers_on_the_corpus_gap_witness() -> None:
+    """W-77 corpus witness: ``no/lovtid/2007-01-26-3`` → ``no/lov/2005-06-17-90``.
+
+    This is the gap W-76 recorded and could not close. The instrument says
+
+        § 6-2 første ledd ny bokstav c skal lyde: saker om patenter, …
+        Nåværende bokstav c, d og e blir bokstav d, e og f.
+
+    W-76 lowers the relabel, which VACATES bokstav c; nothing refilled it,
+    because the shipped item-target reader's ``ledd bokstav`` adjacency breaks on
+    the ``ny`` marker. Three facts are pinned: the address is
+    ``section/subsection/item`` with the ledd from the sentence's own text, the
+    action is INSERT (not the promoted REPLACE lane), and the payload is the
+    instrument's own words.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2007-01-26-3", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    from lawvm.norway.grafter import NO_ITEM_INSERT_PAYLOAD_PROVENANCE_TAG
+
+    adjudications: list[CompileAdjudication] = []
+    grouped = dict(
+        iter_no_document_change_ops(
+            html_bytes, "no/lovtid/2007-01-26-3", adjudications_out=adjudications
+        )
+    )
+    minted = [
+        op
+        for op in grouped["no/lov/2005-06-17-90"]
+        if NO_ITEM_INSERT_PAYLOAD_PROVENANCE_TAG in (op.provenance_tags or ())
+    ]
+    assert [op.target.path for op in minted] == [
+        (("section", "6-2"), ("subsection", "1"), ("item", "c"))
+    ]
+    assert [_action_value(op.action) for op in minted] == ["insert"]
+    payload = minted[0].payload
+    assert payload is not None
+    assert (_kind_value(payload.kind), payload.label) == ("item", "c")
+    assert payload.text == (
+        "saker om patenter, kretsmønstre til integrerte kretser, planteforedlerretter,"
+        " varemerker og design,"
+    )
+    # The relabel W-76 mints is still there, and the pair shares a group key, so
+    # the kernel's structural-vacate stage runs the vacate first.
+    relabel = [
+        op
+        for op in grouped["no/lov/2005-06-17-90"]
+        if op.action is StructuralAction.RENUMBER
+        and op.target.path[:2] == (("section", "6-2"), ("subsection", "1"))
+    ]
+    assert [op.target.path[-1] for op in relabel] == [("item", "e"), ("item", "d"), ("item", "c")]
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w77_unresolvable_ledd_gets_a_typed_receipt_not_a_guess() -> None:
+    """W-77: 73 of the 225 censused refusals resolve their section, not their ledd.
+
+    The older acts subdivide a section straight into ``nr.`` with no ledd in the
+    sentence at all ("§ 65 nytt nr. 4 skal lyde:"), and here the nearest
+    preceding instruction lead is a WHOLE-LEDD one — an antecedent that writes a
+    ledd establishes that ledd as a payload, not as a container whose items are
+    being addressed, so the retargeted depth conjunct declines it. Every corpus
+    item node sits under a ledd and the resolver's find is a first-match DFS, so
+    a shallow address would silently pick whichever ledd carried the label.
+    Nothing is minted.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2008-03-07-4", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    from lawvm.norway.grafter import (
+        NO_ITEM_INSERT_PAYLOAD_PROVENANCE_TAG,
+        NO_PARSE_ITEM_INSERT_PAYLOAD_LEDD_UNRESOLVED,
+    )
+
+    adjudications: list[CompileAdjudication] = []
+    grouped = dict(
+        iter_no_document_change_ops(
+            html_bytes, "no/lovtid/2008-03-07-4", adjudications_out=adjudications
+        )
+    )
+    typed = [
+        item for item in adjudications if item.kind == NO_PARSE_ITEM_INSERT_PAYLOAD_LEDD_UNRESOLVED
+    ]
+    assert [(item.detail or {}).get("section") for item in typed] == ["65"]
+    assert [(item.detail or {}).get("depth") for item in typed] == ["nr"]
+    assert [(item.detail or {}).get("labels") for item in typed] == [("4",)]
+    assert [(item.detail or {}).get("ledd_reason") for item in typed] == [
+        "antecedent_is_not_item_depth"
+    ]
+    # Nothing was minted for it — not at a guessed ledd, not anywhere.
+    assert not [
+        op
+        for base_ops in grouped.values()
+        for op in base_ops
+        if NO_ITEM_INSERT_PAYLOAD_PROVENANCE_TAG in (op.provenance_tags or ())
+    ]

@@ -1598,7 +1598,29 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # content and puts it back, which is the polarity this census was built to
     # separate. The corpus-wide ``remove_at`` probe agrees: 240 -> 240
     # content-removing writes, 307 -> 307 sentence removals.
-    "hazard_destructive_writes": 3880,
+    #
+    # 3,880 -> 3,885 at W-77, and NONE of the five is a W-77 op. The item-depth
+    # newness payload production mints INSERTs, which CREATE and are therefore
+    # not destructive by this census's definition. What the five are is
+    # downstream REPLACEs that were REFUSED at base with
+    # ``replay_unresolved_target`` because the bokstav/nr. they address did not
+    # exist, and that now resolve because W-77 created the slot the instrument
+    # commanded. Membership is unchanged (164 hazard bases), and the row deltas
+    # are exactly:
+    #   * ``no/lov/2005-06-17-67``  [314, 12] -> [316, 12]  (+2: the later
+    #     revisions of skattebetalingsloven § 5-6 første ledd bokstav g and
+    #     § 10-40 første ledd bokstav d, both landing on items W-77 created);
+    #   * ``no/lov/2008-05-15-35``  [266, 10] -> [269, 10]  (+3: utlendingsloven
+    #     § 105 første ledd bokstav f and TWO further writes at § 17 første ledd
+    #     bokstav n — see the W-77 report's collateral finding, one of which is a
+    #     PRE-EXISTING mis-lowering of ``no/lovtid/2026-06-12-31``'s substitution
+    #     announcement that this production newly makes reachable).
+    # 2 + 3 = 5, and the content-removing column does NOT move on either law: a
+    # REPLACE onto text this same replay just created removes nothing that was in
+    # force at base. The corpus-wide ``remove_at`` probe agrees: 240 -> 240
+    # content-removing writes, 2,107 -> 2,107 ``remove_at`` calls, 307 -> 307
+    # sentence removals.
+    "hazard_destructive_writes": 3885,
     # 167 -> 168, and the +1 is NOT a relabel op. ``no/lov/2016-05-27-14`` gains
     # ``no/lovtid/2021-12-22-158:1``, a REPEAL of § 7-6 annet ledd that could not
     # bind before because that law's ledd sequence was one slot out of step; with
@@ -1662,7 +1684,13 @@ _NO_INCOMPLETE_BASE_HAZARD_LAWS_DIGEST = (
     # column that matters: an item-depth relabel MOVES content, it does not
     # delete it. See the ``hazard_destructive_writes`` note above for the leg-by-
     # leg decomposition of the +5.
-    "d6df420f8de37d20680201882d0d1fe722a9afb688338e1e54424ec52b4768c8"
+    # W-77: MEMBERSHIP UNCHANGED again (164 laws, same set). TWO rows move, and
+    # only in the destructive column: ``no/lov/2005-06-17-67`` [314, 12] ->
+    # [316, 12] and ``no/lov/2008-05-15-35`` [266, 10] -> [269, 10]. Every
+    # removing column is byte-identical. The five writes are not this
+    # production's — they are downstream REPLACEs that stopped refusing once the
+    # item they address existed; see the count note above.
+    "927f06f1f87dd267ea30916232bd58a7bcd2ae5dd009b790757c48d8def0fad1"
 )
 
 _REGENERATE = (

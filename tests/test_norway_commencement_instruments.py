@@ -2785,7 +2785,13 @@ def test_w51_corpus_zero_early_over_every_whole_act_grant() -> None:
     # Nothing about the gate moved — the OFFERING grew by one act — and the
     # assertion that carries the information is the P1 one below, which still
     # reads EMPTY over the larger grant set.
-    assert len(grants) == 541
+    # 541 -> 542 at W-77, the same mechanism again: ``no/lovtid/2008-06-27-50``
+    # gains its first index entry off the item-depth newness payload production
+    # ("§ 10-8 tredje ledd ny bokstav h skal lyde:", amending folketrygdloven)
+    # and is dated 2008-07-01 by its own ``no/forskrift/2008-06-27-722``. Nothing
+    # is withdrawn, no act is re-dated, and the P1 assertion below still reads
+    # EMPTY.
+    assert len(grants) == 542
     early = [
         (d["source_id"], d["effective_date"], sibling_id, sibling_date)
         for d in grants
@@ -2850,8 +2856,15 @@ def test_w51_corpus_totals_and_the_untouched_part_routes() -> None:
     # section AND ledd both inherited from the preceding lead) and enters the
     # WIDENED whole-act route at 2006-01-01 via ``no/forskrift/2005-12-16-1517``.
     # 541 holds and all four other routes are unmoved.
+    # 541 -> 542 at W-77, a FIFTH time and by the same mechanism, but on the
+    # SHIPPED whole-act route rather than the widened one: ``no/lovtid/2008-06-27-50``
+    # gains its first index entry off the item-depth newness payload production
+    # ("§ 10-8 tredje ledd ny bokstav h skal lyde:") and is dated 2008-07-01 by its
+    # own ``no/forskrift/2008-06-27-722``. 438/33/4/33 all hold, which is again the
+    # check that a LOWERING widening reaches this lane only by growing what is
+    # offered to it.
     assert counts == {
-        NO_COMMENCEMENT_EXECUTION_AUTHORIZED: 541,
+        NO_COMMENCEMENT_EXECUTION_AUTHORIZED: 542,
         NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED: 438,
         NO_COMMENCEMENT_PART_EXECUTION_AUTHORIZED: 33,
         NO_COMMENCEMENT_MULTI_PART_EXECUTION_AUTHORIZED: 4,
@@ -2902,7 +2915,13 @@ def test_w51_corpus_totals_and_the_untouched_part_routes() -> None:
         if d.get("rule_id") == NO_COMMENCEMENT_EXECUTION_REFUSED
     }
     assert not (granted_pairs & refused_pairs)
-    assert len(refused_pairs) == 879
+    # 879 -> 880 at W-77, the SAME mechanism a third time: ``no/lovtid/2012-12-07-75``
+    # had no index entry at all until the item-depth newness payload production gave
+    # it its first lowered op ("§ 3-15 annet ledd ny bokstav f skal lyde:"), so its
+    # commencement instrument ``no/forskrift/2014-09-26-1221`` had nothing to be
+    # refused AGAINST. One pair gained, none withdrawn, and the disjointness
+    # assertion above — the one that carries the real property — still holds.
+    assert len(refused_pairs) == 880
 
     # The inert part-grant population, 31 -> 4 at W-53 with the absorption.
     inert = [
@@ -3820,7 +3839,7 @@ def test_w73_corpus_title_cited_route_dates_exactly_five_acts() -> None:
     Five acts move ``contingent`` -> ``instrument_authorized``, each on the date
     its OWN kongelig resolusjon sets, and every one of the five is a NEW act
     whose consequential-amendment part binds a base law. Nothing else moves: the
-    shipped whole-act route's 541 grants are untouched (the widened route can
+    shipped whole-act route's grants are untouched (the widened route can
     only be entered by a pair the shipped route already refused), no act is
     re-dated, and no grant is withdrawn.
     """
@@ -3853,7 +3872,10 @@ def test_w73_corpus_title_cited_route_dates_exactly_five_acts() -> None:
         for d in index.diagnostics
         if d.get("rule_id") == NO_COMMENCEMENT_EXECUTION_AUTHORIZED
     }
-    assert len(shipped) == 541
+    # 541 -> 542 at W-77: ``no/lovtid/2008-06-27-50`` gains its FIRST index entry
+    # off the item-depth newness payload production and enters this shipped route
+    # on its own instrument's date. The offering grew; the route did not move.
+    assert len(shipped) == 542
 
     # The reader's own corpus population, over the candidates rather than the
     # grants: 15 instruments carry the title-cited proof, and the five above are
