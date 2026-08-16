@@ -5681,7 +5681,9 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    nested item addresses (20, against 52 attested nodes).
 
 84. **W-78 (the substitution-announcement address list mis-lowered
-   as a payload target):** OPEN. The highest-value finding W-77
+   as a payload target):** DONE (`efc32b19e`, 2026-08-17;
+   artifacts `.tmp/w78/`; landing narrative appended after the
+   charter below). The highest-value finding W-77
    surfaced, and a CORRECTNESS defect, not coverage: a W-69a-style
    substitution announcement ("Følgende steder endres ordene «X»
    til «Y»: …") has its trailing ADDRESS LIST mis-read by an
@@ -5705,6 +5707,102 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    commencement handling needs care. Small-to-medium, high value:
    every op this closes is a wrong-text write waiting for its
    target to exist.
+   **LANDED (`efc32b19e`), no stop condition fired, frozen set
+   matched 116/116 — and the root cause is NOT what the charter
+   guessed.** No payload reader mis-fired: the W-69a
+   substitution-announcement recognizer DECLINED the new dialect
+   because `_NO_SUBSTITUTION_ANNOUNCEMENT_OPENER_RE` enumerated
+   the noun after `følgende` (`bestemmelser|paragraf|…`) and
+   `steder` was not in the list — control then fell through to
+   the ordinary structured `document-change` lane, which
+   faithfully read the node's `data-change-part` (naming every
+   listed address) as 116 REPLACE targets and the node's own text
+   as their payload. The family half-works by design: both
+   instruments carry `I følgende bestemmelser …` nodes that lower
+   correctly beside the broken ones, which is why this sat
+   invisible.
+   **Two charter numbers corrected by re-derivation.** (i) The
+   landed wrong writes are **23 on ONE law** (`2008-05-15-35`);
+   the other instrument's 87 ops target tvangsfullbyrdelsesloven
+   `no/lov/1992-06-26-86`, which has NO original-act source and
+   never replays. (ii) The charter's "no base-present text is
+   destroyed" was **FALSE**: 15 distinct wrong-text nodes stood
+   in the replayed statute at base, and **11 had destroyed
+   substantive in-force text** — 13 child nodes (2 punktum of
+   § 93/3, 4 bokstav of § 100/1, 7 bokstav of § 100/2) plus the
+   ledd texts of §§ 100/5–7 and 100 a/1–5.
+   **The fix** (three edits, all in the announcement grammar,
+   each measured corpus-wide first): the opener generalizes to
+   `^(?:i\s+følgende|følgende)\b` — the noun is decoration, and
+   enumerating it WAS the defect; the weight moves to the rule
+   that replaces the list's accidental protection:
+   `_no_text_announces_word_substitution` now requires the quoted
+   FROM term and the substitution verb both in the HEAD before
+   the first colon (the span the pair-extractor already reads),
+   making the colon a LIST introducer — the instruction must be
+   complete without the list, the W-75 principle stated
+   positively; the S1 scan counter generalizes in lockstep.
+   Measured over all 2,704 `data-change-part` nodes: governing
+   17 → 24, the 7 additions exactly the defect nodes; the 5
+   near-miss nodes that carry term+verb but declare their own
+   payload stay declined on the untouched operative-payload veto.
+   **Fate of all 116**: every one re-routes to the SHIPPED
+   addressed-substitution production — +290 correct TEXT_PATCH
+   ops (**29,051 → 29,225**), none refuses at parse, unmatched
+   refusals **7,853 unchanged**. On `2008-05-15-35`: 8 land as
+   correct substitutions (each verified verbatim against a
+   base→clean→post pivot; sentence-initial `Ansiktsfoto` refuses
+   typed rather than case-folding on a guess — the safety
+   asymmetry visible), 19 refuse `term_not_uniquely_present`
+   (2 → 21), 6 unresolved targets. The 1992 law's 257 correct
+   ops sit INERT until its source is acquired — the moment it is,
+   the largest announcement (86 addresses × 3 pairs) lands as
+   law instead of as 87 wrong-text writes.
+   **The reversion, adjudicated three-way**: all 15 wrong texts
+   vanish, the 13 destroyed children return verbatim, node count
+   1,083 → 1,096 on the moved law; § 17/1/n returns to W-77's
+   created bokstav n. **Blast**: ONE law's normalized surface
+   moves, 0 outside the expected set; scoreboard 29/46/0,
+   candidates 75 (identical), totals 1,463 / **ceiling 1,011
+   unmoved** / unexplained 452 — neither affected law is a
+   candidate, as charted. Firings **10 → 10** and θ census
+   **133 → 133**, both element-for-element. Content-removing
+   **240/198/77 unchanged** (the withdrawn receipts all carried
+   `removed: []`). Hazard destructive writes **3,885 → 3,870
+   (−15)** — **the hazard census's first recorded shrinkage**,
+   fully attributed to the withdrawn wrong writes. Sweep
+   baseline: `code` + the adjudicated hazard row. Commencement
+   untouched (grants 542, contingent/future skips identical).
+   **Item 85 (W-79) opened** for the general closure: the
+   structured payload lane's missing own-text invariant. Sized
+   but not opened: the `1992-06-26-86` source acquisition
+   (fold into the source-availability pricing census) and the
+   case-variant substitution terms (a content-policy decision,
+   several of the 19 typed refusals).
+
+85. **W-79 (the structured payload lane's missing own-text
+   invariant):** OPEN. The general closure of W-78's wrong-text
+   class, named by its landing: the structured `document-change`
+   lane reads a node's `data-change-part` as REPLACE targets and
+   the node's OWN TEXT as their payload without requiring the
+   node to DECLARE an operative payload (`skal lyde`, `oppheves`,
+   `skal ha følgende ordlyd`, a payload structure of its own).
+   W-78 closed one dialect of this (24 nodes); **267
+   `data-change-part` nodes over 337 declared addresses remain
+   with no operative payload marker** and could have their own
+   text written into law by the same fall-through. Scope sketch:
+   shape-by-shape census of the 267 (frozen by content) BEFORE
+   any rule — a blanket refusal would withdraw real amendments,
+   so each shape needs adjudication: which are genuine payload
+   carriers in an unrecognized dialect (lower or refuse typed),
+   which are announcements/notes that must never be payloads
+   (refuse via the invariant), which are already handled upstream.
+   Then the invariant itself: a structured payload node must
+   declare its own payload, with the W-78 discriminator
+   (term+verb-in-head, operative veto) as the model. The
+   endpoint is that the wrong-text class W-78 fixed becomes
+   IMPOSSIBLE by construction rather than closed dialect by
+   dialect. Medium-to-large; correctness, not coverage.
 
 ## 5. Demo / Inspection Tooling
 
@@ -5722,6 +5820,34 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-17 (W-78 — the substitution-announcement address list
+  mis-lowered as a payload target; `efc32b19e`)** — **The
+  programme's only known wrong-text defect is closed, and it was
+  worse than sized: 15 wrong-text nodes stood in the replayed
+  statute of `no/lov/2008-05-15-35` at base, 11 of them having
+  destroyed substantive in-force text (13 child nodes) — all
+  reverted, the destroyed children restored verbatim.** Root
+  cause corrected from the charter: no payload reader mis-fired —
+  the W-69a announcement recognizer's opener enumerated the noun
+  after `følgende` and lacked `steder`, so the new dialect fell
+  through to the structured lane, which read `data-change-part`
+  as 116 REPLACE targets and the announcement as their payload.
+  Fix: opener generalized (the noun list WAS the defect), the
+  weight moved to a rule — term and verb must stand complete in
+  the head before the first colon (the W-75 principle) — with
+  the corpus-wide proof: governing nodes 17 → 24, exactly the 7
+  defect nodes, the 5 near-miss payload-declaring nodes still
+  declined. All 116 re-route to the shipped substitution
+  production (+290 correct TEXT_PATCH ops, 29,051 → 29,225): 8
+  land verbatim-verified, 19+6 refuse typed, and the 1992 law's
+  257 correct ops wait only on source acquisition. Scoreboard,
+  ceiling, candidates, content-removing, and both firing
+  censuses all unmoved; hazard destructive writes 3,885 → 3,870,
+  **the hazard census's first recorded shrinkage**. **Item 85
+  (W-79) opened**: the structured lane's missing own-text
+  invariant (267 nodes), the general closure that makes this
+  wrong-text class impossible by construction.
 
 - **2026-08-16 (W-77 — the item-depth payload production;
   `9c81b2c90`)** — **The programme's first content-ADDING
