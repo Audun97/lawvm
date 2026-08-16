@@ -28,6 +28,7 @@ from lawvm.replay_adjudication import CompileAdjudication
 from lawvm.norway.grafter import (
     NO_PARSE_COLLECTIVE_REENACTMENT_PART_UNRESOLVED,
     NO_PARSE_LEDD_SET_RELABEL_ADDRESS_UNRESOLVED,
+    NO_PARSE_ITEM_SET_RELABEL_LEDD_UNRESOLVED,
     NO_PARSE_PUNKTUM_SET_RELABEL_LEDD_UNRESOLVED,
     NO_PARSE_SUBSTITUTION_ANNOUNCEMENT_NOT_LOWERED,
     NO_PARSE_SUBSTITUTION_MULTI_BASE_ADDRESS_LIST,
@@ -51,6 +52,9 @@ from lawvm.norway.grafter import (
     _no_unstructured_law_switch_lead_base_id,
     _no_antecedent_ledd_label,
     _no_antecedent_section_label,
+    _no_item_relabel_indexes,
+    _no_item_relabel_label,
+    _no_item_set_relabel_pairs,
     _no_ledd_set_relabel_pairs,
     _no_punktum_repeal_targets,
     _no_punktum_set_relabel_pairs,
@@ -9715,6 +9719,13 @@ def test_no_w66_unaddressable_relabel_gets_a_typed_receipt_not_a_guess() -> None
     names no section, so the relabel immediately after it has no antecedent to
     inherit from. It gets the typed receipt rather than the generic
     ``no_parse_unstructured_lead_unmatched`` — and, crucially, no ops.
+
+    Since W-76 this instrument carries a THIRD receipt of the same kind, on
+    ``no/lov/1999-12-17-95``, from the item-depth relabel lane failing the same
+    helper the same way in the same part. The kind is deliberately shared (see
+    the catalog entry); the ``production`` detail key is what separates the
+    lanes, and it is asserted here so the sharing stays visible rather than
+    silently absorbing a fourth family.
     """
     html_bytes = load_no_amendment_bytes("no/lovtid/2019-12-13-79", _NO_FARCHIVE_PATH)
     assert html_bytes is not None
@@ -9726,8 +9737,17 @@ def test_no_w66_unaddressable_relabel_gets_a_typed_receipt_not_a_guess() -> None
 
     typed = [item for item in adjudications if item.kind == NO_PARSE_LEDD_SET_RELABEL_ADDRESS_UNRESOLVED]
     assert {(item.detail or {}).get("base_id") for item in typed} == {
+        "no/lov/1999-12-17-95",
         "no/lov/2000-03-24-16",
         "no/lov/2000-11-24-81",
+    }
+    assert {
+        ((item.detail or {}).get("base_id"), (item.detail or {}).get("production"))
+        for item in typed
+    } == {
+        ("no/lov/1999-12-17-95", "item_set_relabel"),
+        ("no/lov/2000-03-24-16", None),
+        ("no/lov/2000-11-24-81", None),
     }
     assert {(item.detail or {}).get("address_reason") for item in typed} == {"part_has_no_antecedent_lead"}
     assert all(
@@ -10951,4 +10971,591 @@ def test_no_w69c_a_leg_announced_twice_is_one_instruction_not_a_contest() -> Non
     assert _w69c_shape(result.body)["2"] == [("1", "§2 ledd 1"), ("3", "§2 ledd 2")]
     assert not [
         a for a in adjudications if a.kind == "no_replay_renumber_occupied_destination_removed"
+    ]
+
+
+# ── W-76: the sibling-set relabel at ITEM depth (bokstav / nr.) ───────────────
+
+
+def test_no_w76_item_relabel_grammar_accepts_the_corpus_shapes() -> None:
+    """W-76: every shape the 28 lowering occurrences actually take.
+
+    The return is ``(section, depth, pairs)``. ``depth`` names WHICH of the two
+    patterns matched — it selects the label vocabulary AND the antecedent's depth
+    conjunct — and the pairs are LABEL INDEXES, because W-66's topological sort is
+    the one ordering implementation in this module and it orders integers.
+    """
+    # The dominant shape: no section spelled, one leg, newness on the destination.
+    assert _no_item_set_relabel_pairs("Nåværende bokstav b blir ny bokstav c.") == (
+        "",
+        "bokstav",
+        [(2, 3)],
+    )
+    assert _no_item_set_relabel_pairs("Nåværende nr. 2 blir ny nr. 3.") == ("", "nr", [(2, 3)])
+    # A pair relabel with OVERLAPPING source and destination sets — the population
+    # this production's ordering argument exists for.
+    assert _no_item_set_relabel_pairs("Nåværende bokstav g og h blir bokstav h og i.") == (
+        "",
+        "bokstav",
+        [(7, 8), (8, 9)],
+    )
+    # The currency qualifier is W-61's measured set, and it may sit on either side
+    # of the ``§`` — both word orders are attested at this depth too.
+    assert _no_item_set_relabel_pairs("Gjeldande nr. 3 blir nr. 2.") == ("", "nr", [(3, 2)])
+    assert _no_item_set_relabel_pairs("Noverande bokstav d blir ny bokstav e.") == (
+        "",
+        "bokstav",
+        [(4, 5)],
+    )
+    assert _no_item_set_relabel_pairs("Nåværende § 3-1 bokstav b blir ny bokstav c.") == (
+        "3-1",
+        "bokstav",
+        [(2, 3)],
+    )
+    assert _no_item_set_relabel_pairs("§ 14 noverande nr. 2 og nr. 3 blir nr. 1 og nr. 2.") == (
+        "14",
+        "nr",
+        [(2, 1), (3, 2)],
+    )
+    # The plural depth word, bokmål and nynorsk.
+    assert _no_item_set_relabel_pairs("Nåværende bokstavene f og g blir bokstavene g og h.") == (
+        "",
+        "bokstav",
+        [(6, 7), (7, 8)],
+    )
+    # ``til`` ranges EXPAND. Four legs from six words, and the arithmetic is the
+    # letter alphabet's position rather than a count of what is standing.
+    assert _no_item_set_relabel_pairs("Nåværende bokstav b til e blir bokstav c til f.") == (
+        "",
+        "bokstav",
+        [(2, 3), (3, 4), (4, 5), (5, 6)],
+    )
+    assert _no_item_set_relabel_pairs("Nåværende nr. 1 til 3 blir nye nr. 2 til 4.") == (
+        "",
+        "nr",
+        [(1, 2), (2, 3), (3, 4)],
+    )
+    # A comma list, and a DECREASING relabel — not special-cased anywhere.
+    assert _no_item_set_relabel_pairs("Nåværende bokstav e, f og g blir bokstav d, e og f.") == (
+        "",
+        "bokstav",
+        [(5, 4), (6, 5), (7, 6)],
+    )
+    assert _no_item_set_relabel_pairs(
+        "§ 41 nåværende nr. 30, 31, 32 og 33 blir nr. 31, 32, 33 og 34."
+    ) == ("41", "nr", [(30, 31), (31, 32), (32, 33), (33, 34)])
+    # The depth word RESTATED inside a list, which only ``nr.`` does.
+    assert _no_item_set_relabel_pairs("§ 4-7 nåværende nr. 8 til nr. 10 blir nr. 6 til nr. 8.") == (
+        "4-7",
+        "nr",
+        [(8, 6), (9, 7), (10, 8)],
+    )
+    # ``nye`` on a plural destination, and a hyphenated section label.
+    assert _no_item_set_relabel_pairs("Nåværende bokstav e og f blir nye bokstav f og g.") == (
+        "",
+        "bokstav",
+        [(5, 6), (6, 7)],
+    )
+    assert _no_item_set_relabel_pairs("Gjeldande § 9-2 nr. 9 blir ny nr. 8.") == (
+        "9-2",
+        "nr",
+        [(9, 8)],
+    )
+
+
+def test_no_w76_item_relabel_grammar_refuses_what_it_must() -> None:
+    """W-76: one assertion per deliberately-refused limb of the block comment."""
+    # A SPELLED LEDD. The sized shape's source side reduces to labels alone, so
+    # the larger sentence declines whole rather than being half-read. 26 of the
+    # 58 declined qualifier-headed neighbourhood refusals are of this family.
+    assert (
+        _no_item_set_relabel_pairs("Nåværende § 18-3 sjette ledd bokstav b blir ny bokstav c.")
+        is None
+    )
+    assert (
+        _no_item_set_relabel_pairs(
+            "Nåværende første ledd nr. 2 til 6 blir nye første ledd nr. 3 til 7."
+        )
+        is None
+    )
+    # NEWNESS INSIDE A LIST is an insertion this production does not model.
+    assert (
+        _no_item_set_relabel_pairs("Nåværende bokstav j og k blir bokstav k og ny bokstav l.") is None
+    )
+    assert _no_item_set_relabel_pairs("Nåværende nr. 8 og nr. 9 blir nr. 9 og ny nr. 10.") is None
+    # A destination that DROPS the depth word is not this sentence.
+    assert _no_item_set_relabel_pairs("Nåværende bokstav c, d og e blir d, e og f.") is None
+    # The currency qualifier is REQUIRED, for W-66's reason: a sentence that does
+    # not say which edition its labels are read against cannot be read against the
+    # pre-operation snapshot, which is this production's premise.
+    assert _no_item_set_relabel_pairs("Bokstav b blir ny bokstav c.") is None
+    # Anchored end to end: a payload tail, a run-on, and ``blir til``.
+    assert (
+        _no_item_set_relabel_pairs("Nåværende nr. 6 blir nr. 7 og skal lyde: Universitetene …") is None
+    )
+    assert (
+        _no_item_set_relabel_pairs("Gjeldande § 9-2 nr. 8 blir ny nr. 7. Første punktum skal lyde:")
+        is None
+    )
+    assert (
+        _no_item_set_relabel_pairs("§ 18 a nåværende bokstav f til i blir til nye bokstav g til j.")
+        is None
+    )
+    # A COUNTED address — the one shape a production that expands ranges must not
+    # take on trust.
+    assert _no_item_set_relabel_pairs("Nåværende siste bokstav blir ny bokstav l.") is None
+    # Letters outside ``a``–``z``: their position relative to ``z`` in Lovdata's
+    # lettering is unproven, so a range crossing it would be a guess.
+    assert _no_item_set_relabel_pairs("Nåværende bokstav ø blir ny bokstav å.") is None
+    # A SPELLED-OUT numeral is not the arabic vocabulary.
+    assert _no_item_set_relabel_pairs("Gjeldande nr. tre blir nr. fire.") is None
+    # Degenerate pair sets, refused exactly as W-66 and W-66b refuse them.
+    assert _no_item_set_relabel_pairs("Nåværende bokstav c blir bokstav c.") is None
+    assert _no_item_set_relabel_pairs("Nåværende bokstav c og d blir bokstav e.") is None
+    assert _no_item_set_relabel_pairs("Nåværende bokstav c og c blir bokstav d og e.") is None
+    # A descending range names nothing.
+    assert _no_item_set_relabel_pairs("Nåværende bokstav e til b blir bokstav f til c.") is None
+
+
+def test_no_w76_item_label_vocabulary_expands_rather_than_counts() -> None:
+    """W-76: the label vocabulary, in isolation, both directions.
+
+    Indexes are 1-based inside their own alphabet so a letter relabel and a
+    numeral relabel present the SAME shape to W-66's topological sort. The round
+    trip is asserted because the emitted op path is built from it.
+    """
+    assert _no_item_relabel_indexes("bokstav", "b til e") == [2, 3, 4, 5]
+    assert _no_item_relabel_indexes("bokstav", "g, h og i") == [7, 8, 9]
+    assert _no_item_relabel_indexes("nr", "8 til nr. 10") == [8, 9, 10]
+    assert _no_item_relabel_indexes("nr", "30, 31, 32 og 33") == [30, 31, 32, 33]
+    # A range is ENUMERATED, so a single-member range is a single member.
+    assert _no_item_relabel_indexes("bokstav", "c til c") == [3]
+    # Nothing this vocabulary cannot name is guessed at.
+    assert _no_item_relabel_indexes("bokstav", "æ") is None
+    assert _no_item_relabel_indexes("bokstav", "aa") is None
+    assert _no_item_relabel_indexes("bokstav", "siste") is None
+    assert _no_item_relabel_indexes("nr", "tre") is None
+    assert _no_item_relabel_indexes("bokstav", "e til b") is None
+    assert [_no_item_relabel_label("bokstav", i) for i in (1, 2, 26)] == ["a", "b", "z"]
+    assert [_no_item_relabel_label("nr", i) for i in (1, 10, 33)] == ["1", "10", "33"]
+
+
+def test_no_w76_item_relabel_ordering_is_w66s_sort_over_label_indexes() -> None:
+    """W-76: the vacate-before-occupy order, on the corpus's own worst case.
+
+    "Nåværende bokstav b til e blir bokstav c til f." overlaps its source and
+    destination sets three ways. Read in source order it writes onto a live
+    sibling three times; ordered, it never does. That the sort is W-66's own
+    helper — not a second implementation — is the point of carrying label INDEXES
+    through the grammar.
+    """
+    parsed = _no_item_set_relabel_pairs("Nåværende bokstav b til e blir bokstav c til f.")
+    assert parsed is not None
+    _section, depth, pairs = parsed
+    ordered = _no_ordered_set_relabel_pairs(pairs)
+    assert ordered is not None
+    assert [
+        (_no_item_relabel_label(depth, src), _no_item_relabel_label(depth, dst))
+        for src, dst in ordered
+    ] == [("e", "f"), ("d", "e"), ("c", "d"), ("b", "c")]
+    # A swap has no order at this depth either, and the whole lead is refused.
+    assert _no_ordered_set_relabel_pairs([(3, 4), (4, 3)]) is None
+
+
+def test_no_w76_item_grammar_leaves_the_shipped_lanes_alone() -> None:
+    """W-76 is strictly ADDITIVE, and its POSITION in the walk is the proof.
+
+    The block sits LAST, behind W-66c and immediately ahead of the operative
+    fallback, so a lead only reaches it once every shipped family has declined.
+    The tail anchors say the same thing independently and are pinned here from
+    BOTH sides: every shipped relabel and repeal grammar in this module anchors on
+    ``ledd`` or ``punktum``, and this one on a bare label.
+    """
+    ledd_sentence = "Nåværende femte og sjette ledd blir sjette og sjuende ledd."
+    punktum_sentence = "Nåværende annet punktum blir nytt tredje punktum."
+    repeal_sentence = "§ 20 første ledd annet punktum oppheves."
+    bokstav_sentence = "Nåværende bokstav b blir ny bokstav c."
+    nr_sentence = "Nåværende nr. 2 blir ny nr. 3."
+    for shipped in (ledd_sentence, punktum_sentence, repeal_sentence):
+        assert _no_item_set_relabel_pairs(shipped) is None
+    for mine in (bokstav_sentence, nr_sentence):
+        assert _no_ledd_set_relabel_pairs(mine) is None
+        assert _no_punktum_set_relabel_pairs(mine) is None
+        assert _no_punktum_repeal_targets(mine) is None
+    # The two item patterns are mutually exclusive by their depth words, so the
+    # iteration order over them is immaterial rather than load-bearing.
+    bokstav_parsed = _no_item_set_relabel_pairs(bokstav_sentence)
+    nr_parsed = _no_item_set_relabel_pairs(nr_sentence)
+    assert bokstav_parsed is not None and bokstav_parsed[1] == "bokstav"
+    assert nr_parsed is not None and nr_parsed[1] == "nr"
+
+
+def test_no_w76_shared_relabel_head_is_byte_identical_to_what_it_replaced() -> None:
+    """W-76: naming the shared sentence head changed no pattern's TEXT.
+
+    Three sibling-set relabel grammars now build on
+    ``_NO_SET_RELABEL_QUALIFIED_SECTION_HEAD`` instead of spelling the required-
+    qualifier / optional-``§`` head out. That is the rule-of-three extraction the
+    FW-08 ``clause_boundary_dup`` sensor asks for, and an extraction is only free
+    if the resulting patterns are the same STRING they were — which is what this
+    pins, by rebuilding the head from its own two vocabularies.
+    """
+    from lawvm.norway.grafter import (
+        _NO_CURRENCY_QUALIFIER_ALTERNATION,
+        _NO_SET_RELABEL_PUNKTUM_PATTERN,
+        _NO_SET_RELABEL_QUALIFIED_SECTION_HEAD,
+        _NO_SET_RELABEL_SECTION_LABEL,
+        _NO_SET_RELABEL_WIDENED_PATTERN,
+    )
+
+    head = (
+        r"^(?:(?:" + _NO_CURRENCY_QUALIFIER_ALTERNATION + r")\s+"
+        r"(?:§\s*(?P<qualifier_first_section>" + _NO_SET_RELABEL_SECTION_LABEL + r")\s+)?"
+        r"|§\s*(?P<section_first_section>" + _NO_SET_RELABEL_SECTION_LABEL + r")\s+"
+        r"(?:" + _NO_CURRENCY_QUALIFIER_ALTERNATION + r")\s+)"
+    )
+    assert _NO_SET_RELABEL_QUALIFIED_SECTION_HEAD == head
+    assert _NO_SET_RELABEL_WIDENED_PATTERN == (
+        head + r"(?P<source>.+?)\s+ledd\s+blir\s+(?P<destination>.+?)\s+ledd\.?$"
+    )
+    assert _NO_SET_RELABEL_PUNKTUM_PATTERN == (
+        head + r"(?P<source>.+?)\s+punktum\s+blir\s+(?P<destination>.+?)\s+punktum\.?$"
+    )
+    # And the two item patterns are the same head plus their own depth word.
+    from lawvm.norway.grafter import _NO_SET_RELABEL_ITEM_PATTERNS
+
+    assert set(_NO_SET_RELABEL_ITEM_PATTERNS) == {"bokstav", "nr"}
+    assert all(p.startswith(head) for p in _NO_SET_RELABEL_ITEM_PATTERNS.values())
+
+
+def test_no_w76_item_ledd_inheritance_retargets_the_depth_conjunct() -> None:
+    """W-76: ONE antecedent reader, one depth word swapped.
+
+    Everything about ``_no_antecedent_ledd_label`` is depth-independent except the
+    conjunct that says "this antecedent is talking at MY depth", so W-76 retargets
+    that conjunct rather than forking the reader. The defaults are W-66b's, which
+    is what keeps every shipped call site byte-identical.
+    """
+    bokstav_shift = '<article class="defaultP">Nåværende bokstav b blir ny bokstav c.</article>'
+    nr_shift = '<article class="defaultP">Nåværende nr. 2 blir ny nr. 3.</article>'
+    bokstav_markers = ("bokstav",)
+    nr_markers = ("nr.", "nr ", "nummer")
+    # The dominant corpus shape: the antecedent is an item-depth instruction on
+    # the same ledd, and it donates that ledd.
+    assert _no_antecedent_ledd_label(
+        _w66_children(
+            '<article class="defaultP">§ 9 første ledd ny bokstav b skal lyde:</article>',
+            bokstav_shift,
+        ),
+        [0, 0],
+        1,
+        depth_name="item",
+        depth_markers=bokstav_markers,
+    ) == ("1", "antecedent_names_ledd")
+    assert _no_antecedent_ledd_label(
+        _w66_children(
+            '<article class="defaultP">§ 1-2 første ledd nr. 11 skal lyde: stiftelser,</article>',
+            nr_shift,
+        ),
+        [0, 0],
+        1,
+        depth_name="item",
+        depth_markers=nr_markers,
+    ) == ("1", "antecedent_names_ledd")
+    # 22 corpus refusals, every one of them this reason: an item hanging directly
+    # under a section, which is the older acts' shape ("§ 24 nr. 2 oppheves.").
+    assert _no_antecedent_ledd_label(
+        _w66_children('<article class="defaultP">§ 24 nr. 2 blir oppheva.</article>', nr_shift),
+        [0, 0],
+        1,
+        depth_name="item",
+        depth_markers=nr_markers,
+    ) == (None, "antecedent_names_no_ledd")
+    # The retargeted conjunct itself. An antecedent that writes a WHOLE LEDD
+    # establishes that ledd as a payload, not as a container whose items are being
+    # relabelled — inheriting from it would renumber the bokstavs of a provision
+    # that was just written. It changes no element of the measured population; it
+    # is carried for W-66's cycle-guard reason.
+    assert _no_antecedent_ledd_label(
+        _w66_children(
+            '<article class="defaultP">§ 13 nytt tredje ledd skal lyde:</article>', bokstav_shift
+        ),
+        [0, 0],
+        1,
+        depth_name="item",
+        depth_markers=bokstav_markers,
+    ) == (None, "antecedent_is_not_item_depth")
+    # Two ledd named: nothing unambiguous to inherit.
+    assert _no_antecedent_ledd_label(
+        _w66_children(
+            '<article class="defaultP">§ 59 første ledd og tredje ledd ny bokstav b skal lyde:</article>',
+            bokstav_shift,
+        ),
+        [0, 0],
+        1,
+        depth_name="item",
+        depth_markers=bokstav_markers,
+    ) == (None, "antecedent_names_several_ledd")
+    # W-66's meta-amendment guard and the part boundary, both unchanged.
+    assert _no_antecedent_ledd_label(
+        _w66_children(
+            '<article class="defaultP">I endringen av § 19-8 skal første ledd ny bokstav b lyde:</article>',
+            bokstav_shift,
+        ),
+        [0, 0],
+        1,
+        depth_name="item",
+        depth_markers=bokstav_markers,
+    ) == (None, "antecedent_is_meta_amendment")
+    assert _no_antecedent_ledd_label(
+        _w66_children(
+            '<article class="defaultP">§ 4 tredje ledd ny bokstav b skal lyde:</article>',
+            bokstav_shift,
+        ),
+        [0, 1],
+        1,
+        depth_name="item",
+        depth_markers=bokstav_markers,
+    ) == (None, "part_has_no_antecedent_lead")
+    # The shipped punktum call site is byte-identical: the defaults ARE W-66b's.
+    punktum_shift = (
+        '<article class="defaultP">Nåværende annet punktum blir nytt tredje punktum.</article>'
+    )
+    assert _no_antecedent_ledd_label(
+        _w66_children(
+            '<article class="defaultP">§ 3-4 fjerde ledd nytt annet punktum skal lyde:</article>',
+            punktum_shift,
+        ),
+        [0, 0],
+        1,
+    ) == ("4", "antecedent_names_ledd")
+    assert _no_antecedent_ledd_label(
+        _w66_children(
+            '<article class="defaultP">§ 13 nytt tredje ledd skal lyde:</article>', punktum_shift
+        ),
+        [0, 0],
+        1,
+    ) == (None, "antecedent_is_not_punktum_depth")
+
+
+def _w76_relabel_op(sequence: int, section: str, ledd: str, src: str, dst: str) -> LegalOperation:
+    from lawvm.norway.grafter import NO_LEDD_SET_RELABEL_PROVENANCE_TAG
+
+    return LegalOperation(
+        op_id=f"no/lovtid/9999-01-01-1:{sequence}",
+        sequence=sequence,
+        action=StructuralAction.RENUMBER,
+        target=LegalAddress(path=(("section", section), ("subsection", ledd), ("item", src))),
+        destination=LegalAddress(path=(("section", section), ("subsection", ledd), ("item", dst))),
+        source=OperationSource(
+            statute_id="no/lovtid/9999-01-01-1", raw_text="item relabel", title="x"
+        ),
+        provenance_tags=(
+            "base_act:no/lov/1999-01-01-1",
+            "fallback:unstructured",
+            NO_LEDD_SET_RELABEL_PROVENANCE_TAG,
+        ),
+        group_id=f"no/lovtid/9999-01-01-1:{sequence}",
+        witness_rule_id="no_section_renumber_relabel",
+    )
+
+
+def _w76_statute(*letters: str) -> IRStatute:
+    """A one-ledd section whose children are ITEM nodes — the corpus shape.
+
+    Measured over the replayed trees of every censused base act that replays at
+    all: 1,529 ``item`` nodes, 1,477 directly below a ``subsection`` and 52
+    nested one further below another ``item``. ZERO hang anywhere else — in
+    particular none straight off a section — which is why this production
+    requires a ledd rather than guessing a shallow host.
+    """
+    return IRStatute(
+        statute_id="no/lov/1999-01-01-1",
+        title="Testlov",
+        body=IRNode(
+            kind=IRNodeKind.BODY,
+            children=(
+                IRNode(
+                    kind=IRNodeKind.SECTION,
+                    label="9",
+                    children=(
+                        IRNode(
+                            kind=IRNodeKind.SUBSECTION,
+                            label="1",
+                            children=tuple(
+                                IRNode(kind=IRNodeKind.ITEM, label=letter, text=f"bokstav {letter}")
+                                for letter in letters
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+
+def test_no_w76_item_relabel_applies_with_zero_apply_plane_edits() -> None:
+    """W-76 apply: the shipped RENUMBER branch, one address level across.
+
+    The apply plane was not touched for this item. The branch that runs here is
+    W-66's, keyed on W-66's provenance tag, and it compares RESOLVED PATHS — so it
+    is depth-agnostic and generalizes to ``item`` unchanged, exactly as W-66b
+    generalized it to ``sentence``.
+    """
+    before = _w76_statute("a", "b", "c")
+    ops = [_w76_relabel_op(1, "9", "1", "c", "d"), _w76_relabel_op(2, "9", "1", "b", "c")]
+    adjudications: list[CompileAdjudication] = []
+    result = apply_no_ops(before, ops, adjudications_out=adjudications)
+
+    ledd = result.body.children[0].children[0]
+    assert [(child.label, child.text) for child in ledd.children] == [
+        ("a", "bokstav a"),
+        ("c", "bokstav b"),
+        ("d", "bokstav c"),
+    ]
+    assert not [
+        a
+        for a in adjudications
+        if a.kind == "no_replay_ledd_set_relabel_occupied_destination_refused"
+    ]
+    assert not [
+        a for a in adjudications if a.kind == "no_replay_renumber_occupied_destination_removed"
+    ]
+
+
+def test_no_w76_item_relabel_refuses_whole_rather_than_eat_an_occupant() -> None:
+    """W-76 apply: W-66's safety property, unchanged at ITEM depth.
+
+    A ledd that already carries the amendment being replayed is the
+    ``removal_wrong`` hazard this guard exists for. Against a four-item ledd the
+    ``c → d`` leg lands on live text, so it refuses; ``d`` is therefore still
+    occupied when ``b → c`` runs, so that refuses too, and the ledd comes out
+    untouched rather than half-relabelled. No θ cell is reached and nothing is
+    destroyed.
+    """
+    before = _w76_statute("a", "b", "c", "d")
+    ops = [_w76_relabel_op(1, "9", "1", "c", "d"), _w76_relabel_op(2, "9", "1", "b", "c")]
+    adjudications: list[CompileAdjudication] = []
+    result = apply_no_ops(before, ops, adjudications_out=adjudications)
+
+    ledd = result.body.children[0].children[0]
+    assert [(child.label, child.text) for child in ledd.children] == [
+        ("a", "bokstav a"),
+        ("b", "bokstav b"),
+        ("c", "bokstav c"),
+        ("d", "bokstav d"),
+    ]
+    refusals = [
+        a
+        for a in adjudications
+        if a.kind == "no_replay_ledd_set_relabel_occupied_destination_refused"
+    ]
+    assert [a.op_id for a in refusals] == [
+        "no/lovtid/9999-01-01-1:1",
+        "no/lovtid/9999-01-01-1:2",
+    ]
+    assert all(a.blocking for a in refusals)
+    assert [(a.detail or {}).get("destination_path") for a in refusals] == [
+        "section:9/subsection:1/item:d",
+        "section:9/subsection:1/item:c",
+    ]
+    assert not [
+        a for a in adjudications if a.kind == "no_replay_renumber_occupied_destination_removed"
+    ]
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w76_item_relabel_lowers_on_the_corpus_witness() -> None:
+    """W-76 corpus witness: ``no/lovtid/2003-05-23-33`` → ``no/lov/1997-06-13-42``.
+
+    Two ``defaultP`` nodes, one instruction:
+
+        § 9 første ledd ny bokstav b skal lyde: lov 28. mai 1959 nr. 12 …
+        Nåværende bokstav b til e blir bokstav c til f.
+
+    Three facts are pinned, because three things have to be right: the range
+    EXPANDS to four legs; the legs come out in vacate-before-occupy order rather
+    than source order; and the address is ``section/subsection/item`` with the
+    ledd taken from the same antecedent node as the section.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2003-05-23-33", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    adjudications: list[CompileAdjudication] = []
+    grouped = dict(
+        iter_no_document_change_ops(
+            html_bytes, "no/lovtid/2003-05-23-33", adjudications_out=adjudications
+        )
+    )
+    relabel = [
+        op
+        for op in grouped["no/lov/1997-06-13-42"]
+        if op.action is StructuralAction.RENUMBER
+        and op.source is not None
+        and op.source.raw_text == "Nåværende bokstav b til e blir bokstav c til f."
+    ]
+    assert [(op.target.path, cast(LegalAddress, op.destination).path) for op in relabel] == [
+        (
+            (("section", "9"), ("subsection", "1"), ("item", "e")),
+            (("section", "9"), ("subsection", "1"), ("item", "f")),
+        ),
+        (
+            (("section", "9"), ("subsection", "1"), ("item", "d")),
+            (("section", "9"), ("subsection", "1"), ("item", "e")),
+        ),
+        (
+            (("section", "9"), ("subsection", "1"), ("item", "c")),
+            (("section", "9"), ("subsection", "1"), ("item", "d")),
+        ),
+        (
+            (("section", "9"), ("subsection", "1"), ("item", "b")),
+            (("section", "9"), ("subsection", "1"), ("item", "c")),
+        ),
+    ]
+    from lawvm.norway.grafter import NO_LEDD_SET_RELABEL_PROVENANCE_TAG
+
+    assert all(NO_LEDD_SET_RELABEL_PROVENANCE_TAG in (op.provenance_tags or ()) for op in relabel)
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w76_unresolvable_ledd_gets_a_typed_receipt_not_a_guess() -> None:
+    """W-76: 22 corpus refusals resolve their SECTION but not their LEDD.
+
+    The older acts subdivide a section straight into ``nr.`` with no ledd at all
+    ("§ 24 nr. 2 oppheves."), and this production will not guess which container
+    holds the items — at this depth the resolver's first-match DFS would happily
+    pick whichever ledd's bokstav carried the label. The receipt kind is W-76's
+    OWN, not a reuse of W-66b's, because the reader's depth conjunct differs; the
+    ``depth`` detail key tells a bokstav refusal from an nr. one.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2008-05-09-21", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    adjudications: list[CompileAdjudication] = []
+    grouped = dict(
+        iter_no_document_change_ops(
+            html_bytes, "no/lovtid/2008-05-09-21", adjudications_out=adjudications
+        )
+    )
+    typed = [
+        item for item in adjudications if item.kind == NO_PARSE_ITEM_SET_RELABEL_LEDD_UNRESOLVED
+    ]
+    assert [(item.detail or {}).get("section") for item in typed] == ["3-13"]
+    assert [(item.detail or {}).get("depth") for item in typed] == ["bokstav"]
+    assert [(item.detail or {}).get("ledd_reason") for item in typed] == ["antecedent_names_no_ledd"]
+    assert [(item.detail or {}).get("pairs") for item in typed] == [("g->h", "h->i", "i->j")]
+    # Nothing was minted for it — not at a guessed ledd, not anywhere. Keyed on
+    # the refused LEAD rather than its section label, for W-66c's reason.
+    refused_leads = {(item.detail or {}).get("source_excerpt") for item in typed}
+    assert not [
+        op
+        for base_ops in grouped.values()
+        for op in base_ops
+        if op.source is not None and op.source.raw_text in refused_leads
     ]

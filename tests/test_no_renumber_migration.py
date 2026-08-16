@@ -1576,7 +1576,29 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     #     the laws are new to the census, for the reason the ``incomplete_bases``
     #     note gives.
     # 29 + 18 = 47, and no law's row moves for any other reason.
-    "hazard_destructive_writes": 3875,
+    #
+    # 3,875 -> 3,880 at W-76 (+5), and it is the SMALLEST possible reading of a
+    # new lowering family: every other key of this census is unchanged, including
+    # ``hazard_content_removing_writes`` (198) and ``hazard_bases_removing_
+    # content`` (77). The item-depth (bokstav / nr.) sibling-set relabel mints 67
+    # RENUMBER legs, of which EIGHT are picked up by any base law's replay; six
+    # land and two refuse at apply under W-66's occupied-destination guard. The
+    # six land on three laws already inside the intersection, and the row deltas
+    # are exactly:
+    #   * ``no/lov/2005-06-17-90``  [49, 0] -> [52, 0]  (+3, tvisteloven § 6-2
+    #     første ledd bokstav c/d/e shifted one letter; text preserved verbatim,
+    #     nothing removed);
+    #   * ``no/lov/2007-12-21-119`` [49, 4] -> [50, 4]  (+2 RENUMBER, -1 REPLACE:
+    #     the shipped ``_promote_no_replace_with_following_renumber_insert``
+    #     waking up on the co-located ``bokstav g`` payload, exactly as it did at
+    #     W-70b);
+    #   * ``no/lov/2005-05-20-28``  [130, 3] -> [131, 3] (+1).
+    # 3 + 1 + 1 = 5, membership is unchanged (164 hazard bases, both before and
+    # after), and the content-removing column does NOT move — a RENUMBER moves
+    # content and puts it back, which is the polarity this census was built to
+    # separate. The corpus-wide ``remove_at`` probe agrees: 240 -> 240
+    # content-removing writes, 307 -> 307 sentence removals.
+    "hazard_destructive_writes": 3880,
     # 167 -> 168, and the +1 is NOT a relabel op. ``no/lov/2016-05-27-14`` gains
     # ``no/lovtid/2021-12-22-158:1``, a REPEAL of § 7-6 annet ledd that could not
     # bind before because that law's ledd sequence was one slot out of step; with
@@ -1632,7 +1654,15 @@ _NO_INCOMPLETE_BASE_HAZARD_LAWS_DIGEST = (
     # nothing leaves, and 24 further rows move by the punktum repeals they take.
     # Both columns move on 24 of the 26; the destroying column moving at all is
     # this landing's headline, and the destructions are pinned by content below.
-    "e8c9edc09d2acc4c29ec0a5d182cc67754a2bb117d77c5447219010de10e331f"
+    # W-76: MEMBERSHIP UNCHANGED (164 laws, same set, nothing enters or leaves —
+    # the two set differences are empty). THREE rows move, and only in the
+    # destructive column: ``no/lov/2005-06-17-90`` [49, 0] -> [52, 0],
+    # ``no/lov/2007-12-21-119`` [49, 4] -> [50, 4], ``no/lov/2005-05-20-28``
+    # [130, 3] -> [131, 3]. Every removing column is byte-identical, which is the
+    # column that matters: an item-depth relabel MOVES content, it does not
+    # delete it. See the ``hazard_destructive_writes`` note above for the leg-by-
+    # leg decomposition of the +5.
+    "d6df420f8de37d20680201882d0d1fe722a9afb688338e1e54424ec52b4768c8"
 )
 
 _REGENERATE = (

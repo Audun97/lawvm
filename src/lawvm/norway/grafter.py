@@ -1522,6 +1522,13 @@ NO_PARSE_LEDD_SET_RELABEL_ORDER_UNPROVABLE = "no_parse_ledd_set_relabel_order_un
 #: way — so this member names only what is new at this depth: the LEDD the
 #: punktum hangs below could not be established. See the W-66b block comment.
 NO_PARSE_PUNKTUM_SET_RELABEL_LEDD_UNRESOLVED = "no_parse_punktum_set_relabel_ledd_unresolved"
+#: W-76. The same failure one family further out: a bokstav/nr. relabel resolved
+#: its SECTION but not the LEDD its item hangs below. It is a kind of its own
+#: rather than a reuse of the punktum member above — unlike W-66c, which reuses
+#: both kinds because it runs the reader UNCHANGED, this production retargets the
+#: reader's depth conjunct, so it is not the same reader failing the same way. A
+#: census tells bokstav from nr. by the receipt's own ``depth`` detail key.
+NO_PARSE_ITEM_SET_RELABEL_LEDD_UNRESOLVED = "no_parse_item_set_relabel_ledd_unresolved"
 #: Stamped on every op this production mints, and read by the apply seam. It is
 #: the ONLY thing that tells the (RENUMBER, dest_occupied) branch that this op
 #: must refuse rather than clear its destination — see the block comment there.
@@ -1623,12 +1630,22 @@ _NO_META_AMENDMENT_ANTECEDENT_RE = compile_classifier_regex(
 #: admits ordinary drafting prose ("Andre ledd blir nytt tredje ledd.") whose
 #: source edition is exactly what is unstated.
 _NO_SET_RELABEL_SECTION_LABEL = r"[0-9][0-9A-Za-z-]*(?:\s+[A-Za-z])?"
-_NO_SET_RELABEL_WIDENED_PATTERN = (
+#: The SHARED head of every sibling-set relabel sentence in this module: a
+#: required currency qualifier and an optional ``§``, in either word order,
+#: capturing the section into ``qualifier_first_section`` /
+#: ``section_first_section``. Named at W-76 rather than spelled a third time —
+#: the rule-of-three point, and the FW-08 ``clause_boundary_dup`` sensor's. The
+#: three patterns built from it are byte-identical to the strings they were
+#: before the extraction, which is pinned as a test fact.
+_NO_SET_RELABEL_QUALIFIED_SECTION_HEAD = (
     r"^(?:(?:" + _NO_CURRENCY_QUALIFIER_ALTERNATION + r")\s+"
     r"(?:§\s*(?P<qualifier_first_section>" + _NO_SET_RELABEL_SECTION_LABEL + r")\s+)?"
     r"|§\s*(?P<section_first_section>" + _NO_SET_RELABEL_SECTION_LABEL + r")\s+"
     r"(?:" + _NO_CURRENCY_QUALIFIER_ALTERNATION + r")\s+)"
-    r"(?P<source>.+?)\s+ledd\s+blir\s+(?P<destination>.+?)\s+ledd\.?$"
+)
+_NO_SET_RELABEL_WIDENED_PATTERN = (
+    _NO_SET_RELABEL_QUALIFIED_SECTION_HEAD
+    + r"(?P<source>.+?)\s+ledd\s+blir\s+(?P<destination>.+?)\s+ledd\.?$"
 )
 
 
@@ -1735,13 +1752,11 @@ def _no_ledd_set_relabel_pairs(lead: str) -> Optional[tuple[str, list[tuple[int,
 # pattern at either depth. Sized with a classifier of the RIGHT shape they are 27
 # refusals / 23 leads / 17 bases (``bokstav``) and 36 / 33 / 19 (``nr.``) — a
 # real family, but a different sentence grammar over a different label
-# vocabulary, and therefore a different item.
+# vocabulary, and therefore a different item. W-76 is that item; its block
+# comment carries the counts re-derived at its own pin, where they are unmoved.
 _NO_SET_RELABEL_PUNKTUM_PATTERN = (
-    r"^(?:(?:" + _NO_CURRENCY_QUALIFIER_ALTERNATION + r")\s+"
-    r"(?:§\s*(?P<qualifier_first_section>" + _NO_SET_RELABEL_SECTION_LABEL + r")\s+)?"
-    r"|§\s*(?P<section_first_section>" + _NO_SET_RELABEL_SECTION_LABEL + r")\s+"
-    r"(?:" + _NO_CURRENCY_QUALIFIER_ALTERNATION + r")\s+)"
-    r"(?P<source>.+?)\s+punktum\s+blir\s+(?P<destination>.+?)\s+punktum\.?$"
+    _NO_SET_RELABEL_QUALIFIED_SECTION_HEAD
+    + r"(?P<source>.+?)\s+punktum\s+blir\s+(?P<destination>.+?)\s+punktum\.?$"
 )
 #: Splits an optional ``<ordinal> ledd`` phrase off the front of the SOURCE side.
 #: It is applied to the source residue rather than spelled as an optional group
@@ -1910,6 +1925,278 @@ def _no_punktum_repeal_targets(lead: str) -> Optional[tuple[str, str, list[int]]
         ledd_label,
         targets,
     )
+
+
+# ── W-76: the sibling-set relabel at ITEM depth (bokstav / nr.) ───────────────
+#
+# THE CONSTRUCT is W-66's, unchanged: ONE relabel of ONE sibling set, read
+# against the pre-operation snapshot, source and destination sets overlapping.
+# The atomicity argument therefore transfers whole and
+# ``_no_ordered_set_relabel_pairs`` is REUSED rather than forked — a bokstav or
+# nr. relabel stays inside one ledd's child list, so it is a single-sibling-set
+# problem exactly as the ledd and punktum cases are, and none of W-69c's
+# cross-container machinery is needed. The ops carry W-66's OWN provenance tag
+# for W-66b's reason: the apply-plane refuse-on-occupied branch keyed on it
+# compares RESOLVED PATHS and is depth-agnostic, so reusing the tag generalizes
+# it unchanged and keeps these legs visible to W-72's occupied-destination sweep
+# and inside the conserved partition's existing skip kind. An item-depth firing
+# is told from a ledd or punktum one by the receipt's own paths.
+#
+# WHAT IS GENUINELY NEW IS THE SENTENCE AND THE LABEL VOCABULARY, and that is
+# why this is a separate production rather than W-66b one word further down.
+# ``ledd``/``punktum`` POSTFIX their depth word to a Norwegian ordinal ("tredje
+# punktum"); ``bokstav``/``nr.`` PREFIX it to a letter or an arabic numeral
+# ("bokstav c", "nr. 2"). The two shapes cannot collide: every shipped
+# sibling-set relabel and repeal grammar in this module anchors its tail on
+# ``ledd`` or ``punktum`` (the section-level lanes on a ``§`` label), and a
+# sentence ending "… bokstav d." or "… nr. 3." matches none of them.
+# Disjointness is pinned as a test fact rather than left as this claim, and the
+# block's POSITION in the walk — last, behind every shipped production and
+# immediately ahead of the operative fallback — is the additivity proof: a lead
+# only reaches here once every other family has declined it, so this production
+# can convert nothing but leads carrying ``no_parse_unstructured_lead_unmatched``
+# today.
+#
+# THE ADDRESS, and it is measured rather than assumed. A bokstav/nr node is an
+# ``item`` in the IR (``_eli_kind_and_step`` maps BOTH depth words onto that one
+# kind), and a corpus probe over the replayed trees of every censused base act
+# that replays at all finds 1,529 ``item`` nodes, EVERY one of them below a
+# ``subsection`` — 1,477 directly (``…/section/subsection/item``) and 52 nested
+# one further (``…/subsection/item/item``, a bokstav under an nr.). ZERO hang
+# anywhere else, and in particular none hangs straight off a section in a tree
+# this replay can build. So the address arithmetic is W-66b's exactly: a
+# section spelled or inherited, then a LEDD that must itself resolve, then the
+# item label. The ledd is REQUIRED for that reason, and because the resolver's
+# ``tree_ops.find`` is a first-match DFS at any depth — a shallow
+# ``(section, item)`` address would silently pick whichever ledd's bokstav "b"
+# it reached first.
+#
+# THE LEDD IS NEVER SPELLED IN THIS FAMILY, which is the one place the address
+# discipline is tighter than W-66b's. The sized grammar's source side reduces to
+# LABELS ALONE, so a lead that spells its own ledd ("Nåværende § 18-3 sjette ledd
+# bokstav b blir ny bokstav c.") DECLINES here — it is a different, larger
+# sentence shape and it was not in the sized population. It is therefore always
+# the DOM-local antecedent that supplies the ledd, through
+# ``_no_antecedent_ledd_label`` with its depth conjunct retargeted from
+# ``punktum`` to this depth's own word. The conjunct's purpose is W-66b's: an
+# antecedent that establishes a PAYLOAD must not donate an address. Measured, it
+# changes NO element of the frozen withdrawal set (every antecedent that resolves
+# a ledd here also names the item depth word), and for ``nr.`` it is admittedly
+# weak — an ordinary Lovtidend law citation spells "nr. 12" — so the LEDD reader,
+# not this conjunct, is the real gate. It is carried anyway for W-66's cycle-
+# guard reason: today's corpus not exercising a rule is not a property of it.
+#
+# THE MEASURED POPULATION, re-derived UNTRUNCATED at the W-76 base pin
+# (``2e667312f``) over 8,141 ``no_parse_unstructured_lead_unmatched`` refusals —
+# the shipped adjudication detail clips ``source_excerpt`` at 240 chars, so a
+# receipt-plane census cannot see this family whole:
+#
+#   bokstav  27 refusals / 23 distinct leads / 27 instruments / 17 base acts
+#   nr.      36 refusals / 33 distinct leads / 28 instruments / 19 base acts
+#
+# Split by what this production does with them: 28 LOWER (18 bokstav, 10 nr.),
+# minting 67 RENUMBER legs over 17 base acts; 22 refuse
+# ``NO_PARSE_ITEM_SET_RELABEL_LEDD_UNRESOLVED``, every one
+# ``antecedent_names_no_ledd``; 13 refuse
+# ``NO_PARSE_LEDD_SET_RELABEL_ADDRESS_UNRESOLVED`` (W-66's kind, reused because
+# it is the same helper failing the same way) — 9 ``antecedent_names_several_
+# sections``, 3 ``antecedent_names_no_section``, 1 ``part_has_no_antecedent_
+# lead``. Nothing declines at the grammar and nothing is cyclic.
+#
+# MINTED LEGS ARE NOT WRITES, and at this depth the gap is wide (item 81's
+# standing caution, re-derived). Of the 67 legs, only EIGHT are picked up by any
+# base law's replay at the sweep's ``as_of``, on five acts: six land and two
+# refuse at apply under W-66's occupied-destination guard, because the companion
+# item-depth REPEAL their antecedent announces ("§ 8-1 første ledd nr. 6
+# oppheves.") has no production — the exact W-66b→W-66c relationship, one family
+# out, and a correctly refused leg rather than a defect. NONE of the 17 written
+# base acts is a scan candidate, so the projected AND realized divergence-row
+# yield is zero and the scoreboard does not move.
+#
+# THE HOLE THIS PRODUCTION MAKES VISIBLE, recorded because it is the honest
+# reading of the three laws whose text moves. A relabel is half of a two-part
+# instruction: the antecedent announces a payload ("§ 6-2 første ledd ny bokstav
+# c skal lyde: …") and the relabel makes room for it. When the payload lead spells
+# no ``ny``, the shipped item-target reader lowers it to a REPLACE and
+# ``_promote_no_replace_with_following_renumber_insert`` turns that into the
+# INSERT the pair needs — five corpus ops are promoted that way and those sites
+# come out exactly right. When it DOES spell ``ny``, the shipped reader's
+# ``ledd bokstav`` adjacency breaks and NOTHING is minted, so the relabel vacates
+# a label nothing refills and the statute is left with a gap. 146 refusals / 146
+# leads / 113 instruments / 64 base acts carry that payload lead today; building
+# it is the follow-up, and it is what closes the gap rather than any narrowing
+# here. The relabel itself is verbatim what the instrument commands, no op
+# destroys text, and the corpus content-removing-write census is unchanged.
+#
+# WHAT IS DELIBERATELY LEFT REFUSED, each limb sized:
+#   * A SPELLED LEDD, as above. 58 refusals sit in the qualifier-headed
+#     neighbourhood this grammar declines, and they break down as: 26 spell their
+#     own ledd (24 leads, 14 bases; 17 ``bokstav``, 9 ``nr.``), 12 reach a
+#     punktum/avsnitt BELOW the item, 8 mark newness inside a list or drop the
+#     depth word off the destination, 7 run on past the relabel or carry a
+#     payload tail, 1 is ``blir til``, 1 spells its numeral out, 1 uses a
+#     relocation verb, 2 are otherwise out of shape. The 26 are the natural next
+#     widening; the rest are other families.
+#   * Letters OUTSIDE ``a``–``z``. ``æ``/``ø``/``å`` never appear as a corpus
+#     bokstav label, and their position relative to ``z`` in Lovdata's lettering
+#     is unproven, so a range that crossed it would be expanded on a guess. They
+#     decline; the refusal costs nothing measured.
+#   * NEWNESS INSIDE A LIST ("blir bokstav k og ny bokstav l"). The newness
+#     marker is admitted ONCE, in front of the destination's depth word, exactly
+#     where the sized shape puts it; inside a list it declines, because a list
+#     whose members are individually marked is announcing an insertion this
+#     production does not model.
+#   * ``siste bokstav`` and every other counted address. The label vocabulary is
+#     explicit expansion — a range is enumerated, never trusted to a count — so
+#     an address that names a position rather than a label declines.
+#   * A relabel that crosses sibling sets. It cannot be spelled at all: both
+#     sides of the pivot are anchored to labels of ONE depth word, so a
+#     destination that respells a ledd or a section has nowhere to go. That is
+#     W-69's territory by construction rather than by a check.
+#
+#: The letters a bokstav label may take, in the order a ``til`` range is expanded
+#: over. Deliberately ASCII — ``æ``/``ø``/``å`` decline; see the block comment.
+_NO_ITEM_RELABEL_LETTER_ALPHABET = "abcdefghijklmnopqrstuvwxyz"
+#: Per depth: (the depth WORD as the sentence spells it, the LABEL-LIST shape).
+#: The separators are spelled with their surrounding whitespace REQUIRED, which
+#: is not cosmetic — an unspaced ``og`` alternative lets a bare letter class read
+#: "dog" as the two labels ``d`` and ``e``'s separator plus a stray, and every
+#: corpus separator is spaced.
+_NO_SET_RELABEL_ITEM_SEPARATOR = r"(?:\s*,\s*|\s+og\s+|\s+til\s+)"
+_NO_SET_RELABEL_ITEM_DEPTHS: dict[str, tuple[str, str]] = {
+    "bokstav": (
+        r"bokstav(?:ene|ane)?",
+        r"[a-z](?:" + _NO_SET_RELABEL_ITEM_SEPARATOR + r"[a-z])*",
+    ),
+    "nr": (
+        r"nr\.?",
+        r"[0-9]+(?:" + _NO_SET_RELABEL_ITEM_SEPARATOR + r"(?:nr\.?\s*)?[0-9]+)*",
+    ),
+}
+#: The head is the SHARED ``_NO_SET_RELABEL_QUALIFIED_SECTION_HEAD``, which is
+#: W-66's two explicit branches: two optional groups would make the currency
+#: qualifier optional by accident, and that single character of slack admits
+#: ordinary drafting prose.
+_NO_SET_RELABEL_ITEM_PATTERNS: dict[str, str] = {
+    depth: (
+        _NO_SET_RELABEL_QUALIFIED_SECTION_HEAD
+        + word + r"\s+(?P<source>" + labels + r")\s+blir\s+"
+        r"(?:ny(?:tt|e)?\s+)?" + word + r"\s+(?P<destination>" + labels + r")\.?$"
+    )
+    for depth, (word, labels) in _NO_SET_RELABEL_ITEM_DEPTHS.items()
+}
+#: What the DOM-local antecedent must mention for it to donate a ledd at this
+#: depth. See the block comment: for ``nr.`` this is a weak test by nature.
+_NO_ITEM_RELABEL_ANTECEDENT_MARKERS: dict[str, tuple[str, ...]] = {
+    "bokstav": ("bokstav",),
+    "nr": ("nr.", "nr ", "nummer"),
+}
+
+
+def _no_strip_item_relabel_repeated_depth(token: str) -> str:
+    """Strip a repeated depth word off a label-list member.
+
+    ``"nr. 8 til nr. 10"`` spells its depth word twice, and the second one is a
+    restatement rather than an address step. Stripped in code rather than
+    swallowed by a regex group so the label vocabulary below sees a bare label.
+    """
+    stripped = token.strip()
+    folded = stripped.casefold()
+    for marker in ("nr. ", "nr.", "nr ", "nummer "):
+        if folded.startswith(marker):
+            return stripped[len(marker) :].strip()
+    return stripped
+
+
+def _no_item_relabel_label_index(depth: str, token: str) -> Optional[int]:
+    """One label token → its 1-based INDEX inside its sibling ordering.
+
+    Indexes rather than labels because ``_no_ordered_set_relabel_pairs`` — W-66's
+    topological sort, reused verbatim — is the ONE ordering implementation in
+    this module and it orders integers. ``None`` is "this production cannot name
+    that label", and the whole lead is then refused.
+    """
+    token = token.strip().casefold()
+    if depth == "nr":
+        return int(token) if token.isdigit() else None
+    if len(token) != 1:
+        return None
+    position = _NO_ITEM_RELABEL_LETTER_ALPHABET.find(token)
+    return position + 1 if position >= 0 else None
+
+
+def _no_item_relabel_label(depth: str, index: int) -> str:
+    """The inverse of :func:`_no_item_relabel_label_index`, for the emitted path."""
+    if depth == "nr":
+        return str(index)
+    return _NO_ITEM_RELABEL_LETTER_ALPHABET[index - 1]
+
+
+def _no_item_relabel_indexes(depth: str, phrase: str) -> Optional[list[int]]:
+    """``"b til e"`` → ``[2, 3, 4, 5]``; ``"nr. 3, 4 og 5"`` → ``[3, 4, 5]``.
+
+    A range is EXPANDED, never counted on trust, and a member this vocabulary
+    cannot name returns ``None`` so the whole lead is refused — the all-or-
+    nothing rule ``_no_ledd_shift_ordinals`` states at the other depths.
+    """
+    indexes: list[int] = []
+    # lawvm-regex: owning_parser this IS the item-relabel label-list splitter, and every member it yields is validated by the vocabulary below
+    for chunk in re.split(r"\s*,\s*|\s+og\s+", _normalize_space(phrase)):
+        chunk = _no_strip_item_relabel_repeated_depth(chunk)
+        if not chunk:
+            return None
+        low, separator, high = chunk.partition(" til ")
+        first = _no_item_relabel_label_index(depth, _no_strip_item_relabel_repeated_depth(low))
+        if first is None:
+            return None
+        if not separator:
+            indexes.append(first)
+            continue
+        last = _no_item_relabel_label_index(depth, _no_strip_item_relabel_repeated_depth(high))
+        if last is None or last < first:
+            return None
+        indexes.extend(range(first, last + 1))
+    return indexes
+
+
+def _no_item_set_relabel_pairs(lead: str) -> Optional[tuple[str, str, list[tuple[int, int]]]]:
+    """``Nåværende bokstav c blir ny bokstav d.`` → pairs.
+
+    Returns ``(section_label, depth, [(src_index, dst_index), …])``.
+    ``section_label`` is ``""`` when the sentence does not spell one (the caller
+    then inherits it from the DOM-local antecedent), and the whole result is
+    ``None`` when this grammar declines the sentence.
+
+    ``depth`` is ``"bokstav"`` or ``"nr"``. It names WHICH pattern matched, so
+    the two-depth dispatch is a test's fact rather than a comment's claim, and it
+    selects both the label vocabulary and the antecedent's depth conjunct. The
+    two patterns are mutually exclusive by their depth words, so the iteration
+    order over them is immaterial — pinned as a test fact.
+    """
+    normalized = _normalize_space(lead)
+    for depth, pattern in _NO_SET_RELABEL_ITEM_PATTERNS.items():
+        # Inline ``re.match`` rather than a compiled classifier constant, for the
+        # reason the sibling productions above record: the adjacent label spans
+        # cannot pass ``compile_classifier_regex``'s backtracking lint.
+        # lawvm-regex: owning_parser this IS the item-depth sibling-set relabel sentence parser
+        match = re.match(pattern, normalized, re.IGNORECASE)
+        if match is None:
+            continue
+        sources = _no_item_relabel_indexes(depth, match.group("source"))
+        destinations = _no_item_relabel_indexes(depth, match.group("destination"))
+        if sources is None or destinations is None or len(sources) != len(destinations):
+            return None
+        if len(set(sources)) != len(sources) or len(set(destinations)) != len(destinations):
+            return None
+        if any(src == dst for src, dst in zip(sources, destinations, strict=True)):
+            return None
+        section = match.group("qualifier_first_section") or match.group("section_first_section")
+        return (
+            _normalize_no_section_label(section) if section else "",
+            depth,
+            list(zip(sources, destinations, strict=True)),
+        )
+    return None
 
 
 # ── W-70b: the ``data-move-part`` that names the WRONG destination SECTION ─────
@@ -2260,6 +2547,9 @@ def _no_antecedent_ledd_label(
     children: Sequence[etree._Element],
     part_indexes: Sequence[int],
     position: int,
+    *,
+    depth_name: str = "punktum",
+    depth_markers: tuple[str, ...] = ("punktum",),
 ) -> tuple[Optional[str], str]:
     """The ledd address a punktum relabel with no ledd of its own inherits.
 
@@ -2290,6 +2580,15 @@ def _no_antecedent_ledd_label(
     exactly one ledd, 32 name none, and 5 parts have no antecedent lead at all;
     after the grammar has declined the 16 it declines, the surviving refusals
     here are 27, every one ``antecedent_names_no_ledd``.
+
+    W-76 RETARGETS the extra conjunct rather than copying the reader. Everything
+    above — the DOM-local rule, the meta-amendment guard, the single-distinct-
+    label requirement, the ordinal vocabulary — is depth-independent; only the
+    word that says "this antecedent is talking at MY depth" is not. ``depth_name``
+    and ``depth_markers`` default to W-66b's ``punktum``, so every shipped call
+    site is byte-identical, and the item-depth caller passes its own word. The
+    reason string is built from ``depth_name`` for the same purpose it always
+    served: a census must be able to tell WHICH depth's conjunct declined.
     """
     index = position - 1
     part = part_indexes[position] if position < len(part_indexes) else None
@@ -2300,8 +2599,8 @@ def _no_antecedent_ledd_label(
             # lawvm-regex: owning_parser this IS the punktum relabel's antecedent reader, on the antecedent node's own text
             if _NO_META_AMENDMENT_ANTECEDENT_RE.search(text) is not None:
                 return None, "antecedent_is_meta_amendment"
-            if "punktum" not in text.casefold():
-                return None, "antecedent_is_not_punktum_depth"
+            if not any(marker in text.casefold() for marker in depth_markers):
+                return None, f"antecedent_is_not_{depth_name}_depth"
             # lawvm-regex: owning_parser the same antecedent reader's ledd scan; the single-distinct-label conjunct below validates every match
             raw_labels = _NO_ANTECEDENT_LEDD_RE.findall(text)
             labels = {_NORWEGIAN_ORDINALS[raw.casefold()] for raw in raw_labels}
@@ -4763,6 +5062,137 @@ def _iter_unstructured_no_change_groups(
                         source=OperationSource(statute_id=source_id, raw_text=lead, title=lead_base_id),
                         provenance_tags=(f"base_act:{lead_base_id}", "fallback:unstructured"),
                         group_id=f"{source_id}:{lead_base_id}:{sequence}",
+                    )
+                )
+                sequence += 1
+            idx = cursor
+            continue
+
+        # W-76, and it sits LAST — behind W-66c and immediately ahead of the
+        # operative fallback. The position is the additivity proof rather than a
+        # preference, exactly as it is for the block above: a lead only reaches
+        # here once every other family has declined it, so this block can convert
+        # nothing but leads that carry ``no_parse_unstructured_lead_unmatched``
+        # today. The tail-anchor disjointness argument is available too and is
+        # pinned as a test fact, but it is the weaker of the two. See the block
+        # comment on ``_no_item_set_relabel_pairs`` for the measurement, the
+        # address probe and what is deliberately left refused.
+        item_relabel = _no_item_set_relabel_pairs(lead)
+        if item_relabel is not None:
+            item_section, item_depth, item_pairs = item_relabel
+            item_pair_detail = tuple(
+                f"{_no_item_relabel_label(item_depth, src)}->{_no_item_relabel_label(item_depth, dst)}"
+                for src, dst in item_pairs
+            )
+            item_address_reason = "lead_names_section"
+            if not item_section:
+                inherited_section, item_address_reason = _no_antecedent_section_label(
+                    children, child_part_indexes, idx
+                )
+                item_section = inherited_section or ""
+            if not item_section:
+                _append_no_unstructured_parse_adjudication(
+                    adjudications_out,
+                    kind=NO_PARSE_LEDD_SET_RELABEL_ADDRESS_UNRESOLVED,
+                    message=(
+                        "Norway sibling-set item relabel named no section of its own and no "
+                        "unambiguous antecedent supplied one; the relabel was not lowered."
+                    ),
+                    source_id=source_id,
+                    lead=lead,
+                    base_id=lead_base_id,
+                    detail={
+                        "production": "item_set_relabel",
+                        "depth": item_depth,
+                        "address_reason": item_address_reason,
+                        "pairs": item_pair_detail,
+                    },
+                )
+                idx += 1
+                continue
+            # The ledd is ALWAYS inherited at this depth: the sized grammar's
+            # source side reduces to labels alone, so a lead that spells its own
+            # ledd never reaches here. See the block comment.
+            inherited_ledd, item_ledd_reason = _no_antecedent_ledd_label(
+                children,
+                child_part_indexes,
+                idx,
+                depth_name="item",
+                depth_markers=_NO_ITEM_RELABEL_ANTECEDENT_MARKERS[item_depth],
+            )
+            item_ledd = inherited_ledd or ""
+            if not item_ledd:
+                _append_no_unstructured_parse_adjudication(
+                    adjudications_out,
+                    kind=NO_PARSE_ITEM_SET_RELABEL_LEDD_UNRESOLVED,
+                    message=(
+                        "Norway sibling-set item relabel resolved its section but no unambiguous "
+                        "antecedent supplied the ledd its item hangs below; nothing was lowered."
+                    ),
+                    source_id=source_id,
+                    lead=lead,
+                    base_id=lead_base_id,
+                    detail={
+                        "production": "item_set_relabel",
+                        "depth": item_depth,
+                        "section": item_section,
+                        "address_reason": item_address_reason,
+                        "ledd_reason": item_ledd_reason,
+                        "pairs": item_pair_detail,
+                    },
+                )
+                idx += 1
+                continue
+            item_ordered = _no_ordered_set_relabel_pairs(item_pairs)
+            if item_ordered is None:
+                _append_no_unstructured_parse_adjudication(
+                    adjudications_out,
+                    kind=NO_PARSE_LEDD_SET_RELABEL_ORDER_UNPROVABLE,
+                    message=(
+                        "Norway sibling-set item relabel has no vacate-before-occupy order "
+                        "(the source and destination sets form a cycle); nothing was lowered."
+                    ),
+                    source_id=source_id,
+                    lead=lead,
+                    base_id=lead_base_id,
+                    detail={
+                        "production": "item_set_relabel",
+                        "depth": item_depth,
+                        "section": item_section,
+                        "ledd": item_ledd,
+                        "pairs": item_pair_detail,
+                    },
+                )
+                idx += 1
+                continue
+            for src_index, dst_index in item_ordered:
+                doc_ops.append(
+                    LegalOperation(
+                        op_id=f"{source_id}:{sequence}",
+                        sequence=sequence,
+                        action=StructuralAction.RENUMBER,
+                        target=LegalAddress(
+                            path=(
+                                ("section", item_section),
+                                ("subsection", item_ledd),
+                                ("item", _no_item_relabel_label(item_depth, src_index)),
+                            )
+                        ),
+                        destination=LegalAddress(
+                            path=(
+                                ("section", item_section),
+                                ("subsection", item_ledd),
+                                ("item", _no_item_relabel_label(item_depth, dst_index)),
+                            )
+                        ),
+                        source=OperationSource(statute_id=source_id, raw_text=lead, title=lead_base_id),
+                        provenance_tags=(
+                            f"base_act:{lead_base_id}",
+                            "fallback:unstructured",
+                            NO_LEDD_SET_RELABEL_PROVENANCE_TAG,
+                        ),
+                        group_id=f"{source_id}:{lead_base_id}:{sequence}",
+                        witness_rule_id="no_section_renumber_relabel",
                     )
                 )
                 sequence += 1

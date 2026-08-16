@@ -291,7 +291,9 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "attached to a guessed address. W-66; since W-66b the SAME kind carries "
         "the section half at PUNKTUM depth too, because it is the same reader "
         "failing the same way — the depth-specific half is the sibling kind "
-        "``no_parse_punktum_set_relabel_ledd_unresolved``."
+        "``no_parse_punktum_set_relabel_ledd_unresolved``. Since W-76 the same "
+        "kind also carries the section half at ITEM (bokstav / nr.) depth, and "
+        "for the same reason."
     ),
     "no_parse_punktum_set_relabel_ledd_unresolved": (
         "A Norway sibling-set relabel at PUNKTUM depth (\"Nåværende annet punktum "
@@ -302,6 +304,17 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "whole ledd establishes that ledd as a payload, not as a container whose "
         "sentences are being renumbered). The relabel is refused rather than "
         "attached to a guessed ledd. W-66b."
+    ),
+    "no_parse_item_set_relabel_ledd_unresolved": (
+        "A Norway sibling-set relabel at ITEM depth (\"Nåværende bokstav c blir ny "
+        "bokstav d.\", \"Nåværende nr. 2 blir ny nr. 3.\") resolved its SECTION but "
+        "not the LEDD the bokstav/nr. hangs below. Every corpus item node sits "
+        "under a ledd, and this family never spells one, so the ledd always comes "
+        "from the DOM-local antecedent — and the antecedent supplied none, named "
+        "several, was a meta-amendment, or was not itself an instruction at this "
+        "depth. The relabel is refused rather than attached to a guessed ledd, "
+        "which at this depth would also mean a first-match DFS picking whichever "
+        "ledd's bokstav carried the label. W-76."
     ),
     "no_parse_ledd_set_relabel_order_unprovable": (
         "A Norway sibling-set ledd relabel's source and destination sets form a "

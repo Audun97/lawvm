@@ -1278,7 +1278,17 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # conserving: entries 2,568 -> 2,571, nothing lost, and no existing
         # entry's status moves — ``contingent`` stays at exactly 535 and
         # ``instrument_authorized`` at exactly 979.
-        "dated": 1054,
+        # 1,054 -> 1,055 at W-76, and it is ONE act gaining its FIRST index entry:
+        # ``no/lovtid/2011-12-09-55``, whose only lowerable lead corpus-wide is
+        # "Nåværende bokstav e, f og g blir bokstav d, e og f." on
+        # ``no/lov/1997-02-28-19`` § 23-3 annet ledd. Before the item-depth
+        # sibling-set relabel it bound nothing at all, so it produced no entry;
+        # its commencement field is a plain own date (2011-12-09), so it lands
+        # here. Exactly conserving: entries 2,571 -> 2,572, nothing lost, no
+        # existing entry's status moves, and ``contingent`` (535),
+        # ``instrument_authorized`` (979), ``immediate`` (1) and ``unknown`` (2)
+        # are byte-identical. The staged population above is untouched at 175.
+        "dated": 1055,
         "immediate": 1,
         # 976 -> 977 at W-67, and the whole of this landing's effect on the
         # act-level histogram is ONE act gaining its FIRST index entry — the same
@@ -1804,9 +1814,17 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # last unbound declared target. ZERO targets newly unbound and NOTHING
     # rebound — the receipt drop is 6 and the pair drop 33 because the six acts
     # between them declared 33 targets they bound none of.
-    assert len(unbound) == 938
-    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2465
-    assert len({diagnostic["source_id"] for diagnostic in unbound}) == 938
+    # 938 -> 937 receipts and 2,465 -> 2,462 pairs at W-76, the same shape again
+    # at ITEM depth and the narrowest instance of it so far. THREE instruments
+    # bind one further declared target each off the bokstav/nr. relabel:
+    # ``no/lovtid/2003-05-23-33`` (2 -> 1 unbound, binds ``no/lov/1997-06-13-42``),
+    # ``no/lovtid/2019-06-21-70`` (5 -> 4, binds ``no/lov/2002-06-21-45``) and
+    # ``no/lovtid/2011-12-09-55`` (1 -> 0, binds ``no/lov/1997-02-28-19``), the
+    # last losing its gap ENTIRELY and thereby gaining its first index entry.
+    # ZERO targets newly unbound and NOTHING rebound.
+    assert len(unbound) == 937
+    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2462
+    assert len({diagnostic["source_id"] for diagnostic in unbound}) == 937
 
     # 64 acts gain their FIRST index entry: they announced every one of their
     # parts with an unlisted tail, so they had bound no law at all.
@@ -1869,7 +1887,11 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # off the punktum-depth REPEAL — ``no/lovtid/2002-09-27-69``,
     # ``no/lovtid/2017-12-19-127`` and ``no/lovtid/2021-12-22-169``, all three
     # ``dated`` on their own plain date. None leaves.
-    assert len(index.entries) == 2571
+    # 2,571 -> 2,572 at W-76: ONE act gains its first entry off the same relabel
+    # at ITEM depth (bokstav / nr.) — ``no/lovtid/2011-12-09-55``, ``dated`` on
+    # its own plain date 2011-12-09. Its only lowerable lead corpus-wide is
+    # "Nåværende bokstav e, f og g blir bokstav d, e og f." None leaves.
+    assert len(index.entries) == 2572
     bindings = {
         (entry.source_id, base_id) for entry in index.entries for base_id in entry.base_ids
     }
@@ -1933,7 +1955,14 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # ``no/lov/1998-07-17-54`` and ``no/lov/2009-05-15-28`` — taking the
     # amended-law population 785 -> 788, the same move the sweep baseline
     # records.
-    assert len(bindings) == 6543
+    # 6,543 -> 6,546 at W-76: THREE (act, law) pairs bind for the first time,
+    # ZERO rebound and ZERO removed, and the W-34/W-35 conservation holds with no
+    # residue this time — all three are exactly the three pairs the unbound
+    # census loses (``2003-05-23-33`` -> ``1997-06-13-42``, ``2019-06-21-70`` ->
+    # ``2002-06-21-45``, ``2011-12-09-55`` -> ``1997-02-28-19``). NO base act
+    # receives its first op ever, so the amended-law population stays at 788 and
+    # the sweep baseline's ``swept`` block is byte-identical.
+    assert len(bindings) == 6546
     # 26,218 at W-30; +2 at W-24, both reconciled to a named erratum and neither
     # touching this test's own subject. W-24 lowered two Del-scoped Rettelser
     # corrections into the law each part amends — ``2019-12-20-110`` Del I into
@@ -2090,7 +2119,23 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # 8,434 -> 8,141, of which 43 + 2 take a typed address receipt instead).
     # Every one of the 279 targets ``(section, subsection, sentence)`` and
     # carries no destination — a repeal has nowhere to go.
-    assert sum(entry.n_ops for entry in index.entries) == 28824
+    #
+    # 28,824 -> 28,891 at W-76: +67 RENUMBER legs NET, and the same
+    # reconciliation from three directions. The frozen expected withdrawal set
+    # predicted 67 legs before any production code was written (28 lowering lead
+    # occurrences over 26 distinct leads at bokstav / nr. depth), the
+    # content-keyed op diff gains exactly those 67 and loses none of them, and
+    # the parse-plane receipt census reaches the same arithmetic independently
+    # (``no_parse_unstructured_lead_unmatched`` 8,141 -> 8,078, of which 22 take
+    # the new item-depth ledd receipt and 13 the reused address one; 28 + 35 =
+    # 63). Every leg targets ``(section, subsection, item)`` on both sides.
+    # NET is load-bearing: the content-keyed diff also shows FIVE ops changing
+    # ACTION rather than count, REPLACE -> INSERT at an unchanged path with an
+    # unchanged payload digest, which is the shipped
+    # ``_promote_no_replace_with_following_renumber_insert`` waking up where a
+    # relabel vacates the slot its co-located payload was going to overwrite.
+    # Five lost keys, 72 gained, 72 - 5 = 67.
+    assert sum(entry.n_ops for entry in index.entries) == 28891
 
 
 def test_no_amendment_index_staleness_report_detects_archive_change(tmp_path) -> None:
