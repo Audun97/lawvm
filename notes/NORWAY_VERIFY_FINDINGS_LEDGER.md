@@ -5472,6 +5472,108 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    law returns to `untouched_drift`, and W-66b's loop is closed
    end to end with the final ledd pinned by text.
 
+82. **W-76 (the sibling-set relabel at ITEM depth — `bokstav`/`nr.`,
+   the PREFIX grammar):** DONE (`82a0c2adc`, 2026-08-16; artifacts
+   `.tmp/w76/`). Opened on the user's direct go-ahead from W-66b's
+   sizing finding rather than a written charter: `bokstav`/`nr.`
+   are NOT the postfix set-relabel grammar one word further down —
+   they PREFIX the depth word to a letter or an arabic numeral
+   ("bokstav c", "nr. 2") — so the family is a different sentence
+   grammar over a different label vocabulary and got its own item.
+   **Landed whole scope, no stop condition fired, and — a first —
+   the census re-derived at this item's own base pin came back
+   IDENTICAL to the sizing pass two landings earlier** (bokstav 27
+   refusals / 23 leads / 27 instruments / 17 bases; nr. 36 / 33 /
+   28 / 19; union 63 / 56 / 54 / 32): the population did not
+   drift, measured, not assumed.
+   **What was built.** `_no_item_set_relabel_pairs` — the shared
+   qualified-section head (extracted as
+   `_NO_SET_RELABEL_QUALIFIED_SECTION_HEAD` on the rule of three,
+   all three relabel patterns pinned byte-identical) followed by
+   the PREFIX shape per depth; labels are explicit-expansion only
+   (a `til` range is enumerated, never counted on trust; letters
+   restricted to `a`–`z`, `æ`/`ø`/`å` decline on unproven
+   ordering; newness admitted once, ahead of the destination's
+   depth word, never inside a list). The address is W-66b's
+   arithmetic with the discipline one notch tighter: the corpus
+   probe over every replaying censused base finds **1,529 `item`
+   nodes, every one below a `subsection`** (1,477 directly, 52
+   item-under-item, zero off a section), so the LEDD is REQUIRED —
+   the resolver's first-match DFS makes a shallow `(section, item)`
+   address a silent guess — and it is ALWAYS inherited, through
+   `_no_antecedent_ledd_label` parameterized (`depth_name`/
+   `depth_markers`, shipped call sites byte-identical) rather than
+   forked; a lead that spells its own ledd DECLINES (26 refusals,
+   the sized next widening). New parse-plane kind
+   `no_parse_item_set_relabel_ledd_unresolved` (22, every one
+   `antecedent_names_no_ledd`) — a kind of its own, unlike W-66c's
+   reuse, because the reader's depth conjunct is retargeted, so it
+   is not the same reader failing the same way; the section half
+   reuses W-66's address kind (52 → 65). Ordering, provenance tag,
+   and the occupied-destination guard reused with **zero
+   apply-plane edits**; block LAST in the walk as the additivity
+   proof.
+   **Measured.** Frozen withdrawal set 63/63 element-for-element
+   (28 lowered minting 67 legs over 17 bases / 22 + 13 typed, 0
+   strays, 0 lost). Unstructured refusals **8,141 → 8,078 (−63)**;
+   ops **28,824 → 28,891 (+67, the frozen leg count exactly)**.
+   Projected row yield ZERO (none of the 17 written bases is a
+   scan candidate; only 8 of 67 legs are picked up by any replay)
+   — **realized zero; the verify-partition report is
+   byte-identical**, candidates 75, totals 1,464 = 1,011 + 453.
+   **Firings 10 → 10 byte-identical, no `removal_wrong`,
+   content-removing census unchanged (240/198/77) — no op destroys
+   text.** Statute text moves on 3 laws, each DOM-adjudicated;
+   5 REPLACE → INSERT promotions are the shipped promoter waking
+   up where a relabel vacates the slot its co-located payload
+   would have overwritten — exactly right. One instrument
+   (`no/lovtid/2011-12-09-55`) gains its first index entry;
+   bindings 6,543 → 6,546; apply-plane relabel refusals 31 → 33.
+   Sweep baseline: `code` plus a fully-adjudicated destructive-
+   count bump (3,875 → 3,880 over three laws, membership and
+   content-removing column byte-identical).
+   **The hole this production makes visible** (ratified at
+   sign-off): the relabel is half of a two-part instruction, and
+   where the companion payload lead spells `ny` the shipped
+   item-target reader's `ledd bokstav` adjacency breaks and
+   nothing is minted — so on `no/lov/2005-06-17-90` § 6-2 the
+   relabel vacates bokstav c and nothing refills it (a gap
+   faithful to a half-applied instrument; the payload refusal
+   predates this item), and on straffeloven `no/lov/2005-05-20-28`
+   § 37 a j→k relabel swaps WHICH payload leg fails with no net
+   text loss (node count identical). **Item 83 (W-77) opened** for
+   the payload production that closes both. The two new
+   apply-plane refusals (`no/lov/2002-06-21-45` bokstav b,
+   `no/lov/2007-06-29-75` nr. 6) are CORRECT — relabel legs whose
+   antecedent announces an item-depth REPEAL with no production,
+   the exact W-66b→W-66c relationship one family out; that repeal
+   is sized (166 refusals / 160 leads / 113 instruments / 77
+   bases) but not opened, as is the ledd-spelling arm (26 / 24 /
+   14).
+
+83. **W-77 (the item-depth PAYLOAD production — `§ X <ledd> ny
+   bokstav|nr Y skal lyde:`):** OPEN. Named at W-76's landing as
+   the highest-value follow-up: **146 refusals / 146 leads / 113
+   instruments / 64 base acts** at base `2e667312f`. The shipped
+   item-target reader requires `ledd bokstav` adjacency and the
+   `ny` marker breaks it, so today the payload half of a
+   relabel+payload pair is never minted: W-76's relabel then
+   vacates a label nothing refills. Payoff when built: the INSERT
+   lands in the vacated slot (the shipped
+   `_promote_no_replace_with_following_renumber_insert` already
+   proves the pair semantics on the no-`ny` variant, 5 corpus ops,
+   all correct) and the visible gaps on `no/lov/2005-06-17-90`
+   § 6-2 and straffeloven `no/lov/2005-05-20-28` § 37 close.
+   Scope sketch: teach the item-target reader the `ny` marker (or
+   a sibling production minting INSERT directly), census first
+   with the frozen expected withdrawal set, source-availability
+   join before yield claims (W-66b's standing caution), and the
+   occupied-destination guard must see every INSERT — a payload
+   INSERT into an occupied slot is exactly what the guard exists
+   to refuse. Content-ADDING at scale, so the statute-diff
+   discipline (movers all expected, byte-identical count) is the
+   load-bearing check. Medium.
+
 ## 5. Demo / Inspection Tooling
 
 Browser views of any replayable law across its own amendment dates, plus an
@@ -5488,6 +5590,34 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-16 (W-76 — the sibling-set relabel at item depth
+  (`bokstav`/`nr.`), the prefix grammar; `82a0c2adc`)** —
+  **Unstructured refusals 8,078 (−63), the frozen 63-element
+  withdrawal set matched exactly, ops +67 = the minted legs, and
+  the verify-partition report BYTE-IDENTICAL — the zero yield was
+  projected before implementation and realized honestly.** The
+  family W-66b's sizing pass separated (prefix depth word on a
+  letter/numeral, not the postfix ordinal grammar) lands whole:
+  shared qualified-section head extracted on the rule of three,
+  explicit-expansion label vocabulary (`a`–`z` and digits only,
+  ranges enumerated), ledd REQUIRED and always antecedent-
+  inherited (the 1,529-node probe shows every `item` sits below a
+  `subsection`; first-match DFS makes shallow addresses unsafe),
+  `_no_antecedent_ledd_label` parameterized with shipped call
+  sites byte-identical, new kind
+  `no_parse_item_set_relabel_ledd_unresolved` (22), W-66's tag /
+  ordering / guard reused with zero apply-plane edits. Firings
+  10 → 10 byte-identical, content-removing unchanged, no
+  `removal_wrong`. Statute text moves on 3 laws (DOM-adjudicated;
+  5 REPLACE → INSERT promotions exactly right); the visible gap
+  the relabel leaves where a `ny`-marked payload lead has no
+  production names **item 83 (W-77, the item-depth payload
+  production, 146 refusals / 64 bases — opened)**; the item-depth
+  REPEAL (166 refusals, two correct occupied-destination
+  refusals naming it) and the ledd-spelling arm (26) sized, not
+  opened. Census re-derived identical to the two-landings-old
+  sizing — the first population that did not drift.
 
 - **2026-08-14 (W-66c — the punktum-depth REPEAL production;
   `b7a2d76e9`)** — **The first landing to move the
