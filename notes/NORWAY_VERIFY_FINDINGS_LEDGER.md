@@ -5893,27 +5893,6 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    arity on `2018-06-15-40` § 87 (1, pre-existing). Seven
    judgement calls ratified at sign-off.
 
-88. **W-82 (the own-text fallback's payload reach):** OPEN.
-   Recovers W-79's owned cost: **66 ops / 43 nodes / 25
-   instruments** declare a payload the fallback cannot read
-   because it sits in `li` / `numberedLegalP` /
-   `futureLegalArticle` / `span.futuretitle` — all outside
-   `_TEXT_BLOCK_CLASSES` — so at W-79's base their lead (or an
-   empty node) was being written into law, and post-W-79 they
-   refuse `no_parse_structured_payload_not_declared`. Payoff
-   when built: all 66 lower with their REAL payloads, the two
-   dropped instruments (`no/lovtid/2023-12-20-104`,
-   `no/lovtid/2025-03-28-4`) return — +2 index entries, +3
-   bindings, the 542nd commencement grant. Scope sketch: census
-   the 43 nodes' payload-carrier shapes (frozen by content),
-   extend the payload extraction to the proven carriers with
-   W-77's extent discipline (labels must match announcements
-   where present; all-or-nothing), keep the W-79 invariant as the
-   gate — the payload must still be DECLARED; this item only
-   widens where the declared payload may LIVE. Every newly
-   landed write DOM-adjudicated; the θ and firing censuses
-   pinned. Small-to-medium.
-
 86. **W-80 (the source-availability pricing census):** DONE
    (2026-08-17; read-only, no product commit; artifacts
    `.tmp/w80/` — `w80_summary.json`, `w80_per_base_census.json`
@@ -5999,6 +5978,94 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    (dialect most likely to match). Read-only against production
    data; no production code. Small.
 
+88. **W-82 (the own-text fallback's payload reach):** DONE
+   (`5968e03ff`, 2026-08-17; artifacts `.tmp/w82/`; landing
+   narrative appended after the charter below).
+   Recovers W-79's owned cost: **66 ops / 43 nodes / 25
+   instruments** declare a payload the fallback cannot read
+   because it sits in `li` / `numberedLegalP` /
+   `futureLegalArticle` / `span.futuretitle` — all outside
+   `_TEXT_BLOCK_CLASSES` — so at W-79's base their lead (or an
+   empty node) was being written into law, and post-W-79 they
+   refuse `no_parse_structured_payload_not_declared`. Payoff
+   when built: all 66 lower with their REAL payloads, the two
+   dropped instruments (`no/lovtid/2023-12-20-104`,
+   `no/lovtid/2025-03-28-4`) return — +2 index entries, +3
+   bindings, the 542nd commencement grant. Scope sketch: census
+   the 43 nodes' payload-carrier shapes (frozen by content),
+   extend the payload extraction to the proven carriers with
+   W-77's extent discipline (labels must match announcements
+   where present; all-or-nothing), keep the W-79 invariant as the
+   gate — the payload must still be DECLARED; this item only
+   widens where the declared payload may LIVE. Every newly
+   landed write DOM-adjudicated; the θ and firing censuses
+   pinned. Small-to-medium.
+   **LANDED (`5968e03ff`), no stop condition fired — the
+   PROVABLE SUBSET: 35 of the 66 recovered, 31 honestly refused
+   under the same kind** (the remainder is the same failure — a
+   declared payload unprovable at the declared address — so no
+   new kind; ratified with the charter's "all 66" corrected).
+   The frozen recovery set re-derived with ZERO drift (66/43/25
+   exactly; 83 keep-refusing). **W-79's gate held byte-for-byte**:
+   the declaration predicate is split out unchanged
+   (`_no_structured_payload_is_declared`), and the corpus-wide
+   refusal-set diff at full adjudication-detail granularity shows
+   post = base minus exactly 35 — 0 new refusals, 0 of the 83
+   instruction-prose refusals lost or altered.
+   **The reach, machine-to-machine only**: extent proved from
+   Lovdata's own labels (`data-change-part`/`data-add-new-part`
+   vs the carriers' `data-name`/`data-numerator`), never from
+   prose. Admitted: `futureLegalArticle` sets in label BIJECTION
+   with the node's section targets (17 ops / 3 nodes — whole new
+   chapters, all-or-nothing per W-77; case-folded labels because
+   Lovdata writes `§5A-1` in the carrier and `§5a-1` in the
+   address, which is exactly why the candidate map missed);
+   `span.futuretitle` headings (13 ops — sections route through
+   the EXISTING `_heading_only_section_payload` behind its
+   existing lead predicate, flag-gated so nothing outside the
+   gate can reach it; chapters only when one address and no
+   body); single leaf carriers with arity one on BOTH sides,
+   leaf below section level, and a label-in-path test (5 ops).
+   Refused remainder sized in 7 limbs: 4 carrier-is-parent-
+   section, 8 two-targets-one-carrier, 6 many-carriers-one-
+   target, 4 address-shallower-than-declaration, 3 label-miss,
+   1 not-wholly-text, 5 no-carrier.
+   **Measured.** Ops **29,076 → 29,111 (+35, 0 withdrawn, 0
+   strays)**; `no_parse_structured_payload_not_declared` 149 →
+   114; every other parse kind unchanged. ONE law's replayed
+   tree moves (`2008-05-15-35`, +4 nodes): 3 writes land, each
+   DOM-adjudicated single-node own-text (utlendingsloven § 105/
+   1/b and § 106/1/b,e — one byte-identical to the in-force
+   text; the § 106 e case correctly lands at the RELABELED
+   letter, and the instrument is precisely the act inserting the
+   § 90 c it cites). All three targets occupied → REPLACE with
+   `replaced_paths`, never `removed_paths`: **0 paths removed
+   corpus-wide, content-removing 240/198/77 unchanged**. The
+   other 32 recovered ops: 23 contingent, 8 source-blocked
+   (correct ops waiting on item 87's acquisition), 1 replay-
+   unresolved (a chapter op whose Lovdata change-part carries no
+   base-act prefix — receipt moves parse→replay plane, JC-6).
+   **Scoreboard COMPLETELY unmoved**: 75 candidates identical,
+   29/46/0, totals 1,455 = 1,011 + 444. Firings **10 → 10**, θ
+   **129 → 129**, both element-for-element. Hazard destructive
+   3,847 → 3,850 (the three writes, one row, attributed); sweep
+   baseline `code` + that one adjudicated row.
+   **Charter bookkeeping corrected by measurement**: index
+   entries 2,576 → 2,577, bindings +1, grants stay 541 — NOT
+   +2/+3/542, because `no/lovtid/2025-03-28-4` STAYS REFUSED
+   deliberately (JC-4): it declares "§ 2 nr. 4 skal lyde" but
+   Lovdata's change-part stops at `§ 2`, so landing it would
+   write one nummer over the whole section — the wrong-text
+   class again. Two more near-misses caught by the same
+   label-in-path test. Also caught by measurement (JC-5): the
+   first implementation landed one payload TRUNCATED to its
+   heading; fixed with a wholly-reachable-as-text check, that op
+   now refuses. Seven judgement calls ratified. Follow-ups
+   recorded sized, none opened (largest: parent-section descent,
+   4 ops; also noted pre-existing, non-W-82: the
+   `_parse_future_section` heading-prefix spacing skew and the
+   `CO<sub>2</sub>` → "CO 2" flattening convention).
+
 ## 5. Demo / Inspection Tooling
 
 Browser views of any replayable law across its own amendment dates, plus an
@@ -6015,6 +6082,31 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-17 (W-82 — the own-text fallback's payload reach;
+  `5968e03ff`)** — **W-79's owned cost recovered where provable:
+  35 of the 66 declared-but-out-of-reach ops lower with their
+  REAL payloads, 31 honestly stay refused, and the gate held
+  byte-for-byte** (corpus-wide refusal diff at full detail
+  granularity: post = base − exactly 35; all 83 instruction-prose
+  refusals untouched). Extent is proved machine-to-machine from
+  Lovdata's own labels, never prose: future-article sets in label
+  bijection (whole new chapters, all-or-nothing), future-titles
+  through the existing heading-only shape (flag-gated), single
+  leaf carriers with arity one both sides plus a label-in-path
+  test. That test is also why the charter's bookkeeping was
+  corrected: `no/lovtid/2025-03-28-4` STAYS refused (its
+  declaration is deeper than Lovdata's own change-part — landing
+  it would rewrite a whole section with one nummer), so index
+  +1/binding +1/grants unchanged, not +2/+3/542. Three writes
+  land (utlendingsloven, each DOM-adjudicated; one byte-identical;
+  one correctly landing at a later-relabeled letter), 23 sit
+  contingent, 8 wait on item 87's acquisition. Scoreboard
+  completely unmoved, ceiling 1,011, firings 10 → 10, θ 129 →
+  129, content-removing unchanged, 0 paths removed. One
+  truncation hazard caught by the agent's own measurement and
+  closed with a wholly-reachable-as-text check. Follow-ups sized
+  (7 limbs, largest 4 ops), none opened.
 
 - **2026-08-17 (W-79 — the structured payload lane's own-text
   invariant; `1f0ca83df`)** — **The wrong-text class W-78 fixed
