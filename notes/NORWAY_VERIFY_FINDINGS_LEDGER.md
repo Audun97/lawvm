@@ -6233,7 +6233,10 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    (1 op, refusal-neutral) and the read-only census of the 66
    unread `utgått` notes.
 
-91. **W-85 (the re-sanctioning supersession family):** OPEN. A
+91. **W-85 (the re-sanctioning supersession family):** DONE
+   (landed 2026-08-18; charter, stop record and restoration
+   record kept as written below, landing record appended after
+   them). A
    SECOND supersession mechanism, surfaced at W-84's landing —
    and a LIVE over-application: an act is sanctioned, found
    defective, and RE-SANCTIONED AS A NEW ACT, both halves in the
@@ -6311,6 +6314,148 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    so commensurability rests on the exact aggregate match plus
    the unchanged index/binding counts; subsequent scoreboard rows
    read as-of 2026-08-14 on this capture.
+   **LANDED (`4db511cc9`, 2026-08-18; artifacts `.tmp/w85/` —
+   census, per-pair adjudication, frozen delta, base/post index
+   snapshots, 12-base × 4-PIT replay dumps, base/post scans,
+   corpus-wide op-key sweeps), both pairs, no stop condition
+   fired, every frozen set matched exactly** (withdrawal 59 =
+   2 + 57 content-keyed ops, byte-matched against the frozen
+   census; additions 0; receipts 2 paired / 0 unpaired).
+   **The census, generators stronger than a phrase list.** Four
+   independent generators converge on EXACTLY the two chartered
+   pairs: the bilateral-citation join (each half names the other
+   by numbered date-and-nr citation, machine-parsed), same-title
+   G1 (181 groups, only these two also citation-joined),
+   duplicate-op-content G2 (56 of 57 content keys shared on the
+   2025 pair, 1 of 2 on the 2012 pair — the corrected op is
+   exactly the unshared one, both directions), and prose needles
+   over `miscInformation` + leading `defaultP` in BOTH lovtid
+   lanes. The charter's warning about the open phrase set held
+   and is closed by generalization: the W-84 probe's missed
+   phrase ("sanksjonert og kunngjort på nytt") is caught by the
+   forward needle's optional "og kunngjort". Residuals
+   adjudicated, none a candidate: G2's top overlap
+   (`2009-06-19-74`/`2015-06-19-65`, 193 shared keys) is the
+   straffeloven-2005 ikraftsettingslov restating consequential
+   amendments — different titles, no supersession claim, no
+   citation back; the three inkurie-only documents fix earlier
+   acts BY ordinary amendment.
+   **The corrections, DOM-adjudicated.** 2012 pair: REPLACE of
+   endringslov `2012-04-27-22` § 29 — the defective act hung the
+   organ list under second ledd and lacked the third-ledd lead
+   ("Dersom det organet …"); the re-sanctioned act carries the
+   proper third ledd. 2025 pair: INSERT of pasient- og
+   brukerrettighetsloven § 4-6 fjerde ledd — the defective act
+   enacted a consent-based ECT rule, the re-sanctioned act
+   subordinates ECT to psykisk helsevernloven § 4-4 b. Lovdata's
+   consolidation names the family itself: "… som endret ved lov
+   7 des 2012 nr. 71 som resanksjonert som lov 11 jan 2013
+   nr. 1".
+   **The design, ratified — the identity question resolved the
+   OTHER way from W-84.** A re-sanctioning mints a NEW LAW, so
+   nothing transfers in either direction: the replacement keeps
+   its own `source_id`, title, dates and gating (verified:
+   `2013-01-11-1` stays instrument_authorized 2013-01-01,
+   `2025-06-20-67` stays contingent; kernel group keys
+   untouched), the new entry field `resanctioned_from_source_id`
+   puts both ids on the surviving row, and every replacement op
+   carries a `resanctioned_from:<id>` provenance tag stamped in
+   the grafter from the document's own claim. The superseded act
+   contributes NO entry and NO ops — pre-pass placement, W-84's
+   discipline (byte prefilters reject 3,085 of 3,089 artifacts
+   unparsed). Suppression is RETROACTIVE-TOTAL on the act's own
+   metadata ("inneholdt en feil og kunne derfor ikke
+   iverksettes"). Noted tension, resolved by measurement:
+   statsborgerloven's footnotes also record res.
+   `2012-12-07-1149` commencing the defective act (ikr. 10 des
+   2012), but the replayed statute is byte-invariant to the
+   withdrawal at every probed PIT — the defective act's only
+   differing op targets the non-statute endringslov base, and
+   its shared op θ-rejects on the absent § 29 — so the
+   suppression cannot delete text that resolution would have
+   commenced.
+   **The gate, three conjuncts, all Lovdata's own text, failing
+   closed with blocking receipts:** (1) bilateral citation —
+   forward "sanksjonert (og kunngjort) på nytt som lov …" must
+   meet backward "første gang sanksjonert som lov …" citing
+   back; (2) title equality; (3) total re-enactment — the
+   replacement's stream is non-empty and covers every base the
+   withdrawn stream bound (measured: identical base sets, 2/2
+   and 57/57). A document carrying both directions reads as NO
+   note — ambiguity fails closed at the reader. An unmatched
+   half suppresses and admits NOTHING
+   (`no_resanctioned_act_unpaired`, blocking; 0 in corpus),
+   pinned with four gate counterexamples in tests.
+   **Measured.** Ops 29,115 → 29,056 (−59, 0 strays, 0 gained;
+   the replacements' 59 ops were already in the total under
+   their own ids and return byte-identical modulo the new tag —
+   the corpus-wide per-instrument op-key sweep, base vs post
+   over all 3,089 instruments, moved NOTHING else, which
+   subsumes the θ/firing summary censuses at the lowering
+   plane). Index entries 2,577 → 2,575; bindings 6,562 → 6,550
+   (the twelve withdrawn (act, law) pairs; every base keeps the
+   same binding from the replacement); declared targets 7,887 →
+   7,875 (the withdrawn acts' own lists); unbound 927 UNMOVED.
+   Diagnostics, every movement attributed: +2
+   `no_resanctioned_act_superseded` (APPLY), +2
+   `no_resanctioned_replacement_lowered`, 0 unpaired;
+   staged-commencement-collapsed 175 → 174 and
+   unstructured-lead-unmatched 7,853 → 7,852 (the 2012 act's own
+   rows), cross-base-structured-target-skipped 105 → 104 (the
+   2025 act's row), commencement-execution-refused 880 → 879
+   (res. `2012-12-07-1149`'s refusal cited the withdrawn act and
+   now has nothing to refuse against; its scope-unresolved
+   receipt remains — the W-51/W-77 pinned total updated with
+   attribution). Statute text: BYTE-IDENTICAL at all 12 bases ×
+   4 PITs (2012-12-08, 2012-12-31, 2013-01-02, 2026-08-14) — the
+   2012 over-application never surfaced in text (see the tension
+   note) and the 2025 duplication was armed, not applied; the
+   correction is op-plane and disarmament (replay applied-lists
+   lose the withdrawn acts; `skipped_contingent` pools on 8
+   bases lose the armed `2025-04-25-13` duplicate).
+   **Scoreboard: 30/45/0 UNMOVED, `total=1454 (ceiling=1011,
+   unexplained=443)` unmoved, all 75 rows byte-identical** —
+   none of the 12 bases is a scan candidate, so this is
+   conservation, not silence; no scoreboard row is added.
+   Norway ladder green but for the pre-existing capture-drift
+   pins (fail identically at base — see item 92); 8 new tests;
+   4 corpus pins updated with W-85 attribution (entries,
+   bindings, op total, refused pairs). Judgement calls ratified
+   at sign-off: seven, recorded with the pair evidence in
+   `.tmp/w85/adjudication.json`. **Item 92 (W-86) opened** for
+   the capture-drift re-pin the restoration surfaced.
+
+92. **W-86 (the 2026-08-14 capture re-pin):** OPEN. The corpus
+   restoration (item 91) reproduces every scoreboard and index
+   aggregate exactly, but SIX corpus-pinned tests fail AT BASE
+   against the new capture, identically pre- and post-W-85
+   (each verified by stash-rebuild):
+   `test_corpus_no_consolidation_census_reproduces_the_w44_measurement`
+   (2,647 ≠ 2,642 — five new amending acts),
+   `test_corpus_no_consolidation_inventory_counters_and_would_be_ceiling`
+   (758 current ≠ 763 — five consolidations left the snapshot),
+   `test_no_verify_partition_corpus_membership_is_pinned`
+   (amending_act 2,519 ≠ 2,514),
+   `test_corpus_commencement_authorization_reconciles_with_the_measured_landscape`
+   (36,006 forskrift artifacts ≠ 35,955; benign 33,641 ≠
+   33,590),
+   `test_corpus_consolidation_snapshot_date_reproduces_the_fallback_constant`
+   (the capture's `current.xml` observation reads 2026-08-14,
+   the fallback constant still says 2026-07-10), and
+   `test_no_occupied_destination_sweep_baseline_is_not_stale`
+   (the tripwire fires on corpus-moved: forskrift 35,955 →
+   36,006, current 763 → 758; post-W-85 it also lists
+   modules-moved for grafter/index, but the corpus trigger alone
+   fails it at base). CHARTER: adjudicate the ±5/±51 membership
+   drift document-by-document (which acts entered the lovtid
+   lane, which current laws left and why — repeals, expiries, or
+   snapshot artifacts), confirm no scoreboard candidate is
+   affected, decide whether `NO_FALLBACK_CONSOLIDATION_
+   SNAPSHOT_DATE` moves to 2026-08-14 (it gates every scan
+   reading), regenerate the occupied-destination sweep baseline
+   with every NEW firing adjudicated W-54 style, then re-pin the
+   tests with the drift recorded in their comments the way every
+   prior movement is. Small-to-medium; read-mostly.
 
 ## 5. Demo / Inspection Tooling
 
@@ -6328,6 +6473,40 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-18 (W-85 — the re-sanctioning supersession family;
+  `4db511cc9`)** — **The live over-application is closed: the
+  two defective, re-sanctioned acts (`no/lovtid/2012-12-07-71`,
+  `no/lovtid/2025-04-25-13`) are withdrawn WHOLE from the index
+  — 59 ops, 12 bindings, 2 entries — and their replacements
+  replay under their own identities, every frozen set matched
+  exactly.** The census's four independent generators
+  (bilateral-citation join, same-title, duplicate-op-content,
+  prose needles over both lanes) converge on exactly the two
+  chartered pairs; the W-84 probe's missed phrase is caught by
+  the generalized forward needle; residuals (the
+  ikraftsettingslov overlap, three inkurie documents)
+  adjudicated non-candidates. The gate is bilateral prose
+  citation + title equality + total re-enactment, failing closed
+  with blocking receipts; ambiguity fails closed at the reader;
+  the corpus exercises only the paired lane (2 paired, 0
+  unpaired). Identity resolved the OTHER way from W-84: a
+  re-sanctioning mints a NEW law, nothing transfers — both ids
+  ride the surviving row (`resanctioned_from_source_id`) and
+  every replacement op (`resanctioned_from:` tag). Statute text
+  byte-invariant at all 12 bases × 4 PITs (the 2012
+  over-application never reached text; the 2025 duplication was
+  armed, not applied — the correction is op-plane and
+  disarmament); corpus-wide op-key invariance byte-proven over
+  all 3,089 instruments; **scoreboard 30/45/0 and `total=1454
+  (ceiling=1011, unexplained=443)` unmoved row-for-row** — no
+  affected base is a candidate. Six diagnostic movements, each
+  attributed; 8 new tests; 4 corpus pins updated with W-85
+  attribution. **Item 92 (W-86, the 2026-08-14 capture re-pin)
+  opened**: six pre-existing corpus-pinned tests fail at base
+  against the restored capture (membership ±5, forskrift +51,
+  snapshot-date constant, sweep-baseline tripwire), enumerated
+  and stash-verified pre-existing.
 
 - **2026-08-17 (corpus restored on the new working machine —
   W-85 precondition satisfied)** — The four public tarballs
