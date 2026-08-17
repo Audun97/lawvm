@@ -5804,6 +5804,91 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    IMPOSSIBLE by construction rather than closed dialect by
    dialect. Medium-to-large; correctness, not coverage.
 
+86. **W-80 (the source-availability pricing census):** DONE
+   (2026-08-17; read-only, no product commit; artifacts
+   `.tmp/w80/` — `w80_summary.json`, `w80_per_base_census.json`
+   (788 rows), `w80_era_acquisition_curve.json`, all probe
+   scripts reproducible). Opened on the user's go-ahead to price
+   the pre-2001 Norsk Lovtidend question; every headline number
+   reproduced the committed baselines exactly (sweep 788/201/164/
+   3,870/198/77 element-for-element; scan 75 candidates 29/46/0,
+   1,463 = 1,011 + 452; parse plane 29,225 ops / 7,853 unmatched).
+   **Findings, ratified as the pricing baseline.** (i) **The 2001
+   boundary is exact and clean in both directions**: earliest
+   archived Lovtidend document `2001-01-05-1`, zero earlier; all
+   442 bases missing a founding text are pre-2001; zero 2001+
+   bases lack sources; zero amendments are skipped for missing
+   source bytes (the archive is complete on its own terms). The
+   filename mapper is era-agnostic — the gap is which tarballs
+   were acquired, not code. (ii) **61.5% of the parse plane
+   (17,979 of 29,225 ops) targets a source-blocked base**; the
+   scoreboard measures 3.0% of the parse plane. The waiting ops
+   are real: 97.0% of their written section addresses exist in
+   today's consolidations (control on replaying laws: 95.2%),
+   and 73% of base-attributable unstructured refusals sit on
+   source-blocked bases — grammar work and acquisition compound.
+   (iii) Class (c) is EMPTY: "incomplete base" and
+   "blocked_contingent" are today the same set (198 + the 3
+   invariant-violation laws, which are engine defects, not
+   acquisition items). (iv) All 1,463 divergence rows sit on
+   class-(a) laws BY CONSTRUCTION (candidacy requires source +
+   consolidation + full replay), so source-blocked bases have
+   zero rows structurally; calibration: 19.5 rows / 6.0
+   unexplained per candidate law, 16.4% of unexplained rows
+   address-coincident with a lowered op. Ceiling attribution to
+   missing sources: ZERO (all 1,011 are W-17 OPS_MISSING).
+   **The decision model.** Cherry-picking founding texts is
+   WRONG: a lone 1981 original would replay across a 20-year
+   amendment hole into the 2001+ instruments — replayable but
+   wrong. The ERA model is exact: acquiring Lovtidend avd. 1
+   [Y, 2000] makes every act founded in [Y, 2000] COMPLETELY
+   replayable (archive contiguous 2001→2026; an act cannot be
+   amended before it exists). Knee of the curve: **[1997, 2000] =
+   61 bases, 6,693 ops (22.9%), 740 instruments alive**
+   (skatteloven 1,665, folketrygdloven 1,639, both aksjelovene);
+   [1992, 2000] reaches 32.9% and adds tvangsfullbyrdelsesloven
+   (492 waiting ops — W-78's 257 understated it by one
+   instrument's worth) and barnevernloven. Acquisition alone
+   moves 76 laws into verification; paired with commencement
+   resolution the ceiling is **258 new candidates (75 → 333, a
+   4.4× frontier expansion)** — the top-20 by op volume
+   contribute ZERO new candidates alone (all carry contingent
+   amendments). 184 of the 442 have no consolidation (mostly
+   repealed laws: opplæringslova, barnevernloven, straffeloven
+   1902) — replayable if acquired, but never verifiable.
+   **Unpriced risks, stated not guessed**: the pre-2001 XML
+   dialect (the archive holds zero pre-2001 artifacts — if the
+   dialect differs, nothing lands; gated by item 87), the
+   pre-2001 drafting-grammar refusal rate, publisher bundling,
+   and ~148 projected new hazard bases (0.82 incomplete→hazard
+   rate, flagged as projection). **Standing position adopted:**
+   pre-2001 ingestion YES, via the item-87 format probe first,
+   then [1997, 2000], era windows only, commencement work paired
+   if the goal is verification, pre-1950 tail deprioritized.
+   Ten judgement calls ratified, including the era model over the
+   footnote-chain proxy (built, validated as noisy — over-counts
+   on 122 bases — and demoted, preserved in
+   `probe6_consolidation_depth.json`).
+
+87. **W-81 (the pre-2001 format probe, 1999 tarball):**
+   OPEN — **BLOCKED ON ACQUISITION** (needs the Lovdata
+   `lovtidend-avd1` 1999 tarball on disk; the user acquires it).
+   The gating half-day measurement that retires or confirms
+   W-80's unpriced risk 1 before any era acquisition: ingest the
+   1999 tarball via `ingest_no_public_archives` into a SCRATCH
+   farchive (never the production `data/norway.farchive`), then
+   count mapped vs unmapped members
+   (`iter_no_unmapped_lovtidend_xml_members`), run
+   `parse_no_statute` / `parse_no_amendment_groups` over the
+   mapped set, and report: member mapping rate, parse success
+   rate, unstructured-refusal rate vs the 2001+ baseline
+   (7,853 / 29,225), and a shape census of any new dialect
+   markers (`changesToDocuments`, `data-change-part`,
+   `legalArticle` presence). 1999 chosen as highest marginal
+   value (2,761 ops, incl. skatteloven) and boundary-adjacent
+   (dialect most likely to match). Read-only against production
+   data; no production code. Small.
+
 ## 5. Demo / Inspection Tooling
 
 Browser views of any replayable law across its own amendment dates, plus an
@@ -5820,6 +5905,28 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-17 (W-80 — the source-availability pricing census;
+  read-only, records only)** — **The pre-2001 question is priced:
+  the 2001 coverage boundary is exact and clean (all 442
+  source-blocked bases pre-2001, zero 2001+ gaps, zero skipped
+  amendments), and 61.5% of the parse plane — 17,979 of 29,225
+  ops — waits on missing founding texts, with the scoreboard
+  currently measuring 3.0% of the parse plane.** The waiting ops
+  are real (97.0% of their addresses exist in today's
+  consolidations; 73% of the refusal backlog sits on blocked
+  bases, so grammar and acquisition compound). Decision model
+  ratified: era windows only — cherry-picked founding texts
+  replay across amendment holes and are wrong by construction;
+  the knee is **[1997, 2000]** (61 bases, 6,693 ops, 22.9%);
+  verification needs commencement work paired (alone: 76 new
+  candidates; paired: up to 258 — 4.4× frontier expansion).
+  Standing position adopted: pre-2001 ingestion YES, gated by
+  **item 87 (W-81, the 1999 one-tarball format probe — opened,
+  BLOCKED ON ACQUISITION)**, since the pre-2001 XML dialect is
+  unknowable from inside the repo and is the one risk that could
+  zero the entire payoff. Every census number reproduced the
+  committed sweep and scan baselines element-for-element.
 
 - **2026-08-17 (W-78 — the substitution-announcement address list
   mis-lowered as a payload target; `efc32b19e`)** — **The
