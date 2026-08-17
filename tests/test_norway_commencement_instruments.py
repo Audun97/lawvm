@@ -2791,7 +2791,16 @@ def test_w51_corpus_zero_early_over_every_whole_act_grant() -> None:
     # and is dated 2008-07-01 by its own ``no/forskrift/2008-06-27-722``. Nothing
     # is withdrawn, no act is re-dated, and the P1 assertion below still reads
     # EMPTY.
-    assert len(grants) == 542
+    # 542 -> 541 at W-79, the same mechanism running BACKWARDS for the first
+    # time: ``no/lovtid/2025-03-28-4``'s only op was the own-text fallback
+    # writing its own lead ("I lov 4. juni 1993 nr. 58 om allmenngjøring av
+    # tariffavtaler m.v. skal § 2 nr. 4 lyde:") over allmenngjøringsloven § 2 —
+    # the node declares a payload but keeps it in a ``numberedLegalP`` the
+    # fallback cannot read. W-79 refuses it typed, the instrument drops to zero
+    # ops, and with no index entry it no longer reaches this lane. The OFFERING
+    # shrank by one instrument; the gate did not move, and the P1 assertion
+    # below still reads EMPTY over the smaller grant set.
+    assert len(grants) == 541
     early = [
         (d["source_id"], d["effective_date"], sibling_id, sibling_date)
         for d in grants
@@ -2863,8 +2872,12 @@ def test_w51_corpus_totals_and_the_untouched_part_routes() -> None:
     # own ``no/forskrift/2008-06-27-722``. 438/33/4/33 all hold, which is again the
     # check that a LOWERING widening reaches this lane only by growing what is
     # offered to it.
+    # 542 -> 541 at W-79, the mechanism running backwards: ``no/lovtid/2025-03-28-4``
+    # loses its only op to the structured payload lane's own-text invariant and
+    # with it its index entry. 438/33/4/33 all hold — the shrinkage reaches this
+    # lane only by shrinking what is offered to it, exactly as the growths did.
     assert counts == {
-        NO_COMMENCEMENT_EXECUTION_AUTHORIZED: 542,
+        NO_COMMENCEMENT_EXECUTION_AUTHORIZED: 541,
         NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED: 438,
         NO_COMMENCEMENT_PART_EXECUTION_AUTHORIZED: 33,
         NO_COMMENCEMENT_MULTI_PART_EXECUTION_AUTHORIZED: 4,
@@ -3875,7 +3888,10 @@ def test_w73_corpus_title_cited_route_dates_exactly_five_acts() -> None:
     # 541 -> 542 at W-77: ``no/lovtid/2008-06-27-50`` gains its FIRST index entry
     # off the item-depth newness payload production and enters this shipped route
     # on its own instrument's date. The offering grew; the route did not move.
-    assert len(shipped) == 542
+    # 542 -> 541 at W-79: ``no/lovtid/2025-03-28-4`` loses its only op (and with
+    # it its index entry) to the structured payload lane's own-text invariant.
+    # The offering shrank; the route still did not move.
+    assert len(shipped) == 541
 
     # The reader's own corpus population, over the candidates rather than the
     # grants: 15 instruments carry the title-cited proof, and the five above are

@@ -448,6 +448,18 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "address (payload_unresolved). Typed and blocking rather than a guessed "
         "attribution. W-32."
     ),
+    "no_parse_structured_payload_not_declared": (
+        "A Norway structured change block declared a target but no payload of its "
+        "own: its own text carries no payload-introducing operative phrase in the "
+        "head (\"skal … lyde\", \"skal ha følgende ordlyd\"), or carries one with "
+        "nothing after the colon. Such a node's own text is an INSTRUCTION — a "
+        "relabel (\"Nåværende § 66 blir § 84.\"), a repeal or word-substitution "
+        "announcement, or a lead whose payload lives in structure the fallback "
+        "cannot read — and the last-resort own-text fallback used to write it into "
+        "in-force law at every declared address. The target refuses instead. W-79, "
+        "the general closure of the wrong-text class W-75 and W-78 closed dialect "
+        "by dialect."
+    ),
     "no_parse_unresolved_structured_renumber_skipped": (
         "A Norway structured renumber could not lower its source or destination "
         "path; skipped with a typed finding, not coerced."

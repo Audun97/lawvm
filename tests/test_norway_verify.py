@@ -2831,7 +2831,39 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # production code existed, predicted exactly ONE row-closing candidate
     # (``no/lov/2004-03-26-17``); the second closure and the one opening were not
     # projected, and both are recorded here rather than netted.
-    assert report["divergence_totals"] == {"total": 1463, "ceiling": 1011, "unexplained": 452}
+    #
+    # W-79 (2026-08-17). Total and unexplained both fall by EIGHT, the CEILING is
+    # untouched at 1,011 for the fifteenth landing running, and the candidate set
+    # is unmoved at 75 with the summary unmoved at 29/46/0. THREE candidates move
+    # and every row is adjudicated; this is the scan reading back, from Lovdata's
+    # own consolidated text, that the withdrawn writes were wrong.
+    #   * -2  ``no/lov/2010-06-25-28``  26 -> 24 rows, two closing and none
+    #         opening. The ``CONSOLIDATED_MISSING`` row at § 6 closes because the
+    #         text standing there was the amendment's own lead ("Nytt kapittel 2
+    #         etter § 6 skal lyde:"), which the consolidation of course does not
+    #         carry; the ``OPS_MISSING`` row at § 6 første ledd closes because
+    #         withdrawing that write returns § 6's real forskrifts-hjemmel, which
+    #         matches the consolidation verbatim.
+    #   * -3  ``no/lov/2017-05-22-29``  6 -> 3 rows: FIVE close and TWO open.
+    #         Closing: the ``CONSOLIDATED_MISSING`` row at § 29 (the wrong text
+    #         was "Noverande §§ 29, 30 og 31 blir §§ 30, 31 og ny 32.") and four
+    #         ``OPS_MISSING`` rows at §§ 29/1, 29/2, 30/1 and 31/1 whose real text
+    #         returns. Opening: ``MISMATCH`` at §§ 30/1 and 31/1. The two openings
+    #         are adjudicated and deliberate — they are the HONEST report of a
+    #         relabel this system still does not lower. The instrument's
+    #         "Noverande …" sentence is a RENUMBER; nothing lowers it, so our
+    #         §§ 30 and 31 hold the pre-relabel text while the consolidation holds
+    #         it one label higher. A row saying "we have the right text at the old
+    #         label" strictly beats the row it replaces, which said "we have
+    #         nothing here" while the amendment's own prose sat in § 29.
+    #   * -3  ``no/lov/2017-05-22-30``  6 -> 3 rows, the SAME instrument
+    #         (``no/lovtid/2023-06-20-82``) and the identical shape one law over:
+    #         §§ 25/1, 25/2, 26/1, 27/1 and the § 25 wrong text close, §§ 26/1 and
+    #         27/1 open as the same off-by-one relabel report.
+    # -2 -3 -3 = -8. Lowering the "Noverande § X blir § Y" relabel is the sized
+    # follow-up that would close the two remaining pairs; refusing the wrong text
+    # is what this item is for, and it does not wait on that.
+    assert report["divergence_totals"] == {"total": 1455, "ceiling": 1011, "unexplained": 444}
     # 3 -> 2 at W-34: no/lov/2001-01-05-1 gains 4 bound ops from
     # no/lovtid/2015-06-19-65 item 178, so its indexed history is no longer
     # sparse. Its 83 divergences do not move; only the bucket does.
@@ -2892,8 +2924,14 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             "no/lov/2015-06-19-70",
             "no/lov/2016-06-17-29",
             "no/lov/2016-06-17-46",
-            "no/lov/2017-05-22-29",
-            "no/lov/2017-05-22-30",
+            # W-79: ``no/lov/2017-05-22-29`` and ``no/lov/2017-05-22-30`` both
+            # LEAVE for `untouched_drift`, and the direction is the point. Their
+            # replay-defect rows were caused by the own-text fallback writing
+            # "Noverande §§ 29, 30 og 31 blir §§ 30, 31 og ny 32." (and its twin)
+            # over §§ 25-31; with those writes refused, no op this system lowers
+            # touches any address either law still diverges at, so the W-23
+            # predicate re-buckets both. 22 -> 20. Same predicate, same direction
+            # as W-67+W-74's `2010-06-04-21` move.
             # W-77: ARRIVES from `consistent`. See the note at the head of this
             # bucket.
             "no/lov/2017-06-16-60",
@@ -2949,6 +2987,13 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             # 17 -> 18.
             "no/lov/2015-05-12-27",
             "no/lov/2017-05-22-28",
+            # W-79: both ARRIVE from `replay_defect` — see the note there. Each
+            # keeps three rows, and all six are the honest report of a relabel
+            # this system does not lower ("Noverande §§ 29, 30 og 31 blir …"):
+            # our text is the statute's real text at its pre-relabel label, the
+            # consolidation's is the same text one label higher. 19 -> 21.
+            "no/lov/2017-05-22-29",
+            "no/lov/2017-05-22-30",
             "no/lov/2017-06-16-65",
             "no/lov/2017-06-16-67",
             # W-47: enters the candidate set at 14 rows, none of them a ceiling

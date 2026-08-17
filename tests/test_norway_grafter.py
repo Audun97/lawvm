@@ -33,9 +33,11 @@ from lawvm.norway.grafter import (
     NO_PARSE_SUBSTITUTION_ANNOUNCEMENT_NOT_LOWERED,
     NO_PARSE_SUBSTITUTION_MULTI_BASE_ADDRESS_LIST,
     NO_PARSE_SUBSTITUTION_MULTIPLE_ANNOUNCEMENTS,
+    NO_PARSE_STRUCTURED_PAYLOAD_NOT_DECLARED,
     NO_REPLAY_SUBSTITUTION_TERM_NOT_UNIQUELY_PRESENT,
     NO_SUBSTITUTION_PROVENANCE_TAG,
     NOHeadingGroup,
+    _no_structured_declared_own_payload,
     _extract_no_substitution_pairs,
     apply_no_ops_conserved,
     _extract_no_embedded_multi_act_lead,
@@ -9224,6 +9226,230 @@ def test_no_w78_a_real_replacement_after_a_folgende_steder_announcement_still_lo
     assert [(op.action, op.target.path) for op in ops] == [
         (StructuralAction.REPLACE, (("section", "13"), ("subsection", "1"))),
     ]
+
+
+# ---------------------------------------------------------------------------
+# W-79: the structured payload lane's own-text invariant.
+#
+# One test per SHAPE CLASS of the corpus-wide own-text-fallback census (217
+# payloads: 68 declaring, 149 not), not one per node. The five refusing shapes
+# and the two keeping shapes below are exactly that census's classes.
+# ---------------------------------------------------------------------------
+
+
+def _w79_change_html(*, change_node: str, base: str = "lov/2015-06-19-70") -> bytes:
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <main>
+      <section class="document-change" data-document="{base}">
+{change_node}
+      </section>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def test_no_w79_payload_declaration_predicate_separates_instruction_from_content() -> None:
+    """The invariant itself: a declaration in the head, and content after the colon.
+
+    The five refusing shapes are the corpus census's, verbatim; the accepting
+    ones are the two surfaces that carry a real payload in their own text.
+    """
+    # Refuses: no colon at all, so nothing can be a declared payload.
+    assert _no_structured_declared_own_payload("Nåværende § 66 blir § 84.") is None
+    assert (
+        _no_structured_declared_own_payload("§ 36 tredje ledd andre punktum blir oppheva.")
+        is None
+    )
+    assert (
+        _no_structured_declared_own_payload(
+            "I § 45 erstattes henvisningen til «§§ 39, 40» av en henvisning til «§§ 39»."
+        )
+        is None
+    )
+    assert (
+        _no_structured_declared_own_payload(
+            "Overskriften til avsnitt IV i kapittel 14 flyttes til etter § 14-17."
+        )
+        is None
+    )
+    # Refuses: a colon, but the head declares no payload — it announces a repeal
+    # and the colon introduces an ADDRESS LIST (``no/lovtid/2025-06-20-88``).
+    assert (
+        _no_structured_declared_own_payload(
+            "I følgende paragrafer oppheves punktumet i paragrafoverskriften: § 1, § 2."
+        )
+        is None
+    )
+    # Refuses: a declaration with NOTHING after the colon — the payload lives in
+    # structure this fallback cannot read, so writing the lead would be wrong.
+    assert _no_structured_declared_own_payload("§ 4 tredje ledd nr. 2 skal lyde:") is None
+    # Accepts, and the payload is the TAIL — the lead never reaches the statute.
+    assert (
+        _no_structured_declared_own_payload("§ 30 skal lyde: Lova gjeld frå 1. januar.")
+        == "Lova gjeld frå 1. januar."
+    )
+    assert (
+        _no_structured_declared_own_payload(
+            "I lov 21. november 1952 nr. 3 om tjenesteplikt i politiet skal § 6 lyde: "
+            "Forsvarsloven kapittel 8 får anvendelse."
+        )
+        == "Forsvarsloven kapittel 8 får anvendelse."
+    )
+
+
+@pytest.mark.parametrize(
+    ("shape", "own_text"),
+    [
+        # The relabel announcement — 37 ops over 22 nodes in the census, the
+        # largest refusing shape. ``data-change-part`` names the provisions being
+        # RENUMBERED, and the node has no payload for any of them.
+        ("relabel", "Nåværende § 66 blir § 84."),
+        # The repeal announcement, including ``2025-06-20-88``'s 29-address
+        # heading-punctuation form — the W-78 construct in a dialect with no
+        # quoted term for the substitution grammar to see.
+        (
+            "repeal",
+            "I følgende paragrafer oppheves punktumet i paragrafoverskriften: § 1, § 2.",
+        ),
+        # The in-place word substitution, addressed inside the sentence rather
+        # than by a trailing list (so W-78's opener never matches it).
+        (
+            "substitution",
+            "I § 45 erstattes henvisningen til «§§ 39, 40» av en henvisning til «§§ 39».",
+        ),
+        # The move announcement.
+        ("move", "Overskriften til avsnitt IV i kapittel 14 flyttes til etter § 14-17."),
+        # A declaration whose payload is NOT in the node's own text: the lead
+        # survives alone and used to be written over the target (or, once the
+        # narrow ``§ N skal lyde:`` strip consumed it, an EMPTY node was).
+        ("declaration_only", "§ 4 tredje ledd nr. 2 skal lyde:"),
+    ],
+)
+def test_no_w79_undeclared_own_text_refuses_typed(shape: str, own_text: str) -> None:
+    """No shape whose own text is an INSTRUCTION may become a payload.
+
+    The refusal is per (action, target) and blocking: nothing lands, and the
+    reason is typed rather than a silent drop.
+    """
+    adjudications: list[CompileAdjudication] = []
+    grouped = iter_no_document_change_ops(
+        _w79_change_html(
+            change_node=(
+                '<article class="change" data-change-part="lov/2015-06-19-70/§13">'
+                f'<article class="defaultP">{own_text}</article>'
+                "</article>"
+            )
+        ),
+        "no/lovtid/2026-06-19-45",
+        adjudications_out=adjudications,
+    )
+
+    assert grouped == [], f"{shape}: an instruction was lowered as a payload"
+    refusals = [a for a in adjudications if a.kind == NO_PARSE_STRUCTURED_PAYLOAD_NOT_DECLARED]
+    assert len(refusals) == 1
+    detail = refusals[0].detail or {}
+    assert detail["phase"] == "parse"
+    assert detail["blocking"] is True
+    assert detail["target"] == "section:13"
+    assert detail["undeclared_text"] == own_text
+
+
+def test_no_w79_declared_own_text_payload_still_lowers_without_its_lead() -> None:
+    """The keeping direction, and the reason the two halves are one rule.
+
+    A node that DECLARES its payload keeps lowering — and the payload is the tail
+    the declaration introduces, so the amendment's own lead prose ("I lov 21.
+    november 1952 nr. 3 … skal § 6 lyde:") stops being written into § 6 alongside
+    the law it introduces.
+    """
+    adjudications: list[CompileAdjudication] = []
+    grouped = dict(
+        iter_no_document_change_ops(
+            _w79_change_html(
+                change_node=(
+                    '<article class="change" data-change-part="lov/2015-06-19-70/§6">'
+                    '<article class="defaultP">I lov 19. juni 2015 nr. 70 om karantene '
+                    "skal § 6 lyde:</article>"
+                    '<article class="legalP">Forsvarsloven kapittel 8 får anvendelse.</article>'
+                    "</article>"
+                )
+            ),
+            "no/lovtid/2026-06-19-45",
+            adjudications_out=adjudications,
+        )
+    )
+
+    assert not [a for a in adjudications if a.kind == NO_PARSE_STRUCTURED_PAYLOAD_NOT_DECLARED]
+    ops = grouped["no/lov/2015-06-19-70"]
+    assert [(op.action, op.target.path) for op in ops] == [
+        (StructuralAction.REPLACE, (("section", "6"),)),
+    ]
+    assert ops[0].payload is not None
+    assert ops[0].payload.text == "Forsvarsloven kapittel 8 får anvendelse."
+
+
+def test_no_w79_structured_payload_candidates_are_untouched_by_the_invariant() -> None:
+    """The zero-loss half: the invariant guards ONE payload source, not the lane.
+
+    196 of the 267 undeclared ``data-change-part`` nodes resolve their payload
+    against a structured candidate rather than their own text, and the fallback is
+    never consulted for them. They must keep lowering whatever their lead says.
+    """
+    adjudications: list[CompileAdjudication] = []
+    grouped = dict(
+        iter_no_document_change_ops(
+            _w79_change_html(
+                change_node=(
+                    '<article class="change" data-change-part="lov/2015-06-19-70/§13/ledd/1">'
+                    '<article class="defaultP">Nåværende § 13 blir § 14.</article>'
+                    '<article class="legalP">Fristen er tre måneder.</article>'
+                    "</article>"
+                )
+            ),
+            "no/lovtid/2026-06-19-45",
+            adjudications_out=adjudications,
+        )
+    )
+
+    assert not [a for a in adjudications if a.kind == NO_PARSE_STRUCTURED_PAYLOAD_NOT_DECLARED]
+    ops = grouped["no/lov/2015-06-19-70"]
+    assert len(ops) == 1
+    assert ops[0].payload is not None
+    assert ops[0].payload.text == "Fristen er tre måneder."
+
+
+def test_no_w79_refusal_is_per_target_not_per_node() -> None:
+    """A node's other targets keep lowering when only one has no payload.
+
+    The refusal sits at the (action, target) loop, not at the node, so a block
+    that resolves one address against a structured candidate and offers only its
+    own instruction prose for another loses exactly the second.
+    """
+    adjudications: list[CompileAdjudication] = []
+    grouped = dict(
+        iter_no_document_change_ops(
+            _w79_change_html(
+                change_node=(
+                    '<article class="change" data-change-part="lov/2015-06-19-70/§14 '
+                    'lov/2015-06-19-70/§13/ledd/1">'
+                    '<article class="defaultP">Nåværende § 14 blir § 15.</article>'
+                    '<article class="legalP">Fristen er tre måneder.</article>'
+                    "</article>"
+                )
+            ),
+            "no/lovtid/2026-06-19-45",
+            adjudications_out=adjudications,
+        )
+    )
+
+    ops = grouped["no/lov/2015-06-19-70"]
+    assert [op.target.path for op in ops] == [(("section", "13"), ("subsection", "1"))]
+    assert ops[0].payload is not None and ops[0].payload.text == "Fristen er tre måneder."
+    refusals = [a for a in adjudications if a.kind == NO_PARSE_STRUCTURED_PAYLOAD_NOT_DECLARED]
+    assert [(a.detail or {})["target"] for a in refusals] == ["section:14"]
 
 
 @pytest.mark.skipif(

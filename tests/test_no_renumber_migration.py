@@ -1643,7 +1643,27 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # ``remove_at`` probe agrees: 240 -> 240 content-removing writes, 2,107 ->
     # 2,107 ``remove_at`` calls, 307 -> 307 sentence removals, and the removed-node
     # multiset on this law is identical at 134 before and after.
-    "hazard_destructive_writes": 3870,
+    #
+    # 3,870 -> 3,847 at W-79 (-23), the SECOND shrinkage and the general closure
+    # of the class W-78 closed one dialect of: the structured lane's own-text
+    # fallback now refuses unless the node declares its own payload. EIGHT rows
+    # move, all downward, all in the destructive column:
+    # ``no/lov/2002-06-21-45`` [67, 2] -> [66, 2] ("Nåværende § 9 d blir § 9 e,
+    # og overskriften skal lyde:" written over § 9 d, whose seven-ledd body
+    # returns), ``no/lov/2005-06-17-67`` [316, 12] -> [315, 12],
+    # ``no/lov/2008-05-15-35`` [254, 10] -> [249, 10] (7 withdrawn REPLACEs, 2
+    # addressed substitutions newly landing once the real text they patch is
+    # back), ``no/lov/2009-06-19-58`` [207, 20] -> [204, 20],
+    # ``no/lov/2016-05-27-14`` [142, 7] -> [141, 7], ``no/lov/2016-08-12-77``
+    # [31, 2] -> [25, 2] (six "Nåværende § 66 blir § 84."-shaped relabel
+    # announcements written over §§ 66-70 and § 64 andre ledd, 32 child nodes
+    # returning), ``no/lov/2023-06-09-30`` [20, 0] -> [19, 0] and
+    # ``no/lov/2025-04-25-12`` [8, 0] -> [3, 0].
+    # The content-removing column does NOT move, on any row or corpus-wide
+    # (198 over 77 laws), for the same reason as W-78: every withdrawn write was
+    # a REPLACE, which records ``replaced_paths`` and never ``removed_paths``.
+    # Corpus-wide content-removing writes hold at 240.
+    "hazard_destructive_writes": 3847,
     # 167 -> 168, and the +1 is NOT a relabel op. ``no/lov/2016-05-27-14`` gains
     # ``no/lovtid/2021-12-22-158:1``, a REPEAL of § 7-6 annet ledd that could not
     # bind before because that law's ledd sequence was one slot out of step; with
@@ -1718,7 +1738,12 @@ _NO_INCOMPLETE_BASE_HAZARD_LAWS_DIGEST = (
     # the first SHRINKAGE in this series, and the credit belongs to withdrawing
     # 23 REPLACEs that were writing an amendment's own announcement sentence into
     # in-force law. See the count note above.
-    "88e3f7b881c77eaeb5ea335984f6de03ca0411e9c0cb3e242410c4ad326920aa"
+    # W-79: MEMBERSHIP UNCHANGED (164 laws, same set, both set differences
+    # empty). EIGHT rows move, all downward and all in the destructive column;
+    # every removing column is byte-identical. The eight are named one by one in
+    # the count note above — the general closure of the wrong-text class, so the
+    # shrinkage is spread over eight laws rather than concentrated on one.
+    "871c42872f8329acb9954e89c827185c77b701131bc4a19c8655b35c17ea7e88"
 )
 
 _REGENERATE = (

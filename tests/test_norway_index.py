@@ -1115,7 +1115,19 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
     # and could never be offered. ``plain``, not staged, effective 2008-07-01 via
     # its own ``no/forskrift/2008-06-27-722``; the eight staged re-datings are
     # unaffected.
-    assert len(authorized_ids) == 542
+    # 542 -> 541 at W-79, and for the first time the OFFERING shrank rather than
+    # grew — the offer gate and its conjuncts are again untouched.
+    # ``no/lovtid/2025-03-28-4`` loses its ONLY index entry: its single change
+    # node ("I lov 4. juni 1993 nr. 58 om allmenngjøring av tariffavtaler m.v.
+    # skal § 2 nr. 4 lyde:") declares a payload but keeps it in a
+    # ``numberedLegalP`` the structured lane's own-text fallback cannot read, so
+    # the fallback was writing that lead sentence itself into allmenngjøringsloven
+    # § 2. W-79's own-text invariant refuses it typed, the act binds no law, and
+    # it can no longer be offered. ``plain``, not staged, previously dated
+    # 2025-07-01 by its own ``no/forskrift/2025-03-28-545``; the eight staged
+    # re-datings are unaffected. Recovering it is the sized follow-up "widen the
+    # own-text fallback's payload reach" (43 nodes, 66 ops).
+    assert len(authorized_ids) == 541
     # W-53: the widened whole-act route. 430 acts whose single operative block
     # commences them as a whole in wording ``_WHOLE_ACT_RE`` does not match.
     # Disjoint from the shipped set by construction, and the two together are
@@ -1246,7 +1258,16 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # ny bokstav f skal lyde:", folketrygdloven) and its commencement is "fra
         # den tid Kongen bestemmer". A first-time entry; no existing entry's
         # status moves.
-        "contingent": 536,
+        # 536 -> 535 at W-79, and for the first time an act LEAVES this histogram
+        # rather than entering it: ``no/lovtid/2023-12-20-104`` loses its ONLY op
+        # to the structured payload lane's own-text invariant ("§ 4 tredje ledd
+        # nr. 2 skal lyde:" — a declaration whose payload sits in a ``li`` the
+        # own-text fallback cannot read, so the fallback was writing an EMPTY
+        # node over CO2-avgiftsloven § 4). With no bound law it has no index
+        # entry at all. Its commencement was "fra den tid Kongen bestemmer", so
+        # ``contingent`` is the bucket it leaves; no existing entry's status
+        # moves.
+        "contingent": 535,
         # 1021 -> 1020 at W-15 (multi-part misbinding fix): the sole moved entry
         # is no/lovtid/2018-12-20-119, whose only "op" was its own part II
         # commencement sentence ("Lova tek til å gjelde straks.") swallowed as a
@@ -1348,7 +1369,15 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # 2008-07-01 by its own ``no/forskrift/2008-06-27-722``, ``plain`` rather
         # than staged. One of SIX entrants; four land in ``dated`` and one in
         # ``contingent``. ``unknown`` and ``immediate`` hold.
-        "instrument_authorized": 980,
+        # 980 -> 979 at W-79, the mechanism running backwards for the first time:
+        # ``no/lovtid/2025-03-28-4`` loses its ONLY op to the structured payload
+        # lane's own-text invariant and with it its index entry. It was dated
+        # 2025-07-01 by its own ``no/forskrift/2025-03-28-545``, ``plain`` rather
+        # than staged. Entries 2,578 -> 2,576 (the other departure is
+        # ``no/lovtid/2023-12-20-104``, ``contingent`` above); ``dated``,
+        # ``unknown`` and ``immediate`` all hold, and no PRE-EXISTING entry's
+        # ``effective_status`` changes.
+        "instrument_authorized": 979,
         "unknown": 2,
     }
 
@@ -1499,14 +1528,18 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     # so the whole of the move lands in the non-staged half and the staged pin
     # does not budge. W-77's other five entrants carry their own plain date or
     # are contingent and never reach this route.
-    assert len(authorized) == 980
+    # 980 -> 979 (and 967 -> 966 non-staged, 13 staged unmoved) at W-79, the
+    # first DEPARTURE: ``no/lovtid/2025-03-28-4`` loses its only op to the
+    # own-text invariant and with it its index entry, so the whole of the move
+    # again lands in the non-staged half and the staged pin does not budge.
+    assert len(authorized) == 979
     assert (
         len([
             entry
             for entry in authorized
             if entry.commencement_shape != NOCommencementShape.STAGED_DELEGATED
         ])
-        == 967
+        == 966
     )
     assert all(entry.effective_date for entry in authorized)
     authorization_receipts = [
@@ -1543,7 +1576,13 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     # ``no/forskrift/2008-06-27-722``, which the shipped whole-act route admits,
     # so the widened count is unmoved. Its five sibling entrants are dated by
     # their own date or are contingent and take no authorization receipt at all.
-    assert len(authorization_receipts) == 542
+    # 541 + 438 = 979 at W-79, the mirror of W-77 running backwards:
+    # ``no/lovtid/2025-03-28-4`` was dated by its own kongelig resolusjon
+    # ``no/forskrift/2025-03-28-545``, which the SHIPPED whole-act route admits,
+    # so it is the shipped receipt count that falls and the widened one is
+    # unmoved. Its sibling departure ``no/lovtid/2023-12-20-104`` is contingent
+    # and took no authorization receipt at all.
+    assert len(authorization_receipts) == 541
     assert len(widened_receipts) == 438
     assert {d["source_id"] for d in authorization_receipts + widened_receipts} == {
         entry.source_id for entry in authorized
@@ -1871,9 +1910,21 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # which is why the receipt count falls by 11 while the pair count falls by 18.
     # The W-34/W-35 conservation is exact: the pair drop equals the binding gain
     # (18 = 18), ZERO targets newly unbound and NOTHING rebound.
-    assert len(unbound) == 926
-    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2444
-    assert len({diagnostic["source_id"] for diagnostic in unbound}) == 926
+    # 926 -> 928 receipts and 2,444 -> 2,447 pairs at W-79, the FIRST time this
+    # census has grown: the structured payload lane's own-text invariant
+    # withdraws the only binding three instruments had. TWO gain a receipt
+    # outright because they now bind NOTHING (``no/lovtid/2023-12-20-104``,
+    # ``no/lovtid/2025-03-28-4`` — both also leave the index entirely), and one
+    # already-receipted instrument gains a pair (``no/lovtid/2023-12-20-110``
+    # re-declares ``no/lov/1985-06-21-79`` unbound, its only op on that law
+    # having been an in-place word-substitution announcement written into
+    # foretaksnavneloven § 3-6 as text). The W-34/W-35 conservation is exact in
+    # the withdrawing direction: the pair GAIN equals the binding LOSS
+    # (3 = 3; index bindings 6,564 -> 6,561), ZERO targets newly bound and
+    # NOTHING rebound.
+    assert len(unbound) == 928
+    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2447
+    assert len({diagnostic["source_id"] for diagnostic in unbound}) == 928
 
     # 64 acts gain their FIRST index entry: they announced every one of their
     # parts with an unlisted tail, so they had bound no law at all.
@@ -1947,7 +1998,17 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # ``no/lovtid/2008-06-27-50`` (``instrument_authorized``, 2008-07-01 via
     # ``no/forskrift/2008-06-27-722``) and ``no/lovtid/2012-12-07-75``
     # (``contingent``). None leaves.
-    assert len(index.entries) == 2578
+    # 2,578 -> 2,576 at W-79, and this pin's "None leaves" streak ends: TWO acts
+    # leave, both because the structured payload lane's own-text invariant
+    # withdraws the only op they had. ``no/lovtid/2023-12-20-104``
+    # (``contingent``) and ``no/lovtid/2025-03-28-4`` (``instrument_authorized``,
+    # 2025-07-01) each carried exactly one ``data-change-part`` node that
+    # DECLARES its payload and then keeps it in a ``li`` / ``numberedLegalP``
+    # the own-text fallback cannot reach, so what landed was the lead sentence
+    # itself (or, once the old narrow strip consumed it, an EMPTY node). Nothing
+    # else leaves and nothing enters; bindings 6,564 -> 6,561 (the third is
+    # ``no/lovtid/2023-12-20-110`` -> ``no/lov/1985-06-21-79``).
+    assert len(index.entries) == 2576
     bindings = {
         (entry.source_id, base_id) for entry in index.entries for base_id in entry.base_ids
     }
@@ -2025,7 +2086,14 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # eighteen instruments lose their declared-vs-bound gap entirely). NO base
     # act receives its first op ever, so the amended-law population stays at 788
     # and the sweep baseline's ``swept`` block is byte-identical.
-    assert len(bindings) == 6564
+    # 6,564 -> 6,561 at W-79, the first time this census FALLS: three (act, law)
+    # pairs unbind, ZERO rebound and ZERO newly bound, and the W-34/W-35
+    # conservation holds with no residue in the withdrawing direction — all three
+    # are exactly the three pairs the unbound census GAINS (see the note on
+    # ``len(unbound)`` above). NO base act loses its last op, so the amended-law
+    # population stays at 788 and the sweep baseline's ``swept`` block is
+    # byte-identical.
+    assert len(bindings) == 6561
     # 26,218 at W-30; +2 at W-24, both reconciled to a named erratum and neither
     # touching this test's own subject. W-24 lowered two Del-scoped Rettelser
     # corrections into the law each part amends — ``2019-12-20-110`` Del I into
@@ -2235,7 +2303,24 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # pair moving, ``no_parse_unresolved_structured_target_skipped`` 112 -> 111
     # and ``no_parse_substitution_address_not_lowerable`` 0 -> 1 (the one address
     # of the 117 that does not lower, now refusing under its own typed receipt).
-    assert sum(entry.n_ops for entry in index.entries) == 29225
+    # 29,225 -> 29,076 at W-79 (-149), the general closure of the same wrong-text
+    # class W-78 closed one dialect of, and the first time this census falls
+    # rather than grows. The structured lane's own-text fallback — the ONE payload
+    # source in that lane that reads the amendment's own prose rather than a
+    # payload structure — now refuses unless the node DECLARES its own payload
+    # ("skal … lyde" in the head, content after the colon). Measured over all 217
+    # own-text-fallback payloads the corpus produces: 68 declare one and keep
+    # lowering (61 byte-identical, 7 with the lead prefix now stripped), 149
+    # declare none and refuse under
+    # ``no_parse_structured_payload_not_declared``. The frozen refusal set
+    # predicted exactly 149 before any production code was written and the
+    # content-keyed op diff withdraws exactly those 149, 0 strays and 0 lost.
+    # Not one of the 149 was carrying statute content: 53 are announcements with
+    # no colon at all (relabels, repeals, an in-place substitution, a move), 30
+    # are an address list under a colon that introduces no payload, and 66
+    # declare a payload the fallback cannot reach (23 of which were writing an
+    # EMPTY node over their target). Unstructured refusals hold at 7,853.
+    assert sum(entry.n_ops for entry in index.entries) == 29076
 
 
 def test_no_amendment_index_staleness_report_detects_archive_change(tmp_path) -> None:

@@ -705,7 +705,12 @@ _NO_FIRE_DRILL_AMENDMENT_XML = """<?xml version="1.0" encoding="utf-8"?>
     <dd class="dateInForce">2025-02-10</dd>
     <article class="document-change" data-document="lov/2025-01-01-1">
       <article class="change" data-change-part="lov/2025-01-01-1/§2/nummer/1">
-        <article class="defaultP">I loven skal nr. 1 endres.</article>
+        <!-- The scaffolding only has to make the index BIND this amendment to
+             the base act; the ops under test are synthesized and mocked in.
+             W-79: it must therefore declare its own payload like any real
+             change node, or the structured lane refuses it typed, the
+             instrument drops to zero ops and never binds. -->
+        <article class="defaultP">§ 2 nr. 1 skal lyde: Ny tekst.</article>
       </article>
     </article>
   </body>

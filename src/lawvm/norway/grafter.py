@@ -4008,9 +4008,89 @@ def _expand_no_section_range_labels(start_label: str, end_label: str) -> list[st
     return [start, end]
 
 
+# W-79: the structured payload lane's OWN-TEXT INVARIANT.
+#
+# ``_fallback_payload`` is the last resort of the structured ``document-change``
+# lane: when no structured payload candidate matches a declared target, it takes
+# the change node's OWN TEXT and writes it into the statute at that address. It
+# never asked whether the node CLAIMED to carry a payload — so any node whose own
+# text is an INSTRUCTION rather than content had its instruction written into
+# in-force law. W-75 found one dialect of that (an address list under a word
+# substitution), W-78 closed a second (``Følgende steder …``), and both were
+# closed dialect by dialect in the announcement grammar. This is the general
+# closure: the FALLBACK ITSELF must require the declaration.
+#
+# The rule, stated positively and reusing W-78's head discipline: the text the
+# fallback is about to write must declare its own payload — a payload-introducing
+# operative phrase (``skal … lyde`` / ``lyda`` / ``lyder`` / ``skal ha følgende
+# ordlyd``) standing in the HEAD, i.e. before the first colon, with the colon
+# closing the declaration and CONTENT following it. The instruction must be
+# complete before the colon and the payload must exist after it; a node that
+# satisfies neither is refused typed rather than lowered on a guess.
+#
+# The colon is also what makes the payload extractable, so the two halves are one
+# rule: the payload IS the tail. The narrow ``^§ N skal lyde:`` strip this
+# replaced only fired on section-initial leads, which left the lead prose glued to
+# the front of the payload of every other declaring shape ("I lov 21. november
+# 1952 nr. 3 … skal § 6 lyde: <law>" wrote its own citation into § 6).
+#
+# Measured over EVERY own-text-fallback payload the corpus produces (217 over
+# 3,089 instruments; 556 fallback calls, the rest already returning None):
+#   * 68 declare a payload and keep lowering — 61 byte-identical to today, 7 with
+#     the lead prefix now removed (each adjudicated at the landing);
+#   * 149 declare none and refuse — 66 declare a payload that is NOT in their own
+#     text (the lead survives alone: 23 of them were writing an EMPTY node over
+#     their target), 37 relabel announcements ("Nåværende § 66 blir § 84."), 37
+#     repeal announcements (including ``2025-06-20-88``'s 29-address heading-
+#     punctuation announcement, the W-78 shape in a dialect the substitution
+#     grammar cannot see), 8 in-place word substitutions and 1 move announcement.
+# Not one of the 149 carries statute content; not one of the 68 carries an
+# instruction. The separation is the node's own claim, not a shape allowlist.
+_NO_STRUCTURED_PAYLOAD_DECLARATION_RE = compile_classifier_regex(
+    r"\bskal\b[^:]{0,300}?\b(?:lyde|lyda|lyder|ordlyd)\b",
+    re.IGNORECASE,
+    classifier_id="norway.grafter.structured_payload_declaration",
+)
+
+#: A structured change node whose OWN TEXT would have been written into the
+#: statute as a payload, and which declares no payload of its own. Parse-plane,
+#: blocking: nothing lands and the reason is typed.
+NO_PARSE_STRUCTURED_PAYLOAD_NOT_DECLARED = "no_parse_structured_payload_not_declared"
+
+
+def _no_structured_declared_own_payload(text: str) -> Optional[str]:
+    """The payload ``text`` declares for itself, or ``None`` when it declares none.
+
+    ``text`` is the change node's own flattened text — exactly what
+    :func:`_fallback_payload` would otherwise write. The head (everything before
+    the first colon) must carry a payload-introducing operative phrase, and the
+    tail must be non-empty; the tail is the payload.
+    """
+    head, separator, tail = _normalize_space(text).partition(":")
+    if not separator:
+        return None
+    # lawvm-regex: owning_parser this IS the structured payload-declaration parser
+    if _NO_STRUCTURED_PAYLOAD_DECLARATION_RE.search(head) is None:
+        return None
+    tail = _normalize_space(tail)
+    return tail or None
+
+
 def _fallback_payload(
-    change_el: etree._Element, action: StructuralAction | str, target: LegalAddress
+    change_el: etree._Element,
+    action: StructuralAction | str,
+    target: LegalAddress,
+    *,
+    undeclared_out: Optional[list[str]] = None,
 ) -> Optional[IRNode]:
+    """The change node's own text as a payload — only when the node declares one.
+
+    ``undeclared_out``, when given, receives the text that WOULD have been
+    written for a node that carries text but declares no payload. That is the
+    W-79 refusal signal: ``None`` alone cannot distinguish "this node has no text
+    to offer" (always been a silent, payload-free op) from "this node's text is an
+    instruction" (the wrong-text class), and only the second refuses.
+    """
     if _no_action_value(action) == "repeal":
         return None
     text_blocks = [
@@ -4023,14 +4103,16 @@ def _fallback_payload(
         text = _node_text_without_structural_children(change_el)
     if not text:
         return None
-    text = re.sub(
-        r"^(?:nye?\s+)?§{1,2}\s*[^:]+?\bskal lyde:\s*",
-        "",
-        text,
-        flags=re.IGNORECASE,
+    declared = _no_structured_declared_own_payload(text)
+    if declared is None:
+        if undeclared_out is not None:
+            undeclared_out.append(text)
+        return None
+    return IRNode(
+        kind=cast(IRNodeKind, target.leaf_kind() or "content"),
+        label=target.leaf_label() or None,
+        text=declared,
     )
-    text = _normalize_space(text)
-    return IRNode(kind=cast(IRNodeKind, target.leaf_kind() or "content"), label=target.leaf_label() or None, text=text)
 
 
 def parse_no_heading_groups(
@@ -8305,6 +8387,11 @@ def iter_no_document_change_ops(
                     if payload is None:
                         payload = _heading_only_section_payload(change_el, StructuralAction.REPLACE, destination)
                     if payload is None:
+                        # W-79's invariant needs no second refusal kind here: this
+                        # site ALREADY refuses typed and blocking on a None payload,
+                        # so a node that declares no payload of its own falls
+                        # straight into ``payload_unresolved`` below rather than
+                        # writing its own lead over the moved provision.
                         payload = _fallback_payload(change_el, StructuralAction.REPLACE, destination)
                     if payload is None:
                         _append_no_parse_adjudication(
@@ -8351,7 +8438,43 @@ def iter_no_document_change_ops(
                 if payload is None:
                     payload = _heading_only_section_payload(change_el, action, target)
                 if payload is None:
-                    payload = _fallback_payload(change_el, action, target)
+                    # W-79. The own-text fallback is the ONLY payload source in
+                    # this lane that reads the amendment's own prose rather than a
+                    # payload structure, so it is the only one that can write an
+                    # instruction into a statute. It now refuses unless the node
+                    # declares a payload; the refusal is per (action, target),
+                    # because a node's other targets may resolve against a real
+                    # candidate and must keep lowering.
+                    undeclared: list[str] = []
+                    payload = _fallback_payload(
+                        change_el, action, target, undeclared_out=undeclared
+                    )
+                    if payload is None and undeclared:
+                        _append_no_parse_adjudication(
+                            adjudications_out,
+                            kind=NO_PARSE_STRUCTURED_PAYLOAD_NOT_DECLARED,
+                            message=(
+                                "Norway structured change block declared a target but no "
+                                "payload of its own; its own text is an instruction, not "
+                                "content, so the target was refused rather than "
+                                "overwritten with the amendment's own prose."
+                            ),
+                            source_id=source_id,
+                            detail=diagnostic_detail(
+                                rule_id=NO_PARSE_STRUCTURED_PAYLOAD_NOT_DECLARED,
+                                phase="parse",
+                                family="payload_normalization",
+                                blocking=True,
+                                base_id=base_id,
+                                source_doc=source_doc,
+                                action=_no_action_value(action),
+                                target=_no_address_detail(target),
+                                undeclared_text=undeclared[0],
+                                declared_targets=len(parsed_specs),
+                                raw_text=raw_text,
+                            ),
+                        )
+                        continue
                 if payload is not None and _no_action_value(action) in ("repeal", "text_repeal"):
                     # The payload-candidate map is consulted for every action with
                     # no filter, so a structured REPEAL/TEXT_REPEAL can pick up a
