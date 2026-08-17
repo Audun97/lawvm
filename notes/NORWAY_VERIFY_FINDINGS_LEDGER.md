@@ -6289,6 +6289,28 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    W-85 census; a different capture makes every scoreboard row
    incommensurable. Re-attempt only after the receipt above
    reproduces the 30/45/0 cohort.
+   **Corpus restored (2026-08-17, same day): PRECONDITION
+   SATISFIED — on a NEW capture that reproduces the baseline
+   aggregates exactly.** The four public Lovdata tarballs were
+   re-downloaded via the sanctioned bulk API
+   (`api.lovdata.no/v1/publicData/get/...`; `gjeldende-lover`
+   lastModified 2026-08-14, sha256 `06ff01d6…edc70a`;
+   `lovtidend-avd1-2001-2025` `b2984e9a…5a955ee`;
+   `lovtidend-avd1-2026` `49e1eb29…70be58`;
+   `gjeldende-sentrale-forskrifter` 2026-08-15 `6f497dcd…c31f36`),
+   hydrated (`no-ingest`: 758 current / 3,089 originals / 3,089
+   amendments / 36,006 forskrift) and indexed (2,577 entries —
+   matching the W-84 count). Full scan at the new
+   snapshot-commensurable `--as-of 2026-08-14`: **30/45/0 over 75
+   candidates, `total=1454 (ceiling=1011, unexplained=443)`,
+   ceiling rules `{address: 918, nested: 93}` — every aggregate
+   identical to the pinned W-84 baseline** (Storting summer
+   recess; the corpus did not move the cohort). Honest limit:
+   row-level byte-comparison against the old machine's scan
+   output is not possible here (that JSON was never committed),
+   so commensurability rests on the exact aggregate match plus
+   the unchanged index/binding counts; subsequent scoreboard rows
+   read as-of 2026-08-14 on this capture.
 
 ## 5. Demo / Inspection Tooling
 
@@ -6306,6 +6328,18 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-17 (corpus restored on the new working machine —
+  W-85 precondition satisfied)** — The four public tarballs
+  re-acquired via the bulk API (capture dated
+  2026-08-14/15, sha256s pinned in item 91), hydrated and
+  indexed (2,577 entries, matching W-84). Scan at `--as-of
+  2026-08-14`: **30/45/0 over 75 candidates, total=1454
+  (ceiling=1011, unexplained=443)** — every aggregate identical
+  to the pinned baseline. Future scoreboard rows read as-of
+  2026-08-14 on this capture; row-level byte-commensurability
+  with the old machine's output is unprovable (never committed)
+  and is claimed only at aggregate level.
 
 - **2026-08-17 (W-85 execution attempt — stopped at
   precondition; no code landed)** — The W-85 run halted before
