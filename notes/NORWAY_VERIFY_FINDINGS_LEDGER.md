@@ -6066,6 +6066,95 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    `_parse_future_section` heading-prefix spacing skew and the
    `CO<sub>2</sub>` → "CO 2" flattening convention).
 
+89. **W-83 (the klimaloven full-history audit):** DONE
+   (2026-08-17; read-only, no product commit; artifacts
+   `.tmp/w83/` — amender enumeration, DOM extracts, replay
+   traces, the beriktiget instrument, the freshness download,
+   all probes reproducible). Opened on the user's go-ahead to
+   adjudicate the one klimaloven divergence row (W-77's
+   CONSOLIDATED_MISSING at § 7/2/e) as either the programme's
+   first confirmed Lovdata consolidation defect or our own gap.
+   **VERDICT: (B) — our coverage gap. Bokstav e was NEVER
+   ENACTED.** The 2021 act's FIRST Lovtidend announcement
+   (`no/lovtid/2021-06-18-129`, the artifact we replay) carried
+   the `§ 6 annet ledd ny bokstav e` command; nine days later
+   Lovdata marked that announcement `utgått` (gazettenote
+   2021-06-25) and published a RECTIFIED re-announcement —
+   `no://forskrift/2021-06-25-2137` "Kunngjøring av beriktiget
+   versjon av lov 18. juni 2021 nr. 129", declaring
+   `changesToDocuments: lov/2021-06-18-129, lov/2017-06-16-60` —
+   whose operative part amends ONLY §§ 3 and 4: no § 6, no
+   bokstav e, no `trepartssamarbeid`. Four independent lines
+   converge: the rectified instrument's bytes; the
+   consolidation's own footnotes (2021 act cited at §§ 3 and 5,
+   only the 2025 renumber at § 7); the freshness check via the
+   sanctioned bulk API (today's `gjeldende-lover` member
+   BYTE-IDENTICAL to our snapshot, five years on); and,
+   supplementary and clearly marked, Stortinget's Lovvedtak 159
+   (2020–2021), which never contained the provision. Exact-text
+   pins for all four are in the audit artifacts. **There is no
+   removing lead** — the mechanism is whole-instrument
+   supersession, not an unparsed sentence; anyone hunting an
+   unlowered removal directive will not find one.
+   **Why we cannot see it**: the lanes split at the iterator —
+   `iter_no_amendment_artifacts` reads only
+   `no://lovtid/%/amendment.xml`, and the forskrift lane feeds
+   only the commencement parser, where `2021-06-25-2137`
+   classifies BENIGN_NOT_COMMENCEMENT and is dropped with no
+   diagnostic. The `utgått` gazettenote on the superseded act is
+   filtered by the same code that admits `rettelse` blocks
+   (`utgått` appears nowhere in src/tests/scripts/notes).
+   Lovdata signalled the correction TWICE; we read neither.
+   **The whole shape, censused**: 374 gazettenote members / 383
+   notes corpus-wide (`rettelse` 314, `utgått` 69), and exactly
+   **3 act-lane documents carry `utgått`** — `2021-06-11-80` →
+   `2021-06-25-2136` (13 ops / 3 bases), `2021-06-18-129` →
+   `2021-06-25-2137` (2 ops / klimaloven), `2024-03-15-10` →
+   `2024-08-15-1960` (23 ops / yrkestransportlova). **38
+   declared ops over 5 base laws unreachable**; corrections are
+   NOT uniformly subtractive (two rectified versions carry MORE
+   ops than what they replace), so no deletion rule can stand in
+   for the production. **Item 90 (W-84) opened.**
+   Four judgement calls ratified, including the trap recorded
+   for the programme: **lane-scoped enumeration is not
+   archive-scoped enumeration** — the first full-text sweep
+   covered only the 3,089 amendment artifacts and would have
+   produced a FALSE (A); widening to all 42,899 locators is what
+   surfaced the rectified instrument. F-07's standing caution
+   (assume our-gap until alternatives are exhausted) held for
+   the second time. Not established (stated, not estimated):
+   whether yrkestransportlova's 40+ existing divergences trace
+   to its own beriktiget gap — no attribution claimed.
+
+90. **W-84 (the beriktiget/utgått correction lane):** OPEN. A
+   CORRECTNESS item: our replay currently carries never-enacted
+   text (klimaloven § 7/2/e) because we lower a superseded
+   announcement, and 38 declared ops across the 3 rectified
+   instruments are unreachable. Two limbs, EITHER ALONE
+   INSUFFICIENT: (1) read `data-gazette-note-type="utgått"` as a
+   typed suppression of a superseded gazette announcement,
+   mirroring the shipped W-18 `rettelse` handling at its
+   existing filter site; (2) admit the beriktiget
+   re-announcement as an AMENDING instrument despite its
+   forskrift-lane filing, gated on Lovdata's own
+   `changesToDocuments` declaration PLUS the `beriktiget versjon
+   av lov` title — NOT a blanket opening of the forskrift lane.
+   Population exactly 3 pairs, both signals machine-marked by
+   Lovdata; census frozen at `.tmp/w83/`
+   (`gazettenote_census.json`, `beriktiget_census.json`). Payoff:
+   klimaloven 3 ops → 2, the never-enacted INSERT vacates, the
+   CONSOLIDATED_MISSING row closes (`replay_defect →
+   consistent`, unexplained −1); the other two pairs swap 12→13
+   and 19→23 ops on their bases (one contingent, one
+   yrkestransportlova — a scan candidate, so its rows may move
+   and each movement needs adjudication). Standard disciplines:
+   frozen expected op-delta per instrument (content-keyed),
+   statute diff with every changed node adjudicated, firing/θ
+   censuses pinned, commencement gating of the rectified
+   instruments established rather than assumed (their dates are
+   the RE-announcement dates, not the acts' own). Small, high
+   value.
+
 ## 5. Demo / Inspection Tooling
 
 Browser views of any replayable law across its own amendment dates, plus an
@@ -6082,6 +6171,27 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-17 (W-83 — the klimaloven full-history audit;
+  read-only, records only)** — **The candidate "first confirmed
+  Lovdata consolidation defect" dissolves, F-07-style, into our
+  own gap — and a new correction mechanism is discovered:
+  whole-instrument supersession.** Klimaloven's bokstav e was
+  never enacted: the 2021 act's first announcement was marked
+  `utgått` nine days after publication and re-announced in a
+  rectified (beriktiget) version amending only §§ 3 and 4 —
+  filed in the forskrift lane, where our machinery drops it
+  without a diagnostic; the `utgått` marker is filtered by the
+  same code that reads `rettelse`. Four evidence lines converge
+  (rectified bytes, consolidation footnotes, a byte-identical
+  freshness download via the sanctioned API, and supplementary
+  Stortinget lovvedtak). Corpus-wide census: exactly 3
+  superseded/rectified pairs, 38 declared ops unreachable,
+  corrections not uniformly subtractive. **Item 90 (W-84, the
+  beriktiget/utgått correction lane) opened.** Trap recorded:
+  lane-scoped enumeration is not archive-scoped enumeration —
+  the first sweep would have produced a false Lovdata-error
+  verdict.
 
 - **2026-08-17 (W-82 — the own-text fallback's payload reach;
   `5968e03ff`)** — **W-79's owned cost recovered where provable:
