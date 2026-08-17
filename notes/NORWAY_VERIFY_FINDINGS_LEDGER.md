@@ -220,6 +220,27 @@ the instrument and the consolidation, not a defect in the lowering.
 Totals `total=1463 (ceiling=1011, unexplained=452)`; ceiling
 untouched.
 
+W-79 note (candidates hold at 75, scoreboard holds at 29/46/0;
+three candidate laws' rows move, all read directly off the
+invariant withdrawing wrong text): **12 rows close, 4 open
+deliberately — net unexplained 452 → 444.** `no/lov/2010-06-25-28`
+26 → 24: the CONSOLIDATED_MISSING at § 6 closes (the "row" was the
+announcement `Nytt kapittel 2 etter § 6 skal lyde:` sitting in the
+statute) and § 6/1's OPS_MISSING closes as the real
+forskrifts-hjemmel returns and matches Lovdata verbatim.
+`no/lov/2017-05-22-29` 6 → 3 and `no/lov/2017-05-22-30` 6 → 3
+(same instrument `2023-06-20-82`): five rows close each as
+withdrawn announcement-writes give way to real law; **two open
+each as MISMATCH, adjudicated deliberate** — the `Noverande §§ 29,
+30 og 31 blir …` relabel is still not lowered (sized at this
+landing as the section-level relabel-announcement family), so our
+§§ 30/31 hold the statute's true text at its pre-relabel label
+while the consolidation holds it one label up. "Right text, old
+label" strictly beats the row it replaces ("nothing here", with
+the amendment's own prose in § 29). Both laws re-bucket
+`replay_defect → untouched_drift`. Totals `total=1455
+(ceiling=1011, unexplained=444)`; ceiling untouched.
+
 Batch 03 increased coverage rather than changing an existing verdict: all 20
 old rows stayed byte-identical, and 38 laws that had previously been excluded
 for unresolved commencement entered the scan. Their first durable baseline is:
@@ -5781,7 +5802,9 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    several of the 19 typed refusals).
 
 85. **W-79 (the structured payload lane's missing own-text
-   invariant):** OPEN. The general closure of W-78's wrong-text
+   invariant):** DONE (`1f0ca83df`, 2026-08-17; artifacts
+   `.tmp/w79/`; landing narrative appended after the charter
+   below). The general closure of W-78's wrong-text
    class, named by its landing: the structured `document-change`
    lane reads a node's `data-change-part` as REPLACE targets and
    the node's OWN TEXT as their payload without requiring the
@@ -5803,6 +5826,93 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    endpoint is that the wrong-text class W-78 fixed becomes
    IMPOSSIBLE by construction rather than closed dialect by
    dialect. Medium-to-large; correctness, not coverage.
+   **LANDED (`1f0ca83df`), no stop condition fired — and the
+   charter's denominator was reframed by the census** (ratified):
+   the defect lives in `_fallback_payload`, the ONE payload
+   source in the structured lane that reads the amendment's own
+   prose, and the charter's 267 marker-filtered nodes excluded
+   the `oppheves`-marked dialects that are equally defective. The
+   census therefore covered the WHOLE own-text-fallback
+   population: 556 calls, 217 payloads over 134 nodes. Shape
+   census (all adjudicated): 68 ops DECLARE their payload and
+   keep lowering (61 byte-identical, 7 with the lead prefix now
+   removed — the old narrow `^§ N skal lyde:` strip generalized
+   in the same change, each of the 7 adjudicated); 149 declare
+   none and refuse — 37 relabel announcements, 37 repeal/
+   punctuation announcements (incl. `2025-06-20-88`'s 29-address
+   heading-punctuation instruction, the W-78 construct in a
+   dialect with no quoted term), 8 in-place substitutions, 1 move
+   announcement, and 66 ops over 43 nodes whose GENUINE payload
+   sits outside `_TEXT_BLOCK_CLASSES` (43 wrote their lead into
+   law, 23 wrote an EMPTY node over their target). **Measured:
+   not one of the 149 carried statute content; not one of the 68
+   carries an instruction — the separation is the node's own
+   claim, not a shape allowlist.**
+   **The invariant**: `_no_structured_declared_own_payload` — a
+   payload-introducing operative phrase (`skal … lyde/lyda/
+   lyder/ordlyd`) must stand in the HEAD before the first colon
+   and content must follow it; the payload IS the tail. Refusal
+   per `(action, target)` with new parse-plane blocking kind
+   `no_parse_structured_payload_not_declared` (cataloged;
+   correctly outside the apply-plane skip set). The
+   renumber-replacement site needs no second kind (already
+   refuses typed on a None payload). Structured-candidate
+   payloads (196 nodes / 255 ops) never consult the fallback —
+   untouched by construction.
+   **Measured.** Ops **29,225 → 29,076 (−149, the frozen set
+   exactly; 7 re-keyed by the lead-strip, 0 strays, 0 lost)**;
+   the ONLY refusal-kind movement is the new kind 0 → 149;
+   unstructured refusals 7,853 unchanged. **88 of the 149 were
+   wrong-text writes armed on pre-2001 source-blocked bases** —
+   defused before item 87's acquisition, which is the item's
+   forward-looking point. Statute text: 13 laws move — **170
+   paths of in-force law RESTORED**, 28 instruction-prose nodes
+   replaced by the true occupant's verbatim text, 5 spurious
+   paths removed (all `removal_right`; utlendingsloven § 105/1/b
+   and § 106/1/e get their destroyed first punktum back; two
+   W-69a substitutions on `2008-05-15-35` now land because the
+   text they patch is back). **Scoreboard: unexplained 452 → 444**
+   (12 close, 4 open deliberately — see the W-79 scan note);
+   candidates 75 identical, 29/46/0 identical, **ceiling 1,011
+   unmoved**, totals 1,455. Firings **10 → 10 byte-identical**;
+   **θ census 133 → 129 — its FIRST movement, every one of the 8
+   changed elements a withdrawn defective op** (four were wrong
+   text landing VIA the θ recovery cell). Hazard destructive
+   **3,870 → 3,847, the second recorded shrinkage**; hazard
+   membership 164 and content-removing 240/198/77 unchanged.
+   **The owned cost, ratified**: the 66 genuine-amendment ops now
+   refuse typed instead of landing wrong text; two instruments
+   lose their only op — index entries 2,578 → 2,576, bindings
+   6,564 → 6,561, commencement grants 542 → 541 (contingent
+   skips 711 → 710). **Item 88 (W-82) opened** to recover all of
+   it by widening the fallback's payload reach. Sized, not
+   opened: the section-level relabel-announcement family (36 ops
+   / 21 nodes — closes the 4 deliberate MISMATCH rows), the
+   repeal/punctuation announcement (37 ops / 6 nodes), in-place
+   addressed substitution (8), move announcement (1), payload
+   arity on `2018-06-15-40` § 87 (1, pre-existing). Seven
+   judgement calls ratified at sign-off.
+
+88. **W-82 (the own-text fallback's payload reach):** OPEN.
+   Recovers W-79's owned cost: **66 ops / 43 nodes / 25
+   instruments** declare a payload the fallback cannot read
+   because it sits in `li` / `numberedLegalP` /
+   `futureLegalArticle` / `span.futuretitle` — all outside
+   `_TEXT_BLOCK_CLASSES` — so at W-79's base their lead (or an
+   empty node) was being written into law, and post-W-79 they
+   refuse `no_parse_structured_payload_not_declared`. Payoff
+   when built: all 66 lower with their REAL payloads, the two
+   dropped instruments (`no/lovtid/2023-12-20-104`,
+   `no/lovtid/2025-03-28-4`) return — +2 index entries, +3
+   bindings, the 542nd commencement grant. Scope sketch: census
+   the 43 nodes' payload-carrier shapes (frozen by content),
+   extend the payload extraction to the proven carriers with
+   W-77's extent discipline (labels must match announcements
+   where present; all-or-nothing), keep the W-79 invariant as the
+   gate — the payload must still be DECLARED; this item only
+   widens where the declared payload may LIVE. Every newly
+   landed write DOM-adjudicated; the θ and firing censuses
+   pinned. Small-to-medium.
 
 86. **W-80 (the source-availability pricing census):** DONE
    (2026-08-17; read-only, no product commit; artifacts
@@ -5905,6 +6015,32 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-17 (W-79 — the structured payload lane's own-text
+  invariant; `1f0ca83df`)** — **The wrong-text class W-78 fixed
+  dialect-by-dialect is now impossible by construction: the
+  own-text fallback writes a node's prose into law ONLY when the
+  node declares its own payload (operative phrase in the head
+  before the first colon; the payload IS the tail).** The census
+  reframed the charter's denominator to the whole fallback
+  population (217 payloads / 134 nodes): 68 declare and keep
+  lowering (61 byte-identical), 149 refuse typed — not one
+  carrying statute content, 23 of them writing EMPTY nodes, and
+  **88 armed on pre-2001 source-blocked bases**, defused before
+  item 87's acquisition. 13 laws' statute text moves: **170 paths
+  of in-force law restored** (utlendingsloven's destroyed punktum
+  back; two W-69a substitutions land on restored text), 28
+  instruction-prose nodes replaced by the true occupants, 5
+  spurious paths removed, all adjudicated. **Unexplained 452 →
+  444** (12 close, 4 deliberate MISMATCH opens — right text at
+  the pre-relabel label beats nothing-here), ceiling unmoved.
+  **θ census 133 → 129, its first movement** — all 8 elements
+  withdrawn defective ops, four of them wrong text landing via
+  the recovery cell; firings 10 → 10. Hazard destructive 3,870 →
+  3,847, the second shrinkage. Owned cost ratified: 66
+  genuine-amendment ops (payload outside the text-block classes)
+  refuse typed; **item 88 (W-82, the payload-reach widening)
+  opened** to recover them.
 
 - **2026-08-17 (W-80 — the source-availability pricing census;
   read-only, records only)** — **The pre-2001 question is priced:
