@@ -6424,6 +6424,20 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    at sign-off: seven, recorded with the pair evidence in
    `.tmp/w85/adjudication.json`. **Item 92 (W-86) opened** for
    the capture-drift re-pin the restoration surfaced.
+   **Sign-off (2026-08-18), with independent receipts:** the
+   supervisor re-ran the full scan and diffed it row-by-row
+   against its OWN pre-landing scan artifact (taken at the
+   restoration, before any W-85 code existed — evidence the
+   implementer never held): candidate sets equal, all 75 rows
+   byte-identical, summary and totals unmoved — the conservation
+   claim is independently witnessed, not self-reported. The two
+   touched suites re-ran green but for the two capture-drift
+   pins in `test_norway_index.py`, and both were reproduced
+   failing at base commit `6359a7df` in a clean worktree with
+   the same signature (36,006 vs pinned 35,955 forskrift) —
+   confirming they belong to item 92, not to this landing.
+   Working tree clean, sha pin verified, `.tmp/w85/` artifact
+   set complete. The seven judgement calls stand ratified.
 
 92. **W-86 (the 2026-08-14 capture re-pin):** OPEN. The corpus
    restoration (item 91) reproduces every scoreboard and index
