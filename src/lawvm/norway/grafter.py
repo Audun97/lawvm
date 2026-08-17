@@ -93,6 +93,15 @@ NO_BERIKTIGET_REANNOUNCEMENT_LOWERED = "no_beriktiget_reannouncement_lowered"
 # republication, not a new law), and this tag carries the Lovtidend document the
 # corrected bytes were actually read from. A carrier mark, not a hypothesis.
 NO_BERIKTIGET_PROVENANCE_TAG = "beriktiget_announcement"
+NO_RESANCTIONED_REPLACEMENT_LOWERED = "no_resanctioned_replacement_lowered"
+# W-85 PROVENANCE TAG prefix. Stamped on every op lowered out of a re-sanctioned
+# act (one whose own prose says it was "første gang sanksjonert som lov …" and is
+# now sanctioned anew) so the op stream records BOTH acts: ``op.source``/``op_id``
+# carry the re-sanctioned act itself — unlike W-84's republication, this IS a new
+# law with its own identity and dates — and this tag carries the defective act it
+# replaced. A carrier mark, not a hypothesis: it restates what the document says
+# about itself, whether or not the index pairing suppresses the counterpart.
+NO_RESANCTIONED_PROVENANCE_TAG = "resanctioned_from"
 
 
 def _no_action_value(action: StructuralAction | str) -> str:
@@ -7311,6 +7320,165 @@ def _with_no_beriktiget_provenance(
     return stamped
 
 
+# ── Re-sanctioned acts (supersession by re-sanctioning) — W-85 ───────────────
+#
+# Lovdata's SECOND supersession mechanism, surfaced at W-84's landing: an act is
+# sanctioned, found defective, and RE-SANCTIONED AS A NEW ACT. Both halves sit in
+# the lovtid lane as ordinary indexed acts — there is no ``utgått`` gazettenote
+# and no rectified re-announcement — and the only machine-readable signal is
+# prose: the superseded act says it was "sanksjonert (og kunngjort) på nytt som
+# lov <date> nr. <n>", and the replacement says it was "første gang sanksjonert
+# som lov <date> nr. <n>". Each half names the OTHER by numbered citation, which
+# is what makes the pairing bilateral rather than a phrase match: a document
+# that merely talks about re-sanctioning cites no counterpart that cites it back.
+#
+# WHERE the prose lives is measured, not assumed (W-85 census, ``.tmp/w85/``):
+# the 2012 pair's superseded half carries it in ``miscInformation``, the 2025
+# pair's in a leading ``defaultP`` article; both replacements use a leading
+# ``defaultP``. So the reader below scans both surfaces. The phrase set is NOT
+# assumed closed — the census's independent generators (same-title pairs,
+# duplicate op-content joins, broad prose sweeps) are what bound the population,
+# and an unmatched half fails closed in the index with a blocking receipt.
+_NO_RESANCTIONED_ACT_REF = (
+    r"lov (\d{1,2})\.?\s+(januar|februar|mars|april|mai|juni|juli|august|"
+    r"september|oktober|november|desember)\s+(\d{4}) nr\.?\s*(\d+)"
+)
+# lawvm-regex: owning_parser this IS the re-sanctioning note parser
+_NO_RESANCTIONED_FORWARD_RE = re.compile(
+    r"sanksjonert(?:\s+og\s+kunngjort)?\s+på nytt som " + _NO_RESANCTIONED_ACT_REF
+)
+# lawvm-regex: owning_parser this IS the re-sanctioning note parser
+_NO_RESANCTIONED_BACKWARD_RE = re.compile(
+    r"første gang sanksjonert som " + _NO_RESANCTIONED_ACT_REF
+)
+# Byte prefilters, load-bearing for cost only: the reader below runs on every
+# amendment artifact the index pre-pass sweeps (3,089), and 3,085 of them contain
+# neither phrase anywhere in their bytes.
+_NO_RESANCTIONED_FORWARD_BYTES = "på nytt som lov".encode("utf-8")
+_NO_RESANCTIONED_BACKWARD_BYTES = "første gang sanksjonert som lov".encode("utf-8")
+_NO_MISC_INFORMATION_DD_XPATH = (
+    "//dd[contains(concat(' ', normalize-space(@class), ' '), ' miscInformation ')]"
+)
+_NO_DEFAULTP_ARTICLE_XPATH = (
+    "//article[contains(concat(' ', normalize-space(@class), ' '), ' defaultP ')]"
+)
+
+
+@dataclass(frozen=True)
+class NOResanctioningNote:
+    """What one lovtid document says about a re-sanctioning, read off its prose."""
+
+    # ``superseded`` — these bytes say they were re-sanctioned as ``counterpart_id``.
+    # ``superseding`` — these bytes say they re-sanction ``counterpart_id``.
+    role: str
+    # ``no/lovtid/<date>-<n>`` of the OTHER half, from the numbered citation.
+    counterpart_id: str
+
+
+def _no_resanctioning_prose(root: etree._Element) -> list[str]:
+    """The prose surfaces a re-sanctioning note can live on: misc + defaultP."""
+    texts: list[str] = []
+    for node in cast(list[etree._Element], root.xpath(_NO_MISC_INFORMATION_DD_XPATH)):
+        texts.append(_repair_no_mojibake(_normalize_space(" ".join(str(_t) for _t in node.itertext()))))
+    for node in cast(list[etree._Element], root.xpath(_NO_DEFAULTP_ARTICLE_XPATH)):
+        text = _repair_no_mojibake(_normalize_space(" ".join(str(_t) for _t in node.itertext())))
+        if text.startswith(("Endringer i følgende", "Endring i følgende")):
+            continue
+        texts.append(text)
+    return [text for text in texts if text]
+
+
+def no_resanctioning_note(html_bytes: bytes) -> Optional[NOResanctioningNote]:
+    """Read a document's re-sanctioning note, or ``None`` for anything else.
+
+    Returns a note only when the prose is UNAMBIGUOUS: exactly one direction
+    present, citing exactly one act. A document carrying both directions, or one
+    direction with two different citations, names no single counterpart — the
+    reader returns ``None`` and the ops stand, which is the safe direction (the
+    index then has no note to pair, so nothing is suppressed).
+    """
+    if (
+        _NO_RESANCTIONED_FORWARD_BYTES not in html_bytes
+        and _NO_RESANCTIONED_BACKWARD_BYTES not in html_bytes
+    ):
+        return None
+    try:
+        root = _parse_document(html_bytes)
+    except (etree.XMLSyntaxError, ValueError):
+        return None
+    forward: set[str] = set()
+    backward: set[str] = set()
+    for text in _no_resanctioning_prose(root):
+        # lawvm-regex: owning_parser this IS the re-sanctioning note parser
+        for day, month, year, number in _NO_RESANCTIONED_FORWARD_RE.findall(text):
+            forward.add(f"{year}-{_NORWEGIAN_MONTH_NUMBERS[month]}-{int(day):02d}-{number}")
+        # lawvm-regex: owning_parser this IS the re-sanctioning note parser
+        for day, month, year, number in _NO_RESANCTIONED_BACKWARD_RE.findall(text):
+            backward.add(f"{year}-{_NORWEGIAN_MONTH_NUMBERS[month]}-{int(day):02d}-{number}")
+    if forward and backward:
+        return None
+    if len(forward) == 1:
+        return NOResanctioningNote(role="superseded", counterpart_id=f"no/lovtid/{forward.pop()}")
+    if len(backward) == 1:
+        return NOResanctioningNote(role="superseding", counterpart_id=f"no/lovtid/{backward.pop()}")
+    return None
+
+
+def _with_no_resanctioned_provenance(
+    grouped: list[tuple[str, list[LegalOperation]]],
+    html_bytes: bytes,
+    source_id: str,
+    *,
+    adjudications_out: Optional[List[CompileAdjudication]] = None,
+) -> list[tuple[str, list[LegalOperation]]]:
+    """Stamp the superseded act's id onto every op lowered out of its replacement.
+
+    Reached whenever these bytes say they re-sanction another act, which the
+    document says about itself — so the index and replay planes agree without the
+    caller plumbing anything. Unconditional on the index's pairing verdict by
+    design: the tag restates the document's own claim, and an unpaired
+    replacement whose claim binds nothing is receipted in the index, not here.
+    """
+    if not grouped:
+        return grouped
+    note = no_resanctioning_note(html_bytes)
+    if note is None or note.role != "superseding":
+        return grouped
+    tag = f"{NO_RESANCTIONED_PROVENANCE_TAG}:{note.counterpart_id}"
+    stamped = [
+        (
+            base_id,
+            [
+                dc_replace(op, provenance_tags=(*op.provenance_tags, tag))
+                if tag not in op.provenance_tags
+                else op
+                for op in ops
+            ],
+        )
+        for base_id, ops in grouped
+    ]
+    _append_no_parse_adjudication(
+        adjudications_out,
+        kind=NO_RESANCTIONED_REPLACEMENT_LOWERED,
+        message=(
+            "Norway parser lowered a re-sanctioned act that declares itself the "
+            "replacement of a defective, superseded sanctioning of the same law."
+        ),
+        source_id=source_id,
+        detail=diagnostic_detail(
+            rule_id=NO_RESANCTIONED_REPLACEMENT_LOWERED,
+            phase="parse",
+            family="source_pathology",
+            blocking=False,
+            quirks_disposition=QuirksDisposition.APPLY,
+            superseded_act_id=note.counterpart_id,
+            base_ids=[base_id for base_id, _ops in stamped],
+            n_ops=sum(len(ops) for _base_id, ops in stamped),
+        ),
+    )
+    return stamped
+
+
 # Same-act ITEM addresses, anchored end to end. Both productions land on an
 # ITEM leaf, which is why they share the one payload path below; admitting a
 # second leaf kind would mean a second, unmeasured payload builder. A dash item
@@ -8232,10 +8400,15 @@ def iter_no_document_change_ops(
         root.xpath("//*[contains(concat(' ', normalize-space(@class), ' '), ' document-change ')]"),
     )
     if not change_nodes:
-        return _with_no_beriktiget_provenance(
-            _with_no_rettelse_groups(
-                _iter_unstructured_no_change_groups(root, source_id, adjudications_out=adjudications_out),
-                root,
+        return _with_no_resanctioned_provenance(
+            _with_no_beriktiget_provenance(
+                _with_no_rettelse_groups(
+                    _iter_unstructured_no_change_groups(root, source_id, adjudications_out=adjudications_out),
+                    root,
+                    source_id,
+                    adjudications_out=adjudications_out,
+                ),
+                html_bytes,
                 source_id,
                 adjudications_out=adjudications_out,
             ),
@@ -9022,8 +9195,13 @@ def iter_no_document_change_ops(
         if doc_ops:
             grouped.append((base_id, _promote_no_replace_with_following_renumber_insert(doc_ops)))
 
-    return _with_no_beriktiget_provenance(
-        _with_no_rettelse_groups(grouped, root, source_id, adjudications_out=adjudications_out),
+    return _with_no_resanctioned_provenance(
+        _with_no_beriktiget_provenance(
+            _with_no_rettelse_groups(grouped, root, source_id, adjudications_out=adjudications_out),
+            html_bytes,
+            source_id,
+            adjudications_out=adjudications_out,
+        ),
         html_bytes,
         source_id,
         adjudications_out=adjudications_out,

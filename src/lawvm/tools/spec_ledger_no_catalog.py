@@ -135,6 +135,34 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "naming exactly one act, a changesToDocuments declaration, and a matching "
         "utgått mark on that act — never on the forskrift lane being open. W-84."
     ),
+    "no_resanctioned_act_superseded": (
+        "A Norwegian act whose own prose says its lovvedtak was defective and could "
+        "not take effect ('kunne derfor ikke iverksettes') was matched to the act "
+        "that re-sanctions it, and the defective act's operations were withdrawn "
+        "WHOLE-ACT — no entry, no ops. Unlike W-84's republication a re-sanctioning "
+        "mints a NEW law, so nothing transfers: the replacement replays under its "
+        "own id and dates, names the withdrawn act on its entry "
+        "(resanctioned_from_source_id), and the gate demands bilateral citation, "
+        "title equality and total re-enactment of every withdrawn base. The receipt "
+        "carries both act ids and both op counts. W-85."
+    ),
+    "no_resanctioned_act_unpaired": (
+        "One half of a re-sanctioning supersession pair was found without a "
+        "counterpart passing the bilateral gate, and NEITHER suppression nor "
+        "pairing applied. Prose alone does not unmake a law, so a superseded-"
+        "claiming act's ops stand; a replacement whose cited counterpart is absent, "
+        "cites elsewhere, differs in title, or is not re-covered base-for-base "
+        "withdraws nothing. Blocking, because either case means a document that "
+        "flags its own supersession is knowingly not acted on. W-85."
+    ),
+    "no_resanctioned_replacement_lowered": (
+        "The lowered operations came from a re-sanctioned act — one whose own prose "
+        "says it was 'første gang sanksjonert' as an earlier, defective act and is "
+        "sanctioned anew; every op carries the superseded act's id in provenance "
+        "(resanctioned_from:) so the op stream records both the act in force and "
+        "the defective sanctioning it replaced. Stamped from the document's own "
+        "claim, independent of the index pairing verdict. W-85."
+    ),
     "no_current_law_id_parse_marker_fallback_used": (
         "Norway current-law statute id parsing fell back to a marker-bearing "
         "fallback path after the canonical parse failed but operative content is "

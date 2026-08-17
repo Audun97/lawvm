@@ -17,13 +17,17 @@ from lawvm.norway.commencement_instruments import (
 )
 from lawvm.norway.grafter import (
     NO_BERIKTIGET_PROVENANCE_TAG,
+    NO_RESANCTIONED_PROVENANCE_TAG,
     iter_no_document_change_ops,
+    no_resanctioning_note,
 )
 from lawvm.norway.index import (
     NO_ACQUISITION_DUPLICATE_LOGICAL_LOCATOR,
     NO_AMENDMENT_INDEX_STAGED_COMMENCEMENT_COLLAPSED,
     NO_BERIKTIGET_ANNOUNCEMENT_PAIRED,
     NO_BERIKTIGET_ANNOUNCEMENT_UNPAIRED,
+    NO_RESANCTIONED_ACT_SUPERSEDED,
+    NO_RESANCTIONED_ACT_UNPAIRED,
     NOAmendmentIndex,
     build_no_amendment_index,
     load_no_amendment_index,
@@ -1006,8 +1010,13 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
     # date-plus-delegated commencement field. A first-time entry, none dropped,
     # no existing entry's shape changed — the same reconciliation W-21 and W-30
     # recorded.
-    assert len(staged) == 175
-    assert len([entry for entry in staged if entry.source_id != _WIDENED_MARKER_STAGED_ACT]) == 174
+    # 175 -> 174 at W-85: `no/lovtid/2012-12-07-71` — a mixed date-plus-
+    # delegated act ("2012-12-07, Kongen bestemmer.") — is withdrawn WHOLE by
+    # the re-sanctioning gate (its own prose says the lovvedtak was defective
+    # and the law was sanctioned anew as `2013-01-11-1`). One entry dropped
+    # with its act, none gained, no surviving entry's shape changed.
+    assert len(staged) == 174
+    assert len([entry for entry in staged if entry.source_id != _WIDENED_MARKER_STAGED_ACT]) == 173
 
     # Total and queryable: one receipt per staged act, no more and no fewer.
     receipts = [
@@ -1279,7 +1288,11 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # node announces exactly one address and carries exactly one carrier —
         # arity on both sides, which is the extent proof. No existing entry's
         # status moves.
-        "contingent": 536,
+        # 536 -> 535 at W-85: ``no/lovtid/2025-04-25-13`` ("Kongen bestemmer")
+        # leaves WHOLE with the re-sanctioning withdrawal — its armed duplicate
+        # of the equally-contingent replacement ``2025-06-20-67``'s 57 ops is
+        # disarmed. No existing entry's status moves.
+        "contingent": 535,
         # 1021 -> 1020 at W-15 (multi-part misbinding fix): the sole moved entry
         # is no/lovtid/2018-12-20-119, whose only "op" was its own part II
         # commencement sentence ("Lova tek til å gjelde straks.") swallowed as a
@@ -1342,7 +1355,12 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # land in ``instrument_authorized`` and ``contingent``. Exactly
         # conserving: entries 2,572 -> 2,578, nothing lost, and no existing
         # entry's status moves.
-        "dated": 1059,
+        # 1,059 -> 1,058 at W-85: ``no/lovtid/2012-12-07-71`` ("2012-12-07,
+        # Kongen bestemmer." — the promulgation-date reading that had it
+        # applying from sanction day) leaves WHOLE with the re-sanctioning
+        # withdrawal; its replacement ``2013-01-11-1`` already sits in
+        # ``instrument_authorized``. No existing entry's status moves.
+        "dated": 1058,
         "immediate": 1,
         # 976 -> 977 at W-67, and the whole of this landing's effect on the
         # act-level histogram is ONE act gaining its FIRST index entry — the same
@@ -2038,7 +2056,14 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # over the whole section. Under-application is safe; it stays refused under
     # the same kind. Bindings 6,561 -> 6,562, the single binding of the
     # returning act.
-    assert len(index.entries) == 2577
+    # 2,577 -> 2,575 at W-85: the two defective, re-sanctioned acts leave WHOLE.
+    # ``no/lovtid/2012-12-07-71`` and ``no/lovtid/2025-04-25-13`` each say in
+    # their own prose that their lovvedtak was defective and the law was
+    # sanctioned anew (as ``2013-01-11-1`` / ``2025-06-20-67``, both citing
+    # back); the re-sanctioning gate withdraws them at the pre-pass and their
+    # replacements — already indexed acts of their own — stop double-applying.
+    # Nothing enters.
+    assert len(index.entries) == 2575
     bindings = {
         (entry.source_id, base_id) for entry in index.entries for base_id in entry.base_ids
     }
@@ -2129,7 +2154,13 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # rebound, ZERO unbound. NO base act receives its first op ever, so the
     # amended-law population stays at 788 and the sweep baseline's ``swept``
     # block is byte-identical.
-    assert len(bindings) == 6562
+    # 6,562 -> 6,550 at W-85: the twelve (act, law) pairs of the two withdrawn
+    # re-sanctioned acts — ``2012-12-07-71`` × 2 and ``2025-04-25-13`` × 10 —
+    # unbind with the acts. ZERO rebound and ZERO newly bound; every withdrawn
+    # base keeps the SAME binding from the act's replacement (``2013-01-11-1``
+    # / ``2025-06-20-67``, identical base sets), so no base act loses its last
+    # op and the amended-law population is untouched.
+    assert len(bindings) == 6550
     # 26,218 at W-30; +2 at W-24, both reconciled to a named erratum and neither
     # touching this test's own subject. W-24 lowered two Del-scoped Rettelser
     # corrections into the law each part amends — ``2019-12-20-110`` Del I into
@@ -2387,7 +2418,14 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # targets at 7,887, and unstructured refusals at 7,853 (five of them move from
     # the act's locator to the rectified document's, which is where the refused
     # prose now lives).
-    assert sum(entry.n_ops for entry in index.entries) == 29115
+    # 29,115 -> 29,056 at W-85 (-59, 0 strays, 0 gained): the re-sanctioning
+    # gate withdraws the two defective acts' whole streams — ``2012-12-07-71``'s
+    # 2 and ``2025-04-25-13``'s 57 — all 59 content keys matched against the
+    # frozen census. Their replacements' 59 ops were ALREADY in this total under
+    # their own ids and stay byte-identical but for the new
+    # ``resanctioned_from:`` provenance tag; the corpus-wide per-instrument
+    # op-key sweep moved NO other instrument.
+    assert sum(entry.n_ops for entry in index.entries) == 29056
 
 
 def test_no_amendment_index_staleness_report_detects_archive_change(tmp_path) -> None:
@@ -2950,3 +2988,300 @@ def test_corpus_beriktiget_population_is_exactly_three_pairs() -> None:
     }
     # Both halves of every pair accounted for: nothing flagged and unread.
     assert _unpaired_receipts(index) == []
+
+
+# ── W-85: the re-sanctioning supersession family ─────────────────────────────
+#
+# Lovdata's second supersession mechanism: an act is sanctioned, found
+# defective, and sanctioned ANEW as a separate act — both halves ordinary
+# lovtid-lane acts, no ``utgått`` mark, the only signal bilateral prose
+# citations. The fixtures below are the smallest documents carrying each half's
+# phrase, so every conjunct of the pairing gate can be removed one at a time
+# and its removal observed.
+
+_RESANCTIONED_SUPERSEDED_MISC = (
+    "Dette lovvedtaket inneholdt en feil og kunne derfor ikke iverksettes. "
+    "Endringsloven ble som følge av dette sanksjonert på nytt som lov "
+    "1. mars 2025 nr. 9, basert på en beriktiget versjon av lovvedtak nr. 5."
+)
+_RESANCTIONED_SUPERSEDING_DEFAULTP = (
+    "Endringsloven ble første gang sanksjonert som lov 2. februar 2025 nr. 5. "
+    "Dette lovvedtaket inneholdt en feil og kan derfor ikke iverksettes. "
+    "Loven sanksjoneres derfor på nytt, basert på en beriktiget versjon av "
+    "lovvedtak nr. 5."
+)
+
+
+def _resanctioned_superseded_xml(
+    *,
+    misc: str = _RESANCTIONED_SUPERSEDED_MISC,
+    title: str = "Lov om endringer i noe",
+    second_base: bool = False,
+) -> bytes:
+    extra = (
+        f"""<article class="document-change" data-document="lov/2025-01-01-2">
+      {_declared_section_change("lov/2025-01-01-2", "7", "Paragraf 7 i den andre loven.")}
+    </article>"""
+        if second_base
+        else ""
+    )
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="dateInForce">2025-02-10</dd>
+    <dd class="title">{title}</dd>
+    <dd class="miscInformation">{misc}</dd>
+    <dd class="changesToDocuments"><ul><li>lov/2025-01-01-1</li></ul></dd>
+    <article class="document-change" data-document="lov/2025-01-01-1">
+      {_declared_section_change("lov/2025-01-01-1", "1", "Paragraf 1, felles tekst.")}
+      {_declared_section_change("lov/2025-01-01-1", "2", "Paragraf 2 med feilen.")}
+    </article>
+    {extra}
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def _resanctioned_superseding_xml(
+    *,
+    default_p: str = _RESANCTIONED_SUPERSEDING_DEFAULTP,
+    title: str = "Lov om endringer i noe",
+) -> bytes:
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="dateInForce">2025-03-15</dd>
+    <dd class="title">{title}</dd>
+    <dd class="changesToDocuments"><ul><li>lov/2025-01-01-1</li></ul></dd>
+    <article class="defaultP" data-text-size="small">{default_p}</article>
+    <article class="document-change" data-document="lov/2025-01-01-1">
+      {_declared_section_change("lov/2025-01-01-1", "1", "Paragraf 1, felles tekst.")}
+      {_declared_section_change("lov/2025-01-01-1", "2", "Paragraf 2 uten feilen.")}
+    </article>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def _write_resanctioning_corpus(tmp_path, **kwargs) -> None:
+    members = [
+        (
+            "lti/2025/nl-20250202-005.xml",
+            _resanctioned_superseded_xml(
+                misc=kwargs.pop("misc", _RESANCTIONED_SUPERSEDED_MISC),
+                title=kwargs.pop("superseded_title", "Lov om endringer i noe"),
+                second_base=kwargs.pop("second_base", False),
+            ),
+        )
+    ]
+    if kwargs.pop("with_replacement", True):
+        members.append(
+            ("lti/2025/nl-20250301-009.xml", _resanctioned_superseding_xml(**kwargs))
+        )
+    _write_archive(tmp_path / "lovtidend-avd1-2025.tar.bz2", members)
+
+
+def _resanctioned_paired_receipts(index: NOAmendmentIndex) -> list[dict[str, Any]]:
+    return [d for d in index.diagnostics if d["rule_id"] == NO_RESANCTIONED_ACT_SUPERSEDED]
+
+
+def _resanctioned_unpaired_receipts(index: NOAmendmentIndex) -> list[dict[str, Any]]:
+    return [d for d in index.diagnostics if d["rule_id"] == NO_RESANCTIONED_ACT_UNPAIRED]
+
+
+def test_resanctioned_act_is_withdrawn_whole(tmp_path) -> None:
+    """The pair mechanism, end to end: whole-ACT withdrawal, two identities kept.
+
+    The defective sanctioning contributes no entry and no ops; the re-sanctioned
+    act replays under its own id and dates and names what it replaced. Unlike
+    W-84 there is no swap — the replacement was already an indexed act of its
+    own, and the correction is that the defective one stops double-applying.
+    """
+    _write_resanctioning_corpus(tmp_path)
+
+    index = build_no_amendment_index(tmp_path)
+
+    assert [entry.source_id for entry in index.entries] == ["no/lovtid/2025-03-01-9"]
+    entry = index.entries[0]
+    assert entry.resanctioned_from_source_id == "no/lovtid/2025-02-02-5"
+    assert entry.member_name == "lti/2025/nl-20250301-009.xml"
+    assert entry.n_ops == 2
+    # Identity and dates are genuinely the replacement's own: a re-sanctioning
+    # mints a new law, so nothing is inherited from the withdrawn act.
+    assert entry.effective_status == "dated"
+    assert entry.effective_date == "2025-03-15"
+    assert entry.beriktiget_announcement_id == ""
+
+    receipts = _resanctioned_paired_receipts(index)
+    assert len(receipts) == 1
+    assert receipts[0]["source_id"] == "no/lovtid/2025-02-02-5"
+    assert receipts[0]["superseding_source_id"] == "no/lovtid/2025-03-01-9"
+    assert receipts[0]["withdrawn_op_count"] == 2
+    assert receipts[0]["admitted_op_count"] == 2
+    assert receipts[0]["withdrawn_base_ids"] == ["no/lov/2025-01-01-1"]
+    assert receipts[0]["blocking"] is False
+    assert _resanctioned_unpaired_receipts(index) == []
+
+
+def test_resanctioned_replacement_ops_carry_the_superseded_id(tmp_path) -> None:
+    """Provenance honesty: the replacement's ops name the act they replace."""
+    _write_resanctioning_corpus(tmp_path)
+    index = build_no_amendment_index(tmp_path)
+    entry = index.entries[0]
+
+    payload = load_no_amendment_artifact_bytes(
+        entry.source_id, entry.archive, entry.member_name, tmp_path
+    )
+    assert payload is not None
+    groups = iter_no_document_change_ops(payload, entry.source_id)
+    ops = [op for _base_id, base_ops in groups for op in base_ops]
+    assert ops, "the re-sanctioned act must lower"
+    for op in ops:
+        # The enacting instrument is the replacement itself.
+        assert op.op_id.startswith("no/lovtid/2025-03-01-9:")
+        # The withdrawn act it supersedes travels on every op.
+        assert (
+            f"{NO_RESANCTIONED_PROVENANCE_TAG}:no/lovtid/2025-02-02-5"
+            in op.provenance_tags
+        )
+
+
+def test_resanctioning_without_the_replacement_suppresses_nothing(tmp_path) -> None:
+    """THE RULE for a superseded act with no counterpart: ops stand.
+
+    Prose alone does not unmake a law. A document saying it was re-sanctioned as
+    an act our lane does not hold means a correction we can see and cannot act
+    on — blocking, so it surfaces in blockers rather than sitting in a census.
+    """
+    _write_resanctioning_corpus(tmp_path, with_replacement=False)
+
+    index = build_no_amendment_index(tmp_path)
+
+    assert [entry.source_id for entry in index.entries] == ["no/lovtid/2025-02-02-5"]
+    assert index.entries[0].n_ops == 2
+    assert index.entries[0].resanctioned_from_source_id == ""
+    receipts = _resanctioned_unpaired_receipts(index)
+    assert [r["unpaired_reason"] for r in receipts] == [
+        "replacement_absent_or_carries_no_note"
+    ]
+    assert receipts[0]["blocking"] is True
+    assert receipts[0]["resanctioning_role"] == "superseded"
+    assert _resanctioned_paired_receipts(index) == []
+
+
+def test_resanctioning_replacement_citing_a_different_act_pairs_nothing(tmp_path) -> None:
+    """The bilateral conjunct: a one-way citation binds nothing, either way."""
+    _write_resanctioning_corpus(
+        tmp_path,
+        default_p=_RESANCTIONED_SUPERSEDING_DEFAULTP.replace(
+            "lov 2. februar 2025 nr. 5", "lov 3. mars 2025 nr. 99"
+        ),
+    )
+
+    index = build_no_amendment_index(tmp_path)
+
+    assert sorted(entry.source_id for entry in index.entries) == [
+        "no/lovtid/2025-02-02-5",
+        "no/lovtid/2025-03-01-9",
+    ]
+    assert all(entry.resanctioned_from_source_id == "" for entry in index.entries)
+    assert sorted(
+        (r["resanctioning_role"], r["unpaired_reason"])
+        for r in _resanctioned_unpaired_receipts(index)
+    ) == [
+        ("superseded", "replacement_cites_a_different_act"),
+        ("superseding", "superseded_half_absent_or_pairing_refused"),
+    ]
+    assert _resanctioned_paired_receipts(index) == []
+
+
+def test_resanctioning_with_disagreeing_titles_refuses(tmp_path) -> None:
+    """The title conjunct: a citation reaching a differently-titled act refuses."""
+    _write_resanctioning_corpus(tmp_path, title="Lov om endringer i noe annet")
+
+    index = build_no_amendment_index(tmp_path)
+
+    assert len(index.entries) == 2
+    assert all(entry.resanctioned_from_source_id == "" for entry in index.entries)
+    assert [r["unpaired_reason"] for r in _resanctioned_unpaired_receipts(index)] == [
+        "titles_disagree",
+        "superseded_half_absent_or_pairing_refused",
+    ]
+    assert _resanctioned_paired_receipts(index) == []
+
+
+def test_resanctioning_partial_replacement_refuses(tmp_path) -> None:
+    """The total-re-enactment conjunct: whole-act withdrawal needs whole coverage.
+
+    The superseded act binds a second base the replacement never touches;
+    withdrawing it whole would delete that base's amendment on the strength of a
+    replacement that does not re-enact it. The gate refuses and both acts stand.
+    """
+    _write_resanctioning_corpus(tmp_path, second_base=True)
+
+    index = build_no_amendment_index(tmp_path)
+
+    assert len(index.entries) == 2
+    superseded = next(
+        entry for entry in index.entries if entry.source_id == "no/lovtid/2025-02-02-5"
+    )
+    assert superseded.n_ops == 3
+    assert [r["unpaired_reason"] for r in _resanctioned_unpaired_receipts(index)] == [
+        "replacement_does_not_recover_the_withdrawn_bases",
+        "superseded_half_absent_or_pairing_refused",
+    ]
+    assert _resanctioned_paired_receipts(index) == []
+
+
+def test_document_carrying_both_directions_reads_no_note() -> None:
+    """Ambiguity fails closed at the reader: both phrases, no note, ops stand."""
+    payload = _resanctioned_superseded_xml(
+        misc=_RESANCTIONED_SUPERSEDED_MISC + " " + _RESANCTIONED_SUPERSEDING_DEFAULTP
+    )
+    assert no_resanctioning_note(payload) is None
+
+
+def test_corpus_resanctioning_population_is_exactly_two_pairs() -> None:
+    """W-85's population, asserted against the corpus rather than the census.
+
+    Three facts have to hold together: the population is EXACTLY two pairs (a
+    third would mean the gate over-fires); every pair is MATCHED (an unpaired
+    half would mean a supersession we can see and are not acting on); and each
+    withdrawn stream is re-covered op-for-op in count with exactly one op's
+    content corrected — which is why whole-act withdrawal, not a diff, is the
+    right mechanism.
+    """
+    data_dir = resolve_no_source_path(None)
+    if not data_dir.exists():
+        pytest.skip("local Norway corpus is not installed")
+    index = build_no_amendment_index(data_dir)
+    if not index.entries:
+        pytest.skip("local Norway corpus is not installed")
+
+    by_id = {entry.source_id: entry for entry in index.entries}
+    assert "no/lovtid/2012-12-07-71" not in by_id
+    assert "no/lovtid/2025-04-25-13" not in by_id
+    replacements = {
+        entry.source_id: entry.resanctioned_from_source_id
+        for entry in index.entries
+        if entry.resanctioned_from_source_id
+    }
+    assert replacements == {
+        "no/lovtid/2013-01-11-1": "no/lovtid/2012-12-07-71",
+        "no/lovtid/2025-06-20-67": "no/lovtid/2025-04-25-13",
+    }
+    # Identity and dates are the replacements' own — the 2013 act commences via
+    # its own instrument, the 2025 act stays contingent. A date inherited from
+    # the withdrawn acts would have read 2012-12-07 / nothing.
+    assert by_id["no/lovtid/2013-01-11-1"].effective_status == "instrument_authorized"
+    assert by_id["no/lovtid/2025-06-20-67"].effective_status == "contingent"
+    paired = _resanctioned_paired_receipts(index)
+    assert {
+        receipt["source_id"]: (receipt["withdrawn_op_count"], receipt["admitted_op_count"])
+        for receipt in paired
+    } == {
+        "no/lovtid/2012-12-07-71": (2, 2),
+        "no/lovtid/2025-04-25-13": (57, 57),
+    }
+    # Both halves of every pair accounted for: nothing flagged and unread.
+    assert _resanctioned_unpaired_receipts(index) == []

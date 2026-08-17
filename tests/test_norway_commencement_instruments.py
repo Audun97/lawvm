@@ -2934,7 +2934,12 @@ def test_w51_corpus_totals_and_the_untouched_part_routes() -> None:
     # commencement instrument ``no/forskrift/2014-09-26-1221`` had nothing to be
     # refused AGAINST. One pair gained, none withdrawn, and the disjointness
     # assertion above — the one that carries the real property — still holds.
-    assert len(refused_pairs) == 880
+    # 880 -> 879 at W-85, the mechanism in reverse: ``no/lovtid/2012-12-07-71``
+    # lost its index entry when the re-sanctioning gate withdrew the defective
+    # act wholesale, so ``no/forskrift/2012-12-07-1149`` — the resolution that
+    # would have commenced it — again has nothing to be refused against (its
+    # ``scope_unresolved`` receipt remains). One pair withdrawn, none gained.
+    assert len(refused_pairs) == 879
 
     # The inert part-grant population, 31 -> 4 at W-53 with the absorption.
     inert = [

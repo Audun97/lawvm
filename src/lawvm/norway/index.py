@@ -20,10 +20,12 @@ from lawvm.norway.commencement_instruments import (
 )
 from lawvm.norway.grafter import (
     NOBeriktigetReannouncement,
+    NOResanctioningNote,
     iter_no_document_change_ops,
     lovdata_amendment_filename_to_id,
     no_beriktiget_reannouncement,
     no_part_law_ids,
+    no_resanctioning_note,
     no_superseded_announcement_dates,
 )
 from lawvm.norway.sources import (
@@ -56,6 +58,10 @@ NO_AMENDMENT_INDEX_STAGED_COMMENCEMENT_COLLAPSED = (
 # replaying (or knowingly ignoring) text Lovdata has flagged.
 NO_BERIKTIGET_ANNOUNCEMENT_PAIRED = "no_beriktiget_announcement_paired"
 NO_BERIKTIGET_ANNOUNCEMENT_UNPAIRED = "no_beriktiget_announcement_unpaired"
+# W-85, the two receipts of the re-sanctioning supersession lane. Same shape as
+# W-84's, same rule: neither suppression nor its refusal is ever silent.
+NO_RESANCTIONED_ACT_SUPERSEDED = "no_resanctioned_act_superseded"
+NO_RESANCTIONED_ACT_UNPAIRED = "no_resanctioned_act_unpaired"
 
 
 @dataclass(frozen=True)
@@ -91,6 +97,15 @@ class NOAmendmentIndexEntry:
     # Both ids on one row is the point: a reader can see that the text replayed for
     # ``no/lovtid/2021-06-18-129`` was read from ``no/forskrift/2021-06-25-2137``.
     beriktiget_announcement_id: str = ""
+    # W-85. Empty for every entry but the re-sanctioned replacements (two in the
+    # corpus). When set it is the ``no/lovtid/<id>`` of the DEFECTIVE act this act
+    # was sanctioned anew to replace — the act whose whole op stream the index
+    # withdrew on the strength of the bilateral pairing. Unlike W-84's field this
+    # names another ACT, not another document of the same act: a re-sanctioning
+    # mints a new law with its own identity and dates, and this entry's
+    # ``source_id``, ``member_name``, title and dates are all genuinely its own.
+    # Both ids on one row is still the point.
+    resanctioned_from_source_id: str = ""
     # W-39. Per-BINDING commencement dates: ``(base law id, ISO date)`` pairs
     # granted by the part-scoped route, sorted by law id. Orthogonal to
     # ``effective_status``/``effective_date``, which stay the act's WHOLE-act
@@ -156,6 +171,7 @@ class NOAmendmentIndex:
                     entry.get("commencement_shape") or NOCommencementShape.PLAIN
                 ),
                 beriktiget_announcement_id=str(entry.get("beriktiget_announcement_id", "") or ""),
+                resanctioned_from_source_id=str(entry.get("resanctioned_from_source_id", "") or ""),
                 part_scoped_effective_dates=tuple(
                     (str(pair[0]), str(pair[1]))
                     for pair in entry.get("part_scoped_effective_dates", []) or []
@@ -374,6 +390,192 @@ def _no_beriktiget_unpaired_diagnostic(
     )
 
 
+@dataclass(frozen=True)
+class NOResanctioningPair:
+    """One defective act matched to the act that re-sanctions it — W-85.
+
+    All fields are read in the pre-pass so the main loop can suppress without
+    lowering: the superseded half's ops are counted here for the receipt and then
+    never minted, and the replacement's counts are already proven non-empty.
+    """
+
+    superseded_id: str
+    superseding_id: str
+    withdrawn_op_count: int
+    withdrawn_base_ids: tuple[str, ...]
+    admitted_op_count: int
+    admitted_base_ids: tuple[str, ...]
+
+
+def _no_resanctioning_pairs(
+    data_dir: Path,
+    diagnostics: list[dict[str, Any]],
+) -> dict[str, NOResanctioningPair]:
+    """Pair the corpus's re-sanctioning notes, refusing everything unmatched.
+
+    A pre-pass for the same reason W-84's is: a superseded act's ops must never
+    enter the stream, not enter it and be taken back out. Cost is one prefiltered
+    sweep of the amendment lane (3,085 of 3,089 artifacts are rejected on bytes),
+    plus one lowering of each note-carrying document — four in this corpus.
+
+    THE GATE, every conjunct required, all read off Lovdata's own text:
+
+      1. bilateral citation — the superseded half names the replacement by
+         numbered citation and the replacement names it back;
+      2. title equality — both halves announce the same law (byte-equal titles
+         in both corpus pairs; a rename would mean the citation reached the
+         wrong act, so it refuses);
+      3. total re-enactment — the replacement lowers a non-empty op stream
+         binding every base the superseded half bound. Whole-act suppression is
+         only sound if the replacement re-covers everything withdrawn; both
+         corpus pairs re-enact the full lovvedtak (measured: identical base
+         sets, op counts 2/2 and 57/57, exactly one op's content corrected in
+         each). A partial re-sanction would fail this conjunct and refuse.
+
+    An unmatched half suppresses/admits NOTHING and is receipted blocking, per
+    the W-84 rule: the machinery would be knowingly replaying text the document
+    itself says was superseded, and that must surface in blockers, not a census.
+    """
+    notes: dict[str, NOResanctioningNote] = {}
+    titles: dict[str, str] = {}
+    lowered: dict[str, tuple[int, tuple[str, ...]]] = {}
+    for artifact in iter_no_amendment_artifacts(data_dir):
+        source_id = artifact.logical_id
+        if source_id in notes:
+            continue
+        note = no_resanctioning_note(artifact.payload)
+        if note is None:
+            continue
+        notes[source_id] = note
+        titles[source_id] = parse_header_value(artifact.payload, "title") or ""
+        grouped = iter_no_document_change_ops(artifact.payload, source_id)
+        lowered[source_id] = (
+            sum(len(ops) for _base_id, ops in grouped),
+            tuple(sorted({base_id for base_id, _ops in grouped})),
+        )
+
+    pairs: dict[str, NOResanctioningPair] = {}
+    matched_superseding: set[str] = set()
+    for source_id, note in sorted(notes.items()):
+        if note.role != "superseded":
+            continue
+        counterpart = notes.get(note.counterpart_id)
+        reason = ""
+        if counterpart is None:
+            reason = "replacement_absent_or_carries_no_note"
+        elif counterpart.role != "superseding":
+            reason = "replacement_note_not_superseding"
+        elif counterpart.counterpart_id != source_id:
+            reason = "replacement_cites_a_different_act"
+        elif titles.get(source_id) != titles.get(note.counterpart_id):
+            reason = "titles_disagree"
+        else:
+            withdrawn_ops, withdrawn_bases = lowered[source_id]
+            admitted_ops, admitted_bases = lowered[note.counterpart_id]
+            if not admitted_ops or not set(withdrawn_bases) <= set(admitted_bases):
+                reason = "replacement_does_not_recover_the_withdrawn_bases"
+        if reason:
+            diagnostics.append(
+                _no_resanctioned_unpaired_diagnostic(
+                    source_id=source_id,
+                    role="superseded",
+                    counterpart_id=note.counterpart_id,
+                    reason=reason,
+                )
+            )
+            continue
+        pairs[source_id] = NOResanctioningPair(
+            superseded_id=source_id,
+            superseding_id=note.counterpart_id,
+            withdrawn_op_count=withdrawn_ops,
+            withdrawn_base_ids=withdrawn_bases,
+            admitted_op_count=admitted_ops,
+            admitted_base_ids=admitted_bases,
+        )
+        matched_superseding.add(note.counterpart_id)
+    for source_id, note in sorted(notes.items()):
+        if note.role != "superseding" or source_id in matched_superseding:
+            continue
+        diagnostics.append(
+            _no_resanctioned_unpaired_diagnostic(
+                source_id=source_id,
+                role="superseding",
+                counterpart_id=note.counterpart_id,
+                reason="superseded_half_absent_or_pairing_refused",
+            )
+        )
+    return pairs
+
+
+def _no_resanctioned_superseded_diagnostic(
+    *,
+    artifact: NOLocatedArtifact,
+    pair: NOResanctioningPair,
+) -> dict[str, Any]:
+    """Receipt the whole-act withdrawal of a superseded, re-sanctioned act.
+
+    Non-blocking and dispositioned APPLY, like W-84's paired receipt: this is the
+    correction landing, and it preserves the numbers a reader would otherwise
+    reconstruct from two documents — what the defective sanctioning used to mint,
+    and what the re-sanctioned act mints in its place under its OWN identity.
+    """
+    return diagnostic_detail(
+        rule_id=NO_RESANCTIONED_ACT_SUPERSEDED,
+        family="source_pathology",
+        phase="acquisition",
+        reason=(
+            "Norway amendment index withdrew a superseded act's whole operation stream: "
+            "the act's own prose says it could not take effect and was sanctioned anew "
+            "as a separate act, which re-enacts every base the withdrawn stream bound."
+        ),
+        blocking=False,
+        quirks_disposition=QuirksDisposition.APPLY,
+        source_id=artifact.logical_id,
+        locator=artifact.locator,
+        archive=artifact.source_name,
+        member_name=artifact.member_name,
+        superseding_source_id=pair.superseding_id,
+        withdrawn_op_count=pair.withdrawn_op_count,
+        withdrawn_base_ids=list(pair.withdrawn_base_ids),
+        admitted_op_count=pair.admitted_op_count,
+        admitted_base_ids=list(pair.admitted_base_ids),
+    )
+
+
+def _no_resanctioned_unpaired_diagnostic(
+    *,
+    source_id: str,
+    role: str,
+    counterpart_id: str,
+    reason: str,
+) -> dict[str, Any]:
+    """Receipt a re-sanctioning half whose counterpart failed the gate.
+
+    Blocking, per the W-84 rule restated for acts: a document claiming it was
+    superseded keeps replaying (its ops stand — prose alone does not unmake a
+    law), and a document claiming to re-sanction gets no counterpart withdrawn.
+    Either way a flagged document is knowingly not being acted on, and that
+    belongs in the blockers report, not a census.
+    """
+    return diagnostic_detail(
+        rule_id=NO_RESANCTIONED_ACT_UNPAIRED,
+        family="source_pathology",
+        phase="acquisition",
+        reason=(
+            "Norway amendment index found one half of a re-sanctioning supersession "
+            "pair without a counterpart passing the bilateral gate; neither "
+            "suppression nor pairing applied."
+        ),
+        blocking=True,
+        strict_disposition="block",
+        quirks_disposition=QuirksDisposition.RECORD,
+        source_id=source_id,
+        resanctioning_role=role,
+        counterpart_id=counterpart_id,
+        unpaired_reason=reason,
+    )
+
+
 def build_no_amendment_index(data_dir: Optional[Path] = None) -> NOAmendmentIndex:
     data_dir = resolve_no_source_path(data_dir)
     source_meta = no_source_metadata(data_dir)
@@ -402,6 +604,14 @@ def build_no_amendment_index(data_dir: Optional[Path] = None) -> NOAmendmentInde
     # ops must never enter the stream, not enter it and be taken back out.
     beriktiget_by_act = _no_beriktiget_reannouncements(data_dir)
     beriktiget_paired: set[str] = set()
+    # W-85, same placement discipline for the second supersession mechanism: the
+    # re-sanctioning pairs are resolved before the loop so a superseded act's ops
+    # are never minted. Unmatched halves were already receipted (blocking) inside
+    # the pre-pass.
+    resanctioning_pairs = _no_resanctioning_pairs(data_dir, index.diagnostics)
+    resanctioned_from_by_superseding = {
+        pair.superseding_id: pair.superseded_id for pair in resanctioning_pairs.values()
+    }
 
     if index.source_kind == "dir":
         for artifact in iter_no_unmapped_lovtidend_xml_members(data_dir):
@@ -423,6 +633,24 @@ def build_no_amendment_index(data_dir: Optional[Path] = None) -> NOAmendmentInde
                     artifact=artifact,
                     reason="Norway amendment index skipped artifact whose member name and locator did not identify an amendment source lane",
                     phase="acquisition",
+                )
+            )
+            continue
+        # ── W-85: the re-sanctioning supersession ────────────────────────────
+        #
+        # Whole-ACT withdrawal, decided in the pre-pass: this act's own prose says
+        # its lovvedtak was defective and the law was sanctioned anew as a separate
+        # act, that act cites this one back, and its stream re-covers every base
+        # bound here. Nothing of this artifact is lowered — no entry, no ops, no
+        # parser adjudications — because the act never validly took effect; the
+        # replacement replays under its OWN identity and dates. Receipted, never
+        # silent.
+        resanctioning_pair = resanctioning_pairs.get(source_id)
+        if resanctioning_pair is not None:
+            index.diagnostics.append(
+                _no_resanctioned_superseded_diagnostic(
+                    artifact=artifact,
+                    pair=resanctioning_pair,
                 )
             )
             continue
@@ -600,6 +828,9 @@ def build_no_amendment_index(data_dir: Optional[Path] = None) -> NOAmendmentInde
                 commencement_shape=effective.commencement_shape,
                 beriktiget_announcement_id=(
                     "" if pair is None else pair.reannouncement.announcement_id
+                ),
+                resanctioned_from_source_id=resanctioned_from_by_superseding.get(
+                    source_id, ""
                 ),
             )
         )
