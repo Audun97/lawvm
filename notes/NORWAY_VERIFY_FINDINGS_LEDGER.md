@@ -6259,6 +6259,36 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    announcement of one, so the identity question differs).
    Every withdrawal frozen and matched; scan movements
    adjudicated per element. Small-to-medium.
+   **Execution attempt (2026-08-17): STOPPED AT PRECONDITION, no
+   code landed, no census frozen.** The Norway corpus is not
+   present on the working machine: `data/norway.farchive` absent,
+   `data/norway/` holds only `bench_corpus.csv`, no
+   `LAWVM_NORWAY_DB` set (the archives are intentionally not
+   shipped in the repository). Receipt: `uv run lawvm
+   no-verify-scan --limit 2 --as-of 2026-07-10 --json` runs
+   cleanly and returns ZERO candidates against the 30/45/0
+   baseline — tooling intact, data absent. Every chartered step
+   is corpus-dependent (candidate generators, per-pair DOM
+   adjudication, frozen content-keyed op-deltas, θ/firing/hazard
+   censuses, scan adjudication), so proceeding would have been
+   exactly the blind change this ledger's discipline forbids; a
+   `.tmp/w85/` census against an empty corpus would have been
+   vacuous, so none was written. What the read-only pass
+   confirmed for the eventual run: the W-84 implementation sites
+   are `src/lawvm/norway/index.py` (pairing + typed receipts,
+   act-identity discipline) and `src/lawvm/norway/grafter.py`
+   (the `utgått` note filter and the title-gated re-announcement
+   reader), and the W-85 analogue differs as chartered — the
+   superseded half is a whole indexed act in the same lane, so
+   the suppression point is index/candidate level, not the
+   announcement-note filter. **PRECONDITION, now explicit**:
+   restore the SAME capture the scoreboard is measured against
+   (consolidation snapshot `gjeldende-lover` dated 2026-07-10,
+   local packages as listed 2026-07-11) — either at
+   `data/norway.farchive` or via `LAWVM_NORWAY_DB` — before any
+   W-85 census; a different capture makes every scoreboard row
+   incommensurable. Re-attempt only after the receipt above
+   reproduces the 30/45/0 cohort.
 
 ## 5. Demo / Inspection Tooling
 
@@ -6276,6 +6306,21 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-17 (W-85 execution attempt — stopped at
+  precondition; no code landed)** — The W-85 run halted before
+  its census: the Norway corpus is absent on the working machine
+  (`data/norway.farchive` missing, `data/norway/` holds only the
+  bench CSV, no `LAWVM_NORWAY_DB`), receipted by a clean
+  `no-verify-scan` returning zero candidates against the 30/45/0
+  baseline. Nothing frozen, nothing suppressed, no scoreboard
+  movement. Item 91 stays OPEN with an explicit precondition
+  appended: restore the 2026-07-10/2026-07-11 capture and
+  reproduce the 30/45/0 cohort before any W-85 census. Read-only
+  reconnaissance recorded in the item: W-84's implementation
+  sites, and the design note that W-85's suppression point is
+  index/candidate level (whole indexed act), not the
+  announcement-note filter.
 
 - **2026-08-17 (W-84 — the beriktiget/utgått correction lane;
   `55e10babd`)** — **The never-enacted text is out of the
