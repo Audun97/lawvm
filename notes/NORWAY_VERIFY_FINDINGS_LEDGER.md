@@ -241,6 +241,18 @@ the amendment's own prose in § 29). Both laws re-bucket
 `replay_defect → untouched_drift`. Totals `total=1455
 (ceiling=1011, unexplained=444)`; ceiling untouched.
 
+W-84 note (the first VERDICT-column movement since the scan began:
+29/46/0 → **30/45/0**): klimaloven `no/lov/2017-06-16-60`'s single
+row — the CONSOLIDATED_MISSING at § 7/2/e that W-77 opened
+deliberately and W-83 adjudicated — **closes**, and the law moves
+`replay_defect → consistent`, because the never-enacted bokstav e
+is out of the replay: the superseded 2021 announcement is now
+suppressed under its `utgått` mark and the rectified re-announcement
+(amending only §§ 3 and 4) is lowered in its place with the act's
+own identity and dates. Exactly 1 of 75 rows moves; candidates 75
+identical. Totals `total=1454 (ceiling=1011, unexplained=443)`;
+ceiling untouched.
+
 Batch 03 increased coverage rather than changing an existing verdict: all 20
 old rows stayed byte-identical, and 38 laws that had previously been excluded
 for unresolved commencement entered the scan. Their first durable baseline is:
@@ -6126,7 +6138,9 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    whether yrkestransportlova's 40+ existing divergences trace
    to its own beriktiget gap — no attribution claimed.
 
-90. **W-84 (the beriktiget/utgått correction lane):** OPEN. A
+90. **W-84 (the beriktiget/utgått correction lane):** DONE
+   (`55e10babd`, 2026-08-17; artifacts `.tmp/w84/`; landing
+   narrative appended after the charter below). A
    CORRECTNESS item: our replay currently carries never-enacted
    text (klimaloven § 7/2/e) because we lower a superseded
    announcement, and 38 declared ops across the 3 rectified
@@ -6154,6 +6168,97 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    instruments established rather than assumed (their dates are
    the RE-announcement dates, not the acts' own). Small, high
    value.
+   **LANDED (`55e10babd`), both limbs, no stop condition fired,
+   all three frozen sets matched exactly** (withdrawal 34 =
+   12+3+19; addition 38 = 13+2+23; destroyed-text 1 = klimaloven
+   § 6/2/e, adjudicated against the rectified instrument). The
+   census re-derived independently: exactly 3 `utgått` marks in
+   the lovtid lane, exactly 3 forskrift artifacts passing the
+   gate, no act re-announced twice.
+   **The design, ratified.** Identity = the ACT: the entry keeps
+   `source_id`/`title`/dates while `member_name` points at the
+   rectified document, a new `beriktiget_announcement_id` field
+   carries the forskrift id on the same row, and every op is
+   tagged `beriktiget_announcement:<id>` — both ids visible,
+   kernel group keys and commencement gating coherent (verified:
+   contingent stays contingent, dated stays 2021-06-18,
+   instrument_authorized stays 2024-09-01; grants 541 unchanged).
+   PIT = RETROACTIVE-TOTAL, on Lovdata's own consolidation
+   practice plus two-of-three windows being legally empty; pinned
+   by a replay at 2021-06-19 showing no `trepartssamarbeid` and
+   both real §§ 3/4 amendments landed. Suppression =
+   WHOLE-INSTRUMENT despite the `utgått` note wrapping only the
+   final Del in all three cases (Lovdata's own `lastupdated`
+   reads it document-scope; part-scope would have left bokstav e
+   standing). An unmatched half suppresses/admits NOTHING — typed
+   receipts both ways (`no_beriktiget_announcement_paired` ×3,
+   `..._unpaired` 0, `..._reannouncement_lowered` ×3; never a
+   silent drop), pinned with four gate counterexamples. Pre-pass
+   placement: superseded ops are never minted rather than
+   minted-then-withdrawn (~1.5s on a ~45s build via byte
+   prefilter).
+   **Charter corrections by measurement**: (i) the gate is
+   TITLE-DRIVEN — `no/forskrift/2024-08-15-1960` never names its
+   superseded act in `changesToDocuments` (2 of 3 do), so the
+   declaration is a presence conjunct, the title the signal;
+   (ii) yrkestransportlova is NOT a scan candidate at base
+   (blocked_contingent) — its changes adjudicated against its
+   own DOM and Lovdata's consolidation instead.
+   **Measured.** Ops 29,111 → 29,115 (−34 +38, 0 strays, 33 of
+   34 returning byte-identical modulo the new tag); index
+   entries 2,577, bindings 6,562, declared targets, unbound 927
+   — ALL unmoved (conservation intact); unstructured refusals
+   7,853 unchanged (5 relocate to the rectified documents'
+   locators); structured-payload 114 unchanged. Statute text:
+   klimaloven −1 node (the never-enacted e), yrkestransportlova
+   +1 node, the contingent pair's three bases byte-identical
+   (gating check). **The unbudgeted win**: at base the 2024
+   act's INSERT § 9 was landing via the θ recovery and had
+   DESTROYED yrkestransportlova § 9 second ledd (the
+   miljøskadeleg-utslepp provision) — the rectification's added
+   renumber vacates the slot, the provision returns at (3), and
+   § 9 now carries six ledd matching Lovdata's consolidation
+   order and text. **θ census 129 → 128** (that one recovery
+   correctly stops firing; adjudicated per element); firings
+   10 → 10; hazard destructive 3,850 → 3,853 (one row,
+   attributed: +4 renumbers, −1 recovering INSERT);
+   content-removing 240/198/77 unchanged. **Scoreboard: 29/46/0
+   → 30/45/0, unexplained 444 → 443, ceiling 1,011 UNMOVED** —
+   the first verdict-column movement in the scan's history (see
+   the W-84 scan note). Ladder green (norway 1,070 passed);
+   19 new tests; 3 new kinds cataloged. Seven judgement calls
+   ratified at sign-off. **Item 91 (W-85) opened** for the
+   RE-SANCTIONING family the implementation surfaced; sized, not
+   opened: the friskolelova § 6A-7 whole-section restatement
+   (1 op, refusal-neutral) and the read-only census of the 66
+   unread `utgått` notes.
+
+91. **W-85 (the re-sanctioning supersession family):** OPEN. A
+   SECOND supersession mechanism, surfaced at W-84's landing —
+   and a LIVE over-application: an act is sanctioned, found
+   defective, and RE-SANCTIONED AS A NEW ACT, both halves in the
+   lovtid lane, both indexed, both replayed today. Two known
+   pairs: `no/lovtid/2012-12-07-71` → `2013-01-11-1` (the
+   superseded act's own metadata says "Dette lovvedtaket
+   inneholdt en feil og kunne derfor ikke iverksettes", yet its
+   2 ops on 2 bases apply today, 25 days before the real act's
+   2013-01-01 commencement) and `no/lovtid/2025-04-25-13` →
+   `2025-06-20-67` (57 ops on 10 bases duplicated; both
+   contingent — inert at as_of, but armed). **59 ops / 12 base
+   laws to withdraw.** Materially harder than W-84: there is NO
+   typed marker — the signal is prose in `miscInformation` or a
+   leading `defaultP`, and the phrase set is NOT closed (W-84's
+   5-needle probe missed the 2025 pair's "sanksjonert og
+   kunngjort på nytt"). CHARTER: census-first with evidence
+   stronger than a phrase list (candidate generators: same-title
+   act pairs, duplicate op-content joins across instruments,
+   `miscInformation` sweeps — let the data name the signals),
+   frozen pair set with per-pair DOM adjudication, then the
+   suppression design (W-84's identity/dates discipline as the
+   model; note the superseded half here is a WHOLE ACT, not an
+   announcement of one, so the identity question differs).
+   Every withdrawal frozen and matched; scan movements
+   adjudicated per element. Small-to-medium.
 
 ## 5. Demo / Inspection Tooling
 
@@ -6171,6 +6276,29 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-17 (W-84 — the beriktiget/utgått correction lane;
+  `55e10babd`)** — **The never-enacted text is out of the
+  replay, and the scan's verdict column moves for the first
+  time: 29/46/0 → 30/45/0, unexplained 444 → 443** — klimaloven
+  closes and becomes `consistent`. Both limbs landed: `utgått`
+  announcements suppress whole-instrument with typed receipts
+  (never silently), and the rectified re-announcements lower
+  from the forskrift lane behind a title-driven gate, carrying
+  the ACT's identity and dates (kernel group keys and
+  commencement gating verified coherent; retroactive-total PIT
+  pinned by replay). All three frozen sets matched exactly
+  (34 withdrawn / 38 added / 1 destruction adjudicated).
+  **Unbudgeted win**: the 2024 rectification's added renumber
+  vacates the slot where the θ recovery had destroyed
+  yrkestransportlova § 9 second ledd — the provision returns,
+  § 9 matches Lovdata's consolidation, θ census 129 → 128
+  adjudicated. Ceiling unmoved; conservation intact everywhere.
+  Charter corrected twice by measurement (title-driven gate;
+  yrkestransportlova not a candidate). **Item 91 (W-85) opened**:
+  the re-sanctioning family — a second supersession mechanism
+  with 59 ops / 12 bases double-applied today and no typed
+  marker to key on.
 
 - **2026-08-17 (W-83 — the klimaloven full-history audit;
   read-only, records only)** — **The candidate "first confirmed
