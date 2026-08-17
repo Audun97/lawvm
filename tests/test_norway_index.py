@@ -1267,7 +1267,12 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # entry at all. Its commencement was "fra den tid Kongen bestemmer", so
         # ``contingent`` is the bucket it leaves; no existing entry's status
         # moves.
-        "contingent": 535,
+        # 535 -> 536 at W-82: the SAME act returns to the SAME bucket. Its one
+        # ``li`` is now read as the payload its head declares, because the change
+        # node announces exactly one address and carries exactly one carrier —
+        # arity on both sides, which is the extent proof. No existing entry's
+        # status moves.
+        "contingent": 536,
         # 1021 -> 1020 at W-15 (multi-part misbinding fix): the sole moved entry
         # is no/lovtid/2018-12-20-119, whose only "op" was its own part II
         # commencement sentence ("Lova tek til å gjelde straks.") swallowed as a
@@ -1922,9 +1927,17 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # the withdrawing direction: the pair GAIN equals the binding LOSS
     # (3 = 3; index bindings 6,564 -> 6,561), ZERO targets newly bound and
     # NOTHING rebound.
-    assert len(unbound) == 928
-    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2447
-    assert len({diagnostic["source_id"] for diagnostic in unbound}) == 928
+    # 928 -> 927 receipts and 2,447 -> 2,446 pairs at W-82: the payload-reach
+    # widening gives ``no/lovtid/2023-12-20-104`` its one binding back, so its
+    # receipt goes away entirely (one act, one pair).
+    # ``no/lovtid/2025-03-28-4`` keeps its receipt: its declaration names a
+    # nummer and Lovdata's change part names the section, and W-82 refuses to
+    # write the one over the other. The W-34/W-35 conservation is exact again:
+    # the pair LOSS equals the binding GAIN (1 = 1; index bindings 6,561 ->
+    # 6,562), ZERO targets newly unbound and NOTHING rebound.
+    assert len(unbound) == 927
+    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2446
+    assert len({diagnostic["source_id"] for diagnostic in unbound}) == 927
 
     # 64 acts gain their FIRST index entry: they announced every one of their
     # parts with an unlisted tail, so they had bound no law at all.
@@ -2008,7 +2021,17 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # itself (or, once the old narrow strip consumed it, an EMPTY node). Nothing
     # else leaves and nothing enters; bindings 6,564 -> 6,561 (the third is
     # ``no/lovtid/2023-12-20-110`` -> ``no/lov/1985-06-21-79``).
-    assert len(index.entries) == 2576
+    # 2,576 -> 2,577 at W-82: ONE of those two acts returns.
+    # ``no/lovtid/2023-12-20-104`` (``contingent``) declared "§ 4 tredje ledd
+    # nr. 2 skal lyde:" over a ONE-address change part and one ``li``, and arity
+    # one on both sides is the extent proof W-82 reads it under.
+    # ``no/lovtid/2025-03-28-4`` does NOT return: it declares "… skal § 2 nr. 4
+    # lyde:" but Lovdata's change part stops at ``§2``, a level SHALLOWER than
+    # the declaration, so landing its ``numberedLegalP`` would write one nummer
+    # over the whole section. Under-application is safe; it stays refused under
+    # the same kind. Bindings 6,561 -> 6,562, the single binding of the
+    # returning act.
+    assert len(index.entries) == 2577
     bindings = {
         (entry.source_id, base_id) for entry in index.entries for base_id in entry.base_ids
     }
@@ -2093,7 +2116,13 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # ``len(unbound)`` above). NO base act loses its last op, so the amended-law
     # population stays at 788 and the sweep baseline's ``swept`` block is
     # byte-identical.
-    assert len(bindings) == 6561
+    # 6,561 -> 6,562 at W-82: ONE (act, law) pair rebinds —
+    # ``no/lovtid/2023-12-20-104`` -> ``no/lov/2005-12-21-123``, the single
+    # binding of the single act the payload-reach widening returns. ZERO
+    # rebound, ZERO unbound. NO base act receives its first op ever, so the
+    # amended-law population stays at 788 and the sweep baseline's ``swept``
+    # block is byte-identical.
+    assert len(bindings) == 6562
     # 26,218 at W-30; +2 at W-24, both reconciled to a named erratum and neither
     # touching this test's own subject. W-24 lowered two Del-scoped Rettelser
     # corrections into the law each part amends — ``2019-12-20-110`` Del I into
@@ -2320,7 +2349,21 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # are an address list under a colon that introduces no payload, and 66
     # declare a payload the fallback cannot reach (23 of which were writing an
     # EMPTY node over their target). Unstructured refusals hold at 7,853.
-    assert sum(entry.n_ops for entry in index.entries) == 29076
+    # 29,076 -> 29,111 at W-82 (+35), the recovery of W-79's owned cost: the
+    # own-text fallback keeps W-79's GATE (a payload must be DECLARED in the
+    # head) and widens only WHERE the declared payload may LIVE. 35 of the 66
+    # come back, each from a carrier whose extent is proved against Lovdata's
+    # OWN machine labels rather than the amendment's prose — 17 from
+    # ``futureLegalArticle`` sets in bijection with the node's section addresses,
+    # 13 from a ``span.futuretitle`` heading (5 at section addresses through the
+    # heading-only payload the lane already had, 8 at KAPITTEL addresses), 5 from
+    # a single ``li`` / ``numberedLegalP`` against a single sub-section-level
+    # address. The content-keyed op diff is purely ADDITIVE: 35 added, 0
+    # withdrawn, 0 strays. The other 31 stay refused under the SAME kind —
+    # ``no_parse_structured_payload_not_declared`` 149 -> 114 — and the 83
+    # instruction-prose refusals are byte-identical in kind and count.
+    # Unstructured refusals hold at 7,853.
+    assert sum(entry.n_ops for entry in index.entries) == 29111
 
 
 def test_no_amendment_index_staleness_report_detects_archive_change(tmp_path) -> None:

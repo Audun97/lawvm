@@ -38,6 +38,7 @@ from lawvm.norway.grafter import (
     NO_SUBSTITUTION_PROVENANCE_TAG,
     NOHeadingGroup,
     _no_structured_declared_own_payload,
+    _no_structured_payload_is_declared,
     _extract_no_substitution_pairs,
     apply_no_ops_conserved,
     _extract_no_embedded_multi_act_lead,
@@ -9450,6 +9451,500 @@ def test_no_w79_refusal_is_per_target_not_per_node() -> None:
     assert ops[0].payload is not None and ops[0].payload.text == "Fristen er tre måneder."
     refusals = [a for a in adjudications if a.kind == NO_PARSE_STRUCTURED_PAYLOAD_NOT_DECLARED]
     assert [(a.detail or {})["target"] for a in refusals] == ["section:14"]
+
+
+# ── W-82: the own-text fallback's PAYLOAD REACH ──────────────────────────────
+#
+# One test per PROVEN CARRIER SHAPE of the base census (66 ops over 43 nodes /
+# 25 instruments whose declaration passes W-79's gate and whose tail is empty
+# because the payload lives in a sibling structure), plus the extent limbs that
+# keep the rest refused and the invariant that the 83 instruction-prose refusals
+# are untouched.
+# ---------------------------------------------------------------------------
+
+
+def test_no_w82_the_gate_is_unchanged_only_the_reach_widens() -> None:
+    """W-79's gate, split out and asserted on its own.
+
+    W-82 asks the same first question W-79 did — is a payload DECLARED in the
+    head? — and only then asks a second one W-79 never asked: where does the
+    declared payload live. Nothing that failed the gate may pass it.
+    """
+    # Declares: the operative phrase stands in the head and a colon closes it.
+    assert _no_structured_payload_is_declared("§ 4 tredje ledd nr. 2 skal lyde:")
+    assert _no_structured_payload_is_declared("§ 30 skal lyde: Lova gjeld frå 1. januar.")
+    # Declares nothing: no colon, or no operative phrase before it.
+    assert not _no_structured_payload_is_declared("Nåværende § 66 blir § 84.")
+    assert not _no_structured_payload_is_declared(
+        "I følgende paragrafer oppheves punktumet i paragrafoverskriften: § 1, § 2."
+    )
+    # And the own-text reader is unchanged: the tail is still the payload, and an
+    # empty tail is still "not in this node's own text".
+    assert _no_structured_declared_own_payload("§ 4 tredje ledd nr. 2 skal lyde:") is None
+    assert (
+        _no_structured_declared_own_payload("§ 30 skal lyde: Lova gjeld frå 1. januar.")
+        == "Lova gjeld frå 1. januar."
+    )
+
+
+def _w82_future_article(name: str, title: str, body: str) -> str:
+    return (
+        f'<article class="futureLegalArticle" data-name="{name}">'
+        f'<span class="futureLegalArticleHeader"><span class="legalArticleValue">{name}</span>'
+        f'<span class="legalArticleTitle">{title}</span></span>'
+        f'<article class="legalP">{body}</article>'
+        "</article>"
+    )
+
+
+def test_no_w82_future_article_carriers_land_label_for_label() -> None:
+    """Carrier shape 1: a new chapter announced as one block (17 ops / 3 nodes).
+
+    Lovdata writes the destination labels lower-case in the address
+    (``§5a-1``) and upper-case in the carrier (``data-name="§5A-1"``), which is
+    why the existing candidate map missed them and the own-text fallback — the
+    lane's last resort — was reached at all. The match is machine-to-machine on
+    Lovdata's own labels, case-folded, and it is a BIJECTION.
+    """
+    adjudications: list[CompileAdjudication] = []
+    grouped = dict(
+        iter_no_document_change_ops(
+            _w79_change_html(
+                change_node=(
+                    '<article class="change" data-add-new-part="lov/2015-06-19-70/kap5A '
+                    'lov/2015-06-19-70/§5a-1 lov/2015-06-19-70/§5a-2">'
+                    '<article class="defaultP">Nytt kapittel 5 A skal lyde:</article>'
+                    '<span class="futuretitle">Kap. 5 A. Videodelingsplattformer</span>'
+                    + _w82_future_article("§5A-1", "Jurisdiksjon", "Kongen kan gi forskrift.")
+                    + _w82_future_article("§5A-2", "Registreringsplikt", "Tilbydere plikter å registrere seg.")
+                    + "</article>"
+                )
+            ),
+            "no/lovtid/2026-06-19-45",
+            adjudications_out=adjudications,
+        )
+    )
+
+    assert not [a for a in adjudications if a.kind == NO_PARSE_STRUCTURED_PAYLOAD_NOT_DECLARED]
+    ops = grouped["no/lov/2015-06-19-70"]
+    assert [op.target.path for op in ops] == [(("section", "5a-1"),), (("section", "5a-2"),)]
+    # Each destination gets ITS OWN article, relabelled to the address it lands at
+    # — never the block's lead, and never another article's text.
+    first, second = (op.payload for op in ops)
+    assert first is not None and second is not None
+    assert (_kind_value(first.kind), first.label) == ("section", "5a-1")
+    assert [child.text for child in first.children] == [
+        "Jurisdiksjon",
+        "Kongen kan gi forskrift.",
+    ]
+    assert [child.text for child in second.children] == [
+        "Registreringsplikt",
+        "Tilbydere plikter å registrere seg.",
+    ]
+
+
+def test_no_w82_future_article_extent_mismatch_refuses_every_target() -> None:
+    """W-77's extent discipline: label-for-label, ALL OR NOTHING.
+
+    ``no/lovtid/2024-06-21-42`` announces "Etter § 7-9 skal nytt avsnitt III
+    lyde:" and carries a § 7-9 **a**; the address it declares is § 7-9. One
+    unmatched target refuses every target of the node rather than letting the
+    carriers slide onto whichever addresses happen to be left.
+    """
+    adjudications: list[CompileAdjudication] = []
+    grouped = dict(
+        iter_no_document_change_ops(
+            _w79_change_html(
+                change_node=(
+                    '<article class="change" data-change-part="lov/2015-06-19-70/§7-9 '
+                    'lov/2015-06-19-70/§7-10">'
+                    '<article class="defaultP">Etter § 7-9 skal nytt avsnitt III lyde:</article>'
+                    '<span class="futuretitle">III. Bærekraftsrapportering</span>'
+                    + _w82_future_article("§7-9a", "Bærekraftsrapportering", "Selskapet skal rapportere.")
+                    + "</article>"
+                )
+            ),
+            "no/lovtid/2026-06-19-45",
+            adjudications_out=adjudications,
+        )
+    )
+
+    assert grouped == {}
+    refusals = [a for a in adjudications if a.kind == NO_PARSE_STRUCTURED_PAYLOAD_NOT_DECLARED]
+    assert sorted((a.detail or {})["target"] for a in refusals) == ["section:7-10", "section:7-9"]
+
+
+def test_no_w82_future_title_lands_as_a_heading_only_section_payload() -> None:
+    """Carrier shape 2a: ``span.futuretitle`` behind an ``Overskriften til §`` lead.
+
+    The lead predicate and the payload shape are the ones
+    ``_heading_only_section_payload`` already had; only the title's LOCATION
+    widens, from "a second defaultP article" to "the futuretitle span". The
+    payload is heading-only, so a section's BODY is never touched by a heading
+    announcement — which is what makes one title over three addresses safe.
+    """
+    adjudications: list[CompileAdjudication] = []
+    grouped = dict(
+        iter_no_document_change_ops(
+            _w79_change_html(
+                change_node=(
+                    '<article class="change" data-change-part="lov/2015-06-19-70/§10-30 '
+                    'lov/2015-06-19-70/§10-31">'
+                    '<article class="defaultP">Overskriften til §§ 10-30 og 10-31 skal '
+                    "lyde:</article>"
+                    '<span class="futuretitle">Merverdiavgift, særavgifter og tollavgift</span>'
+                    "</article>"
+                )
+            ),
+            "no/lovtid/2026-06-19-45",
+            adjudications_out=adjudications,
+        )
+    )
+
+    assert not [a for a in adjudications if a.kind == NO_PARSE_STRUCTURED_PAYLOAD_NOT_DECLARED]
+    ops = grouped["no/lov/2015-06-19-70"]
+    assert [op.target.path for op in ops] == [(("section", "10-30"),), (("section", "10-31"),)]
+    for op, label in zip(ops, ("10-30", "10-31"), strict=True):
+        payload = op.payload
+        assert payload is not None
+        assert (_kind_value(payload.kind), payload.label, payload.text) == ("section", label, "")
+        assert [(_kind_value(c.kind), c.text) for c in payload.children] == [
+            ("heading", "Merverdiavgift, særavgifter og tollavgift")
+        ]
+
+
+def test_no_w82_future_title_lands_a_subdivision_heading_at_a_chapter_address() -> None:
+    """Carrier shape 2b: the same span, at a KAPITTEL address.
+
+    "Kapittel 8 avsnitt III overskriften skal lyde:" and "Ny deloverskrift til §§
+    18-2 til 18-8 skal lyde:" declare a heading and nothing else, so the payload
+    is a container carrying that heading alone.
+    """
+    adjudications: list[CompileAdjudication] = []
+    grouped = dict(
+        iter_no_document_change_ops(
+            _w79_change_html(
+                change_node=(
+                    '<article class="change" data-change-part="lov/2015-06-19-70/KAPITTEL_8-3">'
+                    '<article class="defaultP">Kapittel 8 avsnitt III overskriften skal '
+                    "lyde:</article>"
+                    '<span class="futuretitle">III. Daglig ledelse og personer med '
+                    "nøkkelfunksjoner</span>"
+                    "</article>"
+                )
+            ),
+            "no/lovtid/2026-06-19-45",
+            adjudications_out=adjudications,
+        )
+    )
+
+    assert not [a for a in adjudications if a.kind == NO_PARSE_STRUCTURED_PAYLOAD_NOT_DECLARED]
+    ops = grouped["no/lov/2015-06-19-70"]
+    assert [op.target.path for op in ops] == [(("chapter", "8-3"),)]
+    payload = ops[0].payload
+    assert payload is not None
+    assert (_kind_value(payload.kind), payload.label, payload.text) == ("chapter", "8-3", "")
+    assert [(_kind_value(c.kind), c.text) for c in payload.children] == [
+        ("heading", "III. Daglig ledelse og personer med nøkkelfunksjoner")
+    ]
+
+
+def test_no_w82_future_title_over_a_body_is_not_a_heading_announcement() -> None:
+    """The limb that keeps shape 2b narrow.
+
+    A title that HEADS A BODY is a chapter announcement, and the body's extent is
+    a different proof — the one shape 1 makes. A chapter address with articles
+    behind it stays refused rather than landing the title alone over a chapter
+    that has sections in it.
+    """
+    adjudications: list[CompileAdjudication] = []
+    grouped = dict(
+        iter_no_document_change_ops(
+            _w79_change_html(
+                change_node=(
+                    '<article class="change" data-change-part="lov/2015-06-19-70/KAPITTEL_8-3">'
+                    '<article class="defaultP">Nytt kapittel 8 skal lyde:</article>'
+                    '<span class="futuretitle">III. Daglig ledelse</span>'
+                    + _w82_future_article("§8-1", "Ledelse", "Foretaket skal ha en daglig leder.")
+                    + "</article>"
+                )
+            ),
+            "no/lovtid/2026-06-19-45",
+            adjudications_out=adjudications,
+        )
+    )
+
+    assert grouped == {}
+    assert [
+        (a.detail or {})["target"]
+        for a in adjudications
+        if a.kind == NO_PARSE_STRUCTURED_PAYLOAD_NOT_DECLARED
+    ] == ["chapter:8-3"]
+
+
+def test_no_w82_single_leaf_carrier_lands_at_its_declared_leaf() -> None:
+    """Carrier shape 3: ONE ``li`` / ``numberedLegalP``, ONE payload-taking target.
+
+    Arity one on both sides is the extent proof. ``no/lovtid/2023-12-20-104`` is
+    the whole of its instrument — the op W-79 refused was the only one it had, and
+    it is the entry the index lost.
+    """
+    adjudications: list[CompileAdjudication] = []
+    grouped = dict(
+        iter_no_document_change_ops(
+            _w79_change_html(
+                change_node=(
+                    '<article class="change" '
+                    'data-change-part="lov/2015-06-19-70/§4/ledd/3/nummer/2">'
+                    '<article class="defaultP">§ 4 tredje ledd nr. 2 skal lyde:</article>'
+                    '<li><article class="listArticle"><article class="legalP">'
+                    "avgiftsinntekter ved utslipp i petroleumsvirksomhet"
+                    "</article></article></li>"
+                    "</article>"
+                )
+            ),
+            "no/lovtid/2026-06-19-45",
+            adjudications_out=adjudications,
+        )
+    )
+
+    assert not [a for a in adjudications if a.kind == NO_PARSE_STRUCTURED_PAYLOAD_NOT_DECLARED]
+    ops = grouped["no/lov/2015-06-19-70"]
+    assert [op.target.path for op in ops] == [
+        (("section", "4"), ("subsection", "3"), ("item", "2"))
+    ]
+    payload = ops[0].payload
+    assert payload is not None
+    assert (_kind_value(payload.kind), payload.label, payload.text) == (
+        "item",
+        "2",
+        "avgiftsinntekter ved utslipp i petroleumsvirksomhet",
+    )
+
+
+@pytest.mark.parametrize(
+    ("limb", "change_part", "carrier"),
+    [
+        # The address is a LEVEL SHALLOWER than the declaration: "§ 18-3 annet
+        # ledd bokstav a nr. 4" carries nr. 4 and Lovdata's change-part stops at
+        # bokstav a, so the write would flatten all of bokstav a to one nummer.
+        (
+            "address_shallower_than_carrier",
+            "lov/2015-06-19-70/§18-3/ledd/2/bokstav/a",
+            '<li data-li-identifier="4." data-name="4."><article class="listArticle">'
+            '<article class="legalP">Kraft som leveres til en strømleverandør</article>'
+            "</article></li>",
+        ),
+        # The address is a whole SECTION: "§ 25 nr. 10 skal lyde:" against
+        # ``…/§25``. A leaf carrier may never be written over a container.
+        (
+            "leaf_carrier_at_a_section_address",
+            "lov/2015-06-19-70/§25",
+            '<li data-li-identifier="10." data-name="10."><article class="listArticle">'
+            '<article class="legalP">behandling av personopplysninger</article>'
+            "</article></li>",
+        ),
+        # Two carriers, one address: "§ 4 første ledd nr. 1 og 2 skal lyde:"
+        # against a single ledd. Arity is the proof and there is none here.
+        (
+            "two_carriers_one_address",
+            "lov/2015-06-19-70/§4/ledd/2",
+            '<li data-li-identifier="1." data-name="1."><article class="legalP">'
+            "ubebygde enkelttomter for bolig</article></li>"
+            '<li data-li-identifier="2." data-name="2."><article class="legalP">'
+            "ubebygde enkelttomter for fritidshus</article></li>",
+        ),
+        # The carrier holds nested structure the flattener cannot reach:
+        # ``no/lovtid/2025-06-20-109``'s § 2 nr. 2 is a numerator heading over a
+        # ledd with its own letter list, and a flat text payload would land
+        # TRUNCATED to the heading.
+        (
+            "carrier_text_is_not_the_whole_carrier",
+            "lov/2015-06-19-70/§2/nummer/2",
+            '<article class="numberedLegalP" data-numerator="2">2. (Arbeidstakere på skip)'
+            '<article class="legalP">Loven omfatter<ul class="defaultList">'
+            '<li data-name="a."><article class="legalP">arbeidstakere på skip i NOR</article>'
+            "</li></ul></article></article>",
+        ),
+    ],
+)
+def test_no_w82_unprovable_leaf_carriers_keep_refusing(
+    limb: str, change_part: str, carrier: str
+) -> None:
+    """The limbs deliberately left refused, each a shape the extent proof rejects.
+
+    31 of the 66 stay refused under the SAME kind — the remainder is not a
+    different failure, it is the same one: the declared payload cannot be proved
+    to belong at the declared address.
+    """
+    adjudications: list[CompileAdjudication] = []
+    grouped = dict(
+        iter_no_document_change_ops(
+            _w79_change_html(
+                change_node=(
+                    f'<article class="change" data-change-part="{change_part}">'
+                    '<article class="defaultP">§ 4 tredje ledd nr. 2 skal lyde:</article>'
+                    f"{carrier}</article>"
+                )
+            ),
+            "no/lovtid/2026-06-19-45",
+            adjudications_out=adjudications,
+        )
+    )
+
+    assert grouped == {}, f"{limb}: an unprovable carrier was written into law"
+    refusals = [a for a in adjudications if a.kind == NO_PARSE_STRUCTURED_PAYLOAD_NOT_DECLARED]
+    assert len(refusals) == 1
+    assert (refusals[0].detail or {})["blocking"] is True
+
+
+@pytest.mark.parametrize(
+    ("shape", "own_text"),
+    [
+        ("relabel", "Nåværende § 66 blir § 84."),
+        (
+            "repeal",
+            "I følgende paragrafer oppheves punktumet i paragrafoverskriften: § 1, § 2.",
+        ),
+        (
+            "substitution",
+            "I § 45 erstattes henvisningen til «§§ 39, 40» av en henvisning til «§§ 39».",
+        ),
+        ("move", "Overskriften til avsnitt IV i kapittel 14 flyttes til etter § 14-17."),
+    ],
+)
+def test_no_w82_instruction_prose_refusals_are_untouched_even_beside_a_carrier(
+    shape: str, own_text: str
+) -> None:
+    """The W-79 invariant holds: 83 of the 149 declare nothing and still refuse.
+
+    And the reach cannot be reached AROUND: putting a payload carrier next to an
+    instruction does not make the instruction a declaration. The gate is asked
+    first and it answers on the head alone.
+    """
+    adjudications: list[CompileAdjudication] = []
+    grouped = dict(
+        iter_no_document_change_ops(
+            _w79_change_html(
+                change_node=(
+                    '<article class="change" '
+                    'data-change-part="lov/2015-06-19-70/§4/ledd/3/nummer/2">'
+                    f'<article class="defaultP">{own_text}</article>'
+                    '<li><article class="listArticle"><article class="legalP">'
+                    "avgiftsinntekter ved utslipp</article></article></li>"
+                    "</article>"
+                )
+            ),
+            "no/lovtid/2026-06-19-45",
+            adjudications_out=adjudications,
+        )
+    )
+
+    assert grouped == {}, f"{shape}: an instruction reached a payload through W-82"
+    refusals = [a for a in adjudications if a.kind == NO_PARSE_STRUCTURED_PAYLOAD_NOT_DECLARED]
+    assert len(refusals) == 1
+    assert (refusals[0].detail or {})["undeclared_text"] == own_text
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w82_corpus_witness_the_instrument_the_index_lost_comes_back() -> None:
+    """``no/lovtid/2023-12-20-104`` — one op, and it was the instrument's only one.
+
+    W-79 refused it and the act left the amendment index entirely (entries 2,578
+    -> 2,576, two acts departing). Its declared payload was one ``li`` behind a
+    one-address change part; that is the arity proof, and the op is back.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2023-12-20-104", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    adjudications: list[CompileAdjudication] = []
+    grouped = dict(
+        iter_no_document_change_ops(
+            html_bytes, "no/lovtid/2023-12-20-104", adjudications_out=adjudications
+        )
+    )
+
+    assert not [a for a in adjudications if a.kind == NO_PARSE_STRUCTURED_PAYLOAD_NOT_DECLARED]
+    ops = grouped["no/lov/2005-12-21-123"]
+    assert [op.target.path for op in ops] == [
+        (("section", "4"), ("subsection", "3"), ("item", "2"))
+    ]
+    payload = ops[0].payload
+    assert payload is not None
+    assert payload.text == (
+        "avgiftsinntekter ved utslipp av CO 2 i petroleumsvirksomhet på kontinentalsokkelen"
+    )
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w82_corpus_witness_the_second_lost_instrument_stays_refused() -> None:
+    """``no/lovtid/2025-03-28-4`` — the other act W-79's closure cost, still out.
+
+    It declares "… skal § 2 nr. 4 lyde:" and carries the new nr. 4, but Lovdata's
+    change part stops at ``§2``: the address is a level shallower than the
+    declaration, so landing the carrier would write one nummer over the whole
+    section. Under-application is safe; a guess here is not. Sized and named as
+    the item's largest single follow-up.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2025-03-28-4", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    adjudications: list[CompileAdjudication] = []
+    grouped = dict(
+        iter_no_document_change_ops(
+            html_bytes, "no/lovtid/2025-03-28-4", adjudications_out=adjudications
+        )
+    )
+
+    assert grouped == {}
+    refusals = [a for a in adjudications if a.kind == NO_PARSE_STRUCTURED_PAYLOAD_NOT_DECLARED]
+    assert [(a.detail or {})["target"] for a in refusals] == ["section:2"]
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w82_corpus_witness_a_whole_new_chapter_lands_one_section_per_address() -> None:
+    """``no/lovtid/2025-02-28-2`` — the census's largest single node: 9 ops.
+
+    ``data-add-new-part`` names ``kap5A`` and §§ 5a-1 … 5a-9; ``kap5A`` does not
+    lower to an address at all (it is one of the 111
+    ``no_parse_unresolved_structured_target_skipped``), so the bijection is over
+    the NINE section addresses and the nine ``futureLegalArticle`` carriers.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2025-02-28-2", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+
+    adjudications: list[CompileAdjudication] = []
+    grouped = dict(
+        iter_no_document_change_ops(
+            html_bytes, "no/lovtid/2025-02-28-2", adjudications_out=adjudications
+        )
+    )
+
+    assert not [a for a in adjudications if a.kind == NO_PARSE_STRUCTURED_PAYLOAD_NOT_DECLARED]
+    ops = [
+        op
+        for op in grouped["no/lov/1992-12-04-127"]
+        if op.target.path and op.target.path[0][1].startswith("5a-")
+    ]
+    assert [op.target.path for op in ops] == [(("section", f"5a-{n}"),) for n in range(1, 10)]
+    # Each address gets its OWN article's heading, not the block's title and not
+    # a neighbour's text.
+    headings = []
+    for op in ops:
+        payload = op.payload
+        assert payload is not None
+        headings.append(next(c.text for c in payload.children if _kind_value(c.kind) == "heading"))
+    assert headings[0] == "§ 5 A-1. Jurisdiksjon"
+    assert headings[-1] == "§ 5 A-9. Tilsyn"
 
 
 @pytest.mark.skipif(

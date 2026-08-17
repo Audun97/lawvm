@@ -1663,7 +1663,23 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # (198 over 77 laws), for the same reason as W-78: every withdrawn write was
     # a REPLACE, which records ``replaced_paths`` and never ``removed_paths``.
     # Corpus-wide content-removing writes hold at 240.
-    "hazard_destructive_writes": 3847,
+    #
+    # 3,847 -> 3,850 at W-82 (+3), the recovery of the cost W-79 owned. ONE row
+    # moves, ``no/lov/2008-05-15-35`` [249, 10] -> [252, 10], and the whole delta
+    # is ``no/lovtid/2025-04-04-7``'s three "§ 105/106 første ledd bokstav X
+    # første punktum skal lyde:" nodes: each declares a payload W-79's gate
+    # accepts and keeps it in a single ``li`` the flattener steps over, and each
+    # names ONE sub-section-level address, so arity on both sides proves the
+    # extent. All three are REPLACEs of a FIRST PUNKTUM: § 105 (1) b's second
+    # sentence survives as ``sentence:2`` beside the new first, § 106 (1) e (the
+    # provision the amendment calls bokstav d, relabelled by a later act) the
+    # same, and § 106 (1) b's replacement is byte-identical to the text already
+    # there. ZERO paths removed corpus-wide.
+    # The content-removing column does NOT move, on this row (10) or corpus-wide
+    # (198 over 77 laws), for the same reason again: a REPLACE records
+    # ``replaced_paths`` and never ``removed_paths``. Corpus-wide content-removing
+    # writes hold at 240.
+    "hazard_destructive_writes": 3850,
     # 167 -> 168, and the +1 is NOT a relabel op. ``no/lov/2016-05-27-14`` gains
     # ``no/lovtid/2021-12-22-158:1``, a REPEAL of § 7-6 annet ledd that could not
     # bind before because that law's ledd sequence was one slot out of step; with
@@ -1743,7 +1759,16 @@ _NO_INCOMPLETE_BASE_HAZARD_LAWS_DIGEST = (
     # every removing column is byte-identical. The eight are named one by one in
     # the count note above — the general closure of the wrong-text class, so the
     # shrinkage is spread over eight laws rather than concentrated on one.
-    "871c42872f8329acb9954e89c827185c77b701131bc4a19c8655b35c17ea7e88"
+    # W-82: MEMBERSHIP UNCHANGED (164 laws, same set, both set differences
+    # empty). ONE row moves, and only in the destructive column:
+    # ``no/lov/2008-05-15-35`` [249, 10] -> [252, 10]. Every removing column is
+    # byte-identical, corpus-wide and on this row: the three writes are REPLACEs
+    # of a first punktum whose sibling sentence SURVIVES beside the new one. This
+    # is the only law in the corpus whose replayed tree moves at all under W-82 —
+    # the other 32 recovered ops are inert at ``as_of`` (contingent skips, base
+    # acts with no original-act source, or a target that refuses typed at replay).
+    # See the count note above.
+    "79ea0fe07dadcd4ff79d2ac9e69fbfb0be323622530ebdfffbdc9be19e16a39f"
 )
 
 _REGENERATE = (

@@ -3753,7 +3753,17 @@ def _heading_only_section_payload(
     change_el: etree._Element,
     action: StructuralAction | str,
     target: LegalAddress,
+    *,
+    allow_future_title: bool = False,
 ) -> Optional[IRNode]:
+    """The heading a ``Overskriften til § …`` lead announces, as a heading-only payload.
+
+    ``allow_future_title`` widens WHERE the title may live — Lovdata writes it
+    either as a second ``defaultP`` article or as a ``span.futuretitle`` — and is
+    set only by W-82's carrier reach, behind W-79's declaration gate. The lead
+    predicate and the payload shape are the same either way, so nothing that used
+    to lower can change.
+    """
     if _no_action_value(action) != "replace" or target.leaf_kind() != "section":
         return None
     text_articles = [article for article in _direct_children(change_el, "article") if "defaultP" in _classes(article)]
@@ -3768,6 +3778,8 @@ def _heading_only_section_payload(
         if candidate:
             title = candidate
             break
+    if not title and allow_future_title:
+        title = _no_structured_future_title(change_el)
     if not title:
         return None
     return IRNode(
@@ -4058,6 +4070,23 @@ _NO_STRUCTURED_PAYLOAD_DECLARATION_RE = compile_classifier_regex(
 NO_PARSE_STRUCTURED_PAYLOAD_NOT_DECLARED = "no_parse_structured_payload_not_declared"
 
 
+def _no_structured_payload_is_declared(text: str) -> bool:
+    """Whether ``text``'s HEAD declares a payload — W-79's gate, on its own.
+
+    W-82 splits W-79's one question ("does this node declare a payload that is
+    also IN its own text?") into the two questions it always was: does the node
+    DECLARE a payload, and WHERE does the declared payload live. This is the
+    first half and it is unchanged: a payload-introducing operative phrase must
+    stand in the head, i.e. before the first colon, and the colon must be there
+    to close the declaration.
+    """
+    head, separator, _tail = _normalize_space(text).partition(":")
+    if not separator:
+        return False
+    # lawvm-regex: owning_parser this IS the structured payload-declaration parser
+    return _NO_STRUCTURED_PAYLOAD_DECLARATION_RE.search(head) is not None
+
+
 def _no_structured_declared_own_payload(text: str) -> Optional[str]:
     """The payload ``text`` declares for itself, or ``None`` when it declares none.
 
@@ -4066,14 +4095,249 @@ def _no_structured_declared_own_payload(text: str) -> Optional[str]:
     the first colon) must carry a payload-introducing operative phrase, and the
     tail must be non-empty; the tail is the payload.
     """
-    head, separator, tail = _normalize_space(text).partition(":")
-    if not separator:
+    if not _no_structured_payload_is_declared(text):
         return None
-    # lawvm-regex: owning_parser this IS the structured payload-declaration parser
-    if _NO_STRUCTURED_PAYLOAD_DECLARATION_RE.search(head) is None:
-        return None
-    tail = _normalize_space(tail)
+    tail = _normalize_space(_normalize_space(text).partition(":")[2])
     return tail or None
+
+
+# W-82: the own-text fallback's PAYLOAD REACH.
+#
+# W-79's gate (above) asks whether the change node DECLARES a payload and reads
+# that payload out of the node's own flattened text — the tail after the colon.
+# Its census found 66 ops over 43 nodes / 25 instruments that pass the gate and
+# still have an EMPTY tail: the declaration is real, but Lovdata put the payload
+# in a SIBLING STRUCTURE the flattener never reads, because
+# ``_node_text_without_structural_children`` deliberately steps over ``article``
+# / ``li`` / ``ol`` / ``ul`` and ``_TEXT_BLOCK_CLASSES`` admits only ``legalP`` /
+# ``defaultP`` / ``legalArticleHeader``. Before W-79 those 66 wrote their own LEAD
+# into the statute; after it they refuse. This widens WHERE the declared payload
+# may live. It does NOT widen the gate: a node that declares nothing still
+# refuses, byte for byte.
+#
+# The reach is granted only to carriers whose EXTENT can be proved from Lovdata's
+# OWN machine labels rather than from the amendment's prose — the change node
+# carries the target address in ``data-change-part`` / ``data-add-new-part``, and
+# the carriers carry ``data-name`` / ``data-numerator``, so the match is
+# machine-to-machine. Three carrier shapes are proved and admitted:
+#
+#   * ``article.futureLegalArticle`` sets (17 ops / 3 nodes) — a whole new chapter
+#     announced as one block. Admitted only when the node's section targets and
+#     its future-article carriers are in BIJECTION by label (case-folded: Lovdata
+#     writes ``§5A-1`` in the carrier and ``§5a-1`` in the address). All or
+#     nothing per W-77: one unmatched target refuses every target of the node.
+#   * ``span.futuretitle`` (13 ops / 10 nodes) — a subdivision or section heading.
+#     For a SECTION target the payload is the heading-only shape
+#     ``_heading_only_section_payload`` already builds, behind the SAME
+#     ``Overskriften til §`` lead predicate; only the title's LOCATION widens from
+#     "a second defaultP article" to "the futuretitle span". For a CHAPTER target
+#     the heading is the whole of what a deloverskrift/avsnitt announcement says,
+#     so the payload is a chapter carrying that heading and nothing else — and
+#     only when the node announces exactly one address and carries no body.
+#   * a SINGLE leaf carrier (``li`` or ``article.numberedLegalP``) against a
+#     SINGLE non-repeal target whose leaf is BELOW section level (5 ops / 5
+#     nodes). Arity one on both sides is the extent proof; where the carrier
+#     declares a label of its own it must also name a component of the target's
+#     address path, which is what separates "§ 4 tredje ledd nr. 2" (carrier
+#     unlabelled, target ``…/nummer/2``) from "§ 18-3 annet ledd bokstav a nr. 4"
+#     (carrier ``4.``, target only ``…/bokstav/a`` — the address is a LEVEL
+#     SHALLOWER than the declaration and the write would flatten all of bokstav a).
+#     The carrier must ALSO be wholly reachable as text: a leaf carrier holding
+#     nested structure would land truncated, which is the wrong-text class again.
+#
+# 35 of the 66 come back that way; the other 31 stay refused under the SAME kind
+# — the remainder is not a different failure, it is the same failure: the declared
+# payload cannot be proved to belong at the declared address. Sized in the landing
+# note (4 carrier-is-the-parent-section, 8 two-targets-one-carrier, 6
+# many-carriers-one-target, 4 address-shallower-than-declaration, 3
+# carrier-set-misses-the-target-label, 1 carrier-not-wholly-text, 5 no-carrier).
+_NO_W82_CONTAINER_LEAF_KINDS = frozenset({"", "section", "chapter", "part"})
+
+
+def _no_structured_future_title(change_el: etree._Element) -> str:
+    """The single ``span.futuretitle`` a change node carries, if it carries one."""
+    titles = [
+        child
+        for child in _direct_children(change_el)
+        if _local_name(child) == "span" and "futuretitle" in _classes(child)
+    ]
+    if len(titles) != 1:
+        return ""
+    return _normalize_space("".join(str(_t) for _t in titles[0].itertext()))
+
+
+def _no_structured_carrier_label(carrier: etree._Element) -> str:
+    """Lovdata's own label for a leaf payload carrier, normalized ("" when none)."""
+    if _local_name(carrier) == "li":
+        raw = carrier.get("data-name") or carrier.get("data-li-identifier") or ""
+    else:
+        raw = carrier.get("data-numerator") or carrier.get("data-name") or ""
+    label = _normalize_label(raw)
+    return "" if label == "-" else label
+
+
+def _no_structured_future_section_payload(
+    change_el: etree._Element,
+    target: LegalAddress,
+    declared_specs: Sequence[tuple[StructuralAction, LegalAddress]],
+) -> Optional[IRNode]:
+    """A declared payload living in ``article.futureLegalArticle`` siblings.
+
+    W-77's extent discipline, applied to Lovdata's machine labels: the node's
+    SECTION targets and its future-article carriers must be in bijection by
+    case-folded label, or no target of the node is served.
+    """
+    carriers = [
+        child
+        for child in _direct_children(change_el, "article")
+        if "futureLegalArticle" in _classes(child)
+    ]
+    if not carriers:
+        return None
+    by_label: dict[str, etree._Element] = {}
+    for carrier in carriers:
+        label = _normalize_no_section_label(carrier.get("data-name", "") or "").casefold()
+        if not label or label in by_label:
+            return None
+        by_label[label] = carrier
+    section_targets = [
+        spec_target
+        for _action, spec_target in declared_specs
+        if spec_target.leaf_kind() == "section" and spec_target.leaf_label()
+    ]
+    if len(section_targets) != len(carriers):
+        return None
+    matched: set[str] = set()
+    for spec_target in section_targets:
+        key = _normalize_no_section_label(spec_target.leaf_label()).casefold()
+        if key not in by_label or key in matched:
+            return None
+        matched.add(key)
+    carrier = by_label.get(_normalize_no_section_label(target.leaf_label() or "").casefold())
+    if carrier is None:
+        return None
+    payload = _parse_future_section(carrier)
+    if payload is None or not payload.children:
+        return None
+    return _with_no_node_label(payload, target.leaf_label() or None)
+
+
+def _no_structured_future_title_container_payload(
+    change_el: etree._Element,
+    target: LegalAddress,
+    declared_specs: Sequence[tuple[StructuralAction, LegalAddress]],
+) -> Optional[IRNode]:
+    """A subdivision heading announcement whose title lives in ``span.futuretitle``.
+
+    The announcement ("Kapittel 8 avsnitt III overskriften skal lyde:", "Ny
+    deloverskrift til §§ 18-2 til 18-8 skal lyde:") declares a HEADING and nothing
+    else, so the payload is a container carrying that heading alone. Refused
+    unless the node announces exactly one address and carries no body alongside
+    the title — a title that heads a body is a chapter announcement, not a
+    heading one, and the body's extent is a different proof.
+    """
+    if target.leaf_kind() != "chapter" or len(declared_specs) != 1:
+        return None
+    if any(
+        "futureLegalArticle" in _classes(child)
+        for child in _direct_children(change_el, "article")
+    ):
+        return None
+    title = _no_structured_future_title(change_el)
+    if not title:
+        return None
+    return IRNode(
+        kind=IRNodeKind.CHAPTER,
+        label=target.leaf_label() or None,
+        children=(IRNode(kind=IRNodeKind.HEADING, text=title),),
+    )
+
+
+def _no_structured_single_leaf_carrier_payload(
+    change_el: etree._Element,
+    target: LegalAddress,
+    declared_specs: Sequence[tuple[StructuralAction, LegalAddress]],
+) -> Optional[IRNode]:
+    """A declared payload living in the node's ONE ``li`` / ``numberedLegalP``.
+
+    Arity is the extent proof: one carrier, one payload-taking target, and a
+    target leaf BELOW section level so a leaf payload can never be written over a
+    whole section or chapter. A carrier that declares a label of its own must
+    also name a component of the target's address path.
+    """
+    leaf_kind = target.leaf_kind()
+    if leaf_kind in _NO_W82_CONTAINER_LEAF_KINDS:
+        return None
+    carriers = [
+        child
+        for child in _direct_children(change_el)
+        if _local_name(child) == "li"
+        or (_local_name(child) == "article" and "numberedLegalP" in _classes(child))
+    ]
+    if len(carriers) != 1:
+        return None
+    payload_specs = [
+        spec
+        for spec in declared_specs
+        if _no_action_value(spec[0]) not in {"repeal", "text_repeal"}
+    ]
+    if len(payload_specs) != 1:
+        return None
+    carrier = carriers[0]
+    label = _no_structured_carrier_label(carrier)
+    if label:
+        path_labels = {_normalize_label(part_label).casefold() for _kind, part_label in target.path}
+        if label.casefold() not in path_labels:
+            return None
+    if _local_name(carrier) == "li":
+        item = _parse_item(carrier, 1, set())
+        text = _normalize_space(item.text or "") if item is not None else ""
+    else:
+        text = _node_text_without_structural_children(carrier)
+        if carrier.get("data-numerator"):
+            # lawvm-regex: owning_parser the numbered-subsection numerator strip
+            text = _NUMBERED_SUBSECTION_RE.sub("", text, count=1)
+        text = _normalize_space(text)
+    if not text:
+        return None
+    # The payload must be WHOLLY reachable as text. A leaf carrier that also holds
+    # nested structure (``no/lovtid/2025-06-20-109``'s § 2 nr. 2 is a numerator
+    # heading over two ledd, each with its own letter list) would land TRUNCATED to
+    # whatever the flattener could see, which is the wrong-text class this lane
+    # exists to close. Compare ignoring whitespace: the flattener spaces inline
+    # markup apart (``CO<sub>2</sub>`` → ``CO 2``) without dropping anything.
+    # The only thing the extractors above ever drop from the FRONT is a numerator,
+    # so "wholly reachable" is exactly "the extracted text is a suffix of the
+    # carrier's full flattening".
+    whole = "".join("".join(str(_t) for _t in carrier.itertext()).split())
+    if not whole.endswith("".join(text.split())):
+        return None
+    return IRNode(
+        kind=cast(IRNodeKind, leaf_kind),
+        label=target.leaf_label() or None,
+        text=text,
+    )
+
+
+def _no_structured_carried_payload(
+    change_el: etree._Element,
+    action: StructuralAction | str,
+    target: LegalAddress,
+    declared_specs: Sequence[tuple[StructuralAction, LegalAddress]],
+) -> Optional[IRNode]:
+    """The declared payload, read from a PROVEN carrier outside the node's own text."""
+    if not declared_specs:
+        return None
+    payload = _no_structured_future_section_payload(change_el, target, declared_specs)
+    if payload is not None:
+        return payload
+    payload = _heading_only_section_payload(change_el, action, target, allow_future_title=True)
+    if payload is not None:
+        return payload
+    payload = _no_structured_future_title_container_payload(change_el, target, declared_specs)
+    if payload is not None:
+        return payload
+    return _no_structured_single_leaf_carrier_payload(change_el, target, declared_specs)
 
 
 def _fallback_payload(
@@ -4082,6 +4346,7 @@ def _fallback_payload(
     target: LegalAddress,
     *,
     undeclared_out: Optional[list[str]] = None,
+    declared_specs: Sequence[tuple[StructuralAction, LegalAddress]] = (),
 ) -> Optional[IRNode]:
     """The change node's own text as a payload — only when the node declares one.
 
@@ -4090,6 +4355,11 @@ def _fallback_payload(
     W-79 refusal signal: ``None`` alone cannot distinguish "this node has no text
     to offer" (always been a silent, payload-free op) from "this node's text is an
     instruction" (the wrong-text class), and only the second refuses.
+
+    ``declared_specs`` is every ``(action, target)`` the change node announces.
+    W-82 needs it because the extent of a payload carrier is provable only
+    against ALL of the node's addresses, not against the one being served; a
+    caller that passes none gets W-79's behaviour unchanged.
     """
     if _no_action_value(action) == "repeal":
         return None
@@ -4105,6 +4375,13 @@ def _fallback_payload(
         return None
     declared = _no_structured_declared_own_payload(text)
     if declared is None:
+        if _no_structured_payload_is_declared(text):
+            # W-82. The node DOES declare a payload; the tail is empty because the
+            # payload is in a sibling structure the flattener steps over. Read it
+            # from a carrier whose extent can be proved, or keep refusing.
+            carried = _no_structured_carried_payload(change_el, action, target, declared_specs)
+            if carried is not None:
+                return carried
         if undeclared_out is not None:
             undeclared_out.append(text)
         return None
@@ -8447,7 +8724,11 @@ def iter_no_document_change_ops(
                     # candidate and must keep lowering.
                     undeclared: list[str] = []
                     payload = _fallback_payload(
-                        change_el, action, target, undeclared_out=undeclared
+                        change_el,
+                        action,
+                        target,
+                        undeclared_out=undeclared,
+                        declared_specs=parsed_specs,
                     )
                     if payload is None and undeclared:
                         _append_no_parse_adjudication(
