@@ -19,9 +19,12 @@ from lawvm.norway.commencement_instruments import (
     parse_no_commencement_instrument,
 )
 from lawvm.norway.grafter import (
+    NOBeriktigetReannouncement,
     iter_no_document_change_ops,
     lovdata_amendment_filename_to_id,
+    no_beriktiget_reannouncement,
     no_part_law_ids,
+    no_superseded_announcement_dates,
 )
 from lawvm.norway.sources import (
     NO_UNRESOLVED_EFFECTIVE_STATUSES,
@@ -47,6 +50,12 @@ NO_ACQUISITION_DUPLICATE_LOGICAL_LOCATOR = "no_acquisition_duplicate_logical_loc
 NO_AMENDMENT_INDEX_STAGED_COMMENCEMENT_COLLAPSED = (
     "no_amendment_index_staged_commencement_collapsed"
 )
+# W-84, the two receipts of the beriktiget/utgått correction lane. Neither
+# supersession is ever silent: a matched pair says so, and an unmatched half says
+# so more loudly, because an unmatched half means the machinery is knowingly
+# replaying (or knowingly ignoring) text Lovdata has flagged.
+NO_BERIKTIGET_ANNOUNCEMENT_PAIRED = "no_beriktiget_announcement_paired"
+NO_BERIKTIGET_ANNOUNCEMENT_UNPAIRED = "no_beriktiget_announcement_unpaired"
 
 
 @dataclass(frozen=True)
@@ -75,6 +84,13 @@ class NOAmendmentIndexEntry:
     # 8 staged acts an instrument re-dates keep ``staged_delegated`` here while
     # their status moves to ``instrument_authorized``.
     commencement_shape: str = NOCommencementShape.PLAIN
+    # W-84. Empty for every entry but the three superseded/rectified pairs. When
+    # set it is the ``no/forskrift/<id>`` of the *beriktiget* re-announcement whose
+    # bytes this entry's ops were lowered from — the entry's ``member_name`` points
+    # at that document, while ``source_id``, ``title`` and every date stay the ACT's.
+    # Both ids on one row is the point: a reader can see that the text replayed for
+    # ``no/lovtid/2021-06-18-129`` was read from ``no/forskrift/2021-06-25-2137``.
+    beriktiget_announcement_id: str = ""
     # W-39. Per-BINDING commencement dates: ``(base law id, ISO date)`` pairs
     # granted by the part-scoped route, sorted by law id. Orthogonal to
     # ``effective_status``/``effective_date``, which stay the act's WHOLE-act
@@ -139,6 +155,7 @@ class NOAmendmentIndex:
                 commencement_shape=coerce_no_commencement_shape(
                     entry.get("commencement_shape") or NOCommencementShape.PLAIN
                 ),
+                beriktiget_announcement_id=str(entry.get("beriktiget_announcement_id", "") or ""),
                 part_scoped_effective_dates=tuple(
                     (str(pair[0]), str(pair[1]))
                     for pair in entry.get("part_scoped_effective_dates", []) or []
@@ -238,6 +255,125 @@ class NOAmendmentIndex:
         }
 
 
+@dataclass(frozen=True)
+class NOBeriktigetPair:
+    """One superseded announcement matched to its rectified re-announcement."""
+
+    reannouncement: NOBeriktigetReannouncement
+    artifact: NOLocatedArtifact
+
+
+def _no_beriktiget_reannouncements(data_dir: Path) -> dict[str, NOBeriktigetPair]:
+    """Index the forskrift lane's rectified re-announcements by the act they announce.
+
+    A pre-pass rather than a second consumer of the commencement loop below,
+    because its answer is needed BEFORE the amendment loop lowers anything: a
+    superseded announcement's ops are never minted and then withdrawn, they are
+    never minted. Cost is one pass over the forskrift lane (~1.5s of a ~45s
+    build); the reader's own byte prefilter is what keeps it that cheap, since
+    35,952 of the 35,955 artifacts are rejected without being parsed.
+
+    Keyed by the ANNOUNCED act. A second re-announcement of the same act would
+    make the key ambiguous, so it is dropped from the map instead of overwriting —
+    the caller then sees no match and refuses the pairing, which is the safe
+    direction. Measured: no act is re-announced twice.
+    """
+    found: dict[str, list[NOBeriktigetPair]] = {}
+    for artifact in iter_no_forskrift_artifacts(data_dir):
+        reannouncement = no_beriktiget_reannouncement(artifact.payload)
+        if reannouncement is None:
+            continue
+        found.setdefault(reannouncement.announced_act_id, []).append(
+            NOBeriktigetPair(reannouncement=reannouncement, artifact=artifact)
+        )
+    return {
+        act_id: pairs[0]
+        for act_id, pairs in found.items()
+        if len(pairs) == 1
+    }
+
+
+def _no_beriktiget_paired_diagnostic(
+    *,
+    artifact: NOLocatedArtifact,
+    pair: NOBeriktigetPair,
+    note_dates: tuple[str, ...],
+    withdrawn_ops: int,
+    admitted_ops: int,
+    base_ids: tuple[str, ...],
+) -> dict[str, Any]:
+    """Receipt the whole-instrument swap of a superseded announcement.
+
+    Non-blocking and dispositioned APPLY: this is not a refusal, it is the
+    correction landing. What it has to preserve is the pair of numbers a reader
+    would otherwise have to reconstruct from two archives — how many ops the
+    superseded announcement used to mint, and how many the rectified one mints in
+    their place. The two are NOT ordered: rectified versions in this corpus both
+    add ops and remove them.
+    """
+    return diagnostic_detail(
+        rule_id=NO_BERIKTIGET_ANNOUNCEMENT_PAIRED,
+        family="source_pathology",
+        phase="acquisition",
+        reason=(
+            "Norway amendment index replaced a superseded (utgått) gazette announcement's "
+            "operations with those of its rectified (beriktiget) re-announcement."
+        ),
+        blocking=False,
+        quirks_disposition=QuirksDisposition.APPLY,
+        source_id=artifact.logical_id,
+        locator=artifact.locator,
+        archive=artifact.source_name,
+        member_name=artifact.member_name,
+        superseded_note_dates=list(note_dates),
+        announcement_id=pair.reannouncement.announcement_id,
+        announcement_locator=pair.artifact.locator,
+        announcement_date=pair.reannouncement.announcement_date,
+        withdrawn_op_count=withdrawn_ops,
+        admitted_op_count=admitted_ops,
+        base_ids=list(base_ids),
+    )
+
+
+def _no_beriktiget_unpaired_diagnostic(
+    *,
+    source_id: str,
+    locator: str,
+    reason: str,
+    detail: dict[str, Any],
+) -> dict[str, Any]:
+    """Receipt a supersession half that found no counterpart.
+
+    THE RULE THIS RECORDS, stated because the corpus does not yet exercise it: a
+    superseded announcement with no matched re-announcement is NOT suppressed. Its
+    ops stand. ``utgått`` says the announcement was superseded; it does not say by
+    what, and it does not say the act was unmade. Dropping the ops on the strength
+    of the mark alone would delete enacted law on no evidence of what replaced it —
+    the same over-application in the opposite direction from the one W-84 fixes.
+    Symmetrically, a rectified re-announcement whose act carries no ``utgått`` mark
+    is NOT admitted: one signal is not the pair, and the forskrift lane stays shut.
+    Either way the machinery is knowingly leaving a flagged document unread, which
+    is exactly the class of silence W-83 spent an audit discovering, so it is
+    blocking: it should surface in the blockers report, not sit in a census.
+    """
+    return diagnostic_detail(
+        rule_id=NO_BERIKTIGET_ANNOUNCEMENT_UNPAIRED,
+        family="source_pathology",
+        phase="acquisition",
+        reason=(
+            "Norway amendment index found one half of a superseded/rectified announcement "
+            "pair without its counterpart; neither suppression nor admission applied."
+        ),
+        blocking=True,
+        strict_disposition="block",
+        quirks_disposition=QuirksDisposition.RECORD,
+        source_id=source_id,
+        locator=locator,
+        unpaired_reason=reason,
+        **detail,
+    )
+
+
 def build_no_amendment_index(data_dir: Optional[Path] = None) -> NOAmendmentIndex:
     data_dir = resolve_no_source_path(data_dir)
     source_meta = no_source_metadata(data_dir)
@@ -262,6 +398,10 @@ def build_no_amendment_index(data_dir: Optional[Path] = None) -> NOAmendmentInde
     )
 
     act_part_evidence: dict[str, NOCommencementActPartEvidence] = {}
+    # W-84. Read before a single amendment is lowered: a superseded announcement's
+    # ops must never enter the stream, not enter it and be taken back out.
+    beriktiget_by_act = _no_beriktiget_reannouncements(data_dir)
+    beriktiget_paired: set[str] = set()
 
     if index.source_kind == "dir":
         for artifact in iter_no_unmapped_lovtidend_xml_members(data_dir):
@@ -288,16 +428,94 @@ def build_no_amendment_index(data_dir: Optional[Path] = None) -> NOAmendmentInde
             continue
         declared = declared_change_targets_from_amendment(artifact.payload)
         parser_adjudications: list[CompileAdjudication] = []
+        # ── W-84: the superseded/rectified swap ──────────────────────────────
+        #
+        # Two of Lovdata's own marks have to agree before anything moves: the act
+        # carries an ``utgått`` gazettenote, and a forskrift-lane document titled
+        # "Kunngjøring av beriktiget versjon av lov …" names THIS act. The note's
+        # date is then required to equal the re-announcement's own publication
+        # date — a free cross-check (the date is already in the forskrift id), and
+        # the one that makes a coincidental title match unable to bind an act.
+        #
+        # The swap is WHOLE-INSTRUMENT: the rectified document re-announces the act
+        # in full, so its ops replace the superseded announcement's wholesale rather
+        # than merging with them. Identity and dates stay the ACT's throughout —
+        # ``source_id``, ``title``, ``declared``, ``effective`` are all still read
+        # off the act — because a *kunngjøring av beriktiget versjon* is a
+        # republication, not a new law. Only the operative TEXT comes from the
+        # rectified bytes. See the dates discussion in the paired receipt.
+        superseded_note_dates = no_superseded_announcement_dates(artifact.payload)
+        pair = beriktiget_by_act.get(source_id) if superseded_note_dates else None
+        if pair is not None and pair.reannouncement.announcement_date not in superseded_note_dates:
+            index.diagnostics.append(
+                _no_beriktiget_unpaired_diagnostic(
+                    source_id=source_id,
+                    locator=artifact.locator,
+                    reason="announcement_date_disagrees_with_note",
+                    detail={
+                        "superseded_note_dates": list(superseded_note_dates),
+                        "announcement_id": pair.reannouncement.announcement_id,
+                        "announcement_date": pair.reannouncement.announcement_date,
+                    },
+                )
+            )
+            pair = None
+        elif superseded_note_dates and pair is None:
+            index.diagnostics.append(
+                _no_beriktiget_unpaired_diagnostic(
+                    source_id=source_id,
+                    locator=artifact.locator,
+                    reason="rectified_reannouncement_absent",
+                    detail={"superseded_note_dates": list(superseded_note_dates)},
+                )
+            )
+        lowered_payload = artifact.payload if pair is None else pair.artifact.payload
         grouped = iter_no_document_change_ops(
-            artifact.payload,
+            lowered_payload,
             source_id,
             adjudications_out=parser_adjudications,
         )
+        if pair is not None:
+            # Conservation, checked against Lovdata's own declaration on the ACT: a
+            # rectified re-announcement of act X may only bind laws X itself
+            # declares it changes. Nothing in the corpus violates this (all three
+            # pairs bind exactly the act's declared set), and a violation would
+            # mean the title match had reached the wrong act — so it refuses the
+            # whole swap rather than landing a partly-trusted op stream.
+            swapped_base_ids = tuple(sorted({base_id for base_id, _ops in grouped}))
+            undeclared = [
+                base_id for base_id in swapped_base_ids if base_id not in declared.law_ids
+            ]
+            if undeclared or not swapped_base_ids:
+                index.diagnostics.append(
+                    _no_beriktiget_unpaired_diagnostic(
+                        source_id=source_id,
+                        locator=artifact.locator,
+                        reason="rectified_bases_not_declared_by_act",
+                        detail={
+                            "superseded_note_dates": list(superseded_note_dates),
+                            "announcement_id": pair.reannouncement.announcement_id,
+                            "rectified_base_ids": list(swapped_base_ids),
+                            "declared_target_ids": list(declared.law_ids),
+                        },
+                    )
+                )
+                pair = None
+                parser_adjudications = []
+                grouped = iter_no_document_change_ops(
+                    artifact.payload,
+                    source_id,
+                    adjudications_out=parser_adjudications,
+                )
         for adjudication in parser_adjudications:
             index.diagnostics.append(
                 _no_index_parser_adjudication_diagnostic(
                     adjudication=adjudication,
-                    artifact=artifact,
+                    # The DOCUMENT the refused prose actually lives in. For a
+                    # swapped entry that is the rectified re-announcement, not the
+                    # act: a reader chasing the receipt back to bytes must land on
+                    # the bytes the parser read.
+                    artifact=artifact if pair is None else pair.artifact,
                 )
             )
         base_ids = tuple(sorted({base_id for base_id, _ops in grouped}))
@@ -350,11 +568,28 @@ def build_no_amendment_index(data_dir: Optional[Path] = None) -> NOAmendmentInde
                     for base_id, ops in grouped
                 },
             )
+        # W-84. A swapped entry points ``archive``/``member_name`` at the rectified
+        # document, which is what makes replay load the corrected bytes: replay
+        # resolves an entry's source through those two fields, not through
+        # ``source_id``. Everything else on the row stays the act's.
+        if pair is not None:
+            beriktiget_paired.add(pair.reannouncement.announcement_id)
+            withdrawn = iter_no_document_change_ops(artifact.payload, source_id)
+            index.diagnostics.append(
+                _no_beriktiget_paired_diagnostic(
+                    artifact=artifact,
+                    pair=pair,
+                    note_dates=superseded_note_dates,
+                    withdrawn_ops=sum(len(ops) for _base_id, ops in withdrawn),
+                    admitted_ops=sum(len(ops) for _base_id, ops in grouped),
+                    base_ids=base_ids,
+                )
+            )
         index.entries.append(
             NOAmendmentIndexEntry(
                 source_id=source_id,
-                archive=artifact.source_name,
-                member_name=artifact.member_name,
+                archive=artifact.source_name if pair is None else pair.artifact.source_name,
+                member_name=artifact.member_name if pair is None else pair.artifact.member_name,
                 effective_status=effective.effective_status,
                 effective_date=effective.effective_date,
                 raw_date_in_force=effective.raw_text,
@@ -363,6 +598,27 @@ def build_no_amendment_index(data_dir: Optional[Path] = None) -> NOAmendmentInde
                 n_ops=sum(len(ops) for _base_id, ops in grouped),
                 declared_target_ids=declared.law_ids,
                 commencement_shape=effective.commencement_shape,
+                beriktiget_announcement_id=(
+                    "" if pair is None else pair.reannouncement.announcement_id
+                ),
+            )
+        )
+
+    # The gate's other half, receipted: a rectified re-announcement whose act
+    # carries no ``utgått`` mark (or which the pairing refused) is NOT admitted,
+    # and the forskrift lane stays shut behind it.
+    for act_id, unpaired in sorted(beriktiget_by_act.items()):
+        if unpaired.reannouncement.announcement_id in beriktiget_paired:
+            continue
+        index.diagnostics.append(
+            _no_beriktiget_unpaired_diagnostic(
+                source_id=unpaired.reannouncement.announcement_id,
+                locator=unpaired.artifact.locator,
+                reason="superseded_announcement_absent",
+                detail={
+                    "announced_act_id": act_id,
+                    "announcement_date": unpaired.reannouncement.announcement_date,
+                },
             )
         )
 

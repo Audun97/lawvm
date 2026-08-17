@@ -108,6 +108,33 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "A Norway amendment index artifact whose member name and locator both "
         "failed to identify an amendment lane is recorded as a skipped acquisition."
     ),
+    "no_beriktiget_announcement_paired": (
+        "A Norwegian gazette announcement Lovdata marked utgått (superseded) was "
+        "matched to the rectified (beriktiget) re-announcement that replaces it, "
+        "and the superseded announcement's operations were withdrawn WHOLE-"
+        "INSTRUMENT in favour of the rectified document's. Identity and dates stay "
+        "the ACT's — a kunngjøring av beriktiget versjon republishes a law, it does "
+        "not enact one — so enacted, effective, commencement gating and the group "
+        "key are unchanged and only the operative text is re-read. The receipt "
+        "carries both document ids and both op counts. W-84."
+    ),
+    "no_beriktiget_announcement_unpaired": (
+        "One half of a superseded/rectified announcement pair was found without its "
+        "counterpart, and NEITHER suppression nor admission applied. An utgått mark "
+        "says an announcement was superseded, not by what, so its ops stand; a "
+        "beriktiget re-announcement whose act carries no utgått mark is not admitted, "
+        "so the forskrift lane stays shut. Blocking, because either case means a "
+        "document Lovdata flagged is knowingly left unread. W-84."
+    ),
+    "no_beriktiget_reannouncement_lowered": (
+        "The lowered operations came from a rectified (beriktiget) re-announcement "
+        "filed in the forskrift lane rather than from the act's own superseded "
+        "announcement; every op carries the re-announcement's id in provenance so "
+        "the op stream records both the enacting act and the document its text was "
+        "read from. Admission is gated on Lovdata's own marks — the beriktiget title "
+        "naming exactly one act, a changesToDocuments declaration, and a matching "
+        "utgått mark on that act — never on the forskrift lane being open. W-84."
+    ),
     "no_current_law_id_parse_marker_fallback_used": (
         "Norway current-law statute id parsing fell back to a marker-bearing "
         "fallback path after the canonical parse failed but operative content is "

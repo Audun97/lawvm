@@ -15,9 +15,15 @@ from lawvm.norway.commencement_instruments import (
     NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_DATE_CONFLICT,
     NOCommencementWidenedWholeActAuthorizationConjunct,
 )
+from lawvm.norway.grafter import (
+    NO_BERIKTIGET_PROVENANCE_TAG,
+    iter_no_document_change_ops,
+)
 from lawvm.norway.index import (
     NO_ACQUISITION_DUPLICATE_LOGICAL_LOCATOR,
     NO_AMENDMENT_INDEX_STAGED_COMMENCEMENT_COLLAPSED,
+    NO_BERIKTIGET_ANNOUNCEMENT_PAIRED,
+    NO_BERIKTIGET_ANNOUNCEMENT_UNPAIRED,
     NOAmendmentIndex,
     build_no_amendment_index,
     load_no_amendment_index,
@@ -29,6 +35,7 @@ from lawvm.norway.sources import (
     NOLocatedArtifact,
     declared_change_targets_from_amendment,
     load_available_lti_law_ids,
+    load_no_amendment_artifact_bytes,
     load_no_current_law_ids,
     parse_header_value,
     resolve_no_source_path,
@@ -2363,7 +2370,24 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # ``no_parse_structured_payload_not_declared`` 149 -> 114 — and the 83
     # instruction-prose refusals are byte-identical in kind and count.
     # Unstructured refusals hold at 7,853.
-    assert sum(entry.n_ops for entry in index.entries) == 29111
+    # 29,111 -> 29,115 at W-84 (+4 NET, and the net is the least interesting part
+    # of it): three superseded (``utgått``) gazette announcements have their whole
+    # op stream WITHDRAWN — 34 ops — and their rectified (``beriktiget``)
+    # re-announcements' 38 take its place. -34 +38, 0 strays and 0 lost, all six
+    # counts frozen before any production code was written:
+    #   * ``2021-06-11-80`` 12 -> 13 via ``forskrift/2021-06-25-2136`` (+1: a
+    #     friskolelova § 1-2 tredje ledd REPLACE the first announcement omitted);
+    #   * ``2021-06-18-129``  3 ->  2 via ``forskrift/2021-06-25-2137`` (-1: the
+    #     klimaloven § 6 annet ledd bokstav e INSERT, never enacted — W-83);
+    #   * ``2024-03-15-10`` 19 -> 23 via ``forskrift/2024-08-15-1960`` (+4: the
+    #     yrkestransportlova § 9 ledd renumber the first announcement omitted).
+    # Of the 34 withdrawn ops 33 return byte-identical but for the new
+    # ``beriktiget_announcement:`` provenance tag; the SUBSTANTIVE delta is 1 op
+    # out and 5 in. Index entries hold at 2,577, bindings at 6,562, declared
+    # targets at 7,887, and unstructured refusals at 7,853 (five of them move from
+    # the act's locator to the rectified document's, which is where the refused
+    # prose now lives).
+    assert sum(entry.n_ops for entry in index.entries) == 29115
 
 
 def test_no_amendment_index_staleness_report_detects_archive_change(tmp_path) -> None:
@@ -2525,3 +2549,404 @@ def test_corpus_consolidation_snapshot_date_reproduces_the_fallback_constant() -
         no_consolidation_snapshot_date(data_dir)
         == NO_FALLBACK_CONSOLIDATION_SNAPSHOT_DATE
     )
+
+
+# ── W-84: the beriktiget / utgått correction lane ────────────────────────────
+#
+# Lovdata supersedes a gazette announcement by marking it ``utgått`` and
+# publishing a rectified re-announcement in the FORSKRIFT lane. Both marks are
+# machine-written; neither alone moves anything. The fixtures below are the
+# smallest documents that carry each mark, so every conjunct of the gate can be
+# removed one at a time and its removal observed.
+
+_BERIKTIGET_TITLE = (
+    "Kunngjøring av beriktiget versjon av lov 2. februar 2025 nr. 5 om endringer i noe"
+)
+
+
+def _declared_section_change(law_ref: str, section: str, text: str) -> str:
+    """One structured section replacement whose payload is DECLARED (W-79)."""
+    return f"""<article class="change" data-change-part="{law_ref}/§{section}">
+        <article class="futureLegalArticle" data-name="§{section}">
+          <span class="futureLegalArticleHeader">
+            <span class="legalArticleValue">§ {section}</span>.
+            <span class="legalArticleTitle">Tittel {section}</span>
+          </span>
+          <article class="legalP">{text}</article>
+        </article>
+      </article>"""
+
+
+def _superseded_amendment_xml(note_date: str = "2025-03-01") -> bytes:
+    """The act's own announcement, marked ``utgått`` on ``note_date``.
+
+    The mark wraps the trailing commencement Del, which is where Lovdata puts it
+    in all three corpus cases, and the operative Del I sits OUTSIDE it — so a
+    part-scoped reading of the mark would suppress nothing that matters. The
+    ``§ 2`` op below is the one this announcement gets wrong.
+    """
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="dateInForce">2025-02-10</dd>
+    <dd class="title">Lov om endringer i noe</dd>
+    <dd class="changesToDocuments"><ul><li>lov/2025-01-01-1</li></ul></dd>
+    <article class="document-change" data-document="lov/2025-01-01-1">
+      {_declared_section_change("lov/2025-01-01-1", "1", "Paragraf 1 slik den ble kunngjort.")}
+      {_declared_section_change("lov/2025-01-01-1", "2", "Paragraf 2 som aldri ble vedtatt.")}
+    </article>
+    <article class="gazettenote" data-gazette-note-date="{note_date}"
+             data-gazette-note-type="utgått">
+      <article class="legalP">Loven trer i kraft straks.</article>
+    </article>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def _rectified_reannouncement_xml(
+    *,
+    title: str = _BERIKTIGET_TITLE,
+    dokid: str = "LTI/forskrift/2025-03-01-100",
+    declared: str = "lov/2025-01-01-1",
+    changed_document: str = "lov/2025-01-01-1",
+) -> bytes:
+    """The rectified re-announcement, as Lovdata files it in the forskrift lane."""
+    declaration = (
+        f"""<dd class="changesToDocuments"><ul><li>{declared}</li></ul></dd>"""
+        if declared
+        else ""
+    )
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="dokid">{dokid}</dd>
+    <dd class="dateInForce">2025-03-01</dd>
+    <dd class="title">{title}</dd>
+    {declaration}
+    <article class="document-change" data-document="{changed_document}">
+      {_declared_section_change(changed_document, "1", "Paragraf 1 slik den ble kunngjort.")}
+      {_declared_section_change(changed_document, "3", "Paragraf 3, den beriktede teksten.")}
+    </article>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def _write_beriktiget_corpus(tmp_path, **kwargs) -> None:
+    members = [
+        (
+            "lti/2025/nl-20250202-005.xml",
+            _superseded_amendment_xml(note_date=kwargs.pop("note_date", "2025-03-01")),
+        )
+    ]
+    if kwargs.pop("with_reannouncement", True):
+        members.append(
+            ("lti/2025/sf-20250301-0100.xml", _rectified_reannouncement_xml(**kwargs))
+        )
+    _write_archive(tmp_path / "lovtidend-avd1-2025.tar.bz2", members)
+
+
+def _unpaired_receipts(index: NOAmendmentIndex) -> list[dict[str, Any]]:
+    return [
+        diagnostic
+        for diagnostic in index.diagnostics
+        if diagnostic["rule_id"] == NO_BERIKTIGET_ANNOUNCEMENT_UNPAIRED
+    ]
+
+
+def _paired_receipts(index: NOAmendmentIndex) -> list[dict[str, Any]]:
+    return [
+        diagnostic
+        for diagnostic in index.diagnostics
+        if diagnostic["rule_id"] == NO_BERIKTIGET_ANNOUNCEMENT_PAIRED
+    ]
+
+
+def test_beriktiget_reannouncement_replaces_the_superseded_announcement(tmp_path) -> None:
+    """The pair mechanism, end to end: whole-instrument swap, act identity kept.
+
+    The two ops the superseded announcement minted are withdrawn WHOLESALE — not
+    merged with, not diffed against — and the rectified document's two take their
+    place, one of which (``§ 3``) the superseded announcement never carried and one
+    of which (``§ 2``) it carried and the rectification drops.
+    """
+    _write_beriktiget_corpus(tmp_path)
+
+    index = build_no_amendment_index(tmp_path)
+
+    assert len(index.entries) == 1
+    entry = index.entries[0]
+    # Identity is the ACT's: a kunngjøring av beriktiget versjon republishes a
+    # law, it does not enact one.
+    assert entry.source_id == "no/lovtid/2025-02-02-5"
+    assert entry.title == "Lov om endringer i noe"
+    assert entry.declared_target_ids == ("no/lov/2025-01-01-1",)
+    # The bytes are the re-announcement's, and the entry says so twice: once where
+    # replay reads it (``member_name``) and once where a reader does.
+    assert entry.member_name == "lti/2025/sf-20250301-0100.xml"
+    assert entry.beriktiget_announcement_id == "no/forskrift/2025-03-01-100"
+    assert entry.n_ops == 2
+
+    receipts = _paired_receipts(index)
+    assert len(receipts) == 1
+    assert receipts[0]["source_id"] == "no/lovtid/2025-02-02-5"
+    assert receipts[0]["announcement_id"] == "no/forskrift/2025-03-01-100"
+    assert receipts[0]["withdrawn_op_count"] == 2
+    assert receipts[0]["admitted_op_count"] == 2
+    assert receipts[0]["superseded_note_dates"] == ["2025-03-01"]
+    assert receipts[0]["blocking"] is False
+    assert _unpaired_receipts(index) == []
+
+
+def test_beriktiget_swap_carries_the_acts_own_dates_not_the_reannouncements(tmp_path) -> None:
+    """Dates and gating are the ACT's, and the swap does not touch them.
+
+    The rectified document is published on 2025-03-01 and says so in its own
+    ``dateInForce``. If the swap took the re-announcement's date, every op would
+    move three weeks later, the commencement gate would see a different act, and
+    the kernel's ``(effective, enacted, source_id)`` group key would change.
+    """
+    _write_beriktiget_corpus(tmp_path)
+
+    entry = build_no_amendment_index(tmp_path).entries[0]
+
+    assert entry.effective_status == "dated"
+    assert entry.effective_date == "2025-02-10"
+    assert entry.raw_date_in_force == "2025-02-10"
+
+
+def test_beriktiget_swap_transfers_a_contingent_acts_gating(tmp_path) -> None:
+    """A contingent act stays contingent through the swap.
+
+    The corpus case is ``no/lovtid/2021-06-11-80`` (``Kongen fastset``): its
+    rectified ops must inherit the act's unresolved commencement, not become
+    replayable because the re-announcement carries a plain date.
+    """
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [
+            (
+                "lti/2025/nl-20250202-005.xml",
+                _superseded_amendment_xml().replace(
+                    b'<dd class="dateInForce">2025-02-10</dd>',
+                    b'<dd class="dateInForce">Kongen bestemmer</dd>',
+                ),
+            ),
+            ("lti/2025/sf-20250301-0100.xml", _rectified_reannouncement_xml()),
+        ],
+    )
+
+    entry = build_no_amendment_index(tmp_path).entries[0]
+
+    assert entry.beriktiget_announcement_id == "no/forskrift/2025-03-01-100"
+    assert entry.effective_status == "contingent"
+    assert entry.effective_date is None
+
+
+def test_beriktiget_ops_carry_both_document_ids(tmp_path) -> None:
+    """Provenance honesty: the op names the act AND the document it was read from."""
+    _write_beriktiget_corpus(tmp_path)
+    index = build_no_amendment_index(tmp_path)
+    entry = index.entries[0]
+
+    payload = load_no_amendment_artifact_bytes(
+        entry.source_id, entry.archive, entry.member_name, tmp_path
+    )
+    assert payload is not None
+    groups = iter_no_document_change_ops(payload, entry.source_id)
+    ops = [op for _base_id, base_ops in groups for op in base_ops]
+    assert ops, "the rectified document must lower"
+    for op in ops:
+        # The enacting instrument.
+        assert op.op_id.startswith("no/lovtid/2025-02-02-5:")
+        assert op.source is not None and op.source.statute_id == "no/lovtid/2025-02-02-5"
+        # The document the corrected text was published in.
+        assert (
+            f"{NO_BERIKTIGET_PROVENANCE_TAG}:no/forskrift/2025-03-01-100"
+            in op.provenance_tags
+        )
+
+
+def test_utgatt_without_a_rectified_reannouncement_suppresses_nothing(tmp_path) -> None:
+    """THE RULE for a superseded announcement with no counterpart: ops stand.
+
+    Not exercised by the corpus — all three ``utgått`` acts are matched — but the
+    rule has to be stated somewhere executable, because the alternative reading
+    (``utgått`` alone licenses suppression) would delete enacted law on evidence
+    that says only that an announcement was superseded, never by what.
+    """
+    _write_beriktiget_corpus(tmp_path, with_reannouncement=False)
+
+    index = build_no_amendment_index(tmp_path)
+
+    entry = index.entries[0]
+    assert entry.beriktiget_announcement_id == ""
+    assert entry.member_name == "lti/2025/nl-20250202-005.xml"
+    assert entry.n_ops == 2
+    receipts = _unpaired_receipts(index)
+    assert len(receipts) == 1
+    assert receipts[0]["unpaired_reason"] == "rectified_reannouncement_absent"
+    assert receipts[0]["blocking"] is True
+    assert _paired_receipts(index) == []
+
+
+def test_forskrift_lane_document_without_the_beriktiget_title_is_not_admitted(tmp_path) -> None:
+    """The gate's counterexample: a declaration alone does not open the lane.
+
+    Thousands of forskrift artifacts carry change declarations of one kind or
+    another. This one declares the same law as the beriktiget instrument and
+    amends it in the same grammar; only the title differs, and that is the whole
+    difference between an admitted document and an ignored one.
+    """
+    _write_beriktiget_corpus(tmp_path, title="Forskrift om endring i noe")
+
+    index = build_no_amendment_index(tmp_path)
+
+    entry = index.entries[0]
+    assert entry.beriktiget_announcement_id == ""
+    assert entry.member_name == "lti/2025/nl-20250202-005.xml"
+    assert entry.n_ops == 2
+    assert [r["unpaired_reason"] for r in _unpaired_receipts(index)] == [
+        "rectified_reannouncement_absent"
+    ]
+
+
+def test_beriktiget_reannouncement_without_a_declaration_is_not_admitted(tmp_path) -> None:
+    """The gate's second conjunct: the title alone does not open the lane either."""
+    _write_beriktiget_corpus(tmp_path, declared="")
+
+    index = build_no_amendment_index(tmp_path)
+
+    assert index.entries[0].beriktiget_announcement_id == ""
+    assert index.entries[0].n_ops == 2
+    assert [r["unpaired_reason"] for r in _unpaired_receipts(index)] == [
+        "rectified_reannouncement_absent"
+    ]
+
+
+def test_beriktiget_reannouncement_whose_act_is_not_utgatt_is_not_admitted(tmp_path) -> None:
+    """One mark is not the pair, in the other direction.
+
+    A rectified re-announcement naming an act our amendment lane holds UNMARKED
+    is refused, and refused LOUDLY: it is the shape that would mean Lovdata
+    published a correction we cannot see, which is exactly the silence W-83 spent
+    an audit discovering.
+    """
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [
+            (
+                "lti/2025/nl-20250202-005.xml",
+                _superseded_amendment_xml().replace(
+                    "utgått".encode("utf-8"), b"rettelse"
+                ),
+            ),
+            ("lti/2025/sf-20250301-0100.xml", _rectified_reannouncement_xml()),
+        ],
+    )
+
+    index = build_no_amendment_index(tmp_path)
+
+    assert index.entries[0].beriktiget_announcement_id == ""
+    assert index.entries[0].n_ops == 2
+    receipts = _unpaired_receipts(index)
+    assert len(receipts) == 1
+    assert receipts[0]["unpaired_reason"] == "superseded_announcement_absent"
+    assert receipts[0]["source_id"] == "no/forskrift/2025-03-01-100"
+    assert receipts[0]["announced_act_id"] == "no/lovtid/2025-02-02-5"
+
+
+def test_beriktiget_pairing_refuses_when_the_note_date_disagrees(tmp_path) -> None:
+    """The free cross-check: the ``utgått`` date must be the re-announcement's own.
+
+    Both corpus signals carry a date, and they agree in all three pairs
+    (2021-06-25 / 2021-06-25 / 2024-08-15). Requiring the agreement costs no extra
+    parse — the date is already in the forskrift id — and it is what stops a
+    coincidental title match from binding an act.
+    """
+    _write_beriktiget_corpus(tmp_path, note_date="2024-12-24")
+
+    index = build_no_amendment_index(tmp_path)
+
+    assert index.entries[0].beriktiget_announcement_id == ""
+    assert index.entries[0].n_ops == 2
+    assert [r["unpaired_reason"] for r in _unpaired_receipts(index)] == [
+        "announcement_date_disagrees_with_note",
+        "superseded_announcement_absent",
+    ]
+
+
+def test_beriktiget_pairing_refuses_bases_the_act_never_declared(tmp_path) -> None:
+    """Conservation: the rectified ops may only bind laws the ACT declares.
+
+    A rectification republishes the act; it cannot reach a law the act never said
+    it changed. When it appears to, the title match has reached the wrong act, and
+    the whole swap is refused rather than a partly-trusted op stream landed.
+    """
+    _write_beriktiget_corpus(tmp_path, changed_document="lov/1999-09-09-9")
+
+    index = build_no_amendment_index(tmp_path)
+
+    entry = index.entries[0]
+    assert entry.beriktiget_announcement_id == ""
+    assert entry.base_ids == ("no/lov/2025-01-01-1",)
+    assert entry.n_ops == 2
+    receipts = _unpaired_receipts(index)
+    assert receipts[0]["unpaired_reason"] == "rectified_bases_not_declared_by_act"
+    assert receipts[0]["rectified_base_ids"] == ["no/lov/1999-09-09-9"]
+
+
+def test_corpus_beriktiget_population_is_exactly_three_pairs() -> None:
+    """W-84's population, asserted against the corpus rather than the W-83 census.
+
+    Three facts have to hold together, and each one is a different way for this
+    lane to be wrong. The population is EXACTLY three pairs (a fourth would mean
+    the gate over-fires); every pair is MATCHED (an unpaired half would mean a
+    correction we can see and are not acting on); and the swap is not uniformly
+    subtractive — 12→13, 3→2, 19→23 — which is why no deletion rule could have
+    stood in for reading the rectified documents.
+    """
+    data_dir = resolve_no_source_path(None)
+    if not data_dir.exists():
+        pytest.skip("local Norway corpus is not installed")
+    index = build_no_amendment_index(data_dir)
+    if not index.entries:
+        pytest.skip("local Norway corpus is not installed")
+
+    swapped = {
+        entry.source_id: entry
+        for entry in index.entries
+        if entry.beriktiget_announcement_id
+    }
+    assert {
+        source_id: entry.beriktiget_announcement_id for source_id, entry in swapped.items()
+    } == {
+        "no/lovtid/2021-06-11-80": "no/forskrift/2021-06-25-2136",
+        "no/lovtid/2021-06-18-129": "no/forskrift/2021-06-25-2137",
+        "no/lovtid/2024-03-15-10": "no/forskrift/2024-08-15-1960",
+    }
+    # Dates and gating stay the ACTS' — one contingent, one plain-dated, one
+    # re-dated by its own commencement instrument. None of the three is
+    # 2021-06-25 or 2024-08-15, which is what a re-announcement-dated swap
+    # would have produced.
+    assert {
+        source_id: (entry.effective_status, entry.effective_date)
+        for source_id, entry in swapped.items()
+    } == {
+        "no/lovtid/2021-06-11-80": ("contingent", None),
+        "no/lovtid/2021-06-18-129": ("dated", "2021-06-18"),
+        "no/lovtid/2024-03-15-10": ("instrument_authorized", "2024-09-01"),
+    }
+    paired = _paired_receipts(index)
+    assert len(paired) == 3
+    assert {
+        receipt["source_id"]: (receipt["withdrawn_op_count"], receipt["admitted_op_count"])
+        for receipt in paired
+    } == {
+        "no/lovtid/2021-06-11-80": (12, 13),
+        "no/lovtid/2021-06-18-129": (3, 2),
+        "no/lovtid/2024-03-15-10": (19, 23),
+    }
+    # Both halves of every pair accounted for: nothing flagged and unread.
+    assert _unpaired_receipts(index) == []

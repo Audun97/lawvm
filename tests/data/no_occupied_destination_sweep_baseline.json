@@ -2,7 +2,7 @@
  "_doc": "Corpus-wide (RENUMBER, dest_occupied) firing sweep + the known-incomplete-base destructive-write census, over EVERY Norway base law. Cached because the sweep is ~10 CPU-minutes and the norway shard is not. `corpus` and `code` are the staleness receipt: tests/test_no_renumber_migration.py recomputes both and FAILS when either moved, rather than passing on a stale measurement. Regenerate with `uv run python scripts/inventory_no_occupied_destination_sweep.py --update-baseline`. NOTE: this file is a RECEIPT of what the corpus does, never a statement of what it should do -- a new firing row here is an unadjudicated firing, and it must be adjudicated W-54 style before the verdict table in the test is extended.",
  "as_of": "2026-07-10",
  "code": {
-  "digest": "573e849cb198eb540ef6e6e301abc4e4d50314dd52ec11ae0891c02e850b2620",
+  "digest": "da73a64b38a3c10531424d465b4efb643d7b86f2a57b7c423442424a31772aff",
   "files": [
    {
     "digest": "e3c727b378ae497fa2fc65a174f837dff2a8417dd458378ac22af35d4bf339fb",
@@ -269,11 +269,11 @@
     "module": "lawvm.norway.commencement_instruments"
    },
    {
-    "digest": "96cef25c42039c9a7bc412d61220ec92f8c4f1433e94fdcf212b01ac42385eaf",
+    "digest": "d03e1484815e50ea574f23632f153378ce6b126377053ded21eb7da52ca9a351",
     "module": "lawvm.norway.grafter"
    },
    {
-    "digest": "ad7611b513b602365f9504108f8a8973e4c267112cca5443a8b12d7b0086ab00",
+    "digest": "c6ecf34430ea7caa20e33a50ef11161710d941a6ae3f7a5eb44b406b10e9272b",
     "module": "lawvm.norway.index"
    },
    {
@@ -456,7 +456,7 @@
    "unknown_effective": 1
   },
   "hazard_content_removing_writes": 198,
-  "hazard_destructive_writes": 3850,
+  "hazard_destructive_writes": 3853,
   "incomplete_bases": 201,
   "laws": {
    "no/lov/2001-04-20-13": [
@@ -524,7 +524,7 @@
     2
    ],
    "no/lov/2002-06-21-45": [
-    66,
+    69,
     2
    ],
    "no/lov/2002-06-28-57": [
@@ -1116,7 +1116,7 @@
     0
    ]
   },
-  "laws_digest": "79ea0fe07dadcd4ff79d2ac9e69fbfb0be323622530ebdfffbdc9be19e16a39f"
+  "laws_digest": "0ae18d5f8444e10016ea6ac3c9cfb1deca8e12c84fa21e02e8bfa02ff6365efa"
  },
  "rule_id": "no_replay_renumber_occupied_destination_removed",
  "runtime": {

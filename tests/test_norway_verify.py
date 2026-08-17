@@ -2668,8 +2668,17 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     #   * candidates 76 -> 75  (-2010-06-04-21, -2011-06-24-39, +2009-05-15-28)
     #   * divergent  47 -> 46  (the two leavers were both divergent; the entrant
     #     is too), consistent unmoved at 29, error unmoved at 0.
+    # W-84 (2026-08-17). 75 candidates UNMOVED, and 29/46 -> 30/45: exactly one
+    # law changes verdict, ``no/lov/2017-06-16-60``, and it changes because its
+    # single divergent row was never law. The 2021 act's FIRST announcement
+    # commanded "§ 6 annet ledd ny bokstav e skal lyde: …"; Lovdata marked that
+    # announcement ``utgått`` nine days later and re-announced the act in a
+    # rectified version carrying no such command. Reading the rectified document
+    # withdraws the write, klimaloven's ``CONSOLIDATED_MISSING`` row at
+    # § 7 andre ledd bokstav e closes, and the law leaves `replay_defect` for
+    # `consistent` at 0 rows. No other candidate's rows move.
     assert report["scanned_count"] == 75
-    assert report["summary"] == {"consistent": 29, "divergent": 46, "error": 0}
+    assert report["summary"] == {"consistent": 30, "divergent": 45, "error": 0}
     # W-67 + W-74 (2026-08-11). The first landing in this series that moves the
     # scoreboard by CLOSING rows rather than by admitting laws: the candidate set
     # is unmoved at 76 element for element, the summary is unmoved at 29/47/0, and
@@ -2863,7 +2872,16 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # -2 -3 -3 = -8. Lowering the "Noverande § X blir § Y" relabel is the sized
     # follow-up that would close the two remaining pairs; refusing the wrong text
     # is what this item is for, and it does not wait on that.
-    assert report["divergence_totals"] == {"total": 1455, "ceiling": 1011, "unexplained": 444}
+    #
+    # W-84 (2026-08-17). Total and unexplained both fall by ONE, the CEILING is
+    # untouched at 1,011 for the seventeenth landing running, and the candidate
+    # set is unmoved at 75. The -1 is a single row on a single law and it is the
+    # first row in this series closed by reading a document Lovdata published and
+    # we were not looking at: ``no/lov/2017-06-16-60``'s ``CONSOLIDATED_MISSING``
+    # at § 7 andre ledd bokstav e, the row W-77 opened and W-83 adjudicated. The
+    # bokstav was never enacted, the consolidation was right, and the write is
+    # withdrawn at its source rather than explained away. No other row moves.
+    assert report["divergence_totals"] == {"total": 1454, "ceiling": 1011, "unexplained": 443}
     # 3 -> 2 at W-34: no/lov/2001-01-05-1 gains 4 bound ops from
     # no/lovtid/2015-06-19-65 item 178, so its indexed history is no longer
     # sparse. Its 83 divergences do not move; only the bucket does.
@@ -2934,7 +2952,12 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             # as W-67+W-74's `2010-06-04-21` move.
             # W-77: ARRIVES from `consistent`. See the note at the head of this
             # bucket.
-            "no/lov/2017-06-16-60",
+            # W-84: and LEAVES again, back to `consistent` with ZERO rows,
+            # closing the loop W-77 opened. The bokstav the 2021 act's first
+            # announcement commanded was never enacted — Lovdata superseded that
+            # announcement and re-announced the act without it — so withdrawing
+            # the write is not explaining a divergence away, it is the write
+            # ceasing to exist. See the note at the head of this bucket.
             "no/lov/2019-06-14-21",
             "no/lov/2019-06-21-63",
             "no/lov/2019-12-20-109",
@@ -3067,6 +3090,8 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             # W-77: ``no/lov/2004-03-26-17`` ENTERS here from `replay_defect` and
             # ``no/lov/2017-06-16-60`` LEAVES for it. See the note on the
             # `replay_defect` bucket above.
+            # W-84: ``no/lov/2017-06-16-60`` RETURNS here at 0 rows and is the
+            # only membership change in the whole partition.
             "no/lov/2001-01-05-1",
             "no/lov/2004-03-26-17",
             "no/lov/2004-05-14-25",
@@ -3077,6 +3102,7 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             "no/lov/2013-06-07-31",
             "no/lov/2016-12-16-92",
             "no/lov/2017-04-28-23",
+            "no/lov/2017-06-16-60",
             "no/lov/2018-06-15-44",
             "no/lov/2019-06-21-70",
             "no/lov/2020-05-07-38",

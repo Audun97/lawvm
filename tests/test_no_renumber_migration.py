@@ -1679,7 +1679,25 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # (198 over 77 laws), for the same reason again: a REPLACE records
     # ``replaced_paths`` and never ``removed_paths``. Corpus-wide content-removing
     # writes hold at 240.
-    "hazard_destructive_writes": 3850,
+    #
+    # 3,850 -> 3,853 at W-84 (+3), and the +3 hides a REPAIR. ONE row moves,
+    # ``no/lov/2002-06-21-45`` [66, 2] -> [69, 2], and the arithmetic is +4 -1:
+    # the rectified re-announcement of ``no/lovtid/2024-03-15-10`` carries a
+    # renumber sentence the superseded announcement OMITTED ("Nåværende andre til
+    # femte ledd blir nye § 9 tredje til sjette ledd."), which lowers to four
+    # RENUMBERs — destructive by this census's definition because a renumber moves
+    # existing content — while the act's INSERT of § 9's new second ledd stops
+    # being destructive, because it now arrives at a slot the shift genuinely
+    # vacated instead of recovering onto the live occupant.
+    # That recovery is what the omission cost: at base the INSERT replaced
+    # yrkestransportlova § 9 andre ledd (the ``miljøskadeleg utslepp`` provision)
+    # and the ledd was GONE from the replayed law. Post, § 9 carries six ledd in
+    # the order Lovdata's own consolidation carries them, the destroyed provision
+    # back at (3). The content-removing column does not move, on this row (2) or
+    # corpus-wide (198 over 77 laws): a RENUMBER moves content and never removes
+    # it, and the withdrawn write was a REPLACE, which records ``replaced_paths``.
+    # Corpus-wide content-removing writes hold at 240.
+    "hazard_destructive_writes": 3853,
     # 167 -> 168, and the +1 is NOT a relabel op. ``no/lov/2016-05-27-14`` gains
     # ``no/lovtid/2021-12-22-158:1``, a REPEAL of § 7-6 annet ledd that could not
     # bind before because that law's ledd sequence was one slot out of step; with
@@ -1768,7 +1786,13 @@ _NO_INCOMPLETE_BASE_HAZARD_LAWS_DIGEST = (
     # the other 32 recovered ops are inert at ``as_of`` (contingent skips, base
     # acts with no original-act source, or a target that refuses typed at replay).
     # See the count note above.
-    "79ea0fe07dadcd4ff79d2ac9e69fbfb0be323622530ebdfffbdc9be19e16a39f"
+    # W-84: MEMBERSHIP UNCHANGED (164 laws, same set, both set differences
+    # empty). ONE row moves, and only in the destructive column:
+    # ``no/lov/2002-06-21-45`` [66, 2] -> [69, 2]. It is the only law in the
+    # corpus whose replayed tree moves under W-84 in this direction — klimaloven
+    # moves too, but by LOSING a write, which no row here records. See the count
+    # note above for the +4/-1 underneath the +3.
+    "0ae18d5f8444e10016ea6ac3c9cfb1deca8e12c84fa21e02e8bfa02ff6365efa"
 )
 
 _REGENERATE = (

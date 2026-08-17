@@ -5,6 +5,9 @@ import io
 import json
 import tarfile
 
+import pytest
+
+from lawvm.core.ir_helpers import irnode_to_text
 from lawvm.core.semantic_types import IRNodeKind
 from lawvm.core.evidence_contracts import validate_corpus_finding_evidence_row
 from lawvm.norway.index import (
@@ -1199,3 +1202,71 @@ def test_replay_no_single_amendment_heading_groups_emit_no_fold_receipt(tmp_path
     groups = _heading_group_chapters(result)
     assert [group.label for group in groups] == ["9-1"]
     assert [child.label for child in groups[0].children if child.kind is IRNodeKind.SECTION] == ["2-1", "2-2"]
+
+
+def _no_farchive_path():
+    from lawvm.norway.sources import is_no_farchive_path, resolve_no_source_path
+
+    path = resolve_no_source_path(None)
+    return path if path.exists() and is_no_farchive_path(path) else None
+
+
+_NO_FARCHIVE_PATH = _no_farchive_path()
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_w84_klimaloven_carries_no_never_enacted_bokstav() -> None:
+    """W-84's end state on the law W-83 audited, asserted on the tree itself.
+
+    The scan pin in ``tests/test_norway_verify.py`` says the divergence row
+    closes; this says WHAT closed it, in the only terms that matter — the
+    provision is not in the replayed law, because it was never in the law.
+
+    The history: ``no/lovtid/2021-06-18-129`` as first announced commanded "§ 6
+    annet ledd ny bokstav e skal lyde: … trepartssamarbeid …". Lovdata marked
+    that announcement ``utgått`` on 2021-06-25 and published
+    ``no://forskrift/2021-06-25-2137``, a rectified re-announcement of the same
+    act amending ONLY §§ 3 and 4. A later act's renumber carried the phantom
+    bokstav from § 6 to § 7, which is where W-77 first saw it.
+
+    Replayed the DAY AFTER the act, so the assertion is about this act's own
+    effect and nothing else's: at 2026-07-10 a 2025 act has since rewritten § 3
+    and renumbered §§ 4–7, and the phantom would be reported at a third address.
+
+    RETROACTIVE-TOTAL, and this date is where that shows: the rectified text is
+    live from the ACT's own commencement (2021-06-18), not from the
+    re-announcement's (2021-06-25). Both halves are asserted, because a
+    suppression that also lost the act's REAL amendments would pass a "bokstav e
+    is gone" check on its own.
+    """
+    result = replay_no_to_pit(
+        "no/lov/2017-06-16-60", as_of="2021-06-19", data_dir=_NO_FARCHIVE_PATH
+    )
+
+    assert result.error is None
+    assert result.replayed is not None
+    assert "no/lovtid/2021-06-18-129" in result.amendments_applied
+    texts = [
+        irnode_to_text(node)
+        for node in _walk_no_nodes(result.replayed.body)
+    ]
+    # The never-enacted provision, gone — matched on its own words rather than on
+    # an address, so a future relabel cannot hide it from this test.
+    assert not [text for text in texts if "trepartssamarbeid" in text]
+    # The act's two real amendments, landed at the act's own date.
+    joined = " ".join(texts)
+    assert "reduseres med minst 50 og opp mot 55 prosent" in joined
+    assert "i størrelsesorden 90 til 95 prosent" in joined
+    # And the op stream says where the surviving text was read from.
+    assert [
+        a.kind for a in result.adjudications if a.kind.startswith("no_beriktiget")
+    ] == ["no_beriktiget_reannouncement_lowered"]
+
+
+def _walk_no_nodes(node):
+    yield node
+    for child in getattr(node, "children", ()) or ():
+        yield from _walk_no_nodes(child)

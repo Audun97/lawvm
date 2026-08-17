@@ -86,6 +86,13 @@ NO_PARSE_STRUCTURED_TARGET_REBOUND_FROM_LEAD = "no_parse_structured_target_rebou
 NO_PARSE_ACTION_RECOVERED_FROM_STRUCTURED_LEAD = "no_parse_action_recovered_from_structured_lead"
 NO_RETTELSE_LOWERED = "no_rettelse_lowered"
 NO_RETTELSE_NOT_LOWERED = "no_rettelse_not_lowered"
+NO_BERIKTIGET_REANNOUNCEMENT_LOWERED = "no_beriktiget_reannouncement_lowered"
+# W-84 PROVENANCE TAG prefix. Stamped on every op lowered out of a *beriktiget*
+# (rectified) re-announcement so the op stream records BOTH ids: ``op.source``
+# and ``op_id`` carry the ACT that enacted the text (the re-announcement is a
+# republication, not a new law), and this tag carries the Lovtidend document the
+# corrected bytes were actually read from. A carrier mark, not a hypothesis.
+NO_BERIKTIGET_PROVENANCE_TAG = "beriktiget_announcement"
 
 
 def _no_action_value(action: StructuralAction | str) -> str:
@@ -7108,6 +7115,202 @@ def _append_no_structured_parse_recovery_adjudications(
 # by construction rather than by regex luck.
 _NO_RETTELSE_NOTE_TYPE = "rettelse"
 
+# ── Superseded gazette announcements (``utgått``) — W-84 ─────────────────────
+#
+# The SECOND value Lovdata writes into ``data-gazette-note-type``, read at the
+# same site as ``rettelse`` above so the note vocabulary has one reader. Censused
+# at W-84 over all 42,899 archive members: 374 members carry a gazettenote, 383
+# notes in all — ``rettelse`` 314, ``utgått`` 69. Of the 69 ``utgått`` notes only
+# THREE sit in the amendment (``lovtid``) lane, and those three are this rule's
+# whole domain; the other 66 are forskrift/lov-lane members that feed no lowering.
+#
+# What ``utgått`` means, and it is NOT what ``rettelse`` means. A ``rettelse`` is
+# a correction written INSIDE the announcement in amending grammar, so it is
+# lowered as an op. An ``utgått`` note carries no directive at all: it marks the
+# announcement as SUPERSEDED, and the corrected text is published separately as a
+# *beriktiget* (rectified) re-announcement. Nothing here is lowerable; the note is
+# a pointer, and the reader below returns only its dates.
+#
+# The note's PLACEMENT is a measured quirk worth stating: in all three lovtid-lane
+# cases Lovdata wraps the announcement's FINAL Del (the commencement part) rather
+# than the whole document — ``2021-06-11-80`` Del IV, ``2021-06-18-129`` Del II,
+# ``2024-03-15-10`` Del II. The mark is nonetheless DOCUMENT-scoped, on Lovdata's
+# own word: each act's ``lastupdated`` field says "se ny kunngjøring av beriktiget
+# versjon av loven i kunngj. …", of the LAW, not of a part; and each rectified
+# instrument re-announces the act in full, including provisions (klimaloven § 3,
+# § 4) that sit OUTSIDE the wrapped Del. A part-scoped reading would leave the
+# never-enacted klimaloven § 6/2/e in the replay, which is the defect W-83 found.
+_NO_UTGATT_NOTE_TYPE = "utgått"
+
+_NO_GAZETTENOTE_XPATH = (
+    "//*[contains(concat(' ', normalize-space(@class), ' '), ' gazettenote ')]"
+)
+
+
+def _no_gazette_note_dates(root: etree._Element, note_type: str) -> tuple[str, ...]:
+    """The ``data-gazette-note-date`` values of one note type, in document order."""
+    dates: list[str] = []
+    for note in cast(list[etree._Element], root.xpath(_NO_GAZETTENOTE_XPATH)):
+        if (note.get("data-gazette-note-type") or "").strip() != note_type:
+            continue
+        dates.append((note.get("data-gazette-note-date") or "").strip())
+    return tuple(dates)
+
+
+def no_superseded_announcement_dates(html_bytes: bytes) -> tuple[str, ...]:
+    """The dates on which this announcement was marked ``utgått``, if any.
+
+    Empty for every artifact Lovdata has not superseded — which is 3,086 of the
+    3,089 amendment artifacts. Returning the DATES rather than a bool is what lets
+    the pairing gate cross-check the mark against the rectified instrument's own
+    publication date without a second parse (see :mod:`lawvm.norway.index`).
+    """
+    try:
+        root = _parse_document(html_bytes)
+    except (etree.XMLSyntaxError, ValueError):
+        return ()
+    return _no_gazette_note_dates(root, _NO_UTGATT_NOTE_TYPE)
+
+
+# ── Rectified re-announcements (``beriktiget``) — W-84 ───────────────────────
+#
+# The other half of the supersession pair. Lovdata publishes the corrected text as
+# "Kunngjøring av beriktiget versjon av lov <date> nr. <n> om …", filed in the
+# FORSKRIFT lane (``no://forskrift/<id>/original.lti.xml``) even though it
+# announces an ACT. Our lanes split at the iterator, so the amendment index never
+# sees it and the commencement parser — the forskrift lane's only consumer —
+# classifies it BENIGN_NOT_COMMENCEMENT and drops it.
+#
+# This reader is the gate that admits those documents to the amendment lane, and
+# it is deliberately NOT a blanket opening of the forskrift lane. Three conjuncts,
+# every one of them written by Lovdata rather than inferred:
+#
+#   1. the title carries the ``beriktiget versjon av lov`` marker;
+#   2. the title names EXACTLY ONE act by numbered citation — two citations, or
+#      none, and the document names no unambiguous act to re-announce;
+#   3. the document carries a ``changesToDocuments`` declaration block, i.e. it
+#      declares itself to change documents at all.
+#
+# Measured corpus-wide: 3 of 35,955 forskrift artifacts pass, exactly the 3 the
+# W-83 census froze. The marker phrase alone would NOT be a gate — it also occurs
+# in 14 lov/lovtid-lane members, all of them prose ABOUT a rectification ("basert
+# på en beriktiget versjon av lovvedtak nr. 5"); those carry no numbered act
+# citation in their ``title`` field and are excluded by conjunct 1 reading the
+# title rather than the body.
+_NO_BERIKTIGET_TITLE_MARKER = "beriktiget versjon av lov"
+# The same marker as raw bytes, so the reader below can reject a document without
+# parsing it. Load-bearing for cost, not for correctness: this reader runs on
+# EVERY amendment artifact the index and replay lower (3,089 of them, plus one
+# pass over the 35,955-artifact forskrift lane), and 42,882 of the 42,899 archive
+# members do not contain the phrase anywhere at all.
+_NO_BERIKTIGET_MARKER_BYTES = _NO_BERIKTIGET_TITLE_MARKER.encode("utf-8")
+_NO_DOKID_XPATH = "string(//dd[contains(concat(' ', normalize-space(@class), ' '), ' dokid ')][1])"
+_NO_TITLE_DD_XPATH = "string(//dd[contains(concat(' ', normalize-space(@class), ' '), ' title ')][1])"
+_NO_CHANGES_TO_DOCUMENTS_DD_XPATH = (
+    "//dd[contains(concat(' ', normalize-space(@class), ' '), ' changesToDocuments ')]"
+)
+
+
+@dataclass(frozen=True)
+class NOBeriktigetReannouncement:
+    """One rectified re-announcement, as the document itself describes it."""
+
+    # ``no/forskrift/<date>-<n>`` — the Lovtidend document the corrected bytes
+    # were published as, read from the document's own ``dokid`` field.
+    announcement_id: str
+    # ``no/lovtid/<date>-<n>`` — the amendment-lane id of the ACT re-announced,
+    # derived from the single numbered citation in the title.
+    announced_act_id: str
+    # The re-announcement's own publication date, from ``announcement_id``.
+    announcement_date: str
+
+
+def no_beriktiget_reannouncement(html_bytes: bytes) -> Optional[NOBeriktigetReannouncement]:
+    """Read a rectified re-announcement's identity, or ``None`` for anything else."""
+    if _NO_BERIKTIGET_MARKER_BYTES not in html_bytes:
+        return None
+    try:
+        root = _parse_document(html_bytes)
+    except (etree.XMLSyntaxError, ValueError):
+        return None
+    title = _repair_no_mojibake(_normalize_space(str(root.xpath(_NO_TITLE_DD_XPATH))))
+    if _NO_BERIKTIGET_TITLE_MARKER not in title.lower():
+        return None
+    if not root.xpath(_NO_CHANGES_TO_DOCUMENTS_DD_XPATH):
+        return None
+    cited = _extract_no_law_citation_base_ids(title)
+    if len(cited) != 1:
+        return None
+    dokid = _normalize_space(str(root.xpath(_NO_DOKID_XPATH)))
+    announcement_id = dokid.removeprefix("LTI/")
+    if not announcement_id.startswith("forskrift/"):
+        return None
+    announcement_id = f"no/{announcement_id}"
+    return NOBeriktigetReannouncement(
+        announcement_id=announcement_id,
+        announced_act_id=f"no/lovtid/{cited[0].removeprefix('no/lov/')}",
+        announcement_date=announcement_id.removeprefix("no/forskrift/").rsplit("-", 1)[0],
+    )
+
+
+def _with_no_beriktiget_provenance(
+    grouped: list[tuple[str, list[LegalOperation]]],
+    html_bytes: bytes,
+    source_id: str,
+    *,
+    adjudications_out: Optional[List[CompileAdjudication]] = None,
+) -> list[tuple[str, list[LegalOperation]]]:
+    """Stamp the re-announcement's own id onto every op lowered out of it.
+
+    Reached whenever these bytes ARE a rectified re-announcement, which the
+    document says about itself — so the index and replay planes agree without the
+    caller plumbing anything. ``source_id`` is the ACT's id (the index binds the
+    corrected bytes to the act that enacted them), which is exactly why the
+    forskrift id has to travel on the ops: without it, nothing downstream could
+    say which document the text was read from.
+    """
+    if not grouped:
+        return grouped
+    reannouncement = no_beriktiget_reannouncement(html_bytes)
+    if reannouncement is None:
+        return grouped
+    tag = f"{NO_BERIKTIGET_PROVENANCE_TAG}:{reannouncement.announcement_id}"
+    stamped = [
+        (
+            base_id,
+            [
+                dc_replace(op, provenance_tags=(*op.provenance_tags, tag))
+                if tag not in op.provenance_tags
+                else op
+                for op in ops
+            ],
+        )
+        for base_id, ops in grouped
+    ]
+    _append_no_parse_adjudication(
+        adjudications_out,
+        kind=NO_BERIKTIGET_REANNOUNCEMENT_LOWERED,
+        message=(
+            "Norway parser lowered a rectified (beriktiget) re-announcement in place "
+            "of the superseded gazette announcement it replaces."
+        ),
+        source_id=source_id,
+        detail=diagnostic_detail(
+            rule_id=NO_BERIKTIGET_REANNOUNCEMENT_LOWERED,
+            phase="parse",
+            family="source_pathology",
+            blocking=False,
+            quirks_disposition=QuirksDisposition.APPLY,
+            announcement_id=reannouncement.announcement_id,
+            announced_act_id=reannouncement.announced_act_id,
+            announcement_date=reannouncement.announcement_date,
+            base_ids=[base_id for base_id, _ops in stamped],
+            n_ops=sum(len(ops) for _base_id, ops in stamped),
+        ),
+    )
+    return stamped
+
+
 # Same-act ITEM addresses, anchored end to end. Both productions land on an
 # ITEM leaf, which is why they share the one payload path below; admitting a
 # second leaf kind would mean a second, unmeasured payload builder. A dash item
@@ -7443,11 +7646,12 @@ def _no_rettelse_groups(
     host_base_id = f"no/lov/{source_id.removeprefix('no/lovtid/')}"
     ops_by_base: dict[str, list[LegalOperation]] = {}
     sequence = 0
-    for note in cast(
-        list[etree._Element],
-        root.xpath("//*[contains(concat(' ', normalize-space(@class), ' '), ' gazettenote ')]"),
-    ):
+    for note in cast(list[etree._Element], root.xpath(_NO_GAZETTENOTE_XPATH)):
         if (note.get("data-gazette-note-type") or "").strip() != _NO_RETTELSE_NOTE_TYPE:
+            # The other value this attribute takes is ``utgått``, and it is read —
+            # by :func:`no_superseded_announcement_dates` above, not here: an
+            # ``utgått`` note carries no amending directive to lower, so it can
+            # only be acted on where the pairing evidence lives (the index).
             continue
         note_date = (note.get("data-gazette-note-date") or "").strip()
         children = _no_rettelse_directive_children(_direct_children(note), note_date)
@@ -8028,9 +8232,14 @@ def iter_no_document_change_ops(
         root.xpath("//*[contains(concat(' ', normalize-space(@class), ' '), ' document-change ')]"),
     )
     if not change_nodes:
-        return _with_no_rettelse_groups(
-            _iter_unstructured_no_change_groups(root, source_id, adjudications_out=adjudications_out),
-            root,
+        return _with_no_beriktiget_provenance(
+            _with_no_rettelse_groups(
+                _iter_unstructured_no_change_groups(root, source_id, adjudications_out=adjudications_out),
+                root,
+                source_id,
+                adjudications_out=adjudications_out,
+            ),
+            html_bytes,
             source_id,
             adjudications_out=adjudications_out,
         )
@@ -8813,7 +9022,12 @@ def iter_no_document_change_ops(
         if doc_ops:
             grouped.append((base_id, _promote_no_replace_with_following_renumber_insert(doc_ops)))
 
-    return _with_no_rettelse_groups(grouped, root, source_id, adjudications_out=adjudications_out)
+    return _with_no_beriktiget_provenance(
+        _with_no_rettelse_groups(grouped, root, source_id, adjudications_out=adjudications_out),
+        html_bytes,
+        source_id,
+        adjudications_out=adjudications_out,
+    )
 
 
 def _no_sort_key(
