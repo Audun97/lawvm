@@ -2,7 +2,7 @@
  "_doc": "Corpus-wide (RENUMBER, dest_occupied) firing sweep + the known-incomplete-base destructive-write census, over EVERY Norway base law. Cached because the sweep is ~10 CPU-minutes and the norway shard is not. `corpus` and `code` are the staleness receipt: tests/test_no_renumber_migration.py recomputes both and FAILS when either moved, rather than passing on a stale measurement. Regenerate with `uv run python scripts/inventory_no_occupied_destination_sweep.py --update-baseline`. NOTE: this file is a RECEIPT of what the corpus does, never a statement of what it should do -- a new firing row here is an unadjudicated firing, and it must be adjudicated W-54 style before the verdict table in the test is extended.",
  "as_of": "2026-07-10",
  "code": {
-  "digest": "da73a64b38a3c10531424d465b4efb643d7b86f2a57b7c423442424a31772aff",
+  "digest": "033beebc61b1bf5539be9f5e8f6c729bf3d3a8b6fe3577c22933f13fae5dcae8",
   "files": [
    {
     "digest": "e3c727b378ae497fa2fc65a174f837dff2a8417dd458378ac22af35d4bf339fb",
@@ -269,11 +269,11 @@
     "module": "lawvm.norway.commencement_instruments"
    },
    {
-    "digest": "d03e1484815e50ea574f23632f153378ce6b126377053ded21eb7da52ca9a351",
+    "digest": "167bea4bf4428fc6089191562851433f435f89d76cf7a48da9a60502c2450806",
     "module": "lawvm.norway.grafter"
    },
    {
-    "digest": "c6ecf34430ea7caa20e33a50ef11161710d941a6ae3f7a5eb44b406b10e9272b",
+    "digest": "c25850bf02c31aea53e79c6172a42c7c8c196e4040864bedbbb5ce3e50fc22ec",
     "module": "lawvm.norway.index"
    },
    {
@@ -293,7 +293,7 @@
     "module": "lawvm.norway.scope_confidence"
    },
    {
-    "digest": "580ccd348f87b6cb6cf56ff837205f692640319d92820ad5714d1438c438d08a",
+    "digest": "56e6cf7bc4a2bde97bd3223b75e111e00bfb4225d02688fb96f4362809f6d93a",
     "module": "lawvm.norway.sources"
    },
    {
@@ -329,7 +329,7 @@
   ]
  },
  "corpus": {
-  "digest": "0df2654e6222103fccac3888e745c0382cb22f7884012335b2718fabc26710cb",
+  "digest": "24e23e5df4f14ca514b0f1b12c4a25e71899806dc0c79b1f2375e89a48053a7e",
   "planes": [
    {
     "artifacts": 3089,
@@ -342,13 +342,13 @@
     "plane": "amendment"
    },
    {
-    "artifacts": 35955,
-    "digest": "ebd61e0fd3dc5b4eed34d9fe8925af5d7ae1aac727f041f8da30c5b16930a39b",
+    "artifacts": 36006,
+    "digest": "0dee38dee5d0c7c0870f5a2719bb3db5a34db105c71779b6b46d1375a7eb3578",
     "plane": "forskrift"
    },
    {
-    "artifacts": 763,
-    "digest": "cd281a30faf3463b38532dcaf0a0a28a7a223af2bcd2d95587c363c73b93de3e",
+    "artifacts": 758,
+    "digest": "d40f6fd0115d4fc1ca4d9d5ed16ee7e5e31dc7186d03b6745d4336d0e37b15d5",
     "plane": "current"
    }
   ]
@@ -447,7 +447,7 @@
  ],
  "incomplete_base_hazard": {
   "_doc": "W-73's rider, re-measured every sweep. A base is known-incomplete when its replay receipted a SKIPPED amendment; a write is destructive when it removes, replaces or renumbers existing content. The intersection is the posture that destroyed husbankloven \u00a7 13. Pinned so the number cannot drift silently -- NOT because the hazard is acceptable.",
-  "bases_with_destructive_writes": 266,
+  "bases_with_destructive_writes": 265,
   "hazard_bases": 164,
   "hazard_bases_removing_content": 77,
   "hazard_by_skip_kind": {
@@ -456,7 +456,7 @@
    "unknown_effective": 1
   },
   "hazard_content_removing_writes": 198,
-  "hazard_destructive_writes": 3853,
+  "hazard_destructive_writes": 3852,
   "incomplete_bases": 201,
   "laws": {
    "no/lov/2001-04-20-13": [
@@ -672,7 +672,7 @@
     10
    ],
    "no/lov/2005-06-10-51": [
-    46,
+    45,
     5
    ],
    "no/lov/2005-06-17-101": [
@@ -1116,7 +1116,7 @@
     0
    ]
   },
-  "laws_digest": "0ae18d5f8444e10016ea6ac3c9cfb1deca8e12c84fa21e02e8bfa02ff6365efa"
+  "laws_digest": "69716703782d2645fc01ef1c95dcdee971f870fb5b6c7a7f6cbd576f90cc03fa"
  },
  "rule_id": "no_replay_renumber_occupied_destination_removed",
  "runtime": {

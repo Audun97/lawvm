@@ -1468,7 +1468,16 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # a law becoming OBSERVABLE, not a new hazard being created — the same
     # movement W-72's blind-spot narrative said to expect the moment one of the
     # four aborting laws was repaired.
-    "bases_with_destructive_writes": 266,
+    # 266 -> 265 at W-86, and the leaver is not a corpus event but W-85's
+    # op-plane withdrawal finally reaching this baseline (the sweep could not
+    # be retaken at W-85 because the corpus digests were already stale with
+    # the capture drift — item 92's charter): endringslov
+    # ``no/lov/2012-04-27-22`` loses its ONLY destructive write, the withdrawn
+    # defective act ``no/lovtid/2012-12-07-71``'s REPLACE of its § 29 — the
+    # over-application W-85 existed to close — and drops to zero. It was never
+    # a hazard-intersection member (not known-incomplete), so ``hazard_bases``
+    # and the membership digest below move for a different, single-row reason.
+    "bases_with_destructive_writes": 265,
     # 162 -> 164 at W-66c: the two laws named in the ``incomplete_bases`` note
     # above ENTER the intersection. Both already took destructive writes (6 and
     # 12 of them), so they arrive with a full row rather than a zero one; nothing
@@ -1697,7 +1706,22 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # corpus-wide (198 over 77 laws): a RENUMBER moves content and never removes
     # it, and the withdrawn write was a REPLACE, which records ``replaced_paths``.
     # Corpus-wide content-removing writes hold at 240.
-    "hazard_destructive_writes": 3853,
+    #
+    # 3,853 -> 3,852 at W-86 (the 2026-08-14 capture re-pin), and the -1 is
+    # NOT the capture: it is W-85's withdrawal reaching this baseline, ONE row
+    # moving — statsborgerloven ``no/lov/2005-06-10-51`` [46, 5] -> [45, 5].
+    # The withdrawn defective act ``no/lovtid/2012-12-07-71`` used to land a
+    # write on it that byte-duplicated its re-sanctioned replacement's
+    # (``no/lovtid/2013-01-11-1``, which still applies); with the duplicate
+    # gone the statute is byte-invariant — W-85 proved that at 4 PITs — and
+    # the census counts one write fewer. The CAPTURE drift itself moves
+    # NOTHING here: the lov lanes are digest-identical, the five departed
+    # consolidations are oracle-side artifacts no replay reads, and the 51 new
+    # forskrift announcements all parse benign (no commencement date moves, so
+    # no op lands or unlands at as_of). Firings hold at 10 over the same 7
+    # laws, verdict table untouched, membership unchanged at 164, and the
+    # content-removing column does not move (198 over 77 laws).
+    "hazard_destructive_writes": 3852,
     # 167 -> 168, and the +1 is NOT a relabel op. ``no/lov/2016-05-27-14`` gains
     # ``no/lovtid/2021-12-22-158:1``, a REPEAL of § 7-6 annet ledd that could not
     # bind before because that law's ledd sequence was one slot out of step; with
@@ -1792,7 +1816,13 @@ _NO_INCOMPLETE_BASE_HAZARD_LAWS_DIGEST = (
     # corpus whose replayed tree moves under W-84 in this direction — klimaloven
     # moves too, but by LOSING a write, which no row here records. See the count
     # note above for the +4/-1 underneath the +3.
-    "0ae18d5f8444e10016ea6ac3c9cfb1deca8e12c84fa21e02e8bfa02ff6365efa"
+    # W-86: MEMBERSHIP UNCHANGED (164 laws, same set, both set differences
+    # empty). ONE row moves, downward and only in the destructive column:
+    # ``no/lov/2005-06-10-51`` [46, 5] -> [45, 5] — W-85's withdrawal of the
+    # re-sanctioned defective act's duplicate write, reaching this baseline on
+    # the first regeneration after it (see the count note above). The capture
+    # drift itself (forskrift +51, current -5) moves no row at all.
+    "69716703782d2645fc01ef1c95dcdee971f870fb5b6c7a7f6cbd576f90cc03fa"
 )
 
 _REGENERATE = (
@@ -1883,11 +1913,20 @@ def test_no_occupied_destination_sweep_baseline_is_not_stale(
     # is the one that matters most: a commencement date moving there changes
     # which amendments apply, and therefore which renumbers land.
     assert sweep.CORPUS_PLANES == ("original_lti", "amendment", "forskrift", "current")
+    # forskrift 35,955 -> 36,006 and current 763 -> 758 at W-86, the
+    # 2026-08-14 capture re-pin; the two LOV lanes are digest-identical across
+    # the re-capture, which is the receipt that no act entered or left the
+    # replay's own source plane. The +51 are new Lovtidend forskrift
+    # announcements (every one parsing benign, so no commencement date and
+    # therefore no landed op moves at ``as_of``); the -5 are the five
+    # fully-incorporated endringslover Lovdata dropped from ``gjeldende-lover``
+    # — oracle-side artifacts this sweep never replays. Adjudicated
+    # document-by-document in the ledger's item 92 and ``.tmp/w86/``.
     assert [(p["plane"], p["artifacts"]) for p in baseline["corpus"]["planes"]] == [
         ("original_lti", 3089),
         ("amendment", 3089),
-        ("forskrift", 35955),
-        ("current", 763),
+        ("forskrift", 36006),
+        ("current", 758),
     ]
 
     # The sweep is only a corpus-wide answer where it actually SAW the law, so

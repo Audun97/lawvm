@@ -505,7 +505,22 @@ def open_no_archive(db_path: Path | None = None, *, readonly: bool = True):  # r
 # asserts that reproduction against the installed corpus — that executable
 # check is what licenses this constant as the fallback rather than a second
 # guess, and it is what makes it rot loudly on a corpus re-capture.
-NO_FALLBACK_CONSOLIDATION_SNAPSHOT_DATE: str = "2026-07-10"
+#
+# 2026-07-10 -> 2026-08-17 at W-86, the first re-capture this constant has
+# lived through, and the rot alarm fired exactly as designed. The derivation's
+# contract is the latest OBSERVATION instant over the ``current.xml`` family,
+# and on the restored corpus every one of the 758 spans was confirmed
+# 2026-08-17 (the restoration ingest, item 91) — three days after the
+# capture's own Lovdata generation date (`gjeldende-lover` lastModified
+# 2026-08-14T01:31Z). The charter posed moving to 2026-08-14; measurement
+# corrected it: the constant follows the derivation, not the tarball label.
+# The three-day gap is observationally inert on this corpus — no act or
+# instrument carries an effective date in (2026-08-14, 2026-08-17] (measured
+# zero at W-86), and the full scan at --as-of 2026-08-17 is row-for-row
+# byte-identical to the pinned --as-of 2026-08-14 scoreboard reading
+# (``.tmp/w86/scan_0814.json`` vs ``scan_0817.json``). Scoreboard rows keep
+# reading --as-of 2026-08-14, the snapshot-commensurable horizon.
+NO_FALLBACK_CONSOLIDATION_SNAPSHOT_DATE: str = "2026-08-17"
 
 
 class NOConsolidationSnapshotError(ValueError):

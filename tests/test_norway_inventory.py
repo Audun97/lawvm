@@ -705,6 +705,30 @@ def test_corpus_no_consolidation_census_reproduces_the_w44_measurement() -> None
     Index-free on purpose: nothing asserted here depends on the amendment index,
     only on titles and manifests, so the pin costs a corpus walk and not a
     45-second index build. The index-derived half is pinned separately below.
+
+    2,642 -> 2,647 (amending 2,514 -> 2,519) and stored 763 -> 758 at W-86,
+    the 2026-08-14 capture re-pin — and the two movements are ONE event, not
+    two. The lovtid lanes are digest-identical across the re-capture (zero
+    acts entered), so no law was minted: FIVE endringslover left the
+    ``gjeldende-lover`` snapshot and thereby ENTERED this census, which counts
+    "original present, consolidation absent". The five, each adjudicated at
+    W-86 (``.tmp/w86/``): ``no/lov/2026-01-23-1`` (helsepersonelloven mv.,
+    ikr. 2026-07-01), ``no/lov/2026-02-13-6`` (opplæringslova, ikr.
+    2026-08-01), ``no/lov/2026-03-06-7`` (plan- og bygningsloven, ikr.
+    2026-07-01), ``no/lov/2026-04-10-14`` (skipsarbeidsloven/NIS-loven, ikr.
+    2026-07-01), ``no/lov/2026-05-07-17`` (domstolloven mv., ikr. 2026-07-01).
+    Not repeals, not expiries: all five commenced in the window and their
+    changes are incorporated into all 18 host consolidations in THIS capture
+    ("Endret/Endra ved lov …" footnotes, ``.tmp/w86/incorporation_receipts.json``)
+    — Lovdata drops a fully-incorporated endringslov's own consolidation, so
+    the five are exactly the kind of snapshot-lifecycle churn this census
+    expects of the amending family. Every one had a consolidation while its
+    commencement was pending (Wayback NL captures / LTI self-links pinned in
+    the W-86 artifacts), all five were non-operative consolidations (the
+    "bare change instruction" class: stored - operative went 118 -> 113 while
+    operative held at 645), and the substantive/temporary/wage-board families
+    and the manifest cross (332 / 24) are unmoved — no in-force law lost its
+    text.
     """
     from lawvm.norway.inventory import (
         build_no_no_consolidation_rows,
@@ -726,20 +750,21 @@ def test_corpus_no_consolidation_census_reproduces_the_w44_measurement() -> None
     )
     summary = summarize_no_no_consolidation_rows(rows)
 
-    assert summary["total"] == 2642
+    assert summary["total"] == 2647
     assert summary["by_family"] == {
-        "amending_act": 2514,
+        "amending_act": 2519,
         "temporary_act": 40,
         "wage_board_act": 25,
         "substantive_act": 63,
     }
-    # "Stored consolidation" is artifact presence (763), NOT
-    # ``load_no_current_law_ids``'s narrower operative-content test (645). The
-    # 118-law difference is amending acts consolidated down to bare change
-    # instructions; 110 of them also have an original, and counting those as
-    # "no stored consolidation" would move this census to 2,752 / 2,624
-    # amending. See ``load_no_stored_consolidation_law_ids``.
-    assert len(stored) == 763
+    # "Stored consolidation" is artifact presence (758 since W-86; 763 on the
+    # 2026-07-10 capture), NOT ``load_no_current_law_ids``'s narrower
+    # operative-content test (645, unmoved by the re-capture). The difference
+    # (118 -> 113 at W-86) is amending acts consolidated down to bare change
+    # instructions; 108 of them also have an original (110 before W-86), and
+    # counting those as "no stored consolidation" would move this census to
+    # 2,755 / 2,627 amending. See ``load_no_stored_consolidation_law_ids``.
+    assert len(stored) == 758
 
     manifest = build_no_structural_repeal_manifest(data_dir)
     assert len(manifest) == 332
@@ -878,6 +903,19 @@ def test_corpus_no_consolidation_inventory_counters_and_would_be_ceiling() -> No
     date. Nothing regressed: the amender was always there and always undated,
     and the ceiling could not see it only because its two leads did not lower.
     Same -1 as ``test_norway_verify.py``'s ``would_be_candidates``.
+
+    763 -> 758 stored / 2,642 -> 2,647 census / ``None`` 2,552 -> 2,557 at
+    W-86 (the 2026-08-14 capture re-pin), and for the first time in this
+    test's history the movement is CORPUS drift, not an index route: five
+    fully-commenced endringslover left the ``gjeldende-lover`` snapshot
+    (named and adjudicated in the census test above) and entered the census.
+    All five land in ``None`` — nothing in the index binds them, because
+    nothing amends an endringslov that has just been incorporated — so
+    ``fully_replayable`` (60) and ``blocked_contingent`` (30) are unmoved,
+    and with them the counterfactual ceiling and ``would_be_candidates``.
+    The 90-law sum this docstring has tracked through W-47/W-53/W-61 is
+    untouched; only the index-has-no-opinion bucket grows by exactly the
+    five entrants.
     """
     data_dir = _no_corpus_dir()
     if data_dir is None:
@@ -886,9 +924,9 @@ def test_corpus_no_consolidation_inventory_counters_and_would_be_ceiling() -> No
     inventory = build_no_inventory(data_dir)
     data = inventory.to_dict()
 
-    assert data["stored_consolidations"] == 763
-    assert data["originals_without_consolidation"] == 2642
-    assert data["originals_without_consolidation_amending_act"] == 2514
+    assert data["stored_consolidations"] == 758
+    assert data["originals_without_consolidation"] == 2647
+    assert data["originals_without_consolidation_amending_act"] == 2519
     assert data["originals_without_consolidation_temporary_or_wage_board"] == 65
     assert data["originals_without_consolidation_substantive"] == 63
     assert data["originals_without_consolidation_substantive_without_repeal_evidence"] == 13
@@ -897,5 +935,5 @@ def test_corpus_no_consolidation_inventory_counters_and_would_be_ceiling() -> No
         str(row["would_be_status"]) for row in inventory.no_consolidation_rows
     )
     assert would_be == Counter(
-        {"None": 2552, "fully_replayable": 60, "blocked_contingent": 30}
+        {"None": 2557, "fully_replayable": 60, "blocked_contingent": 30}
     )

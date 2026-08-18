@@ -3194,11 +3194,25 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # and we could not see it only because its two leads did not lower. Total
     # and the family split are again unmoved, and the real candidate set stays
     # at 73 — mineralloven has no stored consolidation either way.
+    # 2,642 -> 2,647 (amending 2,514 -> 2,519) at W-86, the 2026-08-14 capture
+    # re-pin, and it is the first movement of this census that is CORPUS drift
+    # rather than an index route: five fully-commenced endringslover left the
+    # ``gjeldende-lover`` snapshot (Lovdata drops an endringslov's own
+    # consolidation once its changes are incorporated into every host) and
+    # thereby entered the census. The five — ``no/lov/2026-01-23-1``,
+    # ``2026-02-13-6``, ``2026-03-06-7``, ``2026-04-10-14``, ``2026-05-07-17``
+    # — are named with their evidence in ``tests/test_norway_inventory.py``'s
+    # census pin and ``.tmp/w86/``. Nothing amends any of them, so
+    # ``would_be_candidates`` holds at 60 and ``substantive_unexplained`` at
+    # 13; the scan-side numbers above are untouched (verified row-for-row
+    # against the W-85 scan artifact at --as-of 2026-08-14, and this
+    # partition read at as_of 2026-07-10 reproduces them identically — the
+    # drift documents carry no scan reach at either horizon).
     assert set(report) >= {"partitions", "unverifiable"}
     assert report["unverifiable"]["no_stored_consolidation"] == {
-        "total": 2642,
+        "total": 2647,
         "by_family": {
-            "amending_act": 2514,
+            "amending_act": 2519,
             "temporary_act": 40,
             "wage_board_act": 25,
             "substantive_act": 63,

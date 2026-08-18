@@ -1505,10 +1505,22 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     # kraft 1. juli 2020, med unntak av kapittel 6 …" — and it moves to
     # ``blocked_unresolved`` with its scope residual, so the partition still
     # totals 35,955.
+    # total 35,955 -> 36,006 and benign 33,590 -> 33,641 at W-86 (the
+    # 2026-08-14 capture re-pin): CORPUS drift, not code. The +51 are new
+    # Lovtidend avd. I forskrift announcements published after the 2026-07-10
+    # capture's early-morning generation instant — 3 published later that day
+    # (``no/forskrift/2026-07-09-1544``, ``2026-07-10-1545``, ``2026-07-10-1546``,
+    # all at 15:50) and 48 through 2026-08-13 — and every one of the 51 parses
+    # ``benign_not_commencement`` individually (``.tmp/w86/forskrift_cohort.json``),
+    # so the whole of the move lands in the benign column and ``candidates`` and
+    # ``blocked_unresolved`` do not budge: no act gains or loses a commencement
+    # date from this drift. 36,006 - 51 = 35,955 exactly; the announcement lane
+    # is append-only, and the lov lanes are digest-identical across the
+    # re-capture (zero acts entered or left).
     assert index.commencement_instrument_coverage.to_dict() == {
-        "total_instruments": 35955,
+        "total_instruments": 36006,
         "candidates": 607,
-        "benign_non_commencement": 33590,
+        "benign_non_commencement": 33641,
         "blocked_unresolved": 1758,
     }
     authorized = [
