@@ -6439,7 +6439,9 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    Working tree clean, sha pin verified, `.tmp/w85/` artifact
    set complete. The seven judgement calls stand ratified.
 
-92. **W-86 (the 2026-08-14 capture re-pin):** OPEN. The corpus
+92. **W-86 (the 2026-08-14 capture re-pin):** DONE (landed
+   `148b6322d`, 2026-08-18; charter kept as written below, landing
+   record appended after it). The corpus
    restoration (item 91) reproduces every scoreboard and index
    aggregate exactly, but SIX corpus-pinned tests fail AT BASE
    against the new capture, identically pre- and post-W-85
@@ -6470,6 +6472,152 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    with every NEW firing adjudicated W-54 style, then re-pin the
    tests with the drift recorded in their comments the way every
    prior movement is. Small-to-medium; read-mostly.
+   **LANDED (`148b6322d`, 2026-08-18; artifacts `.tmp/w86/` —
+   `drift.json` (plane digests, publication-date census,
+   effective-date windows), `adjudication.json` (the
+   per-document verdicts), `forskrift_cohort.json` (all 51
+   classified), `incorporation_receipts.json` (18 host
+   footnotes), `current_census.json` / `departure_candidates.json`
+   (the elimination trail), `scan_0814.json` / `scan_0817.json`
+   (dual-horizon scans), `sweep_baseline_old.json` (the
+   pre-regeneration baseline), the Wayback/live probe dumps);
+   six tests re-pinned, zero stop conditions fired, read-mostly
+   held: the only product-code change is the snapshot-date
+   constant.**
+   **The drift adjudicated — and the charter's framing corrected
+   by measurement: NO act entered the lovtid lane.** Both lov
+   planes are digest-identical across the re-capture (original
+   3,089 / amendment 3,089, per-plane sha256 over
+   `(logical_id, payload)` vs the committed sweep baseline), so
+   the census's "+5 amending acts" and the inventory's "−5
+   consolidations" are ONE event: five endringslover left
+   `gjeldende-lover` and thereby ENTERED the no-consolidation
+   census (whose counting rule is "original present,
+   consolidation absent"). The five, each named with mechanism:
+   `no/lov/2026-01-23-1` (helsepersonelloven/pasientjournalloven
+   mv., ikr. 2026-07-01), `no/lov/2026-02-13-6` (opplæringslova,
+   ikr. 2026-08-01), `no/lov/2026-03-06-7` (plan- og
+   bygningsloven, ikr. 2026-07-01), `no/lov/2026-04-10-14`
+   (skipsarbeidsloven/NIS-loven, ikr. 2026-07-01),
+   `no/lov/2026-05-07-17` (domstolloven mv., ikr. 2026-07-01).
+   Reason, uniform across all five: fully commenced inside the
+   window and INCORPORATED — every one of their 18 host laws'
+   consolidations in THIS capture carries the "Endret/Endra ved
+   lov …" footnote citing them — and Lovdata drops a fully
+   incorporated endringslov's own consolidation. NOT repeals,
+   NOT expiries, NOT lost law: the manifest cross is unmoved
+   (332 named / 24 stored-overlap), the substantive-13 tripwire
+   is unmoved, operative consolidations hold at 645 — all five
+   were the non-operative "bare change instruction" class
+   (stored − operative 118 → 113), and the
+   substantive/temporary/wage-board families are untouched.
+   Was-consolidated receipts are EXTERNAL, because the
+   2026-07-10 tarball is unrecoverable (Lovdata serves only the
+   latest; the old machine is gone): Wayback NL 200 captures for
+   `2026-01-23-1`, `2026-02-13-6`, `2026-05-07-17` (2026-06-05)
+   and `2026-04-10-14` (2026-06-24); the archived LTI page's
+   self-NL link for `2026-03-06-7` (2026-06-30) and
+   `2026-05-07-17` (2026-06-22); removal bracketed for
+   `2026-02-13-6` (its LTI capture of 2026-08-02 no longer
+   carries the link — one day after its own commencement).
+   Negative controls: eight June-sanctioned endringslover
+   checked in the same archives show NO consolidation ever
+   (Lovdata consolidated the Jan–May cohort, pending ≥ 7 weeks;
+   never the June cohort, 0–2 weeks from sanction to
+   commencement); entrants ruled out — Lovdata mints a
+   consolidation AT SANCTION (NL for `2026-06-23-65` archived
+   one day after sanction) and no law was sanctioned after
+   2026-06-23, so every member of the new 758 was already
+   present at 2026-07-10. Honest limit, recorded: membership of
+   the 2026-07-10 tarball itself is witnessed by the closed −5
+   family arithmetic plus these receipts, not by the tarball.
+   **The forskrift +51, benign document-by-document.** Three
+   boundary documents published 2026-07-10 at 15:50 — after the
+   old package's generation instant, which this measurement
+   brackets to early 2026-07-10: every document published
+   through 2026-07-09 is in both captures, none of the 15:50
+   trio is (`no/forskrift/2026-07-09-1544`, `2026-07-10-1545`,
+   `2026-07-10-1546`; Lovdata's packages build nightly ~01:31Z)
+   — plus 48 through 2026-08-13; every one of
+   the 51 parses `benign_not_commencement` individually, so
+   commencement candidates (607) and blocked (1,758) hold and NO
+   act gains or loses a date from the drift. 36,006 − 51 =
+   35,955 exactly: the announcement lane is append-only, zero
+   removals.
+   **Scoreboard: re-derived, conserved row-for-row.** Full scan
+   at `--as-of 2026-08-14`: 75 candidates, 30/45/0, `total=1454
+   (ceiling=1011, unexplained=443)`, ceiling rules `{address:
+   918, nested: 93}` — candidate set equal and all 75 rows
+   byte-identical against the W-85 landing scan artifact
+   (`.tmp/w85/post_scan.json`); the partition read at as_of
+   2026-07-10 reproduces the same aggregates; none of the five
+   departures is (or structurally could be) a candidate.
+   **The snapshot-date decision (JC-1): the constant moves to
+   2026-08-17, NOT the charter's 2026-08-14.** The charter's
+   premise ("the capture's observation reads 2026-08-14") is
+   corrected by measurement: the derivation the constant is
+   licensed against reads the latest OBSERVATION instant over
+   the `current.xml` family, and all 758 spans were confirmed
+   2026-08-17 (the item-91 restoration ingest) — three days
+   after the capture's Lovdata generation instant
+   (2026-08-14T01:31Z, reconfirmed against the live
+   `publicData/list` on 2026-08-18). The constant follows its
+   licensing derivation. The 3-day gap is measured inert: ZERO
+   acts or instruments carry an effective date in (2026-08-14,
+   2026-08-17], and the full scan at `--as-of 2026-08-17` is
+   row-for-row byte-identical to the 2026-08-14 reading.
+   Scoreboard rows keep reading `--as-of 2026-08-14`, the
+   snapshot-commensurable horizon.
+   **The occupied-destination sweep baseline, regenerated: ZERO
+   new firings.** Firings 10 over 7 laws, element-for-element
+   identical; the verdict table is untouched and the wrong-list
+   is still empty; swept population 788 / errored-before-any-op
+   442 / mid-apply blind spot 3, all unchanged. The ONLY census
+   movement is W-85's withdrawal reaching the baseline on its
+   first regeneration since (the sweep could not be retaken at
+   W-85 — the corpus digests were already stale with this
+   item's drift): statsborgerloven `no/lov/2005-06-10-51`
+   [46, 5] → [45, 5] (the withdrawn `no/lovtid/2012-12-07-71`'s
+   write byte-duplicated its re-sanctioned replacement's;
+   statute byte-invariant, proven at W-85), and endringslov
+   `no/lov/2012-04-27-22` drops its ONLY destructive write (the
+   withdrawn § 29 REPLACE — the over-application itself), so
+   `bases_with_destructive_writes` 266 → 265 and
+   `hazard_destructive_writes` 3,853 → 3,852; hazard membership
+   (164), content-removing (198 over 77) and skip-kind split all
+   unmoved. The capture drift itself moves NO row: the five
+   departures are oracle-side artifacts no replay reads, and the
+   51 benign announcements date nothing.
+   **Judgement calls, four, ratified at sign-off** (evidence in
+   `.tmp/w86/adjudication.json`): JC-1 the snapshot constant
+   (above); JC-2 the charter's "five new amending acts entered
+   the lovtid lane" framing corrected — the lanes are
+   digest-identical, the ±5 is one event; JC-3 the five named on
+   closed arithmetic + external receipts with the honest limit
+   recorded rather than claimed away; JC-4 the historical
+   horizons stay — the partition pin keeps `as_of="2026-07-10"`
+   and the sweep keeps `AS_OF = "2026-07-10"` (every per-law pin
+   in that suite replays there; both horizons re-derived
+   identical), while the scoreboard reads 2026-08-14 per item
+   91.
+   **Follow-up, sized and NOT opened:** the
+   observation-instant-vs-generation-date gap recurs on any
+   future restoration whose ingest lags the capture — sized as a
+   one-call-site change (`no-ingest` stamping `observed_at` from
+   the package's `lastModified`) plus one test; recorded here
+   only, no item opened.
+   Six tests re-pinned with the drift recorded in their comments
+   (census, inventory counters, partition membership,
+   commencement reconciliation, snapshot constant, sweep
+   staleness + hazard pins). Repo-wide suite: 24,044 passed /
+   1,433 skipped / 125 failed + 68 errors — ZERO of the failures
+   in a Norway suite; all sit in the Finland / substrate /
+   certificate families, which fail IDENTICALLY at base on this
+   machine (control: the five worst files re-run at the stashed
+   base reproduce exactly 66 of 66 failures — data-absence
+   artifacts of the new machine, not this landing's). Every
+   Norway suite is green, capture-drift pins included — the
+   first time since the restoration.
 
 ## 5. Demo / Inspection Tooling
 
@@ -6487,6 +6635,50 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-08-18 (W-86 — the 2026-08-14 capture re-pin; `148b6322d`)**
+  — **The capture drift is adjudicated document-by-document and
+  every corpus pin re-licensed — and the ±5 dissolved, under
+  measurement, into ONE event: the lov lanes are digest-identical
+  (no act entered), and the five "new" census amending acts ARE
+  the five consolidations that left `gjeldende-lover` — five
+  fully-commenced, fully-incorporated endringslover
+  (`no/lov/2026-01-23-1`, `2026-02-13-6`, `2026-03-06-7`,
+  `2026-04-10-14`, `2026-05-07-17`; ikr. 2026-07-01 ×4,
+  2026-08-01 ×1) that Lovdata dropped once all 18 host
+  consolidations carried their changes.** Not repeals, not
+  expiries, no in-force law lost: manifest cross 332/24,
+  substantive-13 tripwire, operative-consolidation count 645 all
+  unmoved; was-consolidated witnessed externally (Wayback NL
+  captures, archived LTI self-links, live 404s agreeing with the
+  capture) with the honest limit recorded — the 2026-07-10
+  tarball itself is unrecoverable, so the naming rests on the
+  closed −5 family arithmetic plus those receipts. The forskrift
+  +51 are new Lovtidend announcements (3 published 2026-07-10
+  at 15:50, after the old package's early-morning generation, 48
+  through 2026-08-13), every one parsing
+  `benign_not_commencement` —
+  candidates 607 / blocked 1,758 hold, no act gains a date.
+  **Scoreboard conserved row-for-row: 75 candidates, 30/45/0,
+  `total=1454 (ceiling=1011, unexplained=443)`, byte-identical
+  against the W-85 scan artifact — at BOTH horizons.**
+  `NO_FALLBACK_CONSOLIDATION_SNAPSHOT_DATE` 2026-07-10 →
+  2026-08-17 — the derivation it is licensed against (latest
+  `current.xml` observation instant = the restoration ingest),
+  NOT the charter's posed 2026-08-14; the 3-day gap measured
+  inert (zero effective dates inside it, scans byte-identical).
+  Occupied-destination sweep baseline regenerated: **ZERO new
+  firings** (10 over 7 laws element-for-element, wrong-list
+  still empty, swept 788/442/3 unchanged); the only census
+  movement is W-85's withdrawal reaching the baseline
+  (statsborgerloven [46,5] → [45,5]; 266 → 265, 3,853 → 3,852 —
+  attributed, statute byte-invariant). Six tests re-pinned with
+  the drift in their comments; four judgement calls recorded and
+  ratified; one follow-up sized-not-opened (stamp `observed_at`
+  from the package's `lastModified` at ingest). Every Norway
+  suite green, capture-drift pins included (repo-wide: 24,044
+  passed; the 125+68 failures are all Finland/substrate
+  data-absence artifacts, reproduced identically at base).
 
 - **2026-08-18 (W-85 — the re-sanctioning supersession family;
   `4db511cc9`)** — **The live over-application is closed: the
