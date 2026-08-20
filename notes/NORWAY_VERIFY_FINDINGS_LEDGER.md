@@ -6782,6 +6782,47 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    installed, `second_ocr.py` is the only thing to swap; the
    cache, page ranges and agreement harness stand. Lovdata
    remains deferred per the user's 2026-08-20 decision.
+   **Take 2 (same day, tesseract 5.5 `nor` installed by the
+   user; `tess_ocr.py`, `*.tess2.json`, `agreement.tess2.json`):
+   NB ALTO vs tesseract over the same 36 pages — word agreement
+   95.8% raw (10,966 / 11,446), line byte-identical 72.4% raw
+   (1,097 / 1,515).** Two harness fixes along the way, both
+   recorded because they moved the number: the ALTO extractor's
+   `CONTENT=` regex also matched `SUBS_CONTENT=` (hyphenation
+   metadata), so every hyphenated line carried a phantom word —
+   fixed by matching only bare `CONTENT` and folding `<HYP>` onto
+   the preceding token; and tesseract was run with `$` black-
+   listed once it was seen that every § came out as `$`. That
+   exposed the real residue: **the Norwegian tesseract models
+   cannot emit `§` at all** — `nor` fast, `nor` best, `dan`,
+   `swe`, `deu` all lack U+00A7 in their LSTM unicharset (only
+   `eng` has it); blacklisting `$` just moved the glyph to `&`,
+   `8`, `S`. That is a declared engine limitation, typed with
+   certainty, so it is reported as its own class, NOT folded into
+   a compare-side normalization (F-05 lesson): 227 § tokens in
+   the ALTO, 139 of them aligned against a lone `$/&/8/S`. **With
+   those excused: 97.0% words, 79.3% lines; body-only (running
+   head dropped) 79.6% of 1,371 lines.** The remaining ~3% of
+   words are genuine errors on BOTH sides — ALTO's l→i ("seiv"
+   ×6, "seige"), ö-for-o, Å-for-A, å-for-a; tesseract's "mnær-",
+   "kringhasting", "1352" for "135 a", em-dash/hyphen and spacing
+   around abbreviations — exactly what a dual channel exists to
+   catch. **Reading / go-no-go.** A print-grade engine is
+   decisive: the pair's certified line rate went 36.7% → 72.4% →
+   79.3% with nothing changed but the second engine. At ~79%
+   line certification (~50% at ledd level if lines err
+   independently — an estimate, not measured) the memo's
+   "two-engine fallback: weaker, higher refusal rate, acceptable"
+   is roughly what it predicted: a QUALIFIED GO for the pilot —
+   the slice can be reconstructed with about one line in five
+   refused to a third channel (human read of the IIIF image, or
+   Lovdata text if that conversation is ever had). For
+   production two things would lift the ceiling without any
+   compare-side leniency: a § -capable Norwegian model (tesstrain
+   fine-tune of `nor` with §, or Kraken/Transkribus print models)
+   and a typographic-unit comparison (hyphen vs em-dash). Not yet
+   measured: the two omnibus acts' pages, the register-vs-TOC
+   completeness check, and any pre-1992 volume.
 
 ## 5. Demo / Inspection Tooling
 
@@ -6809,6 +6850,13 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
   design catches what it should, but this second engine sets the
   ceiling, and the go/no-go number is still unread. Needs tesseract
   `nor` (sudo) or Transkribus; everything else is in place.
+  **Same day, take 2 with tesseract 5.5 `nor`: 95.8% words / 72.4%
+  lines raw; 97.0% / 79.3% once the provably-§ substitutions are
+  typed out (no Norwegian tesseract model has § in its charset —
+  only `eng` does). QUALIFIED GO for the pilot: ~1 line in 5 refused
+  to a third channel.** Two harness bugs fixed en route (ALTO
+  `SUBS_CONTENT` phantom words; `$` blacklist). Per-act: 93–97%
+  words, 56–79% lines.
 - **2026-08-20 (W-87 — the pre-2001 pilot law, by measurement; probe
   only)** — **Kringkastingsloven `1992-12-04-127` chosen as the
   law-slice pilot, and all 14 of its print-era acts located by issue
