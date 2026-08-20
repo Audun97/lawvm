@@ -116,6 +116,46 @@ or corroborate a reconstruction. They may not silently become the original legal
 text or replay authority. Reconstructed-source benchmarks must remain separate
 from deterministic source-only replay.
 
+Acquisition research for this lane is kept in `NORWAY_PRE2001_SOURCES.md`
+(2026-08-18 memo): no released pre-2001 Lovdata dataset exists, so the
+born-digital corroboration channel is a negotiated agreement, never scraping
+(HR-2019-1725-A, åvl. § 24); the source of record is the Nasjonalbiblioteket
+facsimile run (IIIF + ALTO, gazette items flagged public domain), with UiO
+Juridisk bibliotek rescans for missing hefter.
+
+### 2.6 Authority boundary by era
+
+Norsk Lovtidend is governed by lov 19. juni 1969 nr. 53 (successor to the 1876
+law; first volume 1877). § 3 runs the default commencement clock from the
+publication day of the *issue*. The statute was never amended for the
+electronic edition; the switch is administrative practice, not a dated
+amendment, and provenance must record it as such:
+
+| Era | Authoritative artifact | Note |
+| --- | --- | --- |
+| 1877–2000 | The printed hefte only | § 3 clock runs against the printed issue's publication date; Lovdata CD-ROM/Pro texts are commercial derivatives, corroboration only |
+| 2001–2016 (print volumes through 2017) | The electronic edition, by ministry practice under the 1969 law | Print still produced; "kunngjøringsdato" of the electronic version is decisive |
+| 2018– | The electronic edition only | Print ceased |
+
+Era flags the print-era parser must carry:
+
+- **1974 avdeling split.** From 1974, Avd. I = laws and central forskrifter
+  (incl. Svalbard/biland/university), Avd. II = regional/local. Pre-1974
+  volumes allocate content differently than the post-2001 model assumes and
+  need direct inspection before segmentation rules are written.
+- **2001 format change.** A5 through the 2000 volume, A4 from 2001; running
+  heads, chronological tables of contents and per-item date+number headers
+  are era-specific.
+- **Print-era corrections.** Rettelser appear in the next printed issue and in
+  a consolidated "Oversikt over rettelser" at the back of each hefte/volume,
+  cross-referenced by issue + page (not URN). Lovdata's online overview is
+  complete only from 2017; 2001–2016 sit at the back of the electronic
+  hefter; earlier years only in the scans.
+- **Register as manifest.** Each annual volume carries a chronological and a
+  subject register per avdeling; the chronological register enumerates every
+  kunngjøring and is the print-era completeness oracle (the analogue of
+  `gjeldende-lover` for the consolidation lane).
+
 ## 3. Implemented Pipeline
 
 The current production path is:
@@ -233,7 +273,11 @@ The ordered Norway programme is:
    whole-act commencement candidates, then model provision-level commencement;
 5. add an official corrections/corrigendum lane;
 6. make benchmark dates commensurable with the available oracle horizon;
-7. pilot one pre-2001 Norsk Lovtidend volume through the governed PDF pipeline;
+7. pilot one pre-2001 Norsk Lovtidend window ([1997, 2000] Avd. I) through the
+   governed dual-channel pipeline — NB facsimile + ALTO as source of record,
+   negotiated Lovdata born-digital text as corroboration, payload landing only
+   on byte-faithful agreement, certified-agreement rate per hefte as the
+   go/no-go — after the annual-register completeness manifest is built;
 8. admit reconstructed historical sources only after page-level verification and
    authority labeling;
 9. expand the historical corpus by source family and decade, not by silent OCR

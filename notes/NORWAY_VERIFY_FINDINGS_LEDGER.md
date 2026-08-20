@@ -5972,8 +5972,47 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    `probe6_consolidation_depth.json`).
 
 87. **W-81 (the pre-2001 format probe, 1999 tarball):**
-   OPEN — **BLOCKED ON ACQUISITION** (needs the Lovdata
-   `lovtidend-avd1` 1999 tarball on disk; the user acquires it).
+   OPEN — **RE-CHARTERED 2026-08-20; BLOCKED ON A NEGOTIATED
+   PRE-2001 DATA CHANNEL** (original charter kept below for the
+   record; it assumed a self-serve tarball that does not exist).
+   **Re-charter.** `NORWAY_PRE2001_SOURCES.md` (2026-08-18
+   research memo) breaks the recorded premise: Lovdata has
+   released no pre-2001 dataset (public NLOD XML is 2001+ only; a
+   Lovdata rep confirmed Nov 2025), and pre-2001 the printed hefte
+   is the sole authoritative artifact — the 2001 electronic
+   switch was ministry practice under the never-amended lov
+   1969-06-19-53, not a statutory amendment (authority record now
+   in `NORWAY_LAWVM_STATUS.md` § 2.6). The precondition is
+   therefore "a negotiated pre-2001 channel", obtained by the
+   user: (a) utvikling@lovdata.no — what born-digital/XML exists
+   back to ~1982 (Pro holds promulgated Avd. I from 1980), its
+   as-announced vs consolidated fidelity, terms; mass download is
+   barred (HR-2019-1725-A, åvl. § 24), so agreement only; (b)
+   nb@nb.no / DH-lab — bulk page images + ALTO for Avd. I
+   1997–2000 via IIIF/api.nb.no (gazette items probed 2026-08-18
+   as `publicdomain` / `EVERYWHERE`), per-item flags, rate
+   limits; (c) UiO Juridisk bibliotek as rescan fallback for
+   missing hefter. The probe's question changes with the
+   artifact: if Lovdata's internal ~1982+ XML arrives, the
+   original dialect census (`changesToDocuments`,
+   `data-change-part`, `legalArticle`) stands; if the channel is
+   NB ALTO + Lovdata Pro text, the dialect questions are moot and
+   the real measurement is the pre-2001 drafting-grammar refusal
+   rate over clean text, plus the certified-agreement rate per
+   hefte between the two channels (payload lands only on
+   byte-faithful agreement; disagreement is a typed refusal).
+   **Unblocked now, no acquisition needed — Stage 1, the
+   completeness manifest:** the 1997–2000 annual chronological
+   registers are digitized and public domain on api.nb.no;
+   enumerate every Avd. I kunngjøring (date, number, page) as the
+   print-era analogue of the gjeldende-lover oracle, and
+   re-enumerate the apparent Avd. I hefte gaps (1997: 2, 5, 6,
+   14; 1999: 13; 2000: 3, 4, 12, 15, 20, 34, 36) by proper series
+   pagination — they came from fuzzy search and are not yet
+   trusted. Still small, still read-only, still a scratch
+   farchive, never `data/norway.farchive`.
+   *Original charter (2026-08-17):* needs the Lovdata
+   `lovtidend-avd1` 1999 tarball on disk; the user acquires it.
    The gating half-day measurement that retires or confirms
    W-80's unpriced risk 1 before any era acquisition: ingest the
    1999 tarball via `ingest_no_public_archives` into a SCRATCH
@@ -6636,6 +6675,30 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
 
+- **2026-08-20 (item 87 re-charter + Stage 0 authority record; no
+  product code)** — Filed `NORWAY_PRE2001_SOURCES.md`, the
+  distillation of the external deep-research report on pre-2001
+  Norsk Lovtidend, and acted on its two no-cost consequences.
+  **Item 87 (W-81) is re-chartered**: the "1999 tarball" premise is
+  false (no pre-2001 Lovdata dataset exists; corroboration comes
+  only by agreement, HR-2019-1725-A), the precondition becomes a
+  negotiated channel — Lovdata born-digital text plus NB facsimile
+  + ALTO as source of record — and the probe's measurement becomes
+  the drafting-grammar refusal rate and per-hefte certified-
+  agreement rate unless Lovdata's internal ~1982+ XML is what
+  arrives. **Stage 0 landed** in `NORWAY_LAWVM_STATUS.md` § 2.6:
+  the authority triple (pre-2001 print authoritative / 2001–2016
+  electronic authoritative by ministry practice, print still
+  produced / 2018+ electronic only) under the never-amended lov
+  1969-06-19-53, plus the 1974 avdeling-split, 2001 A5→A4 and
+  back-matter-rettelser era flags, and the annual chronological
+  register named as the print-era completeness oracle. Programme
+  step 7 reworded to the dual-channel [1997, 2000] pilot. One
+  process note: W-80's standing position ("item-87 format probe
+  first, then [1997, 2000]") survives unchanged in *order*; what
+  moved is what the probe is a probe *of*. Stage 1 (register
+  manifest + gap re-enumeration) is unblocked and is the next
+  engineering step; the two acquisition emails are the user's.
 - **2026-08-18 (W-86 — the 2026-08-14 capture re-pin; `148b6322d`)**
   — **The capture drift is adjudicated document-by-document and
   every corpus pin re-licensed — and the ±5 dissolved, under
