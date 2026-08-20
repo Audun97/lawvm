@@ -6658,6 +6658,84 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    Norway suite is green, capture-drift pins included — the
    first time since the restoration.
 
+93. **W-87 (the pre-2001 pilot law, chosen by measurement; NB
+   Stage 1 manifest for 1992–2000):** DONE as a probe (2026-08-20;
+   read-only, no product code; artifacts `.tmp/w87/` —
+   `shortlist_census.json` (114 laws), `nb/issues.json` (252
+   issues) + one TOC-ALTO JSON per issue, `kringkasting_
+   pre2001_acts.json`, `kringkasting_locations.json`,
+   `alto/<issue>/pages_1240_1254.json`, probe scripts
+   `nb_enumerate.py`, `nb_pull_pages.py`). Opened on the user's
+   go-ahead after the item-87 re-charter, to replace the era
+   window with a **law-slice pilot**: one law founded in the
+   print era, its founding text AND every pre-2001 amending act
+   reconstructed from NB facsimiles, then handed to the 2001+
+   pipeline and compared against today's consolidation — the
+   oracle we already have. W-80's "no cherry-picking" warning is
+   honoured because the slice is closed: the consolidation's
+   per-section `changesToParent` chain enumerates the pre-2001
+   amending acts (a LOWER bound — sections since repealed carry
+   no chain), so nothing replays across an unacquired hole.
+   **Method.** For all 114 missing-base laws founded 1985–2000:
+   pre-2001 acts / years / sections touched from the chain;
+   2001+ ops and `no_parse_unstructured_lead_unmatched`
+   refusals aimed at the base by parsing each indexed amending
+   act (attribution by string match; 1,944 / 9,143 ≈ 21%,
+   consistent with the 27% corpus rate). Then NB coverage per
+   year via `api.nb.no/catalog/v1/items` filtered
+   `mediatype:tidsskrift`, `digital:Ja`, title "Avd. I".
+   **Findings.** (i) **NB's digitized Avd. I run has a HOLE at
+   1987–1989: zero issues.** 1985–86 and 1990–2000 are present.
+   This rules out every otherwise-good candidate founded in
+   those years (alkoholloven 1989, inkassoloven 1988,
+   forskotteringsloven 1989, NIS-loven 1987). (ii) **The pilot
+   window 1992–2000 is complete except 1992 Nr. 23** (252 issues;
+   per year 28/25/29/28/29/30/27/19/37, consecutive from 1). Every
+   "gap" the 2026-08-18 memo listed for 1997/1999/2000 was a
+   fuzzy-search artifact — a proper filtered query returns 1997
+   as 1–30 complete. Whether each year's highest Nr. is the last
+   issue still wants the annual register (or the "siste hefte"
+   notice) — not yet checked. (iii) **Chosen: kringkastingsloven
+   `no/lov/1992-12-04-127`** — 75 §§, 13 pre-2001 amending acts
+   across 8 of the 9 print years, 34 sections touched, 122
+   post-2001 ops with 20 unstructured (16%). Runners-up:
+   tvangsfullbyrdelsesloven 1992-06-26-86 (248 §§, 14 acts, 492
+   ops, 8% refusals — W-80's highest-value [1992, 2000] base,
+   the follow-on once the pipeline works), Svalbardskatteloven
+   1996-11-29-68 (28 §§, 8 acts, 83 ops, 8% — a warm-up).
+   Energiloven 1990 (the "1990" instinct) is weak: 4 pre-2001
+   acts in 1991–93, 26% refusals post-2001. (iv) **All 14 acts
+   located by issue + printed page from the TOC ALTO**
+   (each issue's IIIF manifest marks an `Innholdsfortegnelse`
+   structure; laws list as "Des. 4. Lov nr. 127 om kringkasting
+   1240"): founding act 1992 Nr. 24 p. 1240; amendments
+   1993/21 p. 1324, 1994/10 p. 716 (OCR "71ø"), 1994/11 p. 912
+   (Televerket), 1995/13 p. 851, 1996/2 p. 98, 1997/14 p. 1174
+   (aksjeloven), 1998/9 pp. 607 + 620, 1998/12 p. 804
+   (regnskapsloven), 1999/13 p. 1567, 2000/1 pp. 48, 49 (OCR
+   "Lov nr. som" = 5), 52. The founding issue is NOT the missing
+   Nr. 23. (v) **Access is open end-to-end**: catalog → IIIF
+   manifest → per-canvas `@seeAlso` ALTO (`/metadata/<id>/
+   altos/<URN>_NNNN`), all `publicdomain` / `EVERYWHERE`; no
+   email or agreement needed. The running head (year / page /
+   "des. Lov nr. 127" / day) sits at the top by `VPOS`, so
+   printed page → canvas is a two-probe walk. (vi) **OCR quality
+   on the statute body is high**: the founding act's first page
+   (1240) reads cleanly — title, sanction line (Ot.prp./Innst.O./
+   Besl.O., department), a four-law repeal manifest, `Kap.` and
+   `§ 1-1.` headers, ledd as paragraphs — with two visible errors
+   in ~40 lines ("seiv" for selv, "förpliktelser"). NB's ALTO is
+   the legacy Antiqua model, so this is the WEAK channel; a second
+   engine over the IIIF images is the pair. **Next (item 94, to
+   charter):** pull the 14 acts' full page ranges (end page = next
+   TOC entry's page), run a second OCR engine over the same
+   canvases, measure the certified-agreement rate per act, and
+   only then write a print-era segmenter for the [founding act +
+   13 amendments] slice. The Lovdata question stays deferred
+   until that number exists (user's decision 2026-08-20: no
+   emails for now; NB is public domain, and the company/commercial
+   framing for Lovdata is undecided).
+
 ## 5. Demo / Inspection Tooling
 
 Browser views of any replayable law across its own amendment dates, plus an
@@ -6675,6 +6753,20 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
 
+- **2026-08-20 (W-87 — the pre-2001 pilot law, by measurement; probe
+  only)** — **Kringkastingsloven `1992-12-04-127` chosen as the
+  law-slice pilot, and all 14 of its print-era acts located by issue
+  + page on NB.** Two corrections to the 2026-08-18 memo: NB's Avd. I
+  run is EMPTY for 1987–1989 (not merely gappy), and the memo's
+  1997/1999/2000 gaps were fuzzy-search artifacts — 1992–2000 is
+  complete except 1992 Nr. 23. Access is open catalog → IIIF → ALTO
+  with no agreement needed, so the user's call to send no emails
+  stands. Process note: the first TOC search found NOTHING because
+  TOC lines wrap and laws list as "Lov nr. N om …" not "(Nr. N)"; the
+  search was trusted only after it reproduced the founding act from
+  the known issue, then found 13/14 and the 14th by eye ("Lov nr.
+  som" — OCR'd 5). Item 94 (two-engine agreement over the 14 acts'
+  pages) is the next charter.
 - **2026-08-20 (item 87 re-charter + Stage 0 authority record; no
   product code)** — Filed `NORWAY_PRE2001_SOURCES.md`, the
   distillation of the external deep-research report on pre-2001
