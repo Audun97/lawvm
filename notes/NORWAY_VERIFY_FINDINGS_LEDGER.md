@@ -6736,6 +6736,53 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    emails for now; NB is public domain, and the company/commercial
    framing for Lovdata is undecided).
 
+94. **W-88 (the two-channel agreement measurement over the
+   kringkastingsloven slice):** DONE as a probe, VERDICT NEGATIVE
+   FOR THE PAIR TRIED (2026-08-20; read-only, no product code;
+   artifacts `.tmp/w87/` — `acts.json` (14 acts, page ranges),
+   `alto/<issue>/NNNN.xml|.jpg|.easyocr.json`, `agreement.json`,
+   scripts `nb_pull_acts.py`, `second_ocr.py`, `agreement.py`;
+   isolated venv `.tmp/w87/venv`, nothing added to the project).
+   **Step 1 — full page ranges for all 14 acts**, walked from the
+   TOC start page while the running head still names "Lov nr. N":
+   founding act 10 pp (1240–1249), the eleven kringkasting-only
+   amendments 2–4 pp each, the two omnibus hosts 104 pp
+   (aksjeloven 1997) and 51 pp (regnskapsloven 1998) — 191 pages
+   of ALTO cached. Printed page → canvas is a head-walk that has
+   to back off from blank/TOC/cover pages (one issue's TOC ran
+   past canvas 6 and the first jump landed on the back cover).
+   **Step 2 — second channel.** No tesseract on this machine and
+   no sudo, so the pair was NB ALTO (legacy Antiqua model) vs
+   **EasyOCR `no`** on the IIIF native JPEGs, CPU, ~27 s/page,
+   over the founding act + the eleven small amendments (36 pages,
+   34 unique — pp. 49 and 52 of 2000 Nr. 1 are shared). Omnibus
+   bulk deliberately skipped for this number. **Step 3 — result:
+   word-level agreement 85.4% (9,842 / 11,518), line-level
+   byte-identical agreement 36.7% (556 / 1,515); per act 78–88%
+   words, 22–48% lines.** A 400-sample of disagreements
+   decomposes as: punctuation/case only 26%, EasyOCR 0/o and 1/i
+   confusion 26% ("og"→"0g" is the single largest item), EasyOCR
+   §→"8"/"$" 13%, line merge/split/order 18%, other 17%. Clearly
+   ALTO-side errors in the sample: 9 / 400 ("seiv", "seige" —
+   l→i; "förpliktelser"; "Apenbart" for Å; "oppgåver" for
+   oppgaver). **Reading.** (i) The dual-channel DESIGN works as
+   intended: every one of those ALTO errors was caught by
+   disagreement, and nothing wrong would have landed. (ii) But
+   **EasyOCR is not an adequate second channel** for this
+   material: its error rate is several times ALTO's and it is
+   systematic on exactly the characters the law text needs (§,
+   og, nr.), so the certified-agreement rate is EasyOCR's ceiling,
+   not the material's. A 36.7% line-certification rate would
+   refuse two lines in three — unusable as a landing gate, and
+   the memo's "two-engine fallback" is NOT discharged by this
+   pair. (iii) The number to beat is therefore still unread; it
+   needs a print-grade engine. **Blocked on:** `tesseract-ocr` +
+   `tesseract-ocr-nor` (apt, needs sudo — user's action; both
+   packages are in the cache) or Transkribus print models. Once
+   installed, `second_ocr.py` is the only thing to swap; the
+   cache, page ranges and agreement harness stand. Lovdata
+   remains deferred per the user's 2026-08-20 decision.
+
 ## 5. Demo / Inspection Tooling
 
 Browser views of any replayable law across its own amendment dates, plus an
@@ -6753,6 +6800,15 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
 
+- **2026-08-20 (W-88 — two-channel agreement over the pilot slice;
+  probe only, verdict negative for the pair tried)** — All 14
+  kringkastingsloven acts' full page ranges pulled from NB (191 pp).
+  NB ALTO vs EasyOCR over the 36 non-omnibus pages: **85.4% words,
+  36.7% lines byte-identical.** The disagreements are overwhelmingly
+  EasyOCR's (0/o, §→8, punctuation), 9/400 clearly ALTO's — so the
+  design catches what it should, but this second engine sets the
+  ceiling, and the go/no-go number is still unread. Needs tesseract
+  `nor` (sudo) or Transkribus; everything else is in place.
 - **2026-08-20 (W-87 — the pre-2001 pilot law, by measurement; probe
   only)** — **Kringkastingsloven `1992-12-04-127` chosen as the
   law-slice pilot, and all 14 of its print-era acts located by issue
