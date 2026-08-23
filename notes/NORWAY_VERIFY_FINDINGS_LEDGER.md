@@ -6824,6 +6824,85 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    measured: the two omnibus acts' pages, the register-vs-TOC
    completeness check, and any pre-1992 volume.
 
+95. **W-89 (NorPrint as the third channel over the same 34
+   pages):** DONE as a probe, VERDICT: MODEST LIFT, CEILING NOT
+   BROKEN (2026-08-23; read-only, no product code; artifacts
+   `.tmp/w87/` — `norprint_upload/` (34 staged JPEGs + `map.json`),
+   `norprint_export.zip` (Transkribus PAGE XML), per-page
+   `NNNN.norprint.json|.norprint.page.xml`, `agreement.norprint.
+   json`, `residue*.json`, scripts `norprint_ocr.py` (API path,
+   unused — see below), `norprint_import.py`). **Engine chosen by
+   a web survey (2026-08-23)**: Transkribus **NorPrint**
+   (modelId 115693, PyLaia CTC, creator yngvil.beyer@nb.no,
+   published 2024-06-23, "Norwegian print antiqua+blackletter
+   ~1800–2000", advertised 0.3% validation CER — on a 2-page
+   validation set). Chosen over the 2026 VLM tier (Mistral OCR 4,
+   GLM-OCR, PaddleOCR-VL-1.5, dots.mocr) because (i) no published
+   Nordic evaluation exists for any of them (MDPBench: 17
+   languages, zero Scandinavian; GlotOCR: most models >2% CER
+   even on Latin script), (ii) the LM4DH 2025 evaluation found
+   LLM OCR silently modernizes archaic text and fabricates
+   fluent readings — the one error class a byte-agreement gate
+   cannot see, (iii) no local GPU for the open-weight VLMs.
+   Also established en route: **NB's own ALTO channel is ABBYY
+   FineReader 8.1 via CCS docWorks** (per-file `<OCRProcessing>`
+   provenance), a 2005-era engine — so all three channels are now
+   from unrelated families (ABBYY statistical / tesseract LSTM /
+   PyLaia CTC). **Plumbing facts, recorded for reuse:** the
+   Transkribus processing API (metagrapho) is Scholar-gated —
+   a valid OpenID token (`processing-api-client`, aud TrpServer)
+   still gets 401 on `/processing/v1/processes`, and the app
+   shows "API access requires Scholar or above" — despite "Get
+   API access with a free account" marketing. ALTO export in the
+   web app is ALSO Scholar-gated; PAGE XML export is free. So the
+   round trip was manual: images staged as `<iid8>_<canvas>.jpg`,
+   user uploaded/ran/exported on their desktop (free tier, 34 of
+   50 monthly credits), PAGE XML zip imported back by filename
+   match. **Results (same 36-page body, 34 unique):** naive
+   difflib measure 94.4% words / 64.2% lines vs ALTO — BELOW
+   tesseract's 95.8/72.4 on the same measure. Decomposition
+   changed the picture: (i) ABBYY fragments the margin running
+   heads ("4. des. Lov nr. 127." → "des. Lov nr. 127" + "4")
+   while NorPrint segments physical lines correctly, so the
+   line measure punishes segmentation, not text. A
+   segmentation-tolerant recount (line certified iff its word
+   sequence occurs contiguously in the other channel's page
+   stream): tesseract 73.8%, NorPrint 67.1%. (ii) 177 residue
+   lines were the dash class alone — print sets `§ 1–1` with a
+   wide dash, ABBYY emits `-`, NorPrint `—`; folding the dash
+   class (typographic unit, both-sides fold, F-05-compatible)
+   gives tesseract 73.9%, NorPrint 72.0% — a near-tie. (iii)
+   **Three-channel number: NorPrint lines certified by ALTO
+   72.0%, by tesseract 69.6%, by either 77.7%** (1,127 / 1,451;
+   324 refused). (iv) **Ground truth by image crop on the three
+   commonest dispute shapes — ABBYY right, NorPrint wrong on all
+   three**: print has `følgende lover:` (NorPrint `lover,`),
+   `Definisjoner` no period (NorPrint `Definisjoner.`), `anlegg
+   eller` no comma (NorPrint `eller,`). **NorPrint systematically
+   hallucinates line-final punctuation and misreads `:` as `,`**
+   — the plausible-error class, in a CTC model, presumably
+   because its training lines mostly end punctuated. Its real
+   win: `§` read natively and correctly (the tesseract-killer
+   glyph). **Reading.** (i) The advertised 0.3% CER does not
+   transfer to this corpus; NorPrint is roughly tesseract's
+   peer here, with a DIFFERENT and semantically nasty error
+   class — punctuation is load-bearing in statute text (colon
+   vs comma changes a list's reading), so NO compare-side
+   excuse is permissible for it. (ii) The union lifts
+   certification only ~4 points (77.7% vs ~74%) because the
+   engines' errors are partially correlated on hard lines and
+   the contig measure has stream-order artifacts where ABBYY's
+   fragments interleave — 77.7% is a lower bound. (iii) The
+   dual-channel design again caught everything: every NorPrint
+   hallucination died at the gate. (iv) **Ceiling-lifters
+   unchanged in priority**: a §-capable tesstrain fine-tune of
+   `nor` (fixes the one systematic gap in the byte-faithful
+   engine) beats adding more punctuation-hallucinating channels;
+   typographic-unit dash comparison now MEASURED as worth ~5
+   points on NorPrint, ~0.1 on tesseract; VLM OCR stays
+   adjudication-hint-only. Not yet measured: omnibus pages,
+   register-vs-TOC completeness, pre-1992 volumes.
+
 ## 5. Demo / Inspection Tooling
 
 Browser views of any replayable law across its own amendment dates, plus an
@@ -6841,6 +6920,22 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
 
+- **2026-08-23 (W-89 — NorPrint third channel; probe only, modest
+  lift, ceiling not broken)** — Transkribus NorPrint (PyLaia, NB's
+  own print model) over the same 34 pages via a manual web-app
+  round trip (processing API and ALTO export are Scholar-gated;
+  PAGE XML export is free). Naive measure 94.4% words / 64.2%
+  lines — but the decomposition matters: ABBYY fragments margin
+  heads (segmentation, not text), the print's wide `§ 1–1` dash is
+  a real typographic unit (~5 points on NorPrint once folded), and
+  image-crop ground truth shows **NorPrint hallucinates line-final
+  punctuation and reads `:` as `,`** (ABBYY right 3/3 on the
+  disputed shapes) while reading `§` natively. Segmentation-
+  tolerant + dash-folded: tesseract 73.9%, NorPrint 72.0%;
+  **three-channel union 77.7%** (lower bound; 324/1,451 refused).
+  NB ALTO provenance confirmed: ABBYY FineReader 8.1 — three
+  unrelated engine families now measured. Best ceiling-lifter
+  remains a §-capable tesstrain fine-tune, not more channels.
 - **2026-08-20 (W-88 — two-channel agreement over the pilot slice;
   probe only, verdict negative for the pair tried)** — All 14
   kringkastingsloven acts' full page ranges pulled from NB (191 pp).
