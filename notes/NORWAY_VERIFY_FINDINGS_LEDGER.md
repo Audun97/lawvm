@@ -6903,6 +6903,48 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    adjudication-hint-only. Not yet measured: omnibus pages,
    register-vs-TOC completeness, pre-1992 volumes.
 
+96. **W-90 (GLM-OCR as a local proposal channel):** DONE as a
+   probe (2026-08-24; read-only; artifacts `.tmp/w87/` —
+   `glm_ocr.py`, per-page `NNNN.glm.json`, `glm_ocr.log`).
+   Follow-on to W-89 after a candidate survey (user asked about
+   Gemini 3.7 Flash: REJECTED — #26 of 31 on Roboflow's verbatim
+   OCR eval at 86.9% despite #2 overall vision; the OCR-strong
+   Gemini variants are 3 Flash / 3.1 Flash-Lite). Chosen instead:
+   **GLM-OCR (Z.ai, 0.9B, MIT, open weights)** — tops
+   OmniDocBench 94.62, runs locally via ollama on THIS laptop's
+   CPU (no GPU, ~350 s/page, 34 pages ≈ 3.3 h; zero cost, zero
+   egress). **Results.** (i) **Word-stream agreement vs NB ALTO
+   96.5% raw (10,980 / 11,384) — the best of any channel tried**,
+   with `§`, `/`, `:` all read natively; on page 1240 it got
+   every token right that the others fumbled (`89/552/EØF`,
+   `følgende lover:`, `selv` where ABBYY wrote `seiv`). (ii)
+   Output is paragraph-reflowed (physical lines are gone), so it
+   can only be scored as a word stream — fine for proposal use.
+   (iii) **The disqualifying class exists and was caught on the
+   very first page: `tilskudd til produksjon` silently fused to
+   `tilproduksjon`** — fluent, plausible, wrong, a deletion no
+   agreement gate can see from the inside; 17 further
+   fusion-shaped merges found, though most of those are GLM
+   CORRECTING ABBYY split errors (`fore tatt`→`foretatt`,
+   `ho vedaktivitet`→`hovedaktivitet`). LM4DH's warning is now
+   reproduced locally: proposal channel ONLY, never a certifier.
+   (iv) **Adjudication value: of W-89's 324 refused NorPrint
+   lines, GLM confirms the NorPrint reading on 53 (16.4%)**,
+   lifting the 4-channel union to 81.4% — but those 53 are
+   VLM+CTC agreements (the two fluency-biased families), a
+   weaker evidence class than an ABBYY/tesseract confirmation
+   and marked as such. **Reading.** The pilot's channel roster
+   is now settled: ABBYY ALTO + tesseract as the certifying
+   pair, NorPrint as the third print channel, GLM-OCR as the
+   free local proposer for refused lines; certified ~78–81%
+   of lines depending on how much weight the VLM+CTC class is
+   given. The remaining ceiling-lifter is unchanged: a
+   §-capable tesstrain fine-tune. Gemini 3 Flash / Mistral OCR 4
+   remain untested API options if a stronger proposer is ever
+   needed (keys required); no published benchmark covers
+   Norwegian, so any adoption gets measured on this same slice
+   first.
+
 ## 5. Demo / Inspection Tooling
 
 Browser views of any replayable law across its own amendment dates, plus an
@@ -6920,6 +6962,17 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
 
+- **2026-08-24 (W-90 — GLM-OCR local proposal channel; probe
+  only)** — GLM-OCR 0.9B (MIT, ollama, CPU-only, ~350 s/page) over
+  the same 34 pages: **96.5% raw word agreement — best channel
+  yet**, reads §///: natively, and fixes several ABBYY split
+  errors. But it silently fused `tilskudd til produksjon` →
+  `tilproduksjon` on page one — the LM4DH plausible-error class,
+  reproduced locally — so it is proposal-only, never certifying.
+  It confirms 53 of W-89's 324 refusals (4-channel union 81.4%,
+  the VLM+CTC agreements flagged as a weaker evidence class).
+  Gemini 3.7 Flash assessed and rejected for this path (#26/31 on
+  verbatim OCR despite #2 overall vision).
 - **2026-08-23 (W-89 — NorPrint third channel; probe only, modest
   lift, ceiling not broken)** — Transkribus NorPrint (PyLaia, NB's
   own print model) over the same 34 pages via a manual web-app
