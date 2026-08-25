@@ -8,7 +8,7 @@ import json
 import os
 from pathlib import Path
 import tarfile
-from typing import cast
+from typing import Sequence, cast
 
 from lxml import etree
 import pytest
@@ -34,6 +34,24 @@ from lawvm.norway.grafter import (
     NO_PARSE_SUBSTITUTION_MULTI_BASE_ADDRESS_LIST,
     NO_PARSE_SUBSTITUTION_MULTIPLE_ANNOUNCEMENTS,
     NO_PARSE_STRUCTURED_PAYLOAD_NOT_DECLARED,
+    NO_CHAPTER_HEADING_PROVENANCE_TAG,
+    NO_CHAPTER_REENACTMENT_PROVENANCE_TAG,
+    NO_ITEM_PAYLOAD_SINGLE_TEXT_ARTICLE_PROVENANCE_TAG,
+    NO_LEDD_REPEAL_REENACT_PROVENANCE_TAG,
+    NO_LEDD_SET_RELABEL_PROVENANCE_TAG,
+    NO_PARSE_CHAPTER_HEADING_PAYLOAD_UNRESOLVED,
+    NO_PARSE_CHAPTER_REENACTMENT_PAYLOAD_UNRESOLVED,
+    NO_PARSE_MIXED_MEMBER_PAYLOAD_ARITY_MISMATCH,
+    NO_PARSE_SECTION_RANGE_UNEXPANDABLE,
+    NO_REPLAY_CHAPTER_REENACTMENT_UNCARRIED_SECTIONS_REFUSED,
+    NO_REPLAY_REENACTMENT_INSERT_OCCUPIED_TARGET_REFUSED,
+    _expand_no_section_range_labels,
+    _no_chapter_heading_lead,
+    _no_chapter_reenactment_lead,
+    _no_ledd_repeal_reenact_specs,
+    _no_mixed_punktum_ledd_member_specs,
+    _no_nynorsk_ledd_repeal_targets,
+    _no_repeated_ledd_noun_subsection_specs,
     NO_REPLAY_SUBSTITUTION_TERM_NOT_UNIQUELY_PRESENT,
     NO_SUBSTITUTION_PROVENANCE_TAG,
     NOHeadingGroup,
@@ -5423,9 +5441,11 @@ def test_no_gjer_ein_folgjande_witness_enters_the_index_at_all() -> None:
 
     grouped = dict(iter_no_document_change_ops(html_bytes, "no/lovtid/2007-06-15-21"))
 
+    # 13 -> 14 on folketrygdloven at W-98 (i): the act's nynorsk ``§ 3-15 fjerde
+    # ledd blir oppheva.`` lowers to a REPEAL; nothing else in the act moves.
     assert {base_id: len(ops) for base_id, ops in grouped.items()} == {
         "no/lov/1991-11-08-76": 3,
-        "no/lov/1997-02-28-19": 13,
+        "no/lov/1997-02-28-19": 14,
         "no/lov/2005-06-17-58": 3,
         "no/lov/2005-06-17-62": 5,
     }
@@ -6673,8 +6693,10 @@ def test_no_w32_eierseksjonsloven_payoff_chain_lowers_the_del_iv_erratum() -> No
         )
     )
     ops = grouped["no/lov/2017-06-16-65"]
-    # 4 on base + the two recovered items + the erratum.
-    assert len(ops) == 7
+    # 4 on base + the two recovered items + the erratum; 7 -> 8 at W-98 (f), the
+    # act's ``Overskrifta til kapittel IV skal lyde:`` lowering to a heading-only
+    # CHAPTER op. The § 49 item chain below is untouched.
+    assert len(ops) == 8
     item_ops = [op for op in ops if op.target.path[0] == ("section", "49")]
     assert [(op.action, op.target.path[-1]) for op in item_ops] == [
         (StructuralAction.REPLACE, ("item", "e")),
@@ -7230,7 +7252,10 @@ def test_no_w35_w21_section_412_witness_is_byte_identical() -> None:
     # were never in its ``changesToDocuments`` list at all (see the binding note
     # in ``tests/test_norway_index.py``). Nothing is regrouped and no group is
     # lost.
-    assert len(grouped) == 227
+    # 227 -> 228 at W-98 (h): ``no/lov/1961-06-09-1`` gains a group of its own
+    # because the unqualified self-addressed shift "§ 33 tredje ledd blir nytt
+    # annet ledd." is the first op this act lowers for it.
+    assert len(grouped) == 228
     # 484 -> 493 at W-66: nine sibling-set ledd relabel legs across six of this
     # act's consequential items (straffeloven 2005 § 5, straffeprosessloven
     # § 13, § 41 a, § 32, § 47, § 50). The group COUNT is unmoved, which is the
@@ -7242,7 +7267,15 @@ def test_no_w35_w21_section_412_witness_is_byte_identical() -> None:
     # annet og tredje punktum oppheves.") and each pair emits DESCENDING —
     # ``sentence:2`` before ``sentence:1`` — which is the production's own
     # ordering rule visible in the stream.
-    assert sum(len(ops) for _base_id, ops in grouped) == 527
+    # 527 -> 534 at W-98: the one relabel above, FIVE single-item leads whose
+    # payload is the one ``legalP`` behind them (W-98 (d): "§ 29 første ledd
+    # bokstav e skal lyde:" and "§ 30 annet ledd bokstav c" on 1988-06-24-64,
+    # "§ 4-5 første ledd bokstav d" on kringkastingsloven, "§ 13-12 første ledd
+    # bokstav e" on folketrygdloven, "§ 54 første ledd bokstav d" on
+    # 2001-05-18-21), and one chapter heading ("Overskriften til kapittel 5 skal
+    # lyde:" on 1998-03-20-10). Straffeloven 2005 and utleveringsloven are
+    # untouched.
+    assert sum(len(ops) for _base_id, ops in grouped) == 534
 
     by_base = dict(grouped)
     assert len(by_base["no/lov/2005-05-20-28"]) == 24
@@ -7272,7 +7305,11 @@ def test_no_w35_w21_section_412_witness_is_byte_identical() -> None:
     # W-66c re-digest, for the same reason and with the same guarantee: the 34
     # punktum repeals join the digested stream. They carry no payload at all, so
     # every payload the digest already held is byte-identical under it.
-    assert digest.hexdigest()[:32] == "ff7a0c564d7010fb149941598f4f2e83"
+    # W-98 re-digest, same reason, same guarantee: the seven new ops above join
+    # the stream (one relabel with no payload, five single-article item payloads
+    # and one heading-only chapter payload); every payload the digest already
+    # held is byte-identical under it.
+    assert digest.hexdigest()[:32] == "ad4b7a2f6cb3d01f7d264b4318f6e9b6"
 
 
 # ---------------------------------------------------------------------------
@@ -7905,11 +7942,12 @@ def test_no_w74_section_repeal_renumber_accepts_the_measured_population() -> Non
         "Nåværende § 5-8 oppheves. Nåværende § 5-7 blir ny § 5-8."
     ) == (["5-8"], "5-7", "5-8")
     # no/lovtid/2015-04-10-17 → no/lov/2005-06-10-44. A ``til`` RANGE, resolved by
-    # the shipped ``_expand_no_section_range_labels`` and therefore to its two
-    # endpoints for a hyphenated label — see the note on the list parser.
+    # the shared ``_expand_no_section_range_labels``. Until W-98 (c) that
+    # expander truncated a hyphenated range to its two ENDPOINTS (an under-repeal
+    # this test pinned as the shipped behaviour); it now enumerates the range.
     assert _no_unstructured_section_repeal_renumber_labels(
         "§§ 1-2 til 1-7 oppheves. Nåværende § 1-8 blir ny § 1-2."
-    ) == (["1-2", "1-7"], "1-8", "1-2")
+    ) == (["1-2", "1-3", "1-4", "1-5", "1-6", "1-7"], "1-8", "1-2")
     # no/lovtid/2016-04-22-5 → no/lov/2005-04-01-15.
     assert _no_unstructured_section_repeal_renumber_labels(
         "§ 10-4 oppheves. Nåværende § 10-5 blir § 10-4."
@@ -8002,9 +8040,11 @@ def test_no_w74_section_repeal_list_refuses_a_member_it_cannot_read() -> None:
     """
     assert _no_section_repeal_list_labels("10, 11 og 12") == ["10", "11", "12"]
     assert _no_section_repeal_list_labels("3 i") == ["3i"]
-    assert _no_section_repeal_list_labels("1-2 til 1-7") == ["1-2", "1-7"]
-    # Pure-digit ranges expand, which is the shipped helper's behaviour.
+    # Ranges expand through the shared ``_expand_no_section_range_labels`` —
+    # chapter-numbered ones too since W-98 (c); a cross-chapter range refuses.
+    assert _no_section_repeal_list_labels("1-2 til 1-7") == ["1-2", "1-3", "1-4", "1-5", "1-6", "1-7"]
     assert _no_section_repeal_list_labels("10 til 13") == ["10", "11", "12", "13"]
+    assert _no_section_repeal_list_labels("2-4 til 3-2") is None
     # A member with prose in it is not a label.
     assert _no_section_repeal_list_labels("10, 11 og siste") is None
     assert _no_section_repeal_list_labels("10, 11 og 12 andre ledd") is None
@@ -12943,3 +12983,785 @@ def test_no_w77_unresolvable_ledd_gets_a_typed_receipt_not_a_guess() -> None:
         for op in base_ops
         if NO_ITEM_INSERT_PAYLOAD_PROVENANCE_TAG in (op.provenance_tags or ())
     ]
+
+
+# ── W-98: the pre-2001 lead grammar, closed on the kringkastingsloven witness ─
+#
+# Item 97 (W-91) ran the OCR-reconstructed 1992 broadcasting act and its eleven
+# cached amending acts through the unstructured walk; nine lead shapes on
+# certified lines refused ``no_parse_unstructured_lead_unmatched``. Every test
+# below carries the witness lead VERBATIM and a minimal inline fixture in the
+# pre-2001 shape the print-era emitter writes.
+
+_W98_BASE = "no/lov/1992-12-04-127"
+
+
+def _w98_amendment(members: str) -> bytes:
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="changesToDocuments"><ul><li>lov/1992-12-04-127</li></ul></dd>
+    <dd class="dateInForce">2000-01-20</dd>
+    <main>
+      <section data-name="kapI">
+        <article class="legalP">I lov av 4. desember 1992 nr. 127 om kringkasting gjøres følgende endringer:</article>
+{members}
+      </section>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def _w98_ops(
+    members: str, source_id: str = "no/lovtid/2000-01-14-5"
+) -> tuple[list[LegalOperation], list[CompileAdjudication]]:
+    adjudications: list[CompileAdjudication] = []
+    grouped = dict(iter_no_document_change_ops(_w98_amendment(members), source_id, adjudications_out=adjudications))
+    return list(grouped.get(_W98_BASE, [])), adjudications
+
+
+def _w98_shape(op: LegalOperation) -> tuple[object, tuple[tuple[str, str], ...], object, object]:
+    return (
+        _action_value(op.action),
+        op.target.path,
+        None if op.destination is None else op.destination.path,
+        None if op.source is None else op.source.raw_text,
+    )
+
+
+def _w98_future_article(name: str, title: str, ledd: Sequence[str]) -> str:
+    body = "".join(f'<article class="legalP">{text}</article>' for text in ledd)
+    return (
+        f'<article class="futureLegalArticle" data-name="{name}">'
+        f'<span class="futureLegalArticleHeader">{name[0]} {name[1:]}. <span class="legalArticleTitle">{title}</span></span>'
+        f"{body}</article>"
+    )
+
+
+def _w98_statute(chapters: Sequence[tuple[str, str, Sequence[tuple[str, str, Sequence[str]]]]]) -> IRStatute:
+    """A Lovdata-shaped consolidated statute: ``(chapter label, title, [(section label, title, [ledd…])])``."""
+    parts = []
+    for chapter_label, chapter_title, sections in chapters:
+        articles = "".join(
+            f'<article class="legalArticle" data-name="§{label}"><h3 class="legalArticleHeader">§ {label}. {title}</h3>'
+            + "".join(f'<article class="legalP">{text}</article>' for text in ledd)
+            + "</article>"
+            for label, title, ledd in sections
+        )
+        parts.append(
+            f'<section class="section" data-name="kap{chapter_label}"><h2>{chapter_title}</h2>{articles}</section>'
+        )
+    xml = (
+        '<?xml version="1.0" encoding="utf-8"?><html lang="nb"><head><title>Lov om kringkasting.</title></head>'
+        f'<body><main class="documentBody">{"".join(parts)}</main></body></html>'
+    )
+    return parse_no_statute(xml.encode("utf-8"), _W98_BASE)
+
+
+def _w98_chapter(statute: IRStatute, label: str) -> IRNode:
+    return next(
+        child for child in statute.body.children if _kind_value(child.kind) == "chapter" and child.label == label
+    )
+
+
+def _w98_sections(node: IRNode) -> list[tuple[str | None, list[str]]]:
+    return [
+        (child.label, [ledd.text or "" for ledd in child.children if _kind_value(ledd.kind) == "subsection"])
+        for child in node.children
+        if _kind_value(child.kind) == "section"
+    ]
+
+
+def _w98_heading(node: IRNode) -> str:
+    return next(child.text or "" for child in node.children if _kind_value(child.kind) == "heading")
+
+
+def _w98_unmatched(adjudications: Sequence[CompileAdjudication]) -> list[str]:
+    return [
+        str((item.detail or {}).get("source_excerpt"))
+        for item in adjudications
+        if item.kind == "no_parse_unstructured_lead_unmatched"
+    ]
+
+
+# (a) the repeated-noun ledd list ------------------------------------------------
+
+
+def test_no_w98_repeated_ledd_noun_list_lowers_the_witness() -> None:
+    """W-91 gap 3, ``no/lovtid/1993-12-17-126``: ``§ 7-2 første ledd og tredje ledd skal lyde:``."""
+    lead = "§ 7-2 første ledd og tredje ledd skal lyde:"
+    ops, adjudications = _w98_ops(
+        f'<article class="defaultP">{lead}</article>'
+        '<article class="legalP">Kringkastingsrådet består av 14 medlemmer med personlige varamedlemmer.</article>'
+        '<article class="legalP">Lederen eller et medlem i dennes sted kan møte i styret og delta i drøftingene.</article>',
+        source_id="no/lovtid/1993-12-17-126",
+    )
+    assert [_w98_shape(op) for op in ops] == [
+        ("replace", (("section", "7-2"), ("subsection", "1")), None, lead),
+        ("replace", (("section", "7-2"), ("subsection", "3")), None, lead),
+    ]
+    assert [op.payload.text for op in ops if op.payload is not None] == [
+        "Kringkastingsrådet består av 14 medlemmer med personlige varamedlemmer.",
+        "Lederen eller et medlem i dennes sted kan møte i styret og delta i drøftingene.",
+    ]
+    assert _w98_unmatched(adjudications) == []
+
+
+def test_no_w98_repeated_noun_scopes_newness_per_member_and_declines_the_shipped_shape() -> None:
+    """The repeated noun closes each member's noun phrase: ``nytt`` scopes over its own member only."""
+    # The single-noun list is the shipped reader's, byte for byte: declined here.
+    assert _no_repeated_ledd_noun_subsection_specs("§ 7-2 første og tredje ledd skal lyde:") == []
+    assert _no_repeated_ledd_noun_subsection_specs("§ 7-2 nytt tredje og fjerde ledd skal lyde:") == []
+    # A second section in the list is not this grammar.
+    assert _no_repeated_ledd_noun_subsection_specs("§ 5 første ledd og § 6 tredje ledd skal lyde:") == []
+    specs = _no_repeated_ledd_noun_subsection_specs("§ 1-1 nytt tredje ledd og fjerde ledd skal lyde:")
+    assert [(_action_value(action), target.path) for action, target in specs] == [
+        ("insert", (("section", "1-1"), ("subsection", "3"))),
+        ("replace", (("section", "1-1"), ("subsection", "4"))),
+    ]
+    # The corpus's commonest member of the family: an existing ledd and a new one.
+    specs = _no_repeated_ledd_noun_subsection_specs("§ 10-1 første ledd og nytt annet ledd skal lyde:")
+    assert [(_action_value(action), target.path) for action, target in specs] == [
+        ("replace", (("section", "10-1"), ("subsection", "1"))),
+        ("insert", (("section", "10-1"), ("subsection", "2"))),
+    ]
+
+
+# (b) the mixed punktum + ledd member list ---------------------------------------
+
+
+def test_no_w98_mixed_punktum_ledd_lead_lowers_the_witness() -> None:
+    """W-91 gap 2, ``no/lovtid/2000-01-14-5``: a punktum member beside a ledd member, one article each."""
+    lead = "§ 2-5 første ledd første punktum og andre ledd skal lyde:"
+    first = "Kringkastere skal oppbevare opptak av program i minst to måneder etter sending."
+    second = "Kringkastere plikter å utlevere opptak av program til de instanser som har til oppgave å føre tilsyn."
+    ops, adjudications = _w98_ops(
+        f'<article class="defaultP">{lead}</article>'
+        f'<article class="legalP">{first}</article>'
+        f'<article class="legalP">{second}</article>'
+    )
+    assert [_w98_shape(op) for op in ops] == [
+        ("replace", (("section", "2-5"), ("subsection", "1"), ("sentence", "1")), None, lead),
+        ("replace", (("section", "2-5"), ("subsection", "2")), None, lead),
+    ]
+    sentence, ledd = (op.payload for op in ops)
+    assert sentence is not None and _kind_value(sentence.kind) == "sentence" and sentence.text == first
+    assert ledd is not None and _kind_value(ledd.kind) == "subsection" and ledd.text == second
+    assert _w98_unmatched(adjudications) == []
+
+
+def test_no_w98_mixed_member_reader_declines_homogeneous_lists_and_refuses_on_arity() -> None:
+    # Homogeneous lists belong to the shipped readers and are declined by construction.
+    assert _no_mixed_punktum_ledd_member_specs("§ 2-5 første og andre ledd skal lyde:") == []
+    assert _no_mixed_punktum_ledd_member_specs("§ 2-5 første ledd første og annet punktum skal lyde:") == []
+    # A run-on with a relabel in front is not a member list.
+    assert (
+        _no_mixed_punktum_ledd_member_specs(
+            "§ 12-5 annet ledd blir nytt tredje punktum i første ledd. Nytt annet og tredje ledd skal lyde:"
+        )
+        == []
+    )
+    specs = _no_mixed_punktum_ledd_member_specs("§ 47 første ledd nytt annet punktum og nytt annet ledd skal lyde:")
+    assert [(_action_value(action), target.path) for action, target in specs] == [
+        ("insert", (("section", "47"), ("subsection", "1"), ("sentence", "2"))),
+        ("insert", (("section", "47"), ("subsection", "2"))),
+    ]
+    # One article for two members: the whole lead refuses, typed, and nothing is minted.
+    lead = "§ 2-5 første ledd første punktum og andre ledd skal lyde:"
+    ops, adjudications = _w98_ops(
+        f'<article class="defaultP">{lead}</article><article class="legalP">Bare én.</article>'
+    )
+    assert ops == []
+    refusals = [item for item in adjudications if item.kind == NO_PARSE_MIXED_MEMBER_PAYLOAD_ARITY_MISMATCH]
+    assert len(refusals) == 1
+    detail = refusals[0].detail or {}
+    assert detail["declared_count"] == 2 and detail["payload_count"] == 1
+    assert detail["strict_disposition"] == "block" and refusals[0].blocking
+    assert _w98_unmatched(adjudications) == []
+
+
+# (c) the section range ----------------------------------------------------------
+
+
+def test_no_w98_section_range_with_a_section_sign_on_both_ends_lowers_the_witness() -> None:
+    """W-91 gap 8, ``no/lovtid/1998-05-22-32``: ``§ 5-1 til § 5-6 oppheves.`` — six repeals, not two."""
+    lead = "§ 5-1 til § 5-6 oppheves."
+    ops, adjudications = _w98_ops(f'<article class="defaultP">{lead}</article>', source_id="no/lovtid/1998-05-22-32")
+    assert [_w98_shape(op) for op in ops] == [
+        ("repeal", (("section", f"5-{number}"),), None, lead) for number in range(1, 7)
+    ]
+    assert _w98_unmatched(adjudications) == []
+    # The nynorsk verb on the shipped spelling.
+    ops, _ = _w98_ops('<article class="defaultP">§§ 36 til 38 blir oppheva.</article>')
+    assert [op.target.path for op in ops] == [(("section", "36"),), (("section", "37"),), (("section", "38"),)]
+
+
+def test_no_w98_section_range_expander_enumerates_chapter_numbered_ranges_or_refuses() -> None:
+    """The one range grammar, and the shipped ``§§ A til B`` lead now goes through it too."""
+    assert _expand_no_section_range_labels("16", "19") == ["16", "17", "18", "19"]
+    assert _expand_no_section_range_labels("5-16", "5-19") == ["5-16", "5-17", "5-18", "5-19"]
+    assert _expand_no_section_range_labels("2", "5a") == ["2", "3", "4", "5", "5a"]
+    assert _expand_no_section_range_labels("5a", "7") == ["5a", "6", "7"]
+    assert _expand_no_section_range_labels("5a", "5c") == ["5a", "5b", "5c"]
+    assert _expand_no_section_range_labels("7", "7") == ["7"]
+    # Unexpandable: cross-chapter, unordered, or a label outside the grammar.
+    assert _expand_no_section_range_labels("2-4", "3-2") is None
+    assert _expand_no_section_range_labels("9", "7") is None
+    assert _expand_no_section_range_labels("5a", "5") is None
+    assert _expand_no_section_range_labels("x", "y") is None
+    # The shipped lead enumerates a chapter-numbered range instead of its endpoints.
+    ops, _ = _w98_ops('<article class="defaultP">§§ 5-16 til 5-19 oppheves.</article>')
+    assert [op.target.path for op in ops] == [(("section", f"5-{number}"),) for number in (16, 17, 18, 19)]
+    # And an unexpandable range refuses TYPED rather than repealing two endpoints.
+    ops, adjudications = _w98_ops('<article class="defaultP">§§ 2-4 til 3-2 oppheves.</article>')
+    assert ops == []
+    assert [item.kind for item in adjudications] == [NO_PARSE_SECTION_RANGE_UNEXPANDABLE]
+    detail = adjudications[0].detail or {}
+    assert (detail["start"], detail["end"]) == ("2-4", "3-2") and detail["strict_disposition"] == "block"
+
+
+# (d) ``bokstav a)`` and the single-text-article item payload ---------------------
+
+
+def test_no_w98_bokstav_paren_item_lead_lowers_the_witness_off_its_single_text_article() -> None:
+    """W-91 gap 6, ``no/lovtid/1994-06-16-18``: the print's ``bokstav a)`` and a bare ``legalP`` payload."""
+    lead = "§ 10-1 første ledd bokstav a) skal lyde:"
+    text = (
+        "overtrer bestemmelser i kapitlene 2, 3, 4, §§ 8-1 og 8-2, eller forskrift gitt med hjemmel i disse "
+        "bestemmelser."
+    )
+    ops, adjudications = _w98_ops(
+        f'<article class="defaultP">{lead}</article><article class="legalP">{text}</article>',
+        source_id="no/lovtid/1994-06-16-18",
+    )
+    assert [_w98_shape(op) for op in ops] == [
+        ("replace", (("section", "10-1"), ("subsection", "1"), ("item", "a")), None, lead),
+    ]
+    payload = ops[0].payload
+    assert payload is not None and _kind_value(payload.kind) == "item" and payload.label == "a"
+    assert payload.text == text
+    assert NO_ITEM_PAYLOAD_SINGLE_TEXT_ARTICLE_PROVENANCE_TAG in (ops[0].provenance_tags or ())
+    assert _w98_unmatched(adjudications) == []
+    # Two text articles behind one item: no single-article proof, the shipped payload receipt stays.
+    ops, adjudications = _w98_ops(
+        f'<article class="defaultP">{lead}</article>'
+        f'<article class="legalP">{text}</article><article class="legalP">Og en til.</article>'
+    )
+    assert ops == []
+    assert [item.kind for item in adjudications] == ["no_parse_unstructured_payload_unresolved"]
+    assert (adjudications[0].detail or {}).get("payload_family") == "item"
+
+
+# (e) the compound repeal-then-reenact lead ---------------------------------------
+
+
+def test_no_w98_compound_ledd_repeal_then_reenact_lowers_the_witness_and_applies() -> None:
+    """W-91 gap 4, ``no/lovtid/2000-01-14-5``: repeal the third ledd, re-enact a third, replace the fourth."""
+    lead = "§ 1-1 tredje ledd oppheves. Nytt tredje ledd og fjerde ledd skal lyde:"
+    third = "Med kringkaster menes fysisk eller juridisk person som har det redaksjonelle ansvaret."
+    fourth = "Med reklame menes enhver form for markedsføring av en vare, tjeneste, sak eller idé."
+    ops, adjudications = _w98_ops(
+        f'<article class="defaultP">{lead}</article>'
+        f'<article class="legalP">{third}</article><article class="legalP">{fourth}</article>'
+    )
+    assert [_w98_shape(op) for op in ops] == [
+        ("repeal", (("section", "1-1"), ("subsection", "3")), None, lead),
+        ("insert", (("section", "1-1"), ("subsection", "3")), None, lead),
+        ("replace", (("section", "1-1"), ("subsection", "4")), None, lead),
+    ]
+    assert all(NO_LEDD_REPEAL_REENACT_PROVENANCE_TAG in (op.provenance_tags or ()) for op in ops)
+    assert _w98_unmatched(adjudications) == []
+    assert _no_ledd_repeal_reenact_specs("§ 1-1 tredje ledd oppheves. Nåværende fjerde ledd blir tredje ledd.") is None
+
+    statute = _w98_statute(
+        [("1", "Kap. 1. Definisjoner", [("1-1", "Definisjoner", ["én", "to", "tre", "fire", "fem"])])]
+    )
+    result = apply_no_ops(statute, ops, adjudications_out=[])
+    assert _w98_sections(_w98_chapter(result, "1")) == [("1-1", ["én", "to", third, fourth, "fem"])]
+
+
+def test_no_w98_compound_reenact_insert_refuses_an_occupied_slot_it_never_repealed() -> None:
+    """The production's INSERT legs refuse the θ (INSERT, target_occupied) recovery."""
+    lead = "§ 1-1 tredje ledd oppheves. Nytt tredje ledd og nytt fjerde ledd skal lyde:"
+    ops, _ = _w98_ops(
+        f'<article class="defaultP">{lead}</article>'
+        '<article class="legalP">ny tre</article><article class="legalP">ny fire</article>'
+    )
+    assert [_action_value(op.action) for op in ops] == ["repeal", "insert", "insert"]
+    statute = _w98_statute([("1", "Kap. 1", [("1-1", "Definisjoner", ["én", "to", "tre", "fire"])])])
+    adjudications: list[CompileAdjudication] = []
+    result = apply_no_ops(statute, ops, adjudications_out=adjudications)
+    # The repealed slot is re-enacted; the standing fourth ledd survives byte-identical.
+    assert _w98_sections(_w98_chapter(result, "1")) == [("1-1", ["én", "to", "ny tre", "fire"])]
+    refusals = [
+        item for item in adjudications if item.kind == NO_REPLAY_REENACTMENT_INSERT_OCCUPIED_TARGET_REFUSED
+    ]
+    assert len(refusals) == 1 and refusals[0].blocking
+    assert (refusals[0].detail or {}).get("production") == NO_LEDD_REPEAL_REENACT_PROVENANCE_TAG
+    assert (refusals[0].detail or {}).get("resolved_path") == "chapter:1/section:1-1/subsection:4"
+    assert not [item for item in adjudications if item.kind == "no_replay_insert_occupied_target_replaced"]
+    conserved = apply_no_ops_conserved(statute, ops, adjudications_out=[])
+    assert len(conserved.applied_ops) == 2 and len(conserved.skipped_items) == 1
+
+
+# (f) the chapter heading --------------------------------------------------------
+
+
+def test_no_w98_chapter_heading_lead_lowers_the_witness_and_merges_over_the_standing_chapter() -> None:
+    """W-91 gap 5, ``no/lovtid/2000-01-14-5``: ``Overskriften til kapittel 3 skal lyde:`` + one title line."""
+    lead = "Overskriften til kapittel 3 skal lyde:"
+    ops, adjudications = _w98_ops(
+        f'<article class="defaultP">{lead}</article><article class="legalP">Reklame, sponsing m.v.</article>'
+        '<article class="defaultP">§ 3-4 andre ledd skal lyde:</article><article class="legalP">Innhold.</article>'
+    )
+    assert [_w98_shape(op) for op in ops] == [
+        ("replace", (("chapter", "3"),), None, lead),
+        ("replace", (("section", "3-4"), ("subsection", "2")), None, "§ 3-4 andre ledd skal lyde:"),
+    ]
+    payload = ops[0].payload
+    assert payload is not None and _kind_value(payload.kind) == "chapter" and payload.label == "3"
+    assert [(_kind_value(child.kind), child.text) for child in payload.children] == [
+        ("heading", "Reklame, sponsing m.v.")
+    ]
+    assert NO_CHAPTER_HEADING_PROVENANCE_TAG in (ops[0].provenance_tags or ())
+    assert _w98_unmatched(adjudications) == []
+
+    statute = _w98_statute(
+        [
+            (
+                "3",
+                "Kap. 3. Reklame, sponsing",
+                [("3-1", "Varighet", ["Reklameinnslag."]), ("3-2", "Særregler", ["Kringkastere."])],
+            )
+        ]
+    )
+    result = apply_no_ops(statute, ops[:1], adjudications_out=[])
+    chapter = _w98_chapter(result, "3")
+    assert _w98_heading(chapter) == "Reklame, sponsing m.v."
+    # The chapter's sections are never touched by a heading announcement.
+    assert _w98_sections(chapter) == _w98_sections(_w98_chapter(statute, "3"))
+
+
+def test_no_w98_chapter_heading_lead_reads_every_corpus_word_order_and_refuses_the_rest() -> None:
+    assert _no_chapter_heading_lead("Overskriften til kapittel 3 skal lyde:") == ("3", "")
+    assert _no_chapter_heading_lead("Overskrifta til kapittel 2 skal lyde:") == ("2", "")
+    assert _no_chapter_heading_lead("Overskriften i kapittel 18 skal lyde:") == ("18", "")
+    assert _no_chapter_heading_lead("Kapittel 4 overskriften skal lyde:") == ("4", "")
+    assert _no_chapter_heading_lead("Overskrifta til kapittel 4 skal lyda:") == ("4", "")
+    assert _no_chapter_heading_lead("Overskriften til kapittel XVI skal lyde: Særlige regler") == (
+        "XVI",
+        "Særlige regler",
+    )
+    assert _no_chapter_heading_lead("Overskriften til kapittel III A skal lyde:") == ("IIIA", "")
+    # Not this grammar: a section heading, a subdivision, a placement aside.
+    assert _no_chapter_heading_lead("Overskriften til § 26 skal lyde:") is None
+    assert _no_chapter_heading_lead("Kapittel 8 avsnitt III overskriften skal lyde:") is None
+    assert (
+        _no_chapter_heading_lead("Overskriften til kapittel III A, plassert umiddelbart foran § 17a, skal lyde:")
+        is None
+    )
+    # Inline title lands without consuming the next lead.
+    lead = "Overskriften til kapittel 6 skal lyde: Kapittel 6 Taushetsplikt"
+    ops, _ = _w98_ops(f'<article class="defaultP">{lead}</article><article class="defaultP">§ 7-1 oppheves.</article>')
+    assert [_w98_shape(op) for op in ops] == [
+        ("replace", (("chapter", "6"),), None, lead),
+        ("repeal", (("section", "7-1"),), None, "§ 7-1 oppheves."),
+    ]
+    inline_payload = ops[0].payload
+    assert inline_payload is not None and inline_payload.children[0].text == "Kapittel 6 Taushetsplikt"
+    # Two body nodes behind the lead: the announcement carries more than a heading — typed refusal.
+    ops, adjudications = _w98_ops(
+        '<article class="defaultP">Overskriften til kapittel 3 skal lyde:</article>'
+        '<article class="legalP">Reklame, sponsing m.v.</article><article class="legalP">Og et ledd.</article>'
+    )
+    assert ops == []
+    refusals = [item for item in adjudications if item.kind == NO_PARSE_CHAPTER_HEADING_PAYLOAD_UNRESOLVED]
+    assert [(item.detail or {}).get("refusal") for item in refusals] == ["payload_node_count_not_one"]
+    assert (refusals[0].detail or {}).get("strict_disposition") == "block"
+    # An operative node behind the lead is not a heading.
+    ops, adjudications = _w98_ops(
+        '<article class="defaultP">Overskriften til kapittel 3 skal lyde:</article>'
+        '<article class="defaultP">§ 3-4 andre ledd skal lyde:</article><article class="legalP">Innhold.</article>'
+    )
+    assert [_action_value(op.action) for op in ops] == ["replace"]
+    assert ops[0].target.path == (("section", "3-4"), ("subsection", "2"))
+    assert [
+        (item.detail or {}).get("refusal")
+        for item in adjudications
+        if item.kind == NO_PARSE_CHAPTER_HEADING_PAYLOAD_UNRESOLVED
+    ] == ["payload_is_not_a_heading"]
+
+
+def test_no_w98_heading_only_container_replace_merges_instead_of_wiping() -> None:
+    """The apply-seam merge generalized from ``section`` to every heading-carrying container.
+
+    W-82's structured chapter-heading payloads (``Kapittel 8 avsnitt III overskriften
+    skal lyde:``) reached the bare replace before this and would have wiped the
+    subdivision's sections; a heading-only payload over a container now merges.
+    """
+    statute = _w98_statute([("8", "Kapittel 8. Gammel", [("8-1", "A", ["a"]), ("8-2", "B", ["b"])])])
+    op = LegalOperation(
+        op_id="no/lovtid/9999-01-01-1:1",
+        sequence=1,
+        action=StructuralAction.REPLACE,
+        target=LegalAddress(path=(("chapter", "8"),)),
+        payload=IRNode(
+            kind=IRNodeKind.CHAPTER, label="8", children=(IRNode(kind=IRNodeKind.HEADING, text="Kapittel 8. Ny"),)
+        ),
+        source=OperationSource(
+            statute_id="no/lovtid/9999-01-01-1", raw_text="Kapittel 8 overskriften skal lyde:", title="x"
+        ),
+        provenance_tags=(f"base_act:{_W98_BASE}",),
+        group_id="no/lovtid/9999-01-01-1:1",
+    )
+    result = apply_no_ops(statute, [op], adjudications_out=[])
+    chapter = _w98_chapter(result, "8")
+    assert _w98_heading(chapter) == "Kapittel 8. Ny"
+    assert _w98_sections(chapter) == [("8-1", ["a"]), ("8-2", ["b"])]
+
+
+# (g) the whole-chapter re-enactment ---------------------------------------------
+
+_W98_CHAPTER_6_LEAD = "Kapittel 6 skal lyde:"
+_W98_CHAPTER_6_MEMBERS = (
+    f'<article class="defaultP">{_W98_CHAPTER_6_LEAD}</article>'
+    "<h2>Kap. 6 Norsk rikskringkasting AS</h2>"
+    + _w98_future_article(
+        "§6-1",
+        "Organisasjon, eierforhold, formål",
+        ["Norsk rikskringkasting er et aksjeselskap.", "Staten skal eie alle aksjer i Norsk rikskringkasting AS."],
+    )
+    + _w98_future_article("§6-2", "Styret", ["Styret har ingen myndighet i løpende programvirksomhet."])
+)
+
+
+def test_no_w98_chapter_reenactment_lead_lowers_the_witness_as_one_chapter_op() -> None:
+    """W-91 gap 1, ``no/lovtid/1996-02-02-6``: ``Kapittel 6 skal lyde:`` + title + section carriers."""
+    ops, adjudications = _w98_ops(
+        _W98_CHAPTER_6_MEMBERS + '<article class="defaultP">§ 7-1 oppheves.</article>',
+        source_id="no/lovtid/1996-02-02-6",
+    )
+    assert [_w98_shape(op) for op in ops] == [
+        ("replace", (("chapter", "6"),), None, _W98_CHAPTER_6_LEAD),
+        ("repeal", (("section", "7-1"),), None, "§ 7-1 oppheves."),
+    ]
+    payload = ops[0].payload
+    assert payload is not None and _kind_value(payload.kind) == "chapter" and payload.label == "6"
+    assert [_kind_value(child.kind) for child in payload.children] == ["heading", "section", "section"]
+    assert payload.children[0].text == "Kap. 6 Norsk rikskringkasting AS"
+    assert _w98_sections(payload) == [
+        (
+            "6-1",
+            ["Norsk rikskringkasting er et aksjeselskap.", "Staten skal eie alle aksjer i Norsk rikskringkasting AS."],
+        ),
+        ("6-2", ["Styret har ingen myndighet i løpende programvirksomhet."]),
+    ]
+    assert _w98_heading(payload.children[1]) == "Organisasjon, eierforhold, formål"
+    assert NO_CHAPTER_REENACTMENT_PROVENANCE_TAG in (ops[0].provenance_tags or ())
+    assert _w98_unmatched(adjudications) == []
+    assert _no_chapter_reenactment_lead("Nytt kapittel 5 A skal lyde:") == ("5A", StructuralAction.INSERT)
+    assert _no_chapter_reenactment_lead("Kapittel II a skal lyde:") == ("IIa", StructuralAction.REPLACE)
+    assert _no_chapter_reenactment_lead("Kapittel 8 avsnitt III skal lyde:") is None
+    assert _no_chapter_reenactment_lead("I kapittel III skal ny § 16-2 lyde:") is None
+
+
+def test_no_w98_chapter_reenactment_replaces_only_when_every_standing_section_is_carried() -> None:
+    """THE over-repeal decision: full carry replaces; an uncarried section refuses the whole op, typed."""
+    ops, _ = _w98_ops(_W98_CHAPTER_6_MEMBERS, source_id="no/lovtid/1996-02-02-6")
+    carried = _w98_statute(
+        [
+            ("5", "Kap. 5. Klage", [("5-1", "Klage", ["klage"])]),
+            (
+                "6",
+                "Kap. 6. Norsk rikskringkasting",
+                [("6-1", "Stiftelse", ["stiftelse"]), ("6-2", "Styret", ["gammelt styre"])],
+            ),
+            ("7", "Kap. 7. Rådet", [("7-1", "Rådet", ["rådet"])]),
+        ]
+    )
+    adjudications: list[CompileAdjudication] = []
+    result = apply_no_ops(carried, ops, adjudications_out=adjudications)
+    chapter = _w98_chapter(result, "6")
+    assert _w98_heading(chapter) == "Kap. 6 Norsk rikskringkasting AS"
+    assert _w98_sections(chapter) == [
+        (
+            "6-1",
+            ["Norsk rikskringkasting er et aksjeselskap.", "Staten skal eie alle aksjer i Norsk rikskringkasting AS."],
+        ),
+        ("6-2", ["Styret har ingen myndighet i løpende programvirksomhet."]),
+    ]
+    assert [child.label for child in result.body.children] == ["5", "6", "7"]
+    assert _w98_chapter(result, "5") == _w98_chapter(carried, "5")
+    assert _w98_chapter(result, "7") == _w98_chapter(carried, "7")
+    assert not [
+        item for item in adjudications if item.kind == NO_REPLAY_CHAPTER_REENACTMENT_UNCARRIED_SECTIONS_REFUSED
+    ]
+
+    # The W-91 witness's own shape: the OCR segmenter fused §§ 6-2–6-5 into § 6-1's
+    # body, so the payload carries fewer sections than the chapter holds. Nothing
+    # lands, the chapter is byte-identical, and the receipt names what was missing.
+    uncarried = _w98_statute(
+        [
+            (
+                "6",
+                "Kap. 6. Norsk rikskringkasting",
+                [("6-1", "A", ["a"]), ("6-2", "B", ["b"]), ("6-3", "C", ["c"]), ("6-5", "E", ["e"])],
+            )
+        ]
+    )
+    adjudications = []
+    result = apply_no_ops(uncarried, ops, adjudications_out=adjudications)
+    assert _w98_chapter(result, "6") == _w98_chapter(uncarried, "6")
+    refusals = [
+        item for item in adjudications if item.kind == NO_REPLAY_CHAPTER_REENACTMENT_UNCARRIED_SECTIONS_REFUSED
+    ]
+    assert len(refusals) == 1 and refusals[0].blocking
+    detail = refusals[0].detail or {}
+    assert detail["uncarried_sections"] == ("6-3", "6-5")
+    assert detail["carried_sections"] == ("6-1", "6-2")
+    assert detail["standing_sections"] == ("6-1", "6-2", "6-3", "6-5")
+    conserved = apply_no_ops_conserved(uncarried, ops, adjudications_out=[])
+    assert conserved.applied_ops == () and len(conserved.skipped_items) == 1
+
+
+def test_no_w98_chapter_reenactment_composes_with_the_range_repeal_on_the_1998_witness() -> None:
+    """``no/lovtid/1998-05-22-32``: ``§ 5-1 til § 5-6 oppheves.`` then ``Kapittel 5 skal lyde:`` with one § 5-1.
+
+    The kernel lands the six REPEALs before the chapter REPLACE, so the chapter
+    stands empty when the re-enactment is evaluated and nothing is uncarried.
+    """
+    members = (
+        '<article class="defaultP">§ 5-1 til § 5-6 oppheves.</article>'
+        '<article class="defaultP">Kapittel 5 skal lyde:</article>'
+        "<h2>Kap. 5 Beriktigelse</h2>"
+        + _w98_future_article(
+            "§5-1",
+            "",
+            [
+                "Enhver fysisk eller juridisk person har rett til å beriktige.",
+                "Retten gjelder overfor kringkastingsselskap.",
+            ],
+        )
+        + '<article class="defaultP">§ 6-5 oppheves.</article>'
+    )
+    ops, adjudications = _w98_ops(members, source_id="no/lovtid/1998-05-22-32")
+    assert [_action_value(op.action) for op in ops] == ["repeal"] * 6 + ["replace", "repeal"]
+    assert _w98_unmatched(adjudications) == []
+    statute = _w98_statute(
+        [
+            (
+                "5",
+                "Kap. 5. Klage over kringkastingsprogram",
+                [(f"5-{n}", f"S{n}", [f"gammel {n}"]) for n in range(1, 7)],
+            ),
+            ("6", "Kap. 6. NRK", [("6-5", "Teknisk", ["teknisk"])]),
+        ]
+    )
+    adjudications = []
+    result = apply_no_ops(statute, ops, adjudications_out=adjudications)
+    chapter = _w98_chapter(result, "5")
+    assert _w98_heading(chapter) == "Kap. 5 Beriktigelse"
+    assert _w98_sections(chapter) == [
+        (
+            "5-1",
+            [
+                "Enhver fysisk eller juridisk person har rett til å beriktige.",
+                "Retten gjelder overfor kringkastingsselskap.",
+            ],
+        )
+    ]
+    assert _w98_sections(_w98_chapter(result, "6")) == []
+    assert not [
+        item for item in adjudications if item.kind == NO_REPLAY_CHAPTER_REENACTMENT_UNCARRIED_SECTIONS_REFUSED
+    ]
+
+
+def test_no_w98_new_chapter_inserts_sorted_and_refuses_an_occupied_label() -> None:
+    lead = "Nytt kapittel 5 A skal lyde:"
+    members = (
+        f'<article class="defaultP">{lead}</article>'
+        '<span class="futuretitle">Kap. 5 A. Videodelingsplattformer</span>'
+        + _w98_future_article("§5A-1", "Jurisdiksjon", ["Kongen kan gi forskrift."])
+    )
+    ops, _ = _w98_ops(members)
+    assert [_w98_shape(op) for op in ops] == [("insert", (("chapter", "5A"),), None, lead)]
+    statute = _w98_statute([("5", "Kap. 5", [("5-1", "A", ["a"])]), ("6", "Kap. 6", [("6-1", "B", ["b"])])])
+    result = apply_no_ops(statute, ops, adjudications_out=[])
+    assert [child.label for child in result.body.children] == ["5", "5A", "6"]
+    assert _w98_heading(_w98_chapter(result, "5A")) == "Kap. 5 A. Videodelingsplattformer"
+    assert _w98_sections(_w98_chapter(result, "5A")) == [("5A-1", ["Kongen kan gi forskrift."])]
+    # Occupied: the standing chapter is in-force law and is not the thing to delete.
+    occupied = _w98_statute(
+        [("5", "Kap. 5", [("5-1", "A", ["a"])]), ("5A", "Kap. 5 A. Gammel", [("5A-1", "Z", ["z"])])]
+    )
+    adjudications: list[CompileAdjudication] = []
+    result = apply_no_ops(occupied, ops, adjudications_out=adjudications)
+    assert _w98_chapter(result, "5A") == _w98_chapter(occupied, "5A")
+    refusals = [
+        item for item in adjudications if item.kind == NO_REPLAY_REENACTMENT_INSERT_OCCUPIED_TARGET_REFUSED
+    ]
+    assert len(refusals) == 1
+    assert (refusals[0].detail or {}).get("production") == NO_CHAPTER_REENACTMENT_PROVENANCE_TAG
+    assert not [item for item in adjudications if item.kind == "no_replay_insert_occupied_target_replaced"]
+
+
+def test_no_w98_chapter_reenactment_reads_the_2001_header_shape_and_stops_at_the_next_lead() -> None:
+    """Lovdata's 2001 shape: a ``defaultP`` ``§ X. Title`` header and its ledd, no ``futureLegalArticle``."""
+    members = (
+        '<article class="defaultP">Nytt kapittel 5B skal lyde:</article>'
+        '<article class="defaultP">Kap. 5B. Energiplanlegging</article>'
+        '<article class="defaultP">§ 5B-1. (Energiplanlegging)</article>'
+        '<article class="legalP">Den som har konsesjon plikter å delta i energiplanlegging.</article>'
+        '<article class="legalP">Departementet gir forskrifter om planleggingen.</article>'
+        '<article class="defaultP">§ 5B-2. (Rasjonering)</article>'
+        '<article class="legalP">Departementet kan sette i verk rasjonering.</article>'
+        '<article class="defaultP">§ 6-1 fjerde ledd oppheves.</article>'
+    )
+    ops, adjudications = _w98_ops(members)
+    assert [_w98_shape(op) for op in ops] == [
+        ("insert", (("chapter", "5B"),), None, "Nytt kapittel 5B skal lyde:"),
+        ("repeal", (("section", "6-1"), ("subsection", "4")), None, "§ 6-1 fjerde ledd oppheves."),
+    ]
+    payload = ops[0].payload
+    assert payload is not None and payload.children[0].text == "Kap. 5B. Energiplanlegging"
+    assert _w98_sections(payload) == [
+        (
+            "5B-1",
+            [
+                "Den som har konsesjon plikter å delta i energiplanlegging.",
+                "Departementet gir forskrifter om planleggingen.",
+            ],
+        ),
+        ("5B-2", ["Departementet kan sette i verk rasjonering."]),
+    ]
+    assert _w98_heading(payload.children[1]) == "(Energiplanlegging)"
+    assert _w98_unmatched(adjudications) == []
+
+
+def test_no_w98_chapter_reenactment_refuses_what_it_cannot_read_whole() -> None:
+    # A subdivision heading after sections have started is a structure this reader does not model.
+    members = (
+        '<article class="defaultP">Nytt kapittel 7 skal lyde:</article>'
+        '<span class="futuretitle">Kapittel 7. Sakshandsaminga</span>'
+        + _w98_future_article("§48", "Det beste for barnet", ["Avgjerder."])
+        + '<span class="futuretitle">II. Mekling</span>'
+        + _w98_future_article("§51", "Mekling", ["Foreldre."])
+    )
+    ops, adjudications = _w98_ops(members)
+    assert ops == []
+    refusals = [item for item in adjudications if item.kind == NO_PARSE_CHAPTER_REENACTMENT_PAYLOAD_UNRESOLVED]
+    assert [(item.detail or {}).get("refusal") for item in refusals] == ["subdivision_heading_unsupported"]
+    assert (refusals[0].detail or {}).get("member") == "II. Mekling"
+    assert (refusals[0].detail or {}).get("strict_disposition") == "block"
+    # A ``Nytt kapittel`` that carries only a title refuses (an empty container proves nothing);
+    # the same shape on a REPLACE is a heading-only payload the apply seam merges.
+    ops, adjudications = _w98_ops(
+        '<article class="defaultP">Nytt kapittel 3 skal lyde:</article>'
+        '<span class="futuretitle">Kapittel 3 Stortingets ansvarskommisjon</span>'
+        '<article class="defaultP">§ 30 skal lyde:</article><article class="legalP">Når Stortinget ber om det.</article>'
+    )
+    assert [_action_value(op.action) for op in ops] == ["replace"]
+    assert ops[0].target.path == (("section", "30"),)
+    assert [
+        (item.detail or {}).get("refusal")
+        for item in adjudications
+        if item.kind == NO_PARSE_CHAPTER_REENACTMENT_PAYLOAD_UNRESOLVED
+    ] == ["chapter_carried_no_section"]
+    ops, adjudications = _w98_ops(
+        '<article class="defaultP">Kapittel 7 skal lyde:</article>'
+        '<span class="futuretitle">Kapittel 7. Arbeidsmiljøutvalg</span>'
+        '<article class="defaultP">§ 10-4 andre ledd skal lyde:</article><article class="legalP">For arbeid.</article>'
+    )
+    assert [_w98_shape(op)[:2] for op in ops] == [
+        ("replace", (("chapter", "7"),)),
+        ("replace", (("section", "10-4"), ("subsection", "2"))),
+    ]
+    title_only = ops[0].payload
+    assert title_only is not None
+    assert [(_kind_value(child.kind), child.text) for child in title_only.children] == [
+        ("heading", "Kapittel 7. Arbeidsmiljøutvalg")
+    ]
+    # Body text with no section open (folketrygdloven's chapter index paragraph) refuses.
+    ops, adjudications = _w98_ops(
+        '<article class="defaultP">Kapittel 14 skal lyde:</article>'
+        '<span class="futuretitle">Kapittel 14 Ytelser ved svangerskap</span>'
+        '<article class="legalP">Bestemmelser om formål står i § 14-1.</article>'
+        + _w98_future_article("§14-1", "Formål", ["Formålet."])
+    )
+    assert ops == []
+    assert [
+        (item.detail or {}).get("refusal")
+        for item in adjudications
+        if item.kind == NO_PARSE_CHAPTER_REENACTMENT_PAYLOAD_UNRESOLVED
+    ] == ["body_outside_section"]
+
+
+# (h) the unqualified, self-addressed single-ledd shift ---------------------------
+
+
+def test_no_w98_unqualified_self_addressed_ledd_shift_lowers_the_witness_through_w66() -> None:
+    """W-91 gap 7, ``no/lovtid/1993-12-17-126``: ``§ 2-1 sjette ledd blir nytt fjerde ledd.``"""
+    lead = "§ 2-1 sjette ledd blir nytt fjerde ledd."
+    assert _no_ledd_set_relabel_pairs(lead) == ("2-1", [(6, 4)], "unqualified_self_addressed")
+    assert _no_ledd_set_relabel_pairs("§ 4 femte ledd blir fjerde ledd.") == ("4", [(5, 4)], "unqualified_self_addressed")
+    assert _no_ledd_set_relabel_pairs("§ 3 i tredje ledd blir nytt fjerde ledd.") == (
+        "3i",
+        [(3, 4)],
+        "unqualified_self_addressed",
+    )
+    # The qualified readers are tried first and are untouched.
+    assert _no_ledd_set_relabel_pairs("Nåværende § 2-1 sjette ledd blir nytt fjerde ledd.") == ("2-1", [(6, 4)], "shipped")
+    # W-66's refusals stand: no section of its own, a set, a self-map, an ordinal outside the vocabulary.
+    assert _no_ledd_set_relabel_pairs("Femte ledd blir nytt sjette ledd.") is None
+    assert _no_ledd_set_relabel_pairs("§ 7 fjerde og femte ledd blir femte og sjette ledd.") is None
+    assert _no_ledd_set_relabel_pairs("§ 7 femte ledd blir femte ledd.") is None
+    assert _no_ledd_set_relabel_pairs("§ 7 sjuande ledd blir nytt sjette ledd.") is None
+    ops, adjudications = _w98_ops(f'<article class="defaultP">{lead}</article>', source_id="no/lovtid/1993-12-17-126")
+    assert [_w98_shape(op) for op in ops] == [
+        ("renumber", (("section", "2-1"), ("subsection", "6")), (("section", "2-1"), ("subsection", "4")), lead),
+    ]
+    assert NO_LEDD_SET_RELABEL_PROVENANCE_TAG in (ops[0].provenance_tags or ())
+    assert ops[0].witness_rule_id == "no_section_renumber_relabel"
+    assert _w98_unmatched(adjudications) == []
+    # W-66's occupied-destination guard is what makes the reading safe: a standing
+    # fourth ledd refuses the leg rather than being cleared.
+    statute = _w98_statute([("2", "Kap. 2", [("2-1", "Konsesjon", ["én", "to", "tre", "fire", "fem", "seks"])])])
+    adjudications = []
+    result = apply_no_ops(statute, ops, adjudications_out=adjudications)
+    assert _w98_sections(_w98_chapter(result, "2")) == _w98_sections(_w98_chapter(statute, "2"))
+    assert [item.kind for item in adjudications if item.kind.startswith("no_replay_ledd_set_relabel")] == [
+        "no_replay_ledd_set_relabel_occupied_destination_refused"
+    ]
+    # And with the fourth and fifth ledd repealed first (the witness act's own order), it lands.
+    repeal_ops, _ = _w98_ops(
+        '<article class="defaultP">§ 2-1 fjerde og femte ledd oppheves.</article>', source_id="no/lovtid/1993-12-17-126"
+    )
+    result = apply_no_ops(statute, [*repeal_ops, *ops], adjudications_out=[])
+    assert _w98_sections(_w98_chapter(result, "2")) == [("2-1", ["én", "to", "tre", "seks"])]
+    section = next(child for child in _w98_chapter(result, "2").children if _kind_value(child.kind) == "section")
+    assert [ledd.label for ledd in section.children if _kind_value(ledd.kind) == "subsection"] == ["1", "2", "3", "4"]
+
+
+# (i) the nynorsk ledd repeal ----------------------------------------------------
+
+
+def test_no_w98_nynorsk_ledd_repeal_lowers_the_witness_and_declines_what_it_cannot_name() -> None:
+    """W-91 gap 9, ``no/lovtid/1994-06-24-45``: ``§ 6-1 tredje ledd vert oppheva.``"""
+    lead = "§ 6-1 tredje ledd vert oppheva."
+    ops, adjudications = _w98_ops(f'<article class="defaultP">{lead}</article>', source_id="no/lovtid/1994-06-24-45")
+    assert [_w98_shape(op) for op in ops] == [("repeal", (("section", "6-1"), ("subsection", "3")), None, lead)]
+    assert _w98_unmatched(adjudications) == []
+    assert _no_nynorsk_ledd_repeal_targets("§ 2-1 sjette ledd blir oppheva.") == ("2-1", [6])
+    assert _no_nynorsk_ledd_repeal_targets("§ 3 tredje ledd opphevast.") == ("3", [3])
+    assert _no_nynorsk_ledd_repeal_targets("§ 5-2 tredje og fjerde ledd blir oppheva.") == ("5-2", [3, 4])
+    assert _no_nynorsk_ledd_repeal_targets("§ 15-2 noverande fjerde ledd blir oppheva.") == ("15-2", [4])
+    assert _no_nynorsk_ledd_repeal_targets("§ 107 b fjerde ledd blir oppheva.") == ("107b", [4])
+    # Declined: a counted address, a punktum member beside the ledd, and bokmål (the shipped branch's).
+    assert _no_nynorsk_ledd_repeal_targets("§ 20 siste ledd blir oppheva.") is None
+    assert _no_nynorsk_ledd_repeal_targets("§ 9-3 første ledd første punktum og andre ledd blir oppheva.") is None
+    assert _no_nynorsk_ledd_repeal_targets("§ 6-1 tredje ledd oppheves.") is None
+    # ``siste ledd`` keeps its LOUD refusal — the reason the shipped verb was not widened.
+    ops, adjudications = _w98_ops('<article class="defaultP">§ 20 siste ledd blir oppheva.</article>')
+    assert ops == []
+    assert _w98_unmatched(adjudications) == ["§ 20 siste ledd blir oppheva."]

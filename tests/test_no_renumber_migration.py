@@ -885,7 +885,7 @@ _REAL_ARCHIVE = _REPO_ROOT / "data" / "norway.farchive"
 #: ``test_no_husbankloven_13_commencement_provision_survives`` below.
 _NO_OCCUPIED_DESTINATION_LAWS: dict[str, tuple[int, int]] = {
     "no/lov/2001-01-05-1": (2, 0),
-    "no/lov/2003-07-04-84": (1, 0),
+    "no/lov/2003-07-04-84": (0, 0),  # W-98: repaired at the lowering; see the table note.
     "no/lov/2004-12-17-99": (2, 1),
     "no/lov/2005-06-10-44": (2, 2),
     "no/lov/2005-06-17-67": (0, 0),  # W-61: repaired at the lowering; see above.
@@ -953,14 +953,14 @@ _NO_OCCUPIED_DESTINATION_VERDICTS: dict[str, tuple[str, str, str, str, str, tupl
         "departementet kan gi nærmere forskrifter til gjennomføring av loven",
         (),
     ),
-    "no/lovtid/2024-06-14-34:3": (
-        "no/lov/2003-07-04-84",
-        "chapter:2/section:2-2/subsection:4",
-        "chapter:2/section:2-2/subsection:5",
-        "removal_correct",
-        "skolen må være registrert i einingsregisteret jf lov 3",
-        (),
-    ),
+    # ``no/lovtid/2024-06-14-34:3`` (privatskolelova § 2-2 fjerde -> femte ledd,
+    # ``removal_correct``) stood here until W-98 removed the firing at the
+    # lowering: ``no/lovtid/2007-06-29-92``'s "Kapittel 2 skal lyde:" now lands
+    # as a whole-chapter re-enactment (every standing section carried), and the
+    # re-enacted § 2-2 has four ledd, so the 2024 shift of the third and fourth
+    # ledd finds its fifth slot free and nothing is cleared. The occupant that
+    # row probed ("skolen må være registrert i einingsregisteret") is the
+    # re-enacted § 2-2's SECOND ledd, where the published consolidation has it.
     "no/lovtid/2012-05-25-29:22": (
         "no/lov/2004-12-17-99",
         "chapter:5/section:21a",
@@ -985,7 +985,12 @@ _NO_OCCUPIED_DESTINATION_VERDICTS: dict[str, tuple[str, str, str, str, str, tupl
     # § 1-8 blir ny § 1-2.") mints three ops ahead of both — two REPEALs and one
     # RENUMBER. Pure ordinal churn: same law, same source, same destination, same
     # occupant, same verdict.
-    "no/lovtid/2015-04-10-17:30": (
+    # ``:30`` -> ``:34`` and ``:109`` -> ``:120`` at W-98 (c), the same churn
+    # again: the range expander now ENUMERATES "§§ 1-2 til 1-7" (four more
+    # REPEALs, §§ 1-3–1-6, ahead of both) and "§§ 12-8 til 12-16 oppheves."
+    # (seven more, §§ 12-9–12-15, ahead of the second). Same law, same source,
+    # same destination, same occupant, same verdict.
+    "no/lovtid/2015-04-10-17:34": (
         "no/lov/2005-06-10-44",
         "part:3/chapter:7/section:7-8",
         "part:2/chapter:2/section:2-4",
@@ -993,7 +998,7 @@ _NO_OCCUPIED_DESTINATION_VERDICTS: dict[str, tuple[str, str, str, str, str, tupl
         "utenlandsk forsikringsselskap kan gis konsesjon til å drive virksomhet",
         (),
     ),
-    "no/lovtid/2015-04-10-17:109": (
+    "no/lovtid/2015-04-10-17:120": (
         "no/lov/2005-06-10-44",
         "part:6/chapter:16/section:16-1",
         "part:4/chapter:9/section:9-1",
@@ -1044,7 +1049,11 @@ _NO_OCCUPIED_DESTINATION_VERDICTS: dict[str, tuple[str, str, str, str, str, tupl
     # about ("varer av utdannende, vitenskapelig og kulturell art") and is absent
     # from both sides, which is the discriminating measurement. The empty survival
     # tuple is the honest answer, not a missing one.
-    "no/lovtid/2022-03-11-8:25": (
+    # ``:25`` -> ``:29`` at W-98 (a): two repeated-noun leads earlier in the same
+    # instrument ("§ 3-29 første ledd og nytt annet ledd skal lyde:", "§ 4-11
+    # fjerde ledd og nytt femte ledd skal lyde:") mint two ops each ahead of it.
+    # Same law, same source, same destination, same occupant, same verdict.
+    "no/lovtid/2022-03-11-8:29": (
         "no/lov/2009-06-19-58",
         "chapter:7/section:7-9",
         "chapter:7/section:7-8",
@@ -1458,7 +1467,13 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # CONTINGENT skip and both become known-incomplete. Nothing leaves. This is
     # a base becoming OBSERVABLE rather than a new hazard being created — the
     # contingent act always amended them.
-    "incomplete_bases": 201,
+    # 201 -> 202 at W-98, the W-66c mechanism once more: ``no/lov/2004-03-26-17``
+    # takes its first lowered op ever from ``no/lovtid/2016-12-16-91`` (the
+    # print-era ``bokstav d)`` spelling, W-98 (d)), an instrument whose
+    # commencement is CONTINGENT, so its replay now receipts a contingent skip
+    # and it becomes known-incomplete. It leaves the scan candidate set in the
+    # same landing (see ``tests/test_norway_verify.py``).
+    "incomplete_bases": 202,
     # 265 -> 266 and 161 -> 162 at W-69c, and it is ONE law ENTERING the census:
     # ``no/lov/2009-06-19-44``. It was already counted incomplete (four
     # `contingent` skips, which the replay receipts before it applies anything,
@@ -1483,7 +1498,9 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # 12 of them), so they arrive with a full row rather than a zero one; nothing
     # leaves, and ``hazard_by_skip_kind`` moves by the same two under
     # ``contingent``.
-    "hazard_bases": 164,
+    # 164 -> 165 at W-98: the law named in the ``incomplete_bases`` note above
+    # ENTERS the intersection with a [4, 0] row (four writes, none removing).
+    "hazard_bases": 165,
     # 3,713 -> 3,706 at W-75, and exactly one law moves: ``no/lov/2008-06-27-71``
     # [73, 2] -> [66, 2]. Refusing the word-substitution address lists stops seven
     # REPLACEs that had been writing the amendment's own prose into plan- og
@@ -1721,7 +1738,23 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # no op lands or unlands at as_of). Firings hold at 10 over the same 7
     # laws, verdict table untouched, membership unchanged at 164, and the
     # content-removing column does not move (198 over 77 laws).
-    "hazard_destructive_writes": 3852,
+    #
+    # 3,852 -> 3,942 at W-98 (+90), across 31 of the 165 hazard laws plus the
+    # entrant, and it is the pre-2001 lead grammar's nine productions landing on
+    # known-incomplete bases: whole-chapter re-enactments (a REPLACE of a chapter
+    # is one destructive write; privatskolelova ``no/lov/2003-07-04-84`` [81, 1]
+    # -> [97, 2] carries three of them plus two item payloads and a nynorsk
+    # repeal), chapter-heading merges, enumerated section ranges (§§ 12-9–12-15
+    # on ``no/lov/2005-06-10-44`` [87, 10] -> [90, 14]), nynorsk ledd repeals,
+    # unqualified single-ledd shifts and single-article item payloads. The
+    # content-removing column moves for the FIRST time since W-66c, 198 -> 219
+    # over 77 -> 81 laws, and every removing write is a REPEAL the source
+    # commands by name (a range member, a nynorsk ``vert oppheva`` ledd) or the
+    # repeal half of a repeal-then-reenact lead — never a recovery clearing an
+    # occupant: the two W-98 re-enactment productions REFUSE an occupied target
+    # rather than take the θ recovery, and their apply-plane refusals are in
+    # ``_NO_SKIP_ADJUDICATION_KINDS``.
+    "hazard_destructive_writes": 3942,
     # 167 -> 168, and the +1 is NOT a relabel op. ``no/lov/2016-05-27-14`` gains
     # ``no/lovtid/2021-12-22-158:1``, a REPEAL of § 7-6 annet ledd that could not
     # bind before because that law's ledd sequence was one slot out of step; with
@@ -1750,8 +1783,8 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # ``no/lov/2011-06-24-39``, one of which is its own pre-existing write.
     # ``hazard_bases_removing_content`` 65 -> 77 is the 11 laws whose row goes
     # from 0 removals to some, plus that entrant.
-    "hazard_content_removing_writes": 198,
-    "hazard_bases_removing_content": 77,
+    "hazard_content_removing_writes": 219,
+    "hazard_bases_removing_content": 81,
 }
 
 #: Content hash of the per-law hazard list (base_id -> [destructive, removing]).
@@ -1822,7 +1855,10 @@ _NO_INCOMPLETE_BASE_HAZARD_LAWS_DIGEST = (
     # re-sanctioned defective act's duplicate write, reaching this baseline on
     # the first regeneration after it (see the count note above). The capture
     # drift itself (forskrift +51, current -5) moves no row at all.
-    "69716703782d2645fc01ef1c95dcdee971f870fb5b6c7a7f6cbd576f90cc03fa"
+    # W-98: ONE law ENTERS (``no/lov/2004-03-26-17``, [4, 0]) and 31 laws' per-law
+    # counts move (the nine productions landing on known-incomplete bases; see
+    # the destructive-writes note above), so the digest moves with them.
+    "60b5e159ed3a35b32707b5fbed1b1e9324ca90255f44a1da6888675b2e401b9b"
 )
 
 _REGENERATE = (
@@ -2268,7 +2304,9 @@ def test_no_incomplete_base_destructive_write_census_is_pinned(
     # ``contingent`` still dominates — the class husbankloven was in.
     # 162 -> 164 at W-66c: the two entrants are both contingent-skip laws, which
     # keeps the dominance argument exact rather than merely still true.
-    assert hazard["hazard_by_skip_kind"]["contingent"] == 164
+    # 164 -> 165 at W-98: the entrant (``no/lov/2004-03-26-17``) is a
+    # contingent-skip law, so the dominance argument stays exact.
+    assert hazard["hazard_by_skip_kind"]["contingent"] == 165
     assert hazard["hazard_by_skip_kind"]["missing_source"] == 0
     # Husbankloven is the witness this census exists for, and it is STILL IN THE
     # SET — 8 destructive writes, 3 of them content-removing. W-73 repaired the
@@ -2281,7 +2319,10 @@ def test_no_incomplete_base_destructive_write_census_is_pinned(
     # repaired — but the POSTURE that destroyed it is unchanged on this very law.
     # Reading the green ladder as "husbankloven is safe" would repeat W-67's
     # mistake one level up.
-    assert hazard["laws"][_HUSBANKLOVEN] == [8, 3]
+    # [8, 3] -> [9, 4] at W-98 (i): ``no/lovtid/2017-06-21-96``'s nynorsk
+    # "§ 4 fjerde ledd blir oppheva." lowers to a REPEAL the act commands by
+    # name — one more destructive write, and it removes content.
+    assert hazard["laws"][_HUSBANKLOVEN] == [9, 4]
 
 
 # ---- W-72 guard liveness: prove the staleness check can actually FAIL --------

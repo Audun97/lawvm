@@ -1573,6 +1573,59 @@ NO_REPLAY_ITEM_INSERT_PAYLOAD_OCCUPIED_TARGET_REFUSED = (
     "no_replay_item_insert_payload_occupied_target_refused"
 )
 
+# ── W-98: the pre-2001 lead grammar, closed on the kringkastingsloven witness ──
+#
+# Item 97 (W-91) ran the OCR-reconstructed 1992 broadcasting act and its eleven
+# cached amending acts through this walk and found the OCR side clean and the
+# LEAD GRAMMAR binding: nine distinct shapes on certified lines were refused
+# ``no_parse_unstructured_lead_unmatched``. Each shape below is one production,
+# sized over the 7,853 corpus refusals at the W-98 base pin (``79a4987e``),
+# harvested UNTRUNCATED through the adjudication appender rather than off the
+# 240-char ``source_excerpt`` — the counts live on the production that owns them.
+#
+# The provenance tags are read by the apply seam. W-66's and W-77's pattern is
+# kept exactly: a tag on the op is the ONLY thing that turns a θ recovery cell
+# into a refusal for that op, so every shipped cell stays untouched for every op
+# that is not one of these productions'.
+#: Stamped on the CHAPTER op a ``Kapittel N skal lyde:`` / ``Nytt kapittel N skal
+#: lyde:`` lead mints. The REPLACE branch reads it to run the uncarried-sections
+#: guard; the INSERT branch reads it to refuse an occupied chapter label.
+NO_CHAPTER_REENACTMENT_PROVENANCE_TAG = "no_chapter_reenactment"
+#: Stamped on the heading-only CHAPTER op an ``Overskriften til kapittel N skal
+#: lyde:`` lead mints. Carried for census visibility; the apply seam's
+#: heading-only merge is keyed on the payload SHAPE, not on this tag.
+NO_CHAPTER_HEADING_PROVENANCE_TAG = "no_chapter_heading"
+#: Stamped on every op the compound ``§ X <ord> ledd oppheves. Nytt <ord> ledd
+#: … skal lyde:`` lead mints. Its INSERT legs refuse an occupied slot rather than
+#: take the θ (INSERT, target_occupied) recovery.
+NO_LEDD_REPEAL_REENACT_PROVENANCE_TAG = "no_ledd_repeal_reenact"
+#: Stamped on an item REPLACE whose payload was read off the ONE ``legalP`` that
+#: follows a single-item lead (no ``li`` carrier). Census visibility only.
+NO_ITEM_PAYLOAD_SINGLE_TEXT_ARTICLE_PROVENANCE_TAG = "no_item_payload_single_text_article"
+#: Parse-plane refusals. All OUT of ``_NO_SKIP_ADJUDICATION_KINDS`` (the
+#: conserved-partition rule: parse refusals mint nothing to skip).
+NO_PARSE_CHAPTER_REENACTMENT_PAYLOAD_UNRESOLVED = "no_parse_chapter_reenactment_payload_unresolved"
+NO_PARSE_CHAPTER_HEADING_PAYLOAD_UNRESOLVED = "no_parse_chapter_heading_payload_unresolved"
+NO_PARSE_MIXED_MEMBER_PAYLOAD_ARITY_MISMATCH = "no_parse_mixed_member_payload_arity_mismatch"
+NO_PARSE_LEDD_REPEAL_REENACT_PAYLOAD_ARITY_MISMATCH = "no_parse_ledd_repeal_reenact_payload_arity_mismatch"
+NO_PARSE_SECTION_RANGE_UNEXPANDABLE = "no_parse_section_range_unexpandable"
+#: Apply-plane refusals, both IN ``_NO_SKIP_ADJUDICATION_KINDS``: nothing lands.
+NO_REPLAY_CHAPTER_REENACTMENT_UNCARRIED_SECTIONS_REFUSED = (
+    "no_replay_chapter_reenactment_uncarried_sections_refused"
+)
+NO_REPLAY_REENACTMENT_INSERT_OCCUPIED_TARGET_REFUSED = (
+    "no_replay_reenactment_insert_occupied_target_refused"
+)
+#: The (INSERT, target_occupied) refusal, keyed on provenance tag: W-77's tag keeps
+#: W-77's kind byte-for-byte; the W-98 productions share one generic kind and are
+#: told apart by the ``production`` detail key. One branch on the load-bearing
+#: seam, not three.
+_NO_INSERT_OCCUPIED_REFUSING_TAGS: dict[str, str] = {
+    NO_ITEM_INSERT_PAYLOAD_PROVENANCE_TAG: NO_REPLAY_ITEM_INSERT_PAYLOAD_OCCUPIED_TARGET_REFUSED,
+    NO_LEDD_REPEAL_REENACT_PROVENANCE_TAG: NO_REPLAY_REENACTMENT_INSERT_OCCUPIED_TARGET_REFUSED,
+    NO_CHAPTER_REENACTMENT_PROVENANCE_TAG: NO_REPLAY_REENACTMENT_INSERT_OCCUPIED_TARGET_REFUSED,
+}
+
 # ── W-69c: the same atomic ordering, generalized to (parent_path, label) ──────
 #
 # W-66's ``_no_ordered_set_relabel_pairs`` orders a relabel over integer ORDINALS
@@ -1708,7 +1761,9 @@ def _no_ledd_set_relabel_pairs(lead: str) -> Optional[tuple[str, list[tuple[int,
     # lawvm-regex: owning_parser this IS the widened sibling-set relabel sentence parser
     match = re.match(_NO_SET_RELABEL_WIDENED_PATTERN, _normalize_space(lead), re.IGNORECASE)
     if match is None:
-        return None
+        # W-98 (h): the third attempt, tried only after both qualified readers
+        # have declined. See ``_no_unqualified_self_addressed_ledd_shift``.
+        return _no_unqualified_self_addressed_ledd_shift(lead)
     sources = _no_ledd_shift_ordinals(match.group("source"))
     destinations = _no_ledd_shift_ordinals(match.group("destination"))
     if sources is None or destinations is None or len(sources) != len(destinations):
@@ -3163,12 +3218,13 @@ def _no_section_repeal_list_labels(text: str) -> Optional[list[str]]:
     must refuse the whole lead rather than repeal a guess.
 
     The ``til`` range goes through ``_expand_no_section_range_labels``, the same
-    helper the shipped standalone ``§§ X til Y oppheves.`` production uses — so a
-    range over hyphenated labels resolves to its two ENDPOINTS here exactly as it
-    does there. That under-repeals a chapter-numbered range, it is the shipped
-    behaviour rather than something this item introduces, and under-repealing is
-    the safe direction. The destination conjunct is evaluated against the same set
-    the REPEAL ops are minted from, so the two can never disagree.
+    helper the shipped standalone ``§§ X til Y oppheves.`` production uses. Until
+    W-98 (c) that helper truncated a hyphenated range to its two ENDPOINTS (an
+    under-repeal this docstring recorded as the shipped behaviour); it now
+    enumerates chapter-numbered ranges and returns ``None`` for a range it
+    cannot enumerate, which refuses the whole lead here. The destination
+    conjunct is evaluated against the same set the REPEAL ops are minted from,
+    so the two can never disagree.
     """
     # lawvm-regex: owning_parser this IS the section-list parser for the
     # repeal-then-shift lead, and it runs on a span the anchored production above
@@ -3689,7 +3745,10 @@ def _infer_same_base_item_target_specs_from_lead(lead: str) -> list[tuple[Struct
     if multi_specs:
         return multi_specs
     match = re.search(
-        r"§\s*([0-9A-Za-z-]+)\s+(.+?)\s+ledd\s+bokstav\s+([A-Za-z])(?:\s+(?:nr\.|nummer)\s+([0-9A-Za-z-]+))?\s+(?:skal\s+)?lyde\b",
+        # W-98 (d): ``\)?`` after the letter admits the print-era ``bokstav a)``
+        # spelling (3 corpus leads + the 1994 witness); a bare letter is
+        # byte-identical to the shipped read.
+        r"§\s*([0-9A-Za-z-]+)\s+(.+?)\s+ledd\s+bokstav\s+([A-Za-z])\)?(?:\s+(?:nr\.|nummer)\s+([0-9A-Za-z-]+))?\s+(?:skal\s+)?lyde\b",
         lead,
         re.IGNORECASE,
     )
@@ -3910,6 +3969,10 @@ def _no_unstructured_payload_heading_node(
         return False
     if _no_heading_only_section_lead_label(lead) is not None:
         return True
+    # W-98 (f): the CHAPTER heading lead wants the same one node, for the same
+    # reason — its title is a bare noun phrase Lovdata marks ``defaultP``.
+    if _no_chapter_heading_lead(lead) is not None:
+        return True
     return (
         following is not None
         and _local_name(following) == "article"
@@ -4025,15 +4088,80 @@ def _build_no_unstructured_section_payload(
     return payload
 
 
-def _expand_no_section_range_labels(start_label: str, end_label: str) -> list[str]:
+# W-98 (c). A section RANGE, expanded arithmetically over chapter-numbered labels.
+#
+# The shipped expander enumerated ``§§ 16 til 19`` and returned only the two
+# ENDPOINTS for anything else, so ``§§ 5-16 til 5-19 oppheves.`` repealed § 5-16
+# and § 5-19 and left §§ 5-17 and 5-18 standing — an under-repeal W-74's list
+# parser recorded as "the shipped behaviour" rather than fixed. Measured over
+# every unstructured lead in the corpus, 20 range leads exist; 6 carry a
+# chapter-numbered label (``5-16 til 5-19``, ``10-8 til 10-16``, ``12-8 til
+# 12-16``, ``6-1 til 6-5``, ``15-2 til 15-8``, ``1-2 til 1-7``) and every one of
+# them was silently truncated to its endpoints.
+#
+# THE RULE. A label is ``[<chapter>-]<number>[<letter>]``. A range expands when
+# both ends share the chapter prefix (both none, or equal) and the numbers are
+# ordered: every integer from the start number to the end number, with a
+# letter-suffixed START kept as its own first label and a letter-suffixed END
+# closed out by the letters ``a`` to that letter (``2 til 5a`` → 2, 3, 4, 5, 5a;
+# ``5a til 7`` → 5a, 6, 7; ``5a til 5c`` → 5a, 5b, 5c). Lettered labels STRICTLY
+# INSIDE the range (a § 3 a between § 3 and § 4) cannot be enumerated at the
+# parse plane and are NOT repealed — that is an under-repeal, the safe wrong,
+# recorded here as the production's limit rather than papered over with a
+# tree-dependent guess.
+#
+# Anything else — a cross-chapter range (``2-4 til 3-2``), an unordered pair,
+# a label shape outside the grammar — is ``None``: the caller REFUSES the whole
+# lead with a typed receipt instead of the shipped silent endpoint pair. Zero
+# corpus leads hit that branch today; it exists so the silent drop cannot come
+# back.
+# Inline ``re.match`` rather than a compiled classifier constant, for the reason
+# the sibling productions record: the optional chapter prefix and the number are
+# adjacent digit repeats with overlapping starts, which the classifier-safety
+# lint refuses to wrap.
+_NO_SECTION_RANGE_LABEL_PATTERN = r"^(?:(?P<chapter>[0-9]+)-)?(?P<number>[0-9]+)(?P<letter>[a-z]?)$"
+
+
+def _expand_no_section_range_labels(start_label: str, end_label: str) -> Optional[list[str]]:
+    """``("5-16", "5-19")`` → ``["5-16", "5-17", "5-18", "5-19"]``; ``None`` when unexpandable."""
     start = _normalize_no_section_label(start_label)
     end = _normalize_no_section_label(end_label)
-    if start.isdigit() and end.isdigit():
-        start_int = int(start)
-        end_int = int(end)
-        if start_int <= end_int:
-            return [str(value) for value in range(start_int, end_int + 1)]
-    return [start, end]
+    # lawvm-regex: owning_parser this IS the section-range label parser
+    start_match = re.match(_NO_SECTION_RANGE_LABEL_PATTERN, start, re.IGNORECASE)
+    # lawvm-regex: owning_parser this IS the section-range label parser
+    end_match = re.match(_NO_SECTION_RANGE_LABEL_PATTERN, end, re.IGNORECASE)
+    if start_match is None or end_match is None:
+        return None
+    chapter = start_match.group("chapter") or ""
+    if chapter != (end_match.group("chapter") or ""):
+        return None
+    prefix = f"{chapter}-" if chapter else ""
+    start_number = int(start_match.group("number"))
+    end_number = int(end_match.group("number"))
+    start_letter = (start_match.group("letter") or "").lower()
+    end_letter = (end_match.group("letter") or "").lower()
+    if start_number > end_number:
+        return None
+    if start_number == end_number:
+        if start_letter and end_letter:
+            if start_letter > end_letter:
+                return None
+            return [f"{prefix}{start_number}{chr(code)}" for code in range(ord(start_letter), ord(end_letter) + 1)]
+        if start_letter:
+            return None
+        labels = [f"{prefix}{start_number}"]
+        if end_letter:
+            labels.extend(f"{prefix}{end_number}{chr(code)}" for code in range(ord("a"), ord(end_letter) + 1))
+        return labels
+    labels = []
+    first_number = start_number
+    if start_letter:
+        labels.append(f"{prefix}{start_number}{start_letter}")
+        first_number = start_number + 1
+    labels.extend(f"{prefix}{number}" for number in range(first_number, end_number + 1))
+    if end_letter:
+        labels.extend(f"{prefix}{end_number}{chr(code)}" for code in range(ord("a"), ord(end_letter) + 1))
+    return labels
 
 
 # W-79: the structured payload lane's OWN-TEXT INVARIANT.
@@ -4597,6 +4725,699 @@ def parse_no_amendment_ops(
     return ops
 
 
+# ── W-98: the nine pre-2001 lead productions, one per gap ────────────────────
+#
+# Every production below is STRICTLY ADDITIVE in W-61's sense: it is reached only
+# after every shipped pattern has declined the lead (position in the walk), or it
+# is a widening tried only when the shipped reader returned nothing (the two
+# reader-level widenings, (a) and (h)). The corpus census for each is in the
+# production's own comment, re-derived at the W-98 base pin over 7,853
+# ``no_parse_unstructured_lead_unmatched`` refusals harvested UNTRUNCATED.
+
+#: The container kinds whose heading-only REPLACE merges into the standing node
+#: instead of replacing it whole. ``section`` is the shipped member; ``chapter``
+#: and ``part`` are W-98 (f).
+_NO_HEADING_ONLY_MERGE_KINDS = frozenset({"section", "chapter", "part"})
+
+
+def _no_descendant_section_label_keys(node: IRNode) -> set[str]:
+    """Every SECTION label standing anywhere below ``node``, as case-folded keys.
+
+    Sub-containers are walked (a chapter's subdivisions count), sections are not
+    (a section's own children are never sections).
+    """
+    keys: set[str] = set()
+    for child in node.children:
+        if _no_kind_value(child.kind) == "section":
+            if child.label:
+                keys.add(_normalize_no_section_label(child.label).casefold())
+            continue
+        keys |= _no_descendant_section_label_keys(child)
+    return keys
+
+
+# W-98 (a). The repeated-noun ledd list: "§ 7-2 første ledd og tredje ledd skal
+# lyde:". The shipped subsection reader splits its ordinal phrase on ``og`` and
+# looks each token up in ``_NORWEGIAN_ORDINALS``; a token that still carries the
+# noun ("første ledd") is not an ordinal and the whole lead fell through.
+#
+# Read here ONLY when the shipped reader has returned nothing (the walk tries it
+# first), and only when every member but the last carries the noun — the
+# single-noun list ("første og tredje ledd") is the shipped grammar's and is
+# declined by construction. A NEWNESS MARKER SCOPES OVER ITS OWN MEMBER: in
+# "Nytt tredje ledd og fjerde ledd" the repeated noun closes the first noun
+# phrase, so ``fjerde ledd`` is the standing fourth ledd (REPLACE), not a second
+# new one. The shipped single-noun reader carries a marker forward across the
+# list ("nytt tredje og fjerde ledd" → both INSERT), and that difference is the
+# grammatical content of the repeated noun, not a divergence between two readers.
+#
+# Census at the W-98 base pin: 24 refusals / 24 distinct leads / 22 instruments
+# / 18 bases read here (4 are the witness's pure shape, "§ 62 femte ledd og
+# sjette ledd skal lyde:"; 20 carry a newness marker on one member, "§ 10-1
+# første ledd og nytt annet ledd skal lyde:"), plus the 1993 witness; all lower,
+# minting 50 ops. Two shipped REPLACEs on ``no/lovtid/2011-06-24-23`` and
+# ``2015-08-07-81`` are PROMOTED to INSERT by the shipped
+# ``_promote_no_replace_with_following_renumber_insert`` once (h) lowers the
+# relabel beside them — the pair the promotion exists for, not a loss.
+_NO_REPEATED_LEDD_NOUN_LEAD_PATTERN = (
+    r"^§\s*(?P<section>[0-9A-Za-z-]+(?:\s+[A-Za-z])?)\s+(?P<members>.+?)\s+ledd\s+(?:skal\s+)?lyde:?$"
+)
+_NO_LEDD_MEMBER_NEWNESS_PATTERN = r"^(?P<marker>nytt|nye|ny|nåværende|noverande|nåverande)\s+"
+_NO_LEDD_MEMBER_INSERT_MARKERS = frozenset({"nytt", "nye", "ny"})
+
+
+def _no_repeated_ledd_noun_member_specs(
+    section_label: str, phrase: str
+) -> list[tuple[StructuralAction, LegalAddress]]:
+    tokens = [token.strip() for token in re.split(r"\s*,\s*|\s+og\s+", _normalize_space(phrase)) if token.strip()]
+    if len(tokens) < 2:
+        return []
+    # lawvm-regex: owning_parser this IS the repeated-noun member reader
+    if not all(re.search(r"\sledd$", token, re.IGNORECASE) for token in tokens[:-1]):
+        return []
+    specs: list[tuple[StructuralAction, LegalAddress]] = []
+    for token in tokens:
+        # lawvm-regex: owning_parser strips the noun the pattern above required
+        token = re.sub(r"\s+ledd$", "", token, flags=re.IGNORECASE)
+        action = StructuralAction.REPLACE
+        # lawvm-regex: owning_parser this IS the member newness reader
+        marker = re.match(_NO_LEDD_MEMBER_NEWNESS_PATTERN, token, re.IGNORECASE)
+        if marker is not None:
+            if marker.group("marker").lower() in _NO_LEDD_MEMBER_INSERT_MARKERS:
+                action = StructuralAction.INSERT
+            token = token[marker.end() :]
+        label = _NORWEGIAN_ORDINALS.get(token.strip().lower())
+        if not label:
+            return []
+        specs.append((action, LegalAddress(path=(("section", section_label), ("subsection", label)))))
+    return specs
+
+
+def _no_repeated_ledd_noun_subsection_specs(lead: str) -> list[tuple[StructuralAction, LegalAddress]]:
+    """``§ 7-2 første ledd og tredje ledd skal lyde:`` → two REPLACE specs, or ``[]``."""
+    # lawvm-regex: owning_parser this IS the repeated-noun ledd lead parser
+    match = re.match(_NO_REPEATED_LEDD_NOUN_LEAD_PATTERN, _normalize_space(lead), re.IGNORECASE)
+    if match is None:
+        return []
+    return _no_repeated_ledd_noun_member_specs(
+        _normalize_no_section_label(match.group("section")), match.group("members")
+    )
+
+
+# W-98 (d), the payload half. A single-item lead ("§ 13-2 tredje ledd bokstav a
+# skal lyde:") followed by ONE ``legalP`` carrying the item's new text and no
+# ``li`` carrier at all. The shipped candidate builder reads items only off
+# ``li`` elements, so this shape resolved its address and then refused
+# ``no_parse_unstructured_payload_unresolved`` / ``item``: 68 such refusals at
+# the W-98 base pin, every one of them this shape, plus the 1994 witness.
+#
+# Arity is the extent proof, exactly as W-82's single-leaf carrier states it:
+# one declared item, one text article, no item candidate of any label. A
+# ``siste``/``last`` address is declined (a counted address is the shipped
+# lane's), and so is a multi-item lead (W-32(a)'s all-or-nothing rule owns it).
+def _no_item_payload_from_single_text_article(
+    item_specs: Sequence[tuple[StructuralAction, LegalAddress]],
+    target: LegalAddress,
+    payload_candidates: Mapping[tuple[str, str], IRNode],
+    text_articles: Sequence[etree._Element],
+) -> Optional[IRNode]:
+    if len(item_specs) != 1 or len(text_articles) != 1:
+        return None
+    label = target.leaf_label()
+    if target.leaf_kind() != "item" or not label or label == "last":
+        return None
+    if any(kind == "item" for kind, _label in payload_candidates):
+        return None
+    text = _node_text_without_structural_children(text_articles[0])
+    if not text:
+        return None
+    return IRNode(kind=IRNodeKind.ITEM, label=label, text=text)
+
+
+# W-98 (b). The mixed member list: "§ 2-5 første ledd første punktum og andre
+# ledd skal lyde:" — one lead, members at TWO depths, one payload article per
+# member in document order. The shipped sentence reader requires every member
+# to be a punktum and the shipped subsection reader requires every member to be
+# a ledd, so the mixed list matched neither and fell through.
+#
+# Each member is read on its own: ``[<marker>] <ord> ledd`` or ``<ord> ledd
+# [<marker>] <ord|siste> punktum``; a newness marker scopes over its own member
+# (INSERT), the default is REPLACE. The list must carry at least one member of
+# EACH depth — a homogeneous list is the shipped grammar's and is declined by
+# construction — and the payload must carry exactly one text article per
+# member, or the whole lead refuses with a typed arity receipt (W-19's
+# all-or-nothing rule: a payload that does not split to the declared arity
+# gives no evidence which half belongs where).
+#
+# Census at the W-98 base pin: 8 refusals / 8 distinct leads / 7 instruments /
+# 8 bases carry a punktum member beside a ledd member, plus the 2000 witness;
+# 7 lower and 1 refuses on arity (``no/lovtid/2012-06-22-35``, whose second
+# member's payload is a ``defaultP`` the boundary does not hand over).
+_NO_MIXED_MEMBER_LEAD_PATTERN = (
+    r"^§\s*(?P<section>[0-9A-Za-z-]+(?:\s+[A-Za-z])?)\s+(?P<members>.+?)\s+skal\s+lyde:?$"
+)
+_NO_MIXED_LEDD_MEMBER_PATTERN = (
+    r"^(?:(?P<marker>nytt|nye|ny|nåværende|noverande|nåverande)\s+)?(?P<ledd>[A-Za-zÆØÅæøå]+)\s+ledd$"
+)
+_NO_MIXED_PUNKTUM_MEMBER_PATTERN = (
+    r"^(?P<ledd>[A-Za-zÆØÅæøå]+)\s+ledd\s+"
+    r"(?:(?P<marker>nytt|nye|ny|nåværende|noverande|nåverande)\s+)?(?P<punktum>[A-Za-zÆØÅæøå]+)\s+punktum$"
+)
+
+
+def _no_mixed_punktum_ledd_member_specs(lead: str) -> list[tuple[StructuralAction, LegalAddress]]:
+    """``§ 2-5 første ledd første punktum og andre ledd skal lyde:`` → a sentence spec and a ledd spec."""
+    # lawvm-regex: owning_parser this IS the mixed-depth member lead parser
+    match = re.match(_NO_MIXED_MEMBER_LEAD_PATTERN, _normalize_space(lead), re.IGNORECASE)
+    if match is None:
+        return []
+    section_label = _normalize_no_section_label(match.group("section"))
+    tokens = [token.strip() for token in re.split(r"\s*,\s*|\s+og\s+", match.group("members")) if token.strip()]
+    specs: list[tuple[StructuralAction, LegalAddress]] = []
+    has_punktum = False
+    has_ledd = False
+    for token in tokens:
+        # lawvm-regex: owning_parser this IS the mixed-depth punktum member reader
+        punktum_member = re.match(_NO_MIXED_PUNKTUM_MEMBER_PATTERN, token, re.IGNORECASE)
+        if punktum_member is not None:
+            ledd_label = _NORWEGIAN_ORDINALS.get(punktum_member.group("ledd").lower())
+            punktum_word = punktum_member.group("punktum").lower()
+            punktum_label = "last" if punktum_word == "siste" else _NORWEGIAN_ORDINALS.get(punktum_word)
+            if not ledd_label or not punktum_label:
+                return []
+            marker = (punktum_member.group("marker") or "").lower()
+            action = StructuralAction.INSERT if marker in _NO_LEDD_MEMBER_INSERT_MARKERS else StructuralAction.REPLACE
+            specs.append(
+                (
+                    action,
+                    LegalAddress(
+                        path=(("section", section_label), ("subsection", ledd_label), ("sentence", punktum_label))
+                    ),
+                )
+            )
+            has_punktum = True
+            continue
+        # lawvm-regex: owning_parser this IS the mixed-depth ledd member reader
+        ledd_member = re.match(_NO_MIXED_LEDD_MEMBER_PATTERN, token, re.IGNORECASE)
+        if ledd_member is None:
+            return []
+        ledd_label = _NORWEGIAN_ORDINALS.get(ledd_member.group("ledd").lower())
+        if not ledd_label:
+            return []
+        marker = (ledd_member.group("marker") or "").lower()
+        action = StructuralAction.INSERT if marker in _NO_LEDD_MEMBER_INSERT_MARKERS else StructuralAction.REPLACE
+        specs.append((action, LegalAddress(path=(("section", section_label), ("subsection", ledd_label)))))
+        has_ledd = True
+    if not (has_punktum and has_ledd):
+        return []
+    return specs
+
+
+# W-98 (e). The compound lead: "§ 1-1 tredje ledd oppheves. Nytt tredje ledd og
+# fjerde ledd skal lyde:" — a ledd repeal and a re-enactment in one lead, the
+# payload carrying one article per re-enacted member. The shipped two-sentence
+# reader is the repeal-then-SHIFT lead (W-61); this is repeal-then-PAYLOAD, and
+# nothing shipped reads it.
+#
+# The repeal ordinals go through ``_no_ledd_shift_ordinals`` (one ordinal
+# grammar), the re-enactment through the shipped subsection reader with the
+# repeated-noun reader (a) behind it. The kernel's stage order lands the REPEAL
+# before either payload op, so an INSERT into the repealed slot finds it vacant
+# by construction; an INSERT into any OTHER slot carries the production's
+# provenance tag and REFUSES if that slot is occupied, rather than take the θ
+# (INSERT, target_occupied) recovery — a re-enactment must not clear a ledd the
+# lead never repealed.
+#
+# Census at the W-98 base pin: ZERO corpus refusals — this is a print-era
+# drafting shape the 2001+ Lovdata corpus does not carry; the 2000 witness is
+# its only occurrence. Lowered because it is one closed composition of two
+# shipped readers, with the synthetic test as its regression.
+_NO_LEDD_REPEAL_REENACT_LEAD_PATTERN = (
+    r"^§\s*(?P<section>[0-9A-Za-z-]+(?:\s+[A-Za-z])?)\s+(?P<repealed>.+?)\s+ledd\s+"
+    r"(?:oppheves|opphevast|(?:vert|blir)\s+oppheva)\.\s+"
+    r"(?P<reenact>ny(?:tt|e)?\s+.+?\s+ledd\s+skal\s+lyde:?)$"
+)
+
+
+def _no_ledd_repeal_reenact_specs(
+    lead: str,
+) -> Optional[tuple[str, list[int], list[tuple[StructuralAction, LegalAddress]]]]:
+    """→ ``(section_label, [repealed ordinal, …], [(action, target), …])`` or ``None``."""
+    # lawvm-regex: owning_parser this IS the compound repeal-then-reenact lead parser
+    match = re.match(_NO_LEDD_REPEAL_REENACT_LEAD_PATTERN, _normalize_space(lead), re.IGNORECASE)
+    if match is None:
+        return None
+    section_label = _normalize_no_section_label(match.group("section"))
+    repealed = _no_ledd_shift_ordinals(match.group("repealed"))
+    if not repealed or len(set(repealed)) != len(repealed):
+        return None
+    reenact_lead = f"§ {section_label} {match.group('reenact')}"
+    specs = _infer_same_base_subsection_target_specs_from_lead(reenact_lead) or _no_repeated_ledd_noun_subsection_specs(
+        reenact_lead
+    )
+    if not specs:
+        return None
+    return section_label, repealed, specs
+
+
+# W-98 (i). The nynorsk ledd repeal: "§ 6-1 tredje ledd vert oppheva.", "… blir
+# oppheva.", "… opphevast." The shipped bokmål branch is anchored on the literal
+# ``oppheves`` and deliberately NOT widened — it round-trips its ordinals
+# through the ``skal lyde`` reader and mints nothing, silently, on an ordinal
+# that reader cannot name (``siste ledd``). Widening its verb would turn the
+# loud refusal these nynorsk leads carry today into that silent drop. This
+# production reads through ``_no_ledd_shift_ordinals`` instead and DECLINES on
+# anything outside the vocabulary, so the refusal survives.
+#
+# Census at the W-98 base pin: 35 refusals / 34 distinct leads / 30 instruments
+# / 26 bases carry a nynorsk repeal verb behind ``ledd``; 28 lower, 7 decline
+# (``siste ledd``, a punktum member beside the ledd, a ``nr.`` container) and
+# keep their refusal.
+_NO_NYNORSK_LEDD_REPEAL_PATTERN = (
+    r"^§\s*(?P<section>[0-9A-Za-z-]+(?:\s+[A-Za-z])?)\s+"
+    r"(?:(?:" + _NO_CURRENCY_QUALIFIER_ALTERNATION + r")\s+)?"
+    r"(?P<ordinals>.+?)\s+ledd\s+(?:opphevast|(?:vert|blir)\s+oppheva)\.?$"
+)
+
+
+def _no_nynorsk_ledd_repeal_targets(lead: str) -> Optional[tuple[str, list[int]]]:
+    """``§ 6-1 tredje ledd vert oppheva.`` → ``("6-1", [3])``, or ``None``."""
+    # lawvm-regex: owning_parser this IS the nynorsk ledd repeal lead parser
+    match = re.match(_NO_NYNORSK_LEDD_REPEAL_PATTERN, _normalize_space(lead), re.IGNORECASE)
+    if match is None:
+        return None
+    ordinals = _no_ledd_shift_ordinals(match.group("ordinals"))
+    if not ordinals or len(set(ordinals)) != len(ordinals):
+        return None
+    return _normalize_no_section_label(match.group("section")), ordinals
+
+
+# W-98 (c), the lead half. The section range spelled with a ``§`` on BOTH ends
+# ("§ 5-1 til § 5-6 oppheves.") or with a nynorsk verb ("§§ 36 til 38 blir
+# oppheva."). The shipped production reads exactly ``§§ A til B oppheves.`` and
+# is tried first; this one is reached only when it has declined. Expansion goes
+# through ``_expand_no_section_range_labels`` (one range grammar).
+#
+# Census at the W-98 base pin: 3 refusals / 3 distinct leads / 3 instruments /
+# 3 bases, plus the 1998 witness; all lower.
+_NO_SECTION_RANGE_REPEAL_LEAD_PATTERN = (
+    r"^§§?\s*(?P<start>[0-9][0-9A-Za-z-]*)\s+til\s+§?\s*(?P<end>[0-9][0-9A-Za-z-]*)\s+"
+    r"(?:oppheves|opphevast|(?:vert|blir)\s+oppheva)\.?$"
+)
+
+
+def _no_section_range_repeal_lead(lead: str) -> Optional[tuple[str, str]]:
+    # lawvm-regex: owning_parser this IS the widened section-range repeal lead parser
+    match = re.match(_NO_SECTION_RANGE_REPEAL_LEAD_PATTERN, _normalize_space(lead), re.IGNORECASE)
+    if match is None:
+        return None
+    return match.group("start"), match.group("end")
+
+
+# W-98 (h). The self-addressed, unqualified single-ledd shift: "§ 2-1 sjette
+# ledd blir nytt fjerde ledd." W-66 REQUIRED the currency qualifier and sized
+# the unqualified form at 55 leads without taking it, on the ground that a bare
+# "Femte ledd blir nytt sjette ledd." does not say which edition its ordinals
+# are read against. That ground has two halves, and this production takes only
+# the lead shape where both are closed:
+#
+#   * the SECTION is spelled in the lead, so nothing is inherited from an
+#     antecedent that might be a payload announcement (W-66b's hazard);
+#   * the source is ONE ordinal, so there is exactly one standing ledd it can
+#     name; the kernel's stage order (REPEAL, then RENUMBER, then everything
+#     else) evaluates it against the pre-operation snapshot by construction, and
+#     W-66's occupied-destination guard — the ops carry W-66's provenance tag —
+#     turns any reading that would land on a standing sibling into a typed
+#     refusal instead of a destruction.
+#
+# The result feeds W-66's own walk block unchanged: same address handling, same
+# ordering, same tag, same apply-plane guard. ``pattern`` is
+# ``"unqualified_self_addressed"`` so a census can tell the three attempts apart.
+#
+# Census at the W-98 base pin: 25 refusals / 24 distinct leads / 24 instruments
+# / 21 bases, every one section-spelled and single-ordinal on both sides, plus
+# the 1993 witness; all lower at the parse plane.
+_NO_UNQUALIFIED_LEDD_SHIFT_PATTERN = (
+    r"^§\s*(?P<section>" + _NO_SET_RELABEL_SECTION_LABEL + r")\s+"
+    r"(?P<source>[A-Za-zÆØÅæøå]+)\s+ledd\s+blir\s+(?:ny(?:tt|e)?\s+)?(?P<destination>[A-Za-zÆØÅæøå]+)\s+ledd\.?$"
+)
+
+
+def _no_unqualified_self_addressed_ledd_shift(lead: str) -> Optional[tuple[str, list[tuple[int, int]], str]]:
+    # lawvm-regex: owning_parser this IS the unqualified self-addressed ledd shift parser
+    match = re.match(_NO_UNQUALIFIED_LEDD_SHIFT_PATTERN, _normalize_space(lead), re.IGNORECASE)
+    if match is None:
+        return None
+    source = _NORWEGIAN_ORDINALS.get(match.group("source").lower())
+    destination = _NORWEGIAN_ORDINALS.get(match.group("destination").lower())
+    if source is None or destination is None or source == destination:
+        return None
+    return (
+        _normalize_no_section_label(match.group("section")),
+        [(int(source), int(destination))],
+        "unqualified_self_addressed",
+    )
+
+
+# W-98 (f) and (g). Chapter-level leads.
+#
+# A chapter label as Lovtidend spells it: decimal with an optional letter
+# ("5", "5 A", "9a") or roman with an optional letter ("VI", "II a"). Spaces are
+# removed for the address, as ``_normalize_no_section_label`` does for sections;
+# case is left as spelled and folded by the resolver's label match.
+_NO_CHAPTER_LABEL = r"(?:[0-9]+(?:\s?[A-Za-z])?|[IVXLC]+(?:\s?[A-Za-z])?)"
+_NO_CHAPTER_WORD = r"kapit(?:tel|let|tlet)"
+
+
+def _normalize_no_chapter_label(label: str) -> str:
+    return _normalize_label(label).replace(" ", "")
+
+
+# (f) The chapter heading lead, both word orders and both nynorsk spellings:
+# "Overskriften til kapittel 3 skal lyde:", "Overskrifta til kapittel 2 skal
+# lyde:", "Overskriften i kapittel 8 skal lyde:", "Kapittel 4 overskriften skal
+# lyde:". The title is either INLINE after the colon or the ONE node that
+# follows the lead (a ``defaultP`` the W-64 boundary now hands over for this
+# lead, a ``legalP`` on the witness, a ``span.futuretitle``). It lands as a
+# heading-only CHAPTER payload, which the apply seam merges into the standing
+# chapter's heading — the chapter's sections are never touched by a heading
+# announcement.
+#
+# Census at the W-98 base pin: 181 refusals / 97 distinct leads / 126
+# instruments / 91 bases read here (87 spell ``Overskrift… kapittel``, the rest
+# ``Kapittel N overskriften``), plus the 2000 witness; every one lowers, 182
+# heading-only CHAPTER ops. The one lead with a placement aside ("…, plassert
+# umiddelbart foran § 17a, skal lyde:") declines and keeps its refusal.
+_NO_CHAPTER_HEADING_LEAD_PATTERNS = (
+    r"^Overskrift(?:en|a)\s+(?:til|i)\s+" + _NO_CHAPTER_WORD + r"\s+(?P<label>" + _NO_CHAPTER_LABEL + r")"
+    r"\s+skal\s+(?:lyde|lyda):?\s*(?P<inline>.*)$",
+    r"^" + _NO_CHAPTER_WORD + r"\s+(?P<label>" + _NO_CHAPTER_LABEL + r")\s+overskrift(?:en|a)"
+    r"\s+skal\s+(?:lyde|lyda):?\s*(?P<inline>.*)$",
+)
+
+
+def _no_chapter_heading_lead(lead: str) -> Optional[tuple[str, str]]:
+    """``Overskriften til kapittel 3 skal lyde:`` → ``("3", "")``; inline title in the second slot."""
+    normalized = _normalize_space(lead)
+    for pattern in _NO_CHAPTER_HEADING_LEAD_PATTERNS:
+        # lawvm-regex: owning_parser this IS the chapter heading lead parser
+        match = re.match(pattern, normalized, re.IGNORECASE)
+        if match is not None:
+            return _normalize_no_chapter_label(match.group("label")), _normalize_space(match.group("inline"))
+    return None
+
+
+@dataclass(frozen=True, slots=True)
+class _NOChapterHeadingRead:
+    """The chapter heading a lead announces: the title, where the lead's reach ends, or a typed refusal."""
+
+    title: str
+    end_index: int
+    refusal: str
+
+
+def _no_chapter_heading_read(
+    children: Sequence[etree._Element],
+    part_indexes: Sequence[int],
+    position: int,
+    inline_title: str,
+) -> _NOChapterHeadingRead:
+    """Read the title off the DOM: inline after the colon, or EXACTLY ONE title node after the lead.
+
+    Read from the DOM rather than from the walk's ``payload_nodes`` because the
+    walk's cursor stops on the ``defaultP`` Lovdata marks the title with, and
+    W-64's boundary hands that node over only under its section-heading length
+    bound (80 chars), which chapter titles routinely exceed. The arity is still
+    the proof: the node after the title must be a lead, a section carrier or the
+    part's end — a second body node means the announcement carries more than a
+    heading, and the whole lead refuses.
+    """
+    part = part_indexes[position] if position < len(part_indexes) else None
+
+    def node_at(index: int) -> Optional[etree._Element]:
+        if index >= len(children) or (part_indexes[index] if index < len(part_indexes) else None) != part:
+            return None
+        return children[index]
+
+    following = node_at(position + 1)
+    following_text = (
+        _repair_no_mojibake(_normalize_space(" ".join(str(_t) for _t in following.itertext())))
+        if following is not None
+        else ""
+    )
+    if inline_title:
+        if following is not None and _no_chapter_title_text(following, following_text):
+            return _NOChapterHeadingRead(title="", end_index=position + 1, refusal="inline_title_with_trailing_title")
+        return _NOChapterHeadingRead(title=inline_title, end_index=position + 1, refusal="")
+    if following is None or not _no_chapter_title_text(following, following_text):
+        return _NOChapterHeadingRead(title="", end_index=position + 1, refusal="payload_is_not_a_heading")
+    after_title = node_at(position + 2)
+    if after_title is not None:
+        after_name = _local_name(after_title)
+        after_classes = _classes(after_title) if after_name == "article" else set()
+        if not (
+            after_name == "article"
+            and ({"defaultP", "futureLegalArticle"} & after_classes)
+        ):
+            return _NOChapterHeadingRead(title="", end_index=position + 1, refusal="payload_node_count_not_one")
+    return _NOChapterHeadingRead(title=following_text, end_index=position + 2, refusal="")
+
+
+# (g) The whole-chapter re-enactment: "Kapittel 6 skal lyde:" (REPLACE) and
+# "Nytt kapittel 5 A skal lyde:" (INSERT). The payload is the chapter's new text
+# and it is read off the DOM from the lead forward, because the walk's payload
+# cursor stops at the next ``defaultP`` and Lovdata's chapter payload shapes
+# all put a ``defaultP`` right there:
+#
+#   * a chapter title — ``defaultP`` ("Kapittel 9. Forskjellige bestemmelser"),
+#     ``span.futuretitle``, or the ``<h2>`` the print-era emitter writes;
+#   * then sections, as ``futureLegalArticle`` carriers (2002 onward) or as the
+#     2001 shape: a ``defaultP`` header "§ 5B-1. (Energiplanlegging)" followed by
+#     that section's ``legalP``/``numberedLegalP`` ledd.
+#
+# The reader walks members in that CLOSED SET until the first ``defaultP`` it
+# does not own — an operative lead, or a ``§`` lead that is not a bare section
+# header — which ends the payload without being consumed. Anything else
+# (a second title once sections have started = a subdivision this reader does
+# not model; body text with no section open; a carrier without a label) REFUSES
+# the whole lead with a typed receipt naming the member (W-39's all-or-nothing
+# rule: a partially read chapter is a wrong chapter, not a partial one).
+#
+# THE OVER-REPEAL DECISION lives at the apply seam, not here, because it needs
+# the tree: a REPLACE lands only when every section standing under the chapter
+# is carried by the payload (``NO_REPLAY_CHAPTER_REENACTMENT_UNCARRIED_SECTIONS_
+# REFUSED`` otherwise), and an INSERT refuses an occupied chapter label
+# (``NO_REPLAY_REENACTMENT_INSERT_OCCUPIED_TARGET_REFUSED``) rather than take
+# the θ recovery that would replace the standing chapter.
+#
+# Census at the W-98 base pin: 149 refusals / 97 distinct leads / 119
+# instruments / 80 bases read here, plus the 1996 and 1998 witnesses. 124 lower
+# (86 leads, 76 bases — 62 REPLACE, 62 INSERT) and 25 refuse typed: 14
+# ``subdivision_heading_unsupported`` (a chapter with ``I.``/``II.`` avsnitt), 6
+# ``chapter_carried_no_section`` (a ``Nytt kapittel`` whose sections follow as
+# leads of their own), 5 ``body_outside_section`` (folketrygdloven's chapter
+# index paragraph, text the CHAPTER node does not model). The apply-plane
+# guard is exercised by the 1996 witness: its OCR-fused payload carries only
+# § 6-1 of §§ 6-1–6-5 and is refused with the four uncarried labels named.
+_NO_CHAPTER_REENACTMENT_LEAD_PATTERN = (
+    r"^(?P<insert>Nytt\s+)?" + _NO_CHAPTER_WORD + r"\s+(?P<label>" + _NO_CHAPTER_LABEL + r")\s+skal\s+(?:lyde|lyda):?$"
+)
+# The 2001-shape section header: "§ 5B-1. (Energiplanlegging)", "§ 9 c. Virkeområde",
+# "§ 5A-3. (Leveringskvalitet)". The label class admits a letter INSIDE a
+# chapter-numbered label (``5A-3``) and a single-letter suffix that must not be
+# the first letter of the title (``(?![A-Za-zÆØÅæøå])``).
+_NO_CHAPTER_SECTION_HEADER_PATTERN = (
+    r"^§\s*(?P<label>[0-9]+(?:\s?[A-Za-z](?![A-Za-zÆØÅæøå]))?"
+    r"(?:-[0-9]+(?:\s?[A-Za-z](?![A-Za-zÆØÅæøå]))?)*)\s*\.?\s*(?P<title>.*)$"
+)
+_NO_CHAPTER_HEADING_TAGS = frozenset({"h1", "h2", "h3", "h4"})
+_NO_CHAPTER_SECTION_BODY_CLASSES = frozenset({"legalP", "numberedLegalP"})
+_NO_CHAPTER_TITLE_ARTICLE_CLASSES = frozenset({"defaultP", "legalP"})
+#: W-64's section-heading bound is 80 characters, measured on section titles.
+#: Chapter titles run longer — the longest of the 182 heading announcements in
+#: the corpus is 210 characters ("Kapittel 8. Særlige regler for utlendinger som
+#: omfattes av Avtale om Det europeiske økonomiske samarbeidsområde …") and four
+#: exceed 80 — so the chapter bound is set above the measured maximum. The
+#: length clause is the weakest of the four; the ``§``, verb and punctuation
+#: clauses carry the discrimination.
+_NO_CHAPTER_TITLE_MAX_LEN = 240
+
+
+def _no_chapter_title_text(node: etree._Element, text: str) -> bool:
+    """Is this node a chapter TITLE — a bare noun phrase, never an instruction or body text?
+
+    W-64's discriminator clauses, reused member for member: a title carries no
+    ``§``, no operative verb, no sentence-final punctuation and is at most
+    ``_NO_CHAPTER_TITLE_MAX_LEN`` long. ``<h1>``–``<h4>`` and ``span.futuretitle``
+    are titles by markup; a ``defaultP`` or ``legalP`` is a title only by these
+    clauses — the ``legalP`` case is the print-era emitter's, which has no
+    heading class to write and marks a non-lead line ``legalP``.
+    """
+    name = _local_name(node)
+    classes = _classes(node) if name in {"article", "span"} else set()
+    if name in _NO_CHAPTER_HEADING_TAGS or (name == "span" and "futuretitle" in classes):
+        return bool(text)
+    if name != "article" or not (_NO_CHAPTER_TITLE_ARTICLE_CLASSES & classes):
+        return False
+    if not text or len(text) > _NO_CHAPTER_TITLE_MAX_LEN:
+        return False
+    if "§" in text or text[-1] in ":;,":
+        return False
+    return not _no_unstructured_lead_looks_operative(text)
+
+
+def _no_chapter_reenactment_lead(lead: str) -> Optional[tuple[str, StructuralAction]]:
+    """``Kapittel 6 skal lyde:`` → ``("6", REPLACE)``; ``Nytt kapittel 5 A skal lyde:`` → ``("5A", INSERT)``."""
+    # lawvm-regex: owning_parser this IS the chapter re-enactment lead parser
+    match = re.match(_NO_CHAPTER_REENACTMENT_LEAD_PATTERN, _normalize_space(lead), re.IGNORECASE)
+    if match is None:
+        return None
+    action = StructuralAction.INSERT if match.group("insert") else StructuralAction.REPLACE
+    return _normalize_no_chapter_label(match.group("label")), action
+
+
+@dataclass(frozen=True, slots=True)
+class _NOChapterReenactmentRead:
+    """What the chapter payload reader found: a payload and where it ended, or a typed refusal."""
+
+    payload: Optional[IRNode]
+    end_index: int
+    refusal: str
+    member: str
+
+
+def _no_chapter_reenactment_section_from_header(
+    label: str, title: str, body_nodes: Sequence[etree._Element]
+) -> Optional[IRNode]:
+    """The 2001 shape: a ``§ X. Title`` header and its body articles, as one section."""
+    synthetic = etree.Element("article")
+    synthetic.set("class", "futureLegalArticle")
+    synthetic.set("data-name", f"§{label}")
+    header_span = etree.SubElement(synthetic, "span")
+    header_span.set("class", "futureLegalArticleHeader")
+    header_span.text = f"§ {label}. {title}".strip()
+    for node in body_nodes:
+        synthetic.append(copy.deepcopy(node))
+    payload = _parse_future_section(synthetic)
+    if payload is None or (not payload.children and not _normalize_space(payload.text or "")):
+        return None
+    return payload
+
+
+def _no_chapter_reenactment_payload(
+    children: Sequence[etree._Element],
+    part_indexes: Sequence[int],
+    position: int,
+    chapter_label: str,
+    action: StructuralAction,
+) -> _NOChapterReenactmentRead:
+    part = part_indexes[position] if position < len(part_indexes) else None
+    heading: Optional[str] = None
+    sections: list[IRNode] = []
+    seen_labels: set[str] = set()
+    open_label: Optional[str] = None
+    open_title = ""
+    open_body: list[etree._Element] = []
+
+    def refuse(reason: str, member: str, index: int) -> _NOChapterReenactmentRead:
+        return _NOChapterReenactmentRead(payload=None, end_index=index, refusal=reason, member=member[:200])
+
+    def flush() -> Optional[str]:
+        nonlocal open_label, open_title, open_body
+        if open_label is None:
+            return None
+        section = _no_chapter_reenactment_section_from_header(open_label, open_title, open_body)
+        label_key = open_label.casefold()
+        open_label, open_title, open_body = None, "", []
+        if section is None:
+            return "section_payload_unresolved"
+        if label_key in seen_labels:
+            return "duplicate_section_label"
+        seen_labels.add(label_key)
+        sections.append(section)
+        return None
+
+    index = position + 1
+    while index < len(children) and (part_indexes[index] if index < len(part_indexes) else None) == part:
+        node = children[index]
+        name = _local_name(node)
+        text = _repair_no_mojibake(_normalize_space(" ".join(str(_t) for _t in node.itertext())))
+        classes = _classes(node) if name in {"article", "span"} else set()
+        # A title is read ONLY before the first section; the same shape after a
+        # section has started is a subdivision heading this reader does not
+        # model, and refuses. A ``legalP`` is tested as a title only in that
+        # first position — once a section is open it is that section's body.
+        if heading is None and not sections and open_label is None and _no_chapter_title_text(node, text):
+            heading = text
+            index += 1
+            continue
+        if (
+            name in _NO_CHAPTER_HEADING_TAGS
+            or (name == "span" and "futuretitle" in classes)
+            or (name == "article" and "defaultP" in classes and _no_chapter_title_text(node, text))
+        ):
+            return refuse("subdivision_heading_unsupported", text, index)
+        if name == "article" and "futureLegalArticle" in classes:
+            flushed = flush()
+            if flushed is not None:
+                return refuse(flushed, text, index)
+            label = _no_future_section_label(node)
+            if not label:
+                return refuse("future_section_without_label", text, index)
+            section = _parse_future_section(node)
+            if section is None or (not section.children and not _normalize_space(section.text or "")):
+                return refuse("section_payload_unresolved", text, index)
+            if label.casefold() in seen_labels:
+                return refuse("duplicate_section_label", text, index)
+            seen_labels.add(label.casefold())
+            sections.append(section)
+            index += 1
+            continue
+        if name == "article" and "defaultP" in classes:
+            # lawvm-regex: owning_parser this IS the 2001-shape section header reader
+            header = re.match(_NO_CHAPTER_SECTION_HEADER_PATTERN, text)
+            if header is not None and not _no_unstructured_lead_looks_operative(text):
+                flushed = flush()
+                if flushed is not None:
+                    return refuse(flushed, text, index)
+                open_label = _normalize_no_section_label(header.group("label"))
+                open_title = _normalize_space(header.group("title"))
+                index += 1
+                continue
+            break
+        if name == "article" and (_NO_CHAPTER_SECTION_BODY_CLASSES & classes):
+            if open_label is None:
+                return refuse("body_outside_section", text, index)
+            open_body.append(node)
+            index += 1
+            continue
+        return refuse("member_outside_closed_set", f"<{name}> {text}", index)
+    flushed = flush()
+    if flushed is not None:
+        return refuse(flushed, "", index)
+    if not sections:
+        # A title and nothing else. Measured (10 corpus leads): the chapter's
+        # sections follow as leads of their OWN ("§ 30 skal lyde:", "Ny § 10-5
+        # skal lyde:") which the walk lowers independently, so the lead itself
+        # states only the heading. For a REPLACE that is exactly a heading-only
+        # payload, which the apply seam MERGES over the standing chapter (its
+        # sections are never touched). For an INSERT it would be an empty
+        # container whose sections this reader cannot prove belong to it, so
+        # it refuses.
+        if heading is None or action is not StructuralAction.REPLACE:
+            return refuse("chapter_carried_no_section", "", index)
+    payload_children: list[IRNode] = []
+    if heading:
+        payload_children.append(IRNode(kind=IRNodeKind.HEADING, text=heading))
+    payload_children.extend(sections)
+    return _NOChapterReenactmentRead(
+        payload=IRNode(kind=IRNodeKind.CHAPTER, label=chapter_label, children=tuple(payload_children)),
+        end_index=index,
+        refusal="",
+        member="",
+    )
+
+
 def _iter_unstructured_no_change_groups(
     root: etree._Element,
     source_id: str,
@@ -5132,6 +5953,11 @@ def _iter_unstructured_no_change_groups(
             )
 
         subsection_specs = _infer_same_base_subsection_target_specs_from_lead(lead)
+        if not subsection_specs:
+            # W-98 (a): the repeated-noun list ("§ 7-2 første ledd og tredje
+            # ledd skal lyde:"), tried only once the shipped single-noun grammar
+            # has returned nothing. See ``_no_repeated_ledd_noun_subsection_specs``.
+            subsection_specs = _no_repeated_ledd_noun_subsection_specs(lead)
         if subsection_specs and len(text_articles) >= len(subsection_specs):
             unresolved_targets: list[LegalAddress] = []
             for (action, target), article in zip(subsection_specs, text_articles, strict=False):
@@ -5171,6 +5997,7 @@ def _iter_unstructured_no_change_groups(
             payload_candidates = _extract_payload_candidates_from_nodes([child, *payload_nodes], item_targets)
             resolved: list[tuple[StructuralAction, LegalAddress, IRNode]] = []
             unresolved_targets: list[LegalAddress] = []
+            single_text_article_paths: set[tuple[tuple[str, str], ...]] = set()
             for action, target in item_specs:
                 payload = payload_candidates.get((target.leaf_kind(), target.leaf_label()))
                 if payload is None and target.leaf_kind() == "item" and target.leaf_label() == "last":
@@ -5179,6 +6006,15 @@ def _iter_unstructured_no_change_groups(
                     ]
                     if len(item_payloads) == 1:
                         payload = _with_no_node_label(item_payloads[0], "last")
+                if payload is None:
+                    # W-98 (d): the single-item lead whose new text is the ONE
+                    # ``legalP`` that follows it. See
+                    # ``_no_item_payload_from_single_text_article``.
+                    payload = _no_item_payload_from_single_text_article(
+                        item_specs, target, payload_candidates, text_articles
+                    )
+                    if payload is not None:
+                        single_text_article_paths.add(target.path)
                 if payload is None:
                     unresolved_targets.append(target)
                     continue
@@ -5213,6 +6049,9 @@ def _iter_unstructured_no_change_groups(
                 idx = cursor
                 continue
             for action, target, payload in resolved:
+                item_tags: tuple[str, ...] = (f"base_act:{lead_base_id}", "fallback:unstructured")
+                if target.path in single_text_article_paths:
+                    item_tags = (*item_tags, NO_ITEM_PAYLOAD_SINGLE_TEXT_ARTICLE_PROVENANCE_TAG)
                 doc_ops.append(
                     LegalOperation(
                         op_id=f"{source_id}:{sequence}",
@@ -5221,7 +6060,7 @@ def _iter_unstructured_no_change_groups(
                         target=target,
                         payload=payload,
                         source=OperationSource(statute_id=source_id, raw_text=lead, title=lead_base_id),
-                        provenance_tags=(f"base_act:{lead_base_id}", "fallback:unstructured"),
+                        provenance_tags=item_tags,
                         group_id=f"{source_id}:{lead_base_id}:{sequence}",
                     )
                 )
@@ -5308,10 +6147,31 @@ def _iter_unstructured_no_change_groups(
             re.IGNORECASE,
         )
         if range_section_repeal_match:
-            for label in _expand_no_section_range_labels(
+            shipped_range_labels = _expand_no_section_range_labels(
                 range_section_repeal_match.group(1),
                 range_section_repeal_match.group(2),
-            ):
+            )
+            if shipped_range_labels is None:
+                # W-98 (c): the expander now refuses what it used to truncate
+                # to two endpoints; the refusal is typed rather than silent.
+                _append_no_unstructured_parse_adjudication(
+                    adjudications_out,
+                    kind=NO_PARSE_SECTION_RANGE_UNEXPANDABLE,
+                    message=(
+                        "Norway unstructured section-range repeal names a range this grammar "
+                        "cannot enumerate (cross-chapter, unordered or unlabelled); nothing was repealed."
+                    ),
+                    source_id=source_id,
+                    lead=lead,
+                    base_id=lead_base_id,
+                    detail={
+                        "start": _normalize_no_section_label(range_section_repeal_match.group(1)),
+                        "end": _normalize_no_section_label(range_section_repeal_match.group(2)),
+                    },
+                )
+                idx += 1
+                continue
+            for label in shipped_range_labels:
                 doc_ops.append(
                     LegalOperation(
                         op_id=f"{source_id}:{sequence}",
@@ -5994,6 +6854,317 @@ def _iter_unstructured_no_change_groups(
                 )
                 sequence += 1
             idx = cursor
+            continue
+
+        # ── W-98. Six productions, each behind every shipped one (additivity by
+        # position, W-66c's argument) and immediately ahead of the operative
+        # fallback. See the block comments on their readers for the census and
+        # for what each deliberately leaves refused.
+
+        # (i) The nynorsk ledd repeal.
+        nynorsk_repeal = _no_nynorsk_ledd_repeal_targets(lead)
+        if nynorsk_repeal is not None:
+            nynorsk_section, nynorsk_ordinals = nynorsk_repeal
+            # Descending, for W-66c's reason: order-independent under any
+            # future sibling compaction.
+            for ordinal in sorted(nynorsk_ordinals, reverse=True):
+                doc_ops.append(
+                    LegalOperation(
+                        op_id=f"{source_id}:{sequence}",
+                        sequence=sequence,
+                        action=StructuralAction.REPEAL,
+                        target=LegalAddress(path=(("section", nynorsk_section), ("subsection", str(ordinal)))),
+                        source=OperationSource(statute_id=source_id, raw_text=lead, title=lead_base_id),
+                        provenance_tags=(f"base_act:{lead_base_id}", "fallback:unstructured"),
+                        group_id=f"{source_id}:{lead_base_id}:{sequence}",
+                    )
+                )
+                sequence += 1
+            idx = cursor
+            continue
+
+        # (c) The section range with a ``§`` on both ends, or a nynorsk verb.
+        range_lead = _no_section_range_repeal_lead(lead)
+        if range_lead is not None:
+            range_start, range_end = range_lead
+            range_labels = _expand_no_section_range_labels(range_start, range_end)
+            if range_labels is None:
+                _append_no_unstructured_parse_adjudication(
+                    adjudications_out,
+                    kind=NO_PARSE_SECTION_RANGE_UNEXPANDABLE,
+                    message=(
+                        "Norway unstructured section-range repeal names a range this grammar "
+                        "cannot enumerate (cross-chapter, unordered or unlabelled); nothing was repealed."
+                    ),
+                    source_id=source_id,
+                    lead=lead,
+                    base_id=lead_base_id,
+                    detail={
+                        "start": _normalize_no_section_label(range_start),
+                        "end": _normalize_no_section_label(range_end),
+                    },
+                )
+                idx += 1
+                continue
+            for label in range_labels:
+                doc_ops.append(
+                    LegalOperation(
+                        op_id=f"{source_id}:{sequence}",
+                        sequence=sequence,
+                        action=StructuralAction.REPEAL,
+                        target=LegalAddress(path=(("section", label),)),
+                        source=OperationSource(statute_id=source_id, raw_text=lead, title=lead_base_id),
+                        provenance_tags=(f"base_act:{lead_base_id}", "fallback:unstructured"),
+                        group_id=f"{source_id}:{lead_base_id}:{sequence}",
+                    )
+                )
+                sequence += 1
+            idx = cursor
+            continue
+
+        # (b) The mixed punktum + ledd member list.
+        mixed_specs = _no_mixed_punktum_ledd_member_specs(lead)
+        if mixed_specs:
+            mixed_targets = [target for _action, target in mixed_specs]
+            if len(text_articles) != len(mixed_specs):
+                _append_no_unstructured_parse_adjudication(
+                    adjudications_out,
+                    kind=NO_PARSE_MIXED_MEMBER_PAYLOAD_ARITY_MISMATCH,
+                    message=(
+                        "Norway unstructured mixed-depth lead declared members at two depths but "
+                        "the payload does not carry exactly one text article per member; nothing was lowered."
+                    ),
+                    source_id=source_id,
+                    lead=lead,
+                    base_id=lead_base_id,
+                    detail={
+                        "declared_count": len(mixed_specs),
+                        "payload_count": len(text_articles),
+                        "targets": tuple(_no_address_detail(target) for target in mixed_targets),
+                    },
+                )
+                idx += 1
+                continue
+            mixed_payloads = [
+                _payload_from_direct_text_article(article, target)
+                for (_action, target), article in zip(mixed_specs, text_articles, strict=True)
+            ]
+            if any(payload is None for payload in mixed_payloads):
+                _append_no_unstructured_parse_adjudication(
+                    adjudications_out,
+                    kind="no_parse_unstructured_payload_unresolved",
+                    message=(
+                        "Norway unstructured mixed-depth lead resolved its members but a member's "
+                        "payload could not be extracted; nothing was lowered."
+                    ),
+                    source_id=source_id,
+                    lead=lead,
+                    base_id=lead_base_id,
+                    detail={
+                        "targets": tuple(_no_address_detail(target) for target in mixed_targets),
+                        "payload_family": "mixed_member",
+                    },
+                )
+                idx += 1
+                continue
+            for (action, target), payload in zip(mixed_specs, mixed_payloads, strict=True):
+                assert payload is not None
+                doc_ops.append(
+                    LegalOperation(
+                        op_id=f"{source_id}:{sequence}",
+                        sequence=sequence,
+                        action=action,
+                        target=target,
+                        payload=payload,
+                        source=OperationSource(statute_id=source_id, raw_text=lead, title=lead_base_id),
+                        provenance_tags=(f"base_act:{lead_base_id}", "fallback:unstructured"),
+                        group_id=f"{source_id}:{lead_base_id}:{sequence}",
+                    )
+                )
+                sequence += 1
+            idx = cursor
+            continue
+
+        # (e) The compound ledd repeal-then-reenact lead.
+        compound = _no_ledd_repeal_reenact_specs(lead)
+        if compound is not None:
+            compound_section, compound_repealed, compound_specs = compound
+            compound_targets = [target for _action, target in compound_specs]
+            if len(text_articles) != len(compound_specs):
+                _append_no_unstructured_parse_adjudication(
+                    adjudications_out,
+                    kind=NO_PARSE_LEDD_REPEAL_REENACT_PAYLOAD_ARITY_MISMATCH,
+                    message=(
+                        "Norway unstructured repeal-then-reenact lead declared re-enacted ledd but the "
+                        "payload does not carry exactly one text article per member; nothing was lowered."
+                    ),
+                    source_id=source_id,
+                    lead=lead,
+                    base_id=lead_base_id,
+                    detail={
+                        "section": compound_section,
+                        "repealed": tuple(str(ordinal) for ordinal in compound_repealed),
+                        "declared_count": len(compound_specs),
+                        "payload_count": len(text_articles),
+                        "targets": tuple(_no_address_detail(target) for target in compound_targets),
+                    },
+                )
+                idx += 1
+                continue
+            compound_payloads = [
+                _payload_from_direct_text_article(article, target)
+                for (_action, target), article in zip(compound_specs, text_articles, strict=True)
+            ]
+            if any(payload is None for payload in compound_payloads):
+                _append_no_unstructured_parse_adjudication(
+                    adjudications_out,
+                    kind="no_parse_unstructured_payload_unresolved",
+                    message=(
+                        "Norway unstructured repeal-then-reenact lead resolved its members but a "
+                        "member's payload could not be extracted; nothing was lowered."
+                    ),
+                    source_id=source_id,
+                    lead=lead,
+                    base_id=lead_base_id,
+                    detail={
+                        "targets": tuple(_no_address_detail(target) for target in compound_targets),
+                        "payload_family": "ledd_repeal_reenact",
+                    },
+                )
+                idx += 1
+                continue
+            for ordinal in sorted(compound_repealed, reverse=True):
+                doc_ops.append(
+                    LegalOperation(
+                        op_id=f"{source_id}:{sequence}",
+                        sequence=sequence,
+                        action=StructuralAction.REPEAL,
+                        target=LegalAddress(path=(("section", compound_section), ("subsection", str(ordinal)))),
+                        source=OperationSource(statute_id=source_id, raw_text=lead, title=lead_base_id),
+                        provenance_tags=(
+                            f"base_act:{lead_base_id}",
+                            "fallback:unstructured",
+                            NO_LEDD_REPEAL_REENACT_PROVENANCE_TAG,
+                        ),
+                        group_id=f"{source_id}:{lead_base_id}:{sequence}",
+                    )
+                )
+                sequence += 1
+            for (action, target), payload in zip(compound_specs, compound_payloads, strict=True):
+                assert payload is not None
+                doc_ops.append(
+                    LegalOperation(
+                        op_id=f"{source_id}:{sequence}",
+                        sequence=sequence,
+                        action=action,
+                        target=target,
+                        payload=payload,
+                        source=OperationSource(statute_id=source_id, raw_text=lead, title=lead_base_id),
+                        provenance_tags=(
+                            f"base_act:{lead_base_id}",
+                            "fallback:unstructured",
+                            NO_LEDD_REPEAL_REENACT_PROVENANCE_TAG,
+                        ),
+                        group_id=f"{source_id}:{lead_base_id}:{sequence}",
+                    )
+                )
+                sequence += 1
+            idx = cursor
+            continue
+
+        # (f) The chapter heading.
+        chapter_heading = _no_chapter_heading_lead(lead)
+        if chapter_heading is not None:
+            heading_chapter, inline_title = chapter_heading
+            heading_read = _no_chapter_heading_read(children, child_part_indexes, idx, inline_title)
+            heading_title = heading_read.title
+            if not heading_title:
+                _append_no_unstructured_parse_adjudication(
+                    adjudications_out,
+                    kind=NO_PARSE_CHAPTER_HEADING_PAYLOAD_UNRESOLVED,
+                    message=(
+                        "Norway unstructured chapter heading lead resolved its chapter but no single "
+                        "heading payload could be extracted; nothing was lowered."
+                    ),
+                    source_id=source_id,
+                    lead=lead,
+                    base_id=lead_base_id,
+                    detail={
+                        "chapter": heading_chapter,
+                        "refusal": heading_read.refusal,
+                    },
+                )
+                idx += 1
+                continue
+            doc_ops.append(
+                LegalOperation(
+                    op_id=f"{source_id}:{sequence}",
+                    sequence=sequence,
+                    action=StructuralAction.REPLACE,
+                    target=LegalAddress(path=(("chapter", heading_chapter),)),
+                    payload=IRNode(
+                        kind=IRNodeKind.CHAPTER,
+                        label=heading_chapter,
+                        children=(IRNode(kind=IRNodeKind.HEADING, text=heading_title),),
+                    ),
+                    source=OperationSource(statute_id=source_id, raw_text=lead, title=lead_base_id),
+                    provenance_tags=(
+                        f"base_act:{lead_base_id}",
+                        "fallback:unstructured",
+                        NO_CHAPTER_HEADING_PROVENANCE_TAG,
+                    ),
+                    group_id=f"{source_id}:{lead_base_id}:{sequence}",
+                )
+            )
+            sequence += 1
+            idx = heading_read.end_index
+            continue
+
+        # (g) The whole-chapter re-enactment.
+        chapter_reenactment = _no_chapter_reenactment_lead(lead)
+        if chapter_reenactment is not None:
+            reenact_chapter, reenact_action = chapter_reenactment
+            read = _no_chapter_reenactment_payload(
+                children, child_part_indexes, idx, reenact_chapter, reenact_action
+            )
+            if read.payload is None:
+                _append_no_unstructured_parse_adjudication(
+                    adjudications_out,
+                    kind=NO_PARSE_CHAPTER_REENACTMENT_PAYLOAD_UNRESOLVED,
+                    message=(
+                        "Norway unstructured chapter re-enactment lead resolved its chapter but the "
+                        "payload did not read as one closed chapter; nothing was lowered."
+                    ),
+                    source_id=source_id,
+                    lead=lead,
+                    base_id=lead_base_id,
+                    detail={
+                        "chapter": reenact_chapter,
+                        "action": _no_action_value(reenact_action),
+                        "refusal": read.refusal,
+                        "member": read.member,
+                    },
+                )
+                idx += 1
+                continue
+            doc_ops.append(
+                LegalOperation(
+                    op_id=f"{source_id}:{sequence}",
+                    sequence=sequence,
+                    action=reenact_action,
+                    target=LegalAddress(path=(("chapter", reenact_chapter),)),
+                    payload=read.payload,
+                    source=OperationSource(statute_id=source_id, raw_text=lead, title=lead_base_id),
+                    provenance_tags=(
+                        f"base_act:{lead_base_id}",
+                        "fallback:unstructured",
+                        NO_CHAPTER_REENACTMENT_PROVENANCE_TAG,
+                    ),
+                    group_id=f"{source_id}:{lead_base_id}:{sequence}",
+                )
+            )
+            sequence += 1
+            idx = read.end_index
             continue
 
         if _no_unstructured_lead_looks_operative(lead):
@@ -11167,10 +12338,59 @@ def _apply_no_ops_fold(
                     return
 
                 existing = tree_ops.resolve(body, resolved_path)
+                # W-98 (g). THE OVER-REPEAL GUARD on a whole-chapter re-enactment.
+                # "Kapittel N skal lyde:" states the chapter's new text, and a
+                # section the payload does not carry would be destroyed by the
+                # replace below. Whether that destruction is what the act says
+                # or an artefact of the payload (the W-91 witness for chapter 6
+                # is an OCR segmentation that fused §§ 6-2–6-5 into § 6-1's
+                # body) is not decidable from the op, so the production refuses
+                # to decide: it applies only when every section standing under
+                # the chapter is carried by the payload, and otherwise lands
+                # NOTHING with a typed receipt naming the uncarried labels.
+                # Over-retention is the safe wrong; a whole-chapter destruction
+                # on an incomplete payload is the forbidden one.
+                if existing is not None and NO_CHAPTER_REENACTMENT_PROVENANCE_TAG in (op.provenance_tags or ()):
+                    standing_labels = _no_descendant_section_label_keys(existing)
+                    carried_labels = {
+                        _normalize_no_section_label(child.label or "").casefold()
+                        for child in payload.children
+                        if _no_kind_value(child.kind) == "section" and child.label
+                    }
+                    uncarried = sorted(standing_labels - carried_labels, key=_no_sort_key)
+                    if uncarried:
+                        _append_no_replay_adjudication(
+                            adjudications_out,
+                            kind=NO_REPLAY_CHAPTER_REENACTMENT_UNCARRIED_SECTIONS_REFUSED,
+                            message=(
+                                "Norway replay refused a whole-chapter re-enactment whose payload "
+                                "does not carry every section standing under the chapter; nothing landed."
+                            ),
+                            op=op,
+                            detail={
+                                "rule_id": NO_REPLAY_CHAPTER_REENACTMENT_UNCARRIED_SECTIONS_REFUSED,
+                                "family": "unsupported_or_unresolved_action",
+                                "target": str(op.target),
+                                "resolved_path": _no_path_label(resolved_path),
+                                "standing_sections": tuple(sorted(standing_labels, key=_no_sort_key)),
+                                "carried_sections": tuple(sorted(carried_labels, key=_no_sort_key)),
+                                "uncarried_sections": tuple(uncarried),
+                            },
+                        )
+                        _assert_no_invariant_violations(op)
+                        return
+                # The heading-only merge, generalized from ``section`` to every
+                # container kind that carries a heading (W-98 (f)): a payload
+                # that is exactly one HEADING over an existing node of the same
+                # kind replaces that node's heading and keeps its body. For a
+                # section this is byte-identical to the shipped branch; for a
+                # chapter it is what stops a heading announcement from wiping
+                # the chapter's sections (the structured W-82 chapter-heading
+                # payloads reached the bare replace below before this).
                 if (
                     existing is not None
-                    and _no_kind_value(existing.kind) == "section"
-                    and _no_kind_value(op.payload.kind) == "section"
+                    and _no_kind_value(existing.kind) in _NO_HEADING_ONLY_MERGE_KINDS
+                    and _no_kind_value(op.payload.kind) == _no_kind_value(existing.kind)
                     and not op.payload.text
                     and len(op.payload.children) == 1
                     and _no_kind_value(op.payload.children[0].kind) == "heading"
@@ -11244,20 +12464,32 @@ def _apply_no_ops_fold(
                 # production's own provenance tag, so the shipped θ cell is
                 # UNTOUCHED for every op that is not this production's and the
                 # corpus-wide firing census cannot move.
-                if resolved_path is not None and NO_ITEM_INSERT_PAYLOAD_PROVENANCE_TAG in (
-                    op.provenance_tags or ()
-                ):
+                # W-98 generalizes the KEY, not the branch: the tag→kind table
+                # keeps W-77's kind byte-for-byte for W-77's tag and gives the
+                # two re-enactment productions (a ledd repeal-then-reenact, a
+                # ``Nytt kapittel``) one generic kind, told apart by
+                # ``production``. Still one branch on the load-bearing seam.
+                refusing_tag = next(
+                    (tag for tag in (op.provenance_tags or ()) if tag in _NO_INSERT_OCCUPIED_REFUSING_TAGS),
+                    None,
+                )
+                if resolved_path is not None and refusing_tag is not None:
+                    refusing_kind = _NO_INSERT_OCCUPIED_REFUSING_TAGS[refusing_tag]
                     standing = tree_ops.resolve(body, resolved_path)
                     _append_no_replay_adjudication(
                         adjudications_out,
-                        kind=NO_REPLAY_ITEM_INSERT_PAYLOAD_OCCUPIED_TARGET_REFUSED,
+                        kind=refusing_kind,
                         message=(
                             "Norway replay refused an item-depth newness payload whose target "
                             "label is still occupied when the insert runs."
+                            if refusing_tag == NO_ITEM_INSERT_PAYLOAD_PROVENANCE_TAG
+                            else "Norway replay refused a re-enactment insert whose target label "
+                            "is still occupied when the insert runs."
                         ),
                         op=op,
                         detail={
-                            "rule_id": NO_REPLAY_ITEM_INSERT_PAYLOAD_OCCUPIED_TARGET_REFUSED,
+                            "rule_id": refusing_kind,
+                            "production": refusing_tag,
                             "family": "unsupported_or_unresolved_action",
                             "target": str(op.target),
                             "resolved_path": _no_path_label(resolved_path),
@@ -12008,6 +13240,10 @@ _NO_SKIP_ADJUDICATION_KINDS = frozenset(
         # write, so the conserved partition must see it as rejected rather than
         # as the recovery the shipped θ cell would have performed.
         NO_REPLAY_ITEM_INSERT_PAYLOAD_OCCUPIED_TARGET_REFUSED,
+        # W-98: the two re-enactment refusals. Same shape as W-66's and W-77's:
+        # a REFUSAL, no write, so the conserved partition sees them as rejected.
+        NO_REPLAY_CHAPTER_REENACTMENT_UNCARRIED_SECTIONS_REFUSED,
+        NO_REPLAY_REENACTMENT_INSERT_OCCUPIED_TARGET_REFUSED,
     }
 )
 

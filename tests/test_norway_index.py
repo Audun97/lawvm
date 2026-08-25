@@ -1143,7 +1143,13 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
     # 2025-07-01 by its own ``no/forskrift/2025-03-28-545``; the eight staged
     # re-datings are unaffected. Recovering it is the sized follow-up "widen the
     # own-text fallback's payload reach" (43 nodes, 66 ops).
-    assert len(authorized_ids) == 541
+    # 541 -> 545 at W-98: four acts gain their FIRST index entry from the
+    # pre-2001 lead grammar and are dated by their own kongelig resolusjon
+    # through the shipped whole-act route — ``no/lovtid/2010-06-25-50`` ("Nytt
+    # kapittel 3 A skal lyde:"), ``2016-01-22-1`` (nynorsk ledd repeals),
+    # ``2016-12-16-99`` ("Nytt kapittel II A skal lyde:"), ``2022-12-16-93``
+    # ("Nytt kapittel 6 A skal lyde:"). All ``plain``; the staged pins hold.
+    assert len(authorized_ids) == 545
     # W-53: the widened whole-act route. 430 acts whose single operative block
     # commences them as a whole in wording ``_WHOLE_ACT_RE`` does not match.
     # Disjoint from the shipped set by construction, and the two together are
@@ -1175,7 +1181,10 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
     # commences reaches the widened route at 2006-01-01 via
     # ``no/forskrift/2005-12-16-1517``. One act, one entry, ``plain`` rather than
     # staged, so the staged pin above is again unmoved.
-    assert len(widened_ids) == 438
+    # 438 -> 440 at W-98: two more first-entry acts take the widened route,
+    # ``no/lovtid/2002-08-30-68`` (``bokstav f)``) and ``2016-09-16-81``
+    # ("Kapittel 12 skal lyde:"). Both ``plain``.
+    assert len(widened_ids) == 440
     assert not (widened_ids & authorized_ids)
     # FIVE of the 430 are staged acts, so the staged re-dating population grows
     # 8 -> 13 — the same offer gate, the same "an official instrument outranks a
@@ -1292,7 +1301,7 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # leaves WHOLE with the re-sanctioning withdrawal — its armed duplicate
         # of the equally-contingent replacement ``2025-06-20-67``'s 57 ops is
         # disarmed. No existing entry's status moves.
-        "contingent": 535,
+        "contingent": 537,
         # 1021 -> 1020 at W-15 (multi-part misbinding fix): the sole moved entry
         # is no/lovtid/2018-12-20-119, whose only "op" was its own part II
         # commencement sentence ("Lova tek til å gjelde straks.") swallowed as a
@@ -1360,7 +1369,9 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # applying from sanction day) leaves WHOLE with the re-sanctioning
         # withdrawal; its replacement ``2013-01-11-1`` already sits in
         # ``instrument_authorized``. No existing entry's status moves.
-        "dated": 1058,
+        # W-98: 1,058 -> 1,067 dated, 979 -> 985 instrument_authorized and
+        # 535 -> 537 contingent — the 17 first-entry acts by their own status.
+        "dated": 1067,
         "immediate": 1,
         # 976 -> 977 at W-67, and the whole of this landing's effect on the
         # act-level histogram is ONE act gaining its FIRST index entry — the same
@@ -1407,7 +1418,7 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # ``no/lovtid/2023-12-20-104``, ``contingent`` above); ``dated``,
         # ``unknown`` and ``immediate`` all hold, and no PRE-EXISTING entry's
         # ``effective_status`` changes.
-        "instrument_authorized": 979,
+        "instrument_authorized": 985,
         "unknown": 2,
     }
 
@@ -1574,14 +1585,20 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     # first DEPARTURE: ``no/lovtid/2025-03-28-4`` loses its only op to the
     # own-text invariant and with it its index entry, so the whole of the move
     # again lands in the non-staged half and the staged pin does not budge.
-    assert len(authorized) == 979
+    # 979 -> 985 (and 966 -> 972 non-staged, 13 staged unmoved) at W-98: six
+    # acts gain their FIRST index entry from the pre-2001 lead grammar and are
+    # instrument-authorized — four by the shipped whole-act route
+    # (``2010-06-25-50``, ``2016-01-22-1``, ``2016-12-16-99``, ``2022-12-16-93``)
+    # and two by the widened one (``2002-08-30-68``, ``2016-09-16-81``). Every
+    # one is ``plain``, so the whole move lands in the non-staged half.
+    assert len(authorized) == 985
     assert (
         len([
             entry
             for entry in authorized
             if entry.commencement_shape != NOCommencementShape.STAGED_DELEGATED
         ])
-        == 966
+        == 972
     )
     assert all(entry.effective_date for entry in authorized)
     authorization_receipts = [
@@ -1624,8 +1641,10 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     # so it is the shipped receipt count that falls and the widened one is
     # unmoved. Its sibling departure ``no/lovtid/2023-12-20-104`` is contingent
     # and took no authorization receipt at all.
-    assert len(authorization_receipts) == 541
-    assert len(widened_receipts) == 438
+    # 545 + 440 = 985 at W-98: the four shipped-route and two widened-route
+    # first-entry acts named above, one receipt each.
+    assert len(authorization_receipts) == 545
+    assert len(widened_receipts) == 440
     assert {d["source_id"] for d in authorization_receipts + widened_receipts} == {
         entry.source_id for entry in authorized
     }
@@ -1769,10 +1788,16 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     # first binding that is `dated`. The two leavers are not less replayable than
     # they were — the contingent act always amended them, and the index could not
     # see it until a production lowered the instruction. Signed off 2026-08-14.
-    assert len(fully_replayable) == 75
+    # 75 -> 74 at W-98, the same mechanism a second time and again ONE law
+    # leaving: the pre-2001 lead grammar's ``bokstav d)`` reading gives
+    # ``no/lovtid/2016-12-16-91`` — commencement "fra den tid Kongen bestemmer"
+    # — its FIRST lowered op against ``no/lov/2004-03-26-17``, so that law's last
+    # binding is now contingent and it leaves. Nothing enters. The leaver is not
+    # less replayable than it was; the contingent act always amended it, and the
+    # index could not see the binding until a production lowered the instruction.
+    assert len(fully_replayable) == 74
     assert set(fully_replayable) >= {
         "no/lov/2001-06-15-75",
-        "no/lov/2004-03-26-17",
         "no/lov/2004-12-17-99",
         "no/lov/2015-05-12-27",
         "no/lov/2016-12-16-92",
@@ -1972,9 +1997,19 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # write the one over the other. The W-34/W-35 conservation is exact again:
     # the pair LOSS equals the binding GAIN (1 = 1; index bindings 6,561 ->
     # 6,562), ZERO targets newly unbound and NOTHING rebound.
-    assert len(unbound) == 927
-    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2446
-    assert len({diagnostic["source_id"] for diagnostic in unbound}) == 927
+    # 927 -> 909 receipts and 2,446 -> 2,402 pairs at W-98, the largest
+    # pay-down since W-34: the pre-2001 lead grammar binds 46 new (act, law)
+    # pairs (17 acts gain their first entry, 29 acts gain a further law), and
+    # 44 of them were declared targets the index had receipted as unbound —
+    # whole-chapter re-enactments, chapter headings, nynorsk ledd repeals,
+    # ``bokstav d)`` items and repeated-noun ledd lists whose act had no other
+    # lowered instruction against that law. The W-34/W-35 conservation holds
+    # in the binding direction: pair LOSS 44 against binding GAIN 46 (index
+    # bindings 6,550 -> 6,596), the other 2 gains being laws the act never
+    # declared. ZERO targets newly unbound and NOTHING rebound.
+    assert len(unbound) == 909
+    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2402
+    assert len({diagnostic["source_id"] for diagnostic in unbound}) == 909
 
     # 64 acts gain their FIRST index entry: they announced every one of their
     # parts with an unlisted tail, so they had bound no law at all.
@@ -2075,7 +2110,8 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # back); the re-sanctioning gate withdraws them at the pre-pass and their
     # replacements — already indexed acts of their own — stop double-applying.
     # Nothing enters.
-    assert len(index.entries) == 2575
+    # 2,575 -> 2,592 at W-98: the 17 acts that gain their first index entry.
+    assert len(index.entries) == 2592
     bindings = {
         (entry.source_id, base_id) for entry in index.entries for base_id in entry.base_ids
     }
@@ -2172,7 +2208,8 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # base keeps the SAME binding from the act's replacement (``2013-01-11-1``
     # / ``2025-06-20-67``, identical base sets), so no base act loses its last
     # op and the amended-law population is untouched.
-    assert len(bindings) == 6550
+    # 6,550 -> 6,596 at W-98: the 46 new (act, law) pairs; see the receipt note.
+    assert len(bindings) == 6596
     # 26,218 at W-30; +2 at W-24, both reconciled to a named erratum and neither
     # touching this test's own subject. W-24 lowered two Del-scoped Rettelser
     # corrections into the law each part amends — ``2019-12-20-110`` Del I into
@@ -2437,7 +2474,10 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # their own ids and stay byte-identical but for the new
     # ``resanctioned_from:`` provenance tag; the corpus-wide per-instrument
     # op-key sweep moved NO other instrument.
-    assert sum(entry.n_ops for entry in index.entries) == 29056
+    # 29,056 -> 29,612 at W-98 (+556): the nine pre-2001 productions' 558 new
+    # ops less the two REPLACEs the shipped promotion turns into INSERTs beside
+    # a newly-lowered relabel (those keep their count); 0 strays, 0 dropped.
+    assert sum(entry.n_ops for entry in index.entries) == 29612
 
 
 def test_no_amendment_index_staleness_report_detects_archive_change(tmp_path) -> None:

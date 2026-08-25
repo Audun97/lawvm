@@ -2677,8 +2677,19 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # withdraws the write, klimaloven's ``CONSOLIDATED_MISSING`` row at
     # § 7 andre ledd bokstav e closes, and the law leaves `replay_defect` for
     # `consistent` at 0 rows. No other candidate's rows move.
-    assert report["scanned_count"] == 75
-    assert report["summary"] == {"consistent": 30, "divergent": 45, "error": 0}
+    # W-98 (2026-08-25). 75 -> 74 candidates and 30/45 -> 29/45, the W-66c
+    # mechanism running backwards for the second time: the pre-2001 lead grammar
+    # gives ``no/lovtid/2016-12-16-91`` — commencement CONTINGENT — its first
+    # lowered op against ``no/lov/2004-03-26-17`` (the print-era ``bokstav d)``
+    # spelling, "§ 1 tredje ledd bokstav d) lyde: …"), one contingent binding
+    # downgrades the base from `fully_replayable` to `blocked_contingent`, and the
+    # law leaves the candidate set from the CONSISTENT bucket, where W-77 had put
+    # it at 0 rows. Its replay is not worse; the label is more honest, because the
+    # contingent act always amended it. No other candidate row moves (the 74
+    # base rows are byte-identical), so total and unexplained are unmoved and the
+    # ceiling is untouched at 1,011.
+    assert report["scanned_count"] == 74
+    assert report["summary"] == {"consistent": 29, "divergent": 45, "error": 0}
     # W-67 + W-74 (2026-08-11). The first landing in this series that moves the
     # scoreboard by CLOSING rows rather than by admitting laws: the candidate set
     # is unmoved at 76 element for element, the summary is unmoved at 29/47/0, and
@@ -2942,6 +2953,18 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             "no/lov/2015-06-19-70",
             "no/lov/2016-06-17-29",
             "no/lov/2016-06-17-46",
+            # W-98: ``no/lov/2017-06-16-65`` and ``no/lov/2020-06-19-77`` ARRIVE
+            # from `untouched_drift` with every row UNMOVED (totals hold at
+            # 1,454 / 1,011 / 443). Each law now carries one heading-only
+            # CHAPTER op ("Overskrifta til kapittel IV skal lyde:" from
+            # ``2020-12-04-137``; "Kapittel 8 overskriften skal lyde:" from
+            # ``2023-06-16-54``), and the W-23 predicate relates a chapter-level
+            # target to every address beneath it by prefix, so rows that were
+            # untouched read as touched. The predicate over-reaches for a
+            # heading-only container op (the merge writes the heading and
+            # nothing else); tightening it is a verify-classifier follow-up,
+            # recorded here rather than absorbed. 19 -> 21.
+            "no/lov/2017-06-16-65",
             # W-79: ``no/lov/2017-05-22-29`` and ``no/lov/2017-05-22-30`` both
             # LEAVE for `untouched_drift`, and the direction is the point. Their
             # replay-defect rows were caused by the own-text fallback writing
@@ -2962,6 +2985,7 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             "no/lov/2019-06-21-63",
             "no/lov/2019-12-20-109",
             "no/lov/2020-04-17-29",
+            "no/lov/2020-06-19-77",
             "no/lov/2021-06-11-79",
             # W-66b: ARRIVES from `untouched_drift`, and like W-66's
             # `2012-01-27-9` above this is the W-23 predicate doing its job rather
@@ -3017,14 +3041,17 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             # consolidation's is the same text one label higher. 19 -> 21.
             "no/lov/2017-05-22-29",
             "no/lov/2017-05-22-30",
-            "no/lov/2017-06-16-65",
+            # W-98: ``no/lov/2017-06-16-65`` LEAVES for `replay_defect` on the
+            # W-23 predicate alone (a heading-only chapter op relates to every
+            # row under the chapter); rows unmoved. See the note there.
             "no/lov/2017-06-16-67",
             # W-47: enters the candidate set at 14 rows, none of them a ceiling
             # row and none of them traceable to a replay defect. 16 -> 17.
             "no/lov/2018-04-20-7",
             # W-73: the third entrant, at 3 rows, unblocked by 2024-12-13-76
             # @2025-01-01 (ekomloven's own kgl.res.). 18 -> 19.
-            "no/lov/2020-06-19-77",
+            # W-98: ``no/lov/2020-06-19-77`` LEAVES for `replay_defect` the same
+            # way as ``2017-06-16-65`` above; rows unmoved. 21 -> 19.
             "no/lov/2020-12-04-136",
             "no/lov/2021-04-16-18",
             # W-66b: `no/lov/2021-06-18-121` LEAVES for `replay_defect`; see the
@@ -3092,8 +3119,10 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             # `replay_defect` bucket above.
             # W-84: ``no/lov/2017-06-16-60`` RETURNS here at 0 rows and is the
             # only membership change in the whole partition.
+            # W-98: ``no/lov/2004-03-26-17`` LEAVES the candidate set altogether
+            # (`blocked_contingent` on its first lowered op from a contingent
+            # instrument); see the scanned_count note above. 30 -> 29.
             "no/lov/2001-01-05-1",
-            "no/lov/2004-03-26-17",
             "no/lov/2004-05-14-25",
             "no/lov/2004-12-17-99",
             "no/lov/2005-06-03-34",
@@ -3135,8 +3164,9 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     routed = [item["base_id"] for bucket in partitions.values() for item in bucket]
     # 76 -> 75 at W-66c: two candidates downgrade to `blocked_contingent` on a
     # newly-visible contingent binding and one enters. See the membership note.
-    assert len(routed) == 75
-    assert len(set(routed)) == 75
+    # 75 -> 74 at W-98: one candidate downgrades the same way and none enters.
+    assert len(routed) == 74
+    assert len(set(routed)) == 74
 
     # Every member of the ceiling bucket is ceiling-DOMINATED, and the margin
     # to the routing boundary is enormous in both directions: the smallest
