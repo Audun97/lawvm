@@ -1395,7 +1395,12 @@ def test_no_corpus_occupied_renumber_destinations_are_all_declared(
     # W-67 raises the firing total 8 -> 10 (two new laws enter the table above,
     # both ``removal_correct``); the collateral count is unmoved at 3, because
     # neither new firing removes anything the receipt does not already declare.
-    assert sum(f for f, _ in observed.values()) == 10
+    # W-98 lowers the total 10 -> 9: privatskolelova's firing
+    # (``no/lovtid/2024-06-14-34:3``) is repaired at the LOWERING — the 2007
+    # "Kapittel 2 skal lyde:" now lands as a whole-chapter re-enactment, so the
+    # 2024 shift finds its destination free and the recovery has nothing to
+    # fire on. The collateral count is unmoved at 3 (that row was ``(1, 0)``).
+    assert sum(f for f, _ in observed.values()) == 9
     assert sum(c for _, c in observed.values()) == 3
     # The two tables must agree on the firing population, so neither can drift
     # alone: one row per firing, keyed by op_id.
@@ -3433,6 +3438,19 @@ _W66C_CORPUS_DESTRUCTIONS: tuple[tuple[str, str, str], ...] = (
         'section:26/subsection:3/sentence:3',
         'Avtalefriheten gjelder likevel ikke for installeringsforpliktelser som inngår i salgsavtalen.',
     ),
+    # W-98 ENTRANT, adjudicated by text: ``no/lovtid/2019-06-21-67`` reads
+    # "§ 37 b andre ledd første punktum oppheves." off its own ``article.defaultP``
+    # — THAT section, THAT ledd, THAT ordinal — and the sentence it removes is
+    # absent from the published § 37 b andre ledd today ("Dersom innehavar av
+    # kjøresetel …" stands first). The repeal was minted before W-98 and never
+    # realized because § 37 b did not exist in the replayed tree: chapter 7 A is
+    # ``no/lovtid/2003-12-19-132``'s "Nytt kapittel 7A skal lyde:", which W-98 (g)
+    # now lands as a whole-chapter INSERT. The destruction is commanded by name.
+    (
+        'no/lov/2002-06-21-45',
+        'section:37b/subsection:2/sentence:1',
+        'Det blir stilt same krav til helse m.m. som for førarkort klasse D og DE.',
+    ),
     (
         'no/lov/2003-02-21-12',
         'section:18/subsection:2/sentence:2',
@@ -3750,14 +3768,16 @@ def test_no_w66c_corpus_destruction_set_is_pinned_by_content(
 ) -> None:
     """Tripwire 2: what the production ACTUALLY destroys, by text.
 
-    33 sentences over 29 base acts. Pinned with their own TEXT rather than by
+    34 sentences over 30 base acts (33/29 before W-98). Pinned with their own TEXT rather than by
     address alone, because an address-only pin would pass while the sentence
     splitter counted to a different sentence — which is the one way this
     production can be wrong and stay quiet.
     """
     realized = _no_w66c_realized_destructions
-    assert len(realized) == 33, _W66C_DESTRUCTION_INSTRUCTION
-    assert len({row[0] for row in realized}) == 29, _W66C_DESTRUCTION_INSTRUCTION
+    # 33/29 -> 34/30 at W-98: one entrant, adjudicated by text in the pinned
+    # tuple (yrkestransportlova § 37 b andre ledd første punktum).
+    assert len(realized) == 34, _W66C_DESTRUCTION_INSTRUCTION
+    assert len({row[0] for row in realized}) == 30, _W66C_DESTRUCTION_INSTRUCTION
     assert tuple(realized) == _W66C_CORPUS_DESTRUCTIONS, _W66C_DESTRUCTION_INSTRUCTION
 
 
