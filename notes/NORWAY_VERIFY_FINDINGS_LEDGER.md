@@ -6945,6 +6945,127 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    Norwegian, so any adoption gets measured on this same slice
    first.
 
+97. **W-91 (evidence ladder + print-era segmenter + first end-to-end
+   receipt):** DONE as a probe (2026-08-25; read-only against
+   `data/norway`; artifacts `.tmp/w97/` — `ladder.py`, `segment.py`,
+   `emit.py`, `emit_amend.py`, `run_verify.py`, `compare.py`,
+   `oracle_extract.py`, `ladder.json`, `verify_*.json`, emitted
+   `xml_{abbyy,glm}/`). Chartered on the user's go-ahead after the
+   W-90 discussion: the user objected that "promote only certified
+   lines" is too coarse with four channels; the answer was an
+   evidence LADDER carried on every line, with the promotion policy
+   measured against the oracle instead of guessed. **(i) Ladder.**
+   Spine = NB ALTO lines with geometry; each other channel's page
+   word-stream is aligned to the spine (two-level: exact fold, then
+   loose anchors inside replace blocks) so every spine line gets one
+   reading per channel; classes by pairwise byte agreement after
+   provable folding only (NFC, whitespace, dash class, soft hyphen —
+   folding is the agreement KEY, never the landed text): **A**
+   ABBYY==tesseract, **B** any two print engines incl. NorPrint,
+   **C** GLM-OCR agrees with one print engine, **R** no two agree
+   (refusal, all candidates attached). Over the 36 pages / 1,390
+   body lines: **A 72.7% · A+B 87.2% · A+B+C 97.1% · R 2.8% (40
+   lines)** — vs W-89's 77.7% and W-90's 81.4%, because per-line
+   alignment replaces line-count matching and B admits
+   tess==NorPrint where ABBYY is the odd one out (90 lines: `seiv`→
+   `selv`, `förpliktelser`→`forpliktelser`, `oppgåver`→`oppgaver`,
+   `noeannet`→`noe annet`). The 40 refusals are almost all `§ N-N`
+   address lines (the print's wide dash reads `§2-l` / `§ 2 1` /
+   `§ 2- 1` / `§ 2-1` across engines) and the amending acts'
+   roman-numeral part markers (`/.` / `L.` / `I.`). C is almost
+   entirely ABBYY+GLM on `§`-heading lines where tesseract lacks the
+   glyph and NorPrint hallucinated trailing punctuation. **(ii)
+   Segmenter.** ALTO HPOS gives a clean ~37 px ledd indent; sections
+   by `§ N-N.` at margin (loose form accepts the refused variants),
+   chapters by `Kap. N.`, list items `a)`/`1.`; line-end hyphen
+   joins only when the hyphen is attached to the word (a spaced
+   line-end `-` is a dash, and the first pass swallowed the en dash
+   in § 9-3). Running heads excluded by pattern. Founding act →
+   Lovdata-shaped LTI XML (`main.documentBody` / `section.section
+   data-name=kapN` / `article.legalArticle data-name=§N-N` /
+   `article.legalP` + `ol/li`) and parsed by the REAL
+   `parse_no_statute`: 10 chapters, 41 sections, 132 ledd, 13 items.
+   The 11 cached amending acts (the two omnibus acts, 1997 nr 44 and
+   1998 nr 56, were never cached — W-87 gap, so § 6-1 is blocked
+   regardless) carved out of shared pages (title line → next
+   resolution header / next act), split into parts by the
+   roman-numeral markers, non-kringkasting parts dropped, and
+   emitted in the unstructured pre-2001 shape the grafter already
+   speaks (`dd.changesToDocuments`, `dd.dateInForce` from the
+   consolidation's `ikr.` metadata, `article.defaultP` leads +
+   `article.legalP` payloads, `futureLegalArticle` for `Ny § X`).
+   One typed typographic unit applied at emission: the dash inside
+   a `§ N-N` token in leads/headers folds to `-` (W-88's unit; the
+   lead grammar needs it; body-text dashes stay raw; 27 folds
+   counted). Two landing variants for R lines: STRICT (priority
+   candidate, ABBYY) and PROPOSAL (GLM's reading). **(iii) The real
+   pipeline ran.** `verify_no_against_current("no/lov/1992-12-04-127",
+   as_of=2000-12-31, data_dir=<temp tar dir>)`: `replay_status=
+   replayed`, all 9 amendment members applied, **53 ops (strict) /
+   58 (proposal), 49 / 55 accepted**. Unmatched leads 17 → 12; by
+   the lead line's class: strict R 8, B 3, C 2, A 2; proposal R 2
+   (`§ 2-1 sjette ledd blir nytt fjerde ledd`, `§ 5-1 til § 5-6
+   oppheves` — grammar, not OCR), B 3, C 2, A 2. **Every non-R
+   unmatched lead is a pipeline grammar gap on a CERTIFIED line**:
+   `Kapittel 5/6 skal lyde:` (whole-chapter replacement, ×2, class
+   A), `§ 2-5 første ledd første punktum og andre ledd skal lyde:`
+   (mixed punktum+ledd set), `§ 7-2 første ledd og tredje ledd`,
+   `§ 1-1 tredje ledd oppheves. Nytt tredje ledd og fjerde ledd
+   skal lyde:` (compound), `Overskriften til kapittel 3 skal lyde:`,
+   `§ 10-1 første ledd bokstav a)`, nynorsk `vert oppheva`. The
+   R-line cost under STRICT is concrete: `§l-1` → `section:l-1`
+   (target not found), `§2 1 andre ledd` → `section:2`, `§ 5 1 skal
+   lyde:` lost (§ 5-1 blocked); PROPOSAL recovers all three and
+   § 5-1 verifies clean. **(iv) Oracle, OCR-only sections.** 13 of
+   today's 75 sections have no 2001+ act in their `changesToParent`
+   chain (5 never amended: §§ 4-1, 7-3, 9-1, 9-2, 9-3; 8 pre-2001
+   only: §§ 2-4, 2-5, 2-8, 2-9, 5-1, 6-1, 6-3, 6-5). Against today's
+   consolidation: **byte-equal 7 (strict) / 8 (proposal)** — §§ 2-4,
+   2-8, 2-9, 4-1, 6-5, 7-3, 9-1 (+ 5-1); **dash-class-only 2** —
+   §§ 9-2, 9-3, where the print's dash lands as `-`/`—` by engine
+   and Lovdata has `–`: no two channels agree on the dash BYTE, so
+   it is not certifiable byte-wise and is reported as a typed
+   divergence, never folded away; **blocked 4 / 3** — § 2-5 (the
+   mixed-set lead), §§ 6-1, 6-3 (`Kapittel 6 skal lyde`), § 5-1
+   (strict only, the R address). Zero text divergences attributable
+   to OCR. The lines that BUILT the clean+dash-only sections: **A 45
+   / B 3 / C 2 (strict), A 51 / B 3 / C 2 (proposal)** — every B and
+   C line matched Lovdata byte-for-byte, including § 7-3 ledd 5 where
+   the B line is tess+NorPrint overriding ABBYY's `oppgåver`. **(v)
+   Oracle, full chain.** Same base with the real 2001–2026 archives
+   symlinked in, `as_of=2026-08-25`: `replay_status=blocked_
+   contingent` (7 archive amendments skipped on delegated
+   commencement — 2001+ pipeline behaviour, not this item's), 109
+   ops accepted / 12 rejected; **27 / 75 sections consistent with
+   today's consolidation (strict), 20 of them sections amended AFTER
+   2001** — §§ 1-2, 2-2, 2-6, 2-10, 2-14, 2-17, 2-18, 3-1, 3-2, 3-3,
+   3-5, 4-3, 4-7, 6-4, 7-2, 8-1, 8-2, 8-3 … — i.e. a 1992 facsimile
+   plus 34 years of amendments replays to today's text for those
+   sections; built from A 108 / B 7 / C 1 founding lines.
+   PROPOSAL variant: **28 / 75** (115 ops accepted / 11
+   rejected; the one extra is § 5-1, the recovered R address);
+   founding lines A 114 / B 7 / C 1. The NEW? rows (§§ 5-2–5-6 present in replay, absent
+   today) are the 1998 range repeal `§ 5-1 til § 5-6 oppheves` —
+   R line under strict AND unsupported range grammar. **Reading /
+   answer to the user's question.** The ladder replaces the binary:
+   nothing is dropped, every line lands with a class, and the
+   oracle now says what the classes cost — B and C lines cost
+   NOTHING on this slice (0 divergences on 10 B/C lines in verified
+   sections; 8 B/C lines inside the 27 full-chain-consistent
+   sections), while R lines on ADDRESS leads cost whole sections
+   under strict landing and are recovered by the proposal channel.
+   So the policy this measurement supports: land A/B/C as
+   certified text (C flagged), land R with candidates, and let the
+   proposal reading drive the address lead while the body payload
+   stays refused. The binding ceiling is no longer OCR: it is the
+   grafter's pre-2001 lead grammar (chapter replacement, mixed
+   punktum+ledd sets, compound leads, range repeals, nynorsk
+   `vert oppheva`) and the two uncached omnibus acts. Not done:
+   landing anything in the corpus; the omnibus pages; the
+   tesstrain `§` fine-tune (would convert most C lines to A).
+   **Next:** either the grammar gaps (each a small, typed lowering
+   with this slice as its witness) or the omnibus acquisition.
+
 ## 5. Demo / Inspection Tooling
 
 Browser views of any replayable law across its own amendment dates, plus an
@@ -6962,6 +7083,21 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
 
+- **2026-08-25 (W-91 — evidence ladder, print-era segmenter, first
+  end-to-end receipt; probe only)** — four-channel ladder over the
+  36 pilot pages: A 72.7% · A+B 87.2% · A+B+C 97.1% · R 2.8%.
+  Founding act + 11 cached amending acts segmented from ALTO
+  geometry, emitted as Lovdata-shaped XML and run through the REAL
+  parser/replay/verify against today's consolidation: 9 amendments
+  applied, 53–58 ops. Of the 13 sections with no 2001+ act in their
+  chain, 7–8 byte-equal, 2 dash-class-only, 3–4 blocked by pipeline
+  grammar gaps on certified lines — zero OCR-attributable text
+  divergences; every B/C line that reached the oracle matched.
+  Full chain to 2026: 27/75 sections consistent (strict), 20 of
+  them amended after 2001. Proposal variant 28/75. R lines on address
+  leads cost whole sections under strict landing; GLM proposal
+  recovers them. Binding ceiling is now the pre-2001 lead grammar,
+  not OCR.
 - **2026-08-24 (W-90 — GLM-OCR local proposal channel; probe
   only)** — GLM-OCR 0.9B (MIT, ollama, CPU-only, ~350 s/page) over
   the same 34 pages: **96.5% raw word agreement — best channel
