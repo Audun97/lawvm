@@ -7066,6 +7066,99 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    **Next:** either the grammar gaps (each a small, typed lowering
    with this slice as its witness) or the omnibus acquisition.
 
+98. **W-98 (the nine pre-2001 lead gaps the W-91 witness exposed):**
+   DONE (2026-08-25; product commit `1c405afe`, cherry-picked from a
+   sub-agent's isolated worktree at the user's instruction "repair the
+   software grammar with a sub-agent"). NOT run through the batch
+   harness: per the batch skill this is the interactive spike form —
+   one implementer, the W-91 slice as witness, corpus census per
+   production, the affected shards run here at apply — and it can be
+   promoted to a `confirmed` contract from the diff if wanted. Nine
+   productions in the unstructured lane of `grafter.py`, each strictly
+   additive (reached only after every shipped pattern declined, or a
+   reader-level widening tried only when the shipped reader returned
+   nothing), each with a typed receipt, a strict-mode refusal, a
+   `test_no_w98_*` regression on the exact witness string, and a
+   census re-derived at the base pin over **7,853** corpus
+   `no_parse_unstructured_lead_unmatched` refusals harvested
+   untruncated (`.tmp/w98/census.py`, ~6 s over all 3,089 amendment
+   artifacts): **7,853 → 7,422 (−431); 558 ops added, 0 removed.**
+   (a) repeated-noun ledd list `første ledd og tredje ledd skal lyde`
+   (24 leads → 50 ops); (b) mixed punktum+ledd member set `første
+   ledd første punktum og andre ledd` (8 → 7, 1 arity refusal
+   `no_parse_mixed_member_payload_arity_mismatch`); (c) compound
+   `tredje ledd oppheves. Nytt tredje ledd og fjerde ledd skal lyde:`
+   (print-era only; INSERT legs refuse an occupied slot they never
+   repealed); (d) `bokstav a)` with the paren + single-article item
+   payload (9 + 68 payload-unresolved → 9); (e) section range repeal
+   `§ 5-1 til § 5-6 oppheves` — and the shared expander now
+   enumerates chapter-numbered interiors, closing a SHIPPED
+   under-repeal (`§§ 5-16 til 5-19` repealed 5-16 and 5-19 only; 6
+   corpus ranges gain 52 REPEALs; unexpandable → typed
+   `no_parse_section_range_unexpandable`, lettered interiors still
+   un-enumerated and documented); (f) `Overskriften til kapittel N
+   skal lyde:` (97 leads → 182 ops; heading-only merge generalized
+   section→{section,chapter,part}, which also stops W-82's structured
+   chapter-heading payloads from wiping chapters); (g) **whole-chapter
+   re-enactment `Kapittel N skal lyde:`** (97 leads → 62 REPLACE + 62
+   INSERT, 25 typed parse refusals) with THE over-repeal guard at
+   apply: REPLACE lands only when every section standing under the
+   chapter is carried by the payload, else NOTHING lands and
+   `no_replay_chapter_reenactment_uncarried_sections_refused` names
+   standing/carried/uncarried; INSERT refuses an occupied chapter
+   label; (h) single-ledd `sjette ledd blir nytt fjerde ledd` as W-66's
+   third attempt with the occupied-destination guard (24 → 24
+   RENUMBERs); (i) nynorsk `vert oppheva` (34 → 30 lower, 5 decline
+   outside the ordinal vocabulary; the bokmål branch deliberately not
+   widened because it silently drops `siste ledd`). Pins moved, each
+   with its note: W-74 range pins to the full range; gjer-ein 13→14;
+   W-32 eierseksjonsloven 7→8; s412 groups 227→228 / ops 527→534; the
+   W-72 sweep baseline regenerated (firings 10→9 — privatskolelova's
+   fired renumber is repaired by its 2007 `Kapittel 2` re-enactment);
+   scan candidates 75→74 and consistent 30→29 because
+   `no/lov/2004-03-26-17` leaves as `blocked_contingent` — the W-66c
+   mechanism backwards: the `bokstav d)` reading gives the contingent
+   `no/lovtid/2016-12-16-91` its first lowered op against that base
+   (more honest, not less replayable); index entries 2,575→2,592,
+   bindings 6,550→6,596, unbound receipts 927→909. Recorded follow-up:
+   two laws re-bucket untouched_drift→replay_defect with zero row
+   movement because `no_paths_related` relates a chapter-level
+   heading op to every row under it — a verify-classifier over-reach.
+   **Verification here.** `ty` clean on grafter; the five affected shards (`test_norway_grafter`, `_replay`,
+   `_verify`, `_index`, `test_no_renumber_migration`) run HERE with the
+   corpus: 676 passed, 2 failed — both corpus pins the worktree run had
+   SKIPPED (its 17 skips vs 0 here), moved in follow-up `a0987440`
+   after adjudication: occupied-destination firing total 10 → 9
+   (privatskolelova's firing repaired at the lowering — the agent's
+   own table edit, with the literal total left behind); W-66c
+   destruction set 33/29 → 34/30, the entrant yrkestransportlova
+   § 37 b andre ledd første punktum adjudicated BY TEXT (lead read
+   off its `article.defaultP`, names that section/ledd/ordinal;
+   sentence absent from today's § 37 b; it realizes only now because
+   the 2003 `Nytt kapittel 7A skal lyde:` lands as a W-98 chapter
+   INSERT). Both pins green on rerun (2 passed).
+   **Witness (re-run in this checkout, proposal variant, as_of
+   2000-12-31):** unmatched leads **12 → 3** (the three left are an
+   OCR straddle `endring: § 1–1 …` and two announcement leads, none
+   of the nine); ops accepted **55 → 73**; with one W-91 emitter fix
+   (a `§ N-M.` line at margin inside an open `Kapittel N skal lyde:`
+   opens the next carried section — the chapter-6 payload had been
+   fused into § 6-1 and the new guard correctly refused it) the 13
+   OCR-only sections go **8 / 2 / 3 → 10 clean / 2 dash-only / 1
+   blocked**, the one being § 6-1 whose remaining difference (`Lov
+   4. juni 1976 nr. 59 om aksjeselskaper` → `Lov om aksjeselskaper`)
+   is the uncached 1997 nr 44 omnibus act; zero-divergence sections
+   **11/75 → 13/75**. **Full chain to 2026-08-25 (real 2001–2026 archives
+   symlinked in, proposal variant): 28/75 → 31/75 sections
+   consistent with today's consolidation** (134 ops accepted / 13
+   rejected; §§ 2-5, 6-2, 6-3 enter), still `blocked_contingent` on
+   the seven delegated-commencement archive acts. **Reading.** The pipeline
+   grammar ceiling W-91 named is closed for this slice; what remains
+   on the OCR-only sections is the dash byte (typed, not folded) and
+   two omnibus acts nobody has fetched. Not done: promotion to a
+   formal batch contract; the omnibus acquisition; the verify
+   `no_paths_related` follow-up; lettered interior labels in ranges.
+
 ## 5. Demo / Inspection Tooling
 
 Browser views of any replayable law across its own amendment dates, plus an
@@ -7083,6 +7176,17 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
 
+- **2026-08-25 (W-98 — nine pre-2001 lead gaps lowered; product
+  `1c405afe`)** — sub-agent spike in an isolated worktree, W-91 slice
+  as witness: repeated-noun ledd lists, mixed punktum+ledd sets,
+  compound repeal+re-enact, `bokstav a)`, section range repeals (also
+  closing a shipped chapter-numbered under-repeal), chapter heading
+  replacement, whole-chapter re-enactment with an over-repeal guard
+  that lands nothing unless every standing section is carried,
+  single-ledd `blir nytt`, nynorsk `vert oppheva`. Corpus refusals
+  7,853 → 7,422 (−431), 558 ops added, 0 removed. Witness: unmatched
+  leads 12 → 3, OCR-only sections 10 clean / 2 dash-only / 1 blocked
+  (uncached omnibus), zero-divergence 11/75 → 13/75. Full chain to 2026: 28/75 → 31/75.
 - **2026-08-25 (W-91 — evidence ladder, print-era segmenter, first
   end-to-end receipt; probe only)** — four-channel ladder over the
   36 pilot pages: A 72.7% · A+B 87.2% · A+B+C 97.1% · R 2.8%.
