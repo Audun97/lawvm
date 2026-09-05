@@ -7159,6 +7159,164 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    formal batch contract; the omnibus acquisition; the verify
    `no_paths_related` follow-up; lettered interior labels in ranges.
 
+99. **W-99 (the two omnibus hosts carved into the witness slice, and the
+   two lead grammars they exposed):** DONE (2026-09-05; product commit
+   `33d71634`). Same interactive spike form as W-98 (one implementer,
+   the W-91 slice as witness, full-corpus before/after diff at apply),
+   not the batch harness. **Acquisition.** The two 1999-commencing
+   omnibus acts (1997 nr. 44 aksjeloven, 104 pp; 1998 nr. 56
+   regnskapsloven, 51 pp) each touch kringkastingsloven in ONE numbered
+   consequential item, located in the cached ALTO by target citation
+   (`1992 nr 127`), not by item number (the printed TOC and body already
+   disagree on numbering). Four pages fetched from NB IIIF (each act's
+   title page and item page); tesseract and GLM-OCR run here, GLM on the
+   desktop RTX 4060 Ti over the tailnet (9–15 s/page warm, 48 s cold,
+   fully resident in VRAM, vs 355 s/page on this CPU; the producing host
+   is recorded in every `.glm.json`; one comparison page differs by one
+   letter between backends, `kringkastingsektoren`, which the three print
+   channels all read with the double s — harmless, GLM certifies
+   nothing alone); NorPrint via the Transkribus web app (Taildrop both
+   ways; PAGE XML import). Ladder over the two item pages: 89 and 92
+   lines, **0 R**; both replacement texts class A on every line; the
+   two leads class C — `abbyy+glm` for 1997 (tesseract `%` for `§`),
+   `norprint+glm` for 1998 where ABBYY read `§8 2` and the typed
+   address fold lands `§ 8-2`. **Carve.** `carve_xml` in the W-91
+   emitter lands the one item as the act's body under
+   `changesToDocuments = kringkastingsloven`, commencement 1999-01-01
+   from the chain (`chain-ikr`, both acts), with a typed carve receipt
+   on the emission (`data-w97-carve="item-59"` / `item-47`, plus the
+   item count on the page and the sentence *"the act's other targets
+   are not represented — not landed, not repealed"*): the safe wrong
+   under §0, partiality visible rather than implied. **The grammar,
+   measured not read:** both carves parsed to ZERO ops. 1997 —
+   `59. I lov 4 desember 1992 nr 127 om kringkasting skal § 6-1 første
+   ledd annet punktum lyde:` — zero ops AND zero adjudications, a silent
+   drop; 1998 — `47. Lov 4. desember 1992 nr. 127 om kringkasting § 8-2
+   fjerde ledd annet punktum skal lyde:` — refused twice as
+   `no_parse_unstructured_lead_unmatched`. An eight-variant probe
+   isolated three defects: (A) the 1997 house style writes the day
+   WITHOUT a period and `_NO_LAW_CITATION_BARE_DATE` required one;
+   (B) the address-AFTER-citation spelling (`[I] lov <cite> om <title>
+   § <addr> skal lyde:`) matched no production — the two shipped
+   embedded patterns need `skal` before the `§`; (C)
+   `_no_unstructured_lead_looks_operative` capped the `skal … lyde` span
+   at five tokens, so the six-token 1997 lead earned no refusal when
+   (A) failed. **Three productions in `grafter.py`,** each strictly
+   additive and census-commented: (a) the day's period is optional
+   (`\.?`) — the month must still be a month name and `nr N` must
+   follow, so prose cannot reach it; (b)
+   `_NO_EMBEDDED_ADDRESS_FIRST_TAIL`, a new member of
+   `_NO_EMBEDDED_MULTI_ACT_PATTERNS` ranked after the two `skal §`
+   spellings (disjoint by construction: that tail needs `skal` before
+   the `§`, this needs `skal lyde:` after it) and before the numberless
+   W-28 pair — nominative `Lov …` and prepositional `I lov …`, ordinal
+   optional, a Lovdata run-on payload after the colon admitted, title and
+   address spans colon-free (the colon is what keeps W-36's run-on
+   part announcement `I lov … gjøres følgende endringer: § … skal lyde:
+   …` out) and the address span unable to cross a sentence end; (c) the
+   operative detector admits `skal [ny] § <address> lyde` at any depth,
+   anchored on the `§`. **Corpus, full before/after op snapshot
+   (`.tmp/w97/w99_corpus_ops.py`, every op of every base of all 3,089
+   artifacts keyed by action/path/lead; the baseline reproduces W-98's
+   7,422 exactly):** ops **29,409 → 29,439** (57 added, 27 removed —
+   and **every one of the 27 is a REBIND**, the same op re-emitted
+   under the act its own lead names: `2019-06-21-26` moves 14 ops off
+   samordningsloven onto sykepleierpensjonsloven, whose part lead is
+   written `I lov 22 juni 1962 nr. 12`; `2003-08-29-87` moves six ops
+   off the previous parts' acts onto its three period-less citations
+   (1973 nr. 6, 1975 nr. 50, 2001 nr. 24); `2008-06-27-72` § 47 annet
+   ledd sjøloven → skipssikkerhetsloven; `2018-06-01-23` items 5 and 7
+   (inkassoloven, verdipapirhandelloven) off a 1927 act and Norges
+   Bank-loven; `2016-04-22-3` item 13 → panteloven; `2019-03-15-6` item
+   18 → SE-loven; `2003-12-19-124` items 5–6 → kystvaktloven,
+   havbeiteloven); `no_parse_unstructured_lead_unmatched` **7,422 →
+   7,423**, `…_base_unresolved` **1,604 → 1,595**; the 29 corpus leads of
+   shape (B) all land or refuse against the RIGHT act now (27 had
+   produced nothing, 2 had lowered against the previous item's act).
+   **The detector widening (c) is louder than a text census claimed:**
+   21 leads in 21 acts were silent drops and are now loud refusals, all
+   operative (`I lov 21. juni 1963 nr. 23 skal § 60 andre ledd første
+   punktum lyde:`, `2001-06-15-78`; `I kapittel 5 B skal nye §§ 28-2 a
+   til 28-2 v lyde:`, `2012-05-25-28`; `I straffeloven 22. mai 1902 nr.
+   10 skal § 152 b …`, `2001-06-15-79`) — none lowers yet, they are the
+   next gap list, now visible. The text census (`w99_census.py`) had
+   counted that class as ZERO because it read Lovdata's HTML with the
+   `Â§` mojibake the grafter repairs; lesson recorded: census the
+   parser's own adjudications, never raw node text. **Two intermediate
+   regressions the after-diff caught before anything landed:** (v1)
+   without inline-payload admission, three run-on leads of shape (B)
+   were no switch and bound to the PREVIOUS item's act (`2002-05-03-13`
+   ekteskapsloven § 12 c → tjenestemannsloven, `2004-03-26-17`
+   banksikringsloven § 4-6 e → tvangsfullbyrdelsesloven, the Kystvakten
+   item → oppdrettsloven); (v2) with it, `2003-06-20-45` item 120 —
+   `I lov 25. juni 1999 nr. 46 om finansavtaler … blir § 1 andre ledd
+   bokstav g oppheva. Bokstav f skal lyde: …`, a nynorsk
+   repeal-then-replace — was read as (B) across its sentence end and
+   swung the five psykisk-helsevernloven ops after it onto
+   finansavtaleloven. Both fixed at the pattern (v3), each with a
+   negative test. **Tests** (`tests/test_norway_grafter.py`): six
+   synthetic — the two print witnesses end to end, the prepositional and
+   `nytt`-insert corpus spellings, the shipped `skal §` form
+   byte-identical through the extractor, negatives (bare repeal, part
+   announcement, W-36 run-on announcement, the item-120 form, a
+   non-month token), the detector at depth and NOT on prose — and three
+   corpus witnesses pinned structurally (skipssikkerhetsloven rebind
+   with its two siblings; sykepleierpensjonsloven's period-less part
+   lead; kystvaktloven with inline payload). **Verification.** `ruff`
+   clean; `ty` clean on grafter and the test module; the canonical gate
+   (`./scripts/ci.sh --affected`) stops RED at its project-wide `ty`
+   step on diagnostics in files this change does not touch
+   (`src/lawvm/norway/index.py:490–493` possibly-unresolved names;
+   `src/lawvm/ingest/page_elements.py`, `visual.py` missing optional
+   `pypdfium2`/`PIL` in this environment) — pre-existing, recorded here
+   as a follow-up, and the reason the affected shards were run
+   directly: the seven affected shards
+   (`test_norway_grafter`, `_replay`, `_verify`, `_index`,
+   `test_no_renumber_migration`, `_inventory`,
+   `_commencement_instruments`) run HERE with the corpus: **855 passed,
+   8 failed — all eight corpus pins**, each adjudicated by the
+   before/after diff and moved (below); the twelve W-99 tests and the
+   54-case regex perf gate green. **Witness (re-run on the final code):**
+   at `as_of` 2000-12-31, strict variant ops accepted 62 / rejected 6, zero-divergence
+   sections **12/75**; proposal variant 75 / 4, **14/75** (W-98: 13/75).
+   The 13 OCR-only sections (no 2001+ act in their chain): strict **9
+   clean / 2 dash-typed / 2 blocked** (§ 5-1's `§l-1` address lead and
+   § 6-1's third ledd, both R lines), proposal **11 clean / 2 dash-typed
+   / 0 blocked** (W-98: 10 / 2 / 1 — the one blocked was § 6-1, waiting on
+   exactly the 1997 carve). § 6-1 first ledd now lands byte-equal to
+   Lovdata from a 1997 print facsimile; § 8-2's 1998 sentence lands and
+   is later rewritten by 2003 nr. 8 as the chain says. Full chain to
+   2026-08-25 over the real 2001–2026 archives: strict **30/75** (ops
+   123/15), proposal **32/75** (136/13; W-98: 31/75), both
+   `blocked_contingent` on the same seven contingent acts as before.
+   **Pins moved, each with its note:** index entries 2,592 → 2,597 (five
+   first-entry acts), bindings 6,596 → 6,628 (+32, the exact pair loss on
+   the unbound receipts 909 → 904 / 2,402 → 2,370 — the W-34/W-35
+   conservation, zero newly unbound), status histogram 537/1,067/985 →
+   540/1,068/986, instrument-authorized 545 → 546 and non-staged 972 →
+   973 (`2017-06-16-51` dated by its own forskrift); the commencement
+   shard's 541/438 pins were ALREADY RED at HEAD (verified in a
+   throwaway worktree: 545/440 there) — stale since W-98's entrants, which
+   the index shard's own notes attribute; moved to 546/440 with the
+   two-step note; the W-72 occupied-destination sweep baseline
+   regenerated: **firings 9 → 9, zero new**, hazard membership unchanged
+   (165), nine rows up in the destructive column only (+11 writes, the
+   rebound and new REPLACE/INSERTs on known-incomplete bases), one base
+   law enters (`no/lov/2000-12-21-118` havbeiteloven on its first op,
+   no original source, 788 → 789 / errored 442 → 443). Every moved pin rerun green: the three
+   index pins 3/3, the four commencement pins 4/4, the whole migration
+   module 46/46. **Recorded follow-ups, all now visible as refusals:**
+   the nynorsk `Til lov <cite> … blir desse endringane gjort:`
+   announcement (`2003-06-20-45` item 121 — psykisk helsevernloven's
+   five ops still ride on the act before); short-name citations
+   (`I straffeloven 22. mai 1902 nr. 10 skal § …`, `I vegtrafikklov
+   18. juni 1965 nr. 4 skal § …`); the repeal-then-replace item form;
+   `§ 5 nr. 3 skal lyde:` item-depth addresses (`2003-12-19-124` item 4,
+   now refused against oppdrettsloven instead of the 1933 act); the
+   pre-existing `ty` diagnostics above. The two omnibus acts stay
+   two-pages-cached; full-act OCR is a later item for whichever target
+   law needs them next.
+
 ## 5. Demo / Inspection Tooling
 
 Browser views of any replayable law across its own amendment dates, plus an
@@ -7176,6 +7334,18 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
 
+- **2026-09-05 (W-99 — omnibus hosts carved; period-less citations,
+  address-after-citation leads, deep `skal § … lyde` detection; product
+  `33d71634`)** — the two 1999-commencing omnibus acts land as
+  single-item carves with a typed partiality receipt; four channels on
+  their item pages, 0 R. Both leads parsed to zero ops (one silently);
+  three additive grafter productions fix that. Corpus ops 29,409 →
+  29,439 with every removal a rebind to the act the lead names;
+  refusals 7,422 → 7,423 unmatched, 1,604 → 1,595 unresolved; 21
+  silent drops now loud. Two intermediate regressions caught by the
+  after-diff and fixed before landing. Witness: OCR-only sections 10 / 2 / 1 → 11 clean / 2
+  dash-typed / 0 blocked (proposal), zero-divergence 13/75 → 14/75; full
+  chain to 2026: 31/75 → 32/75 (strict 30/75). Sweep firings 9 → 9.
 - **2026-08-25 (W-98 — nine pre-2001 lead gaps lowered; product
   `1c405afe`)** — sub-agent spike in an isolated worktree, W-91 slice
   as witness: repeated-noun ledd lists, mixed punktum+ledd sets,
