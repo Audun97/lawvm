@@ -48,6 +48,12 @@ Honest scope note — what is and is not statically enumerable.
       word-substitution production's ops (``NO_SUBSTITUTION_PROVENANCE_TAG``), the
       apply seam's mark for its own ops. A carrier mark, not a hypothesis; the rule
       it gates (``no_replay_substitution_term_not_uniquely_present``) IS cataloged.
+    - ``no_chapter_reenactment``, ``no_chapter_heading``, ``no_ledd_repeal_reenact``,
+      ``no_item_payload_single_text_article`` — W-98's four provenance tags on the
+      re-enactment, chapter-heading, compound repeal-then-reenact and single-article
+      item productions' ops. Carrier marks like W-66's and W-77's, not hypotheses;
+      the rules they gate (``no_replay_chapter_reenactment_uncarried_sections_refused``,
+      ``no_replay_reenactment_insert_occupied_target_refused``) ARE cataloged.
     - ``no_stored_consolidation`` — the W-45 census key under
       ``build_no_verify_partition``'s ``unverifiable`` sibling (``verify.py``). A
       report dict key naming a corpus population ("laws with a replayable original
@@ -610,6 +616,41 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "destination target counts; unmatched targets are not compiled and the "
         "mismatch is recorded."
     ),
+    "no_parse_chapter_reenactment_payload_unresolved": (
+        "A W-98 whole-chapter re-enactment lead (\"Kapittel N skal lyde:\" / "
+        "\"Nytt kapittel N skal lyde:\") resolved its chapter but the payload did "
+        "not read as ONE closed chapter — a subdivision heading the CHAPTER node "
+        "does not model, body text outside any section, a carrier without a "
+        "label, or a new chapter whose sections follow as leads of their own. "
+        "A partially read chapter is a wrong chapter, not a partial one, so the "
+        "whole lead stays unlowered and the offending member is named. W-98."
+    ),
+    "no_parse_chapter_heading_payload_unresolved": (
+        "A W-98 chapter-heading lead (\"Overskriften til kapittel N skal lyde:\") "
+        "resolved its chapter but no single heading payload could be read off "
+        "the announcement (inline or in the following heading element); "
+        "nothing is lowered rather than a chapter heading guessed. W-98."
+    ),
+    "no_parse_mixed_member_payload_arity_mismatch": (
+        "A W-98 mixed-depth member lead (\"første ledd første punktum og andre "
+        "ledd skal lyde\") declared members at two depths but the payload does "
+        "not carry exactly one text article per member; with no proof of WHICH "
+        "article belongs to WHICH member nothing is lowered. W-98."
+    ),
+    "no_parse_ledd_repeal_reenact_payload_arity_mismatch": (
+        "A W-98 compound ledd repeal-then-reenact lead (\"§ X tredje ledd "
+        "oppheves. Nytt tredje ledd og fjerde ledd skal lyde:\") declared its "
+        "re-enacted ledd but the payload does not carry exactly one text article "
+        "per re-enacted member; neither the repeal nor the inserts land, because "
+        "a repeal without its announced replacement is an over-repeal. W-98."
+    ),
+    "no_parse_section_range_unexpandable": (
+        "A Norway section-range repeal (\"§ 5-1 til § 5-6 oppheves\", \"§§ 5-16 "
+        "til 5-19 oppheves\") names a range the shared expander cannot enumerate "
+        "— cross-chapter, unordered, or with lettered interiors — and nothing is "
+        "repealed; the typed refusal replaces the shipped behaviour of silently "
+        "repealing the two endpoints only. W-98 (e)."
+    ),
     # --- Sort-order reconciliation ---------------------------------------------
     "no_sort_order_spurious_roman_single_letter_recheck": (
         "A Norway sibling-group ordering flagged by the litra sort key is "
@@ -796,6 +837,24 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "write lands, the occupant survives, and the op is rejected with a typed "
         "blocking receipt. The shipped θ cell keeps its RECOVER polarity for "
         "every op that is not this production's. W-77."
+    ),
+    "no_replay_chapter_reenactment_uncarried_sections_refused": (
+        "A W-98 whole-chapter re-enactment REPLACE reached a standing chapter "
+        "whose sections are not ALL carried by the payload (an OCR-fused or "
+        "truncated payload carrying § 6-1 of §§ 6-1–6-5). Landing it would "
+        "repeal every uncarried section under cover of a re-enactment, so "
+        "NOTHING lands and the receipt names the standing, carried and "
+        "uncarried labels; over-retention is the safe wrong. W-98 (g)."
+    ),
+    "no_replay_reenactment_insert_occupied_target_refused": (
+        "A W-98 re-enactment INSERT — a \"Nytt kapittel N\" chapter, or a ledd "
+        "leg of the compound repeal-then-reenact lead — found its target label "
+        "already OCCUPIED when it ran. Same reading as W-77's: the occupant is "
+        "in-force text the announcement never repealed (or the base edition "
+        "already carries the amendment), so the shipped θ (INSERT, "
+        "target_occupied) recovery that would replace it is refused; no write "
+        "lands, the occupant survives, the op is rejected with a typed blocking "
+        "receipt whose ``production`` detail names the tag. W-98."
     ),
     "no_replay_relocation_order_unprovable_refused": (
         "A leg of a Norway RENUMBER relocation whose atomic group admits NO order "

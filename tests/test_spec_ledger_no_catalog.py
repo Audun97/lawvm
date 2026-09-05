@@ -61,6 +61,30 @@ _NON_RULE_LITERALS = frozenset(
         #                               falsify. The rule it gates
         #                               (no_replay_substitution_term_not_uniquely_present)
         #                               IS cataloged.
+        "no_chapter_reenactment",  # W-98 PROVENANCE TAG stamped on the CHAPTER op a
+        #                            "Kapittel N skal lyde:" / "Nytt kapittel N skal lyde:"
+        #                            lead mints (grafter.py NO_CHAPTER_REENACTMENT_
+        #                            PROVENANCE_TAG). A carrier mark; the rules it gates
+        #                            (no_replay_chapter_reenactment_uncarried_sections_
+        #                            refused, no_replay_reenactment_insert_occupied_
+        #                            target_refused) ARE cataloged.
+        "no_chapter_heading",  # W-98 PROVENANCE TAG on the heading-only CHAPTER op an
+        #                        "Overskriften til kapittel N skal lyde:" lead mints
+        #                        (grafter.py NO_CHAPTER_HEADING_PROVENANCE_TAG). Census
+        #                        visibility only — the heading-only merge is keyed on the
+        #                        payload shape, not on the tag.
+        "no_ledd_repeal_reenact",  # W-98 PROVENANCE TAG on every op the compound
+        #                            "§ X <ord> ledd oppheves. Nytt <ord> ledd … skal
+        #                            lyde:" lead mints (grafter.py NO_LEDD_REPEAL_REENACT_
+        #                            PROVENANCE_TAG). A carrier mark; the rule it gates
+        #                            (no_replay_reenactment_insert_occupied_target_
+        #                            refused) IS cataloged.
+        "no_item_payload_single_text_article",  # W-98 PROVENANCE TAG on an item REPLACE
+        #                                         whose payload was read off the ONE
+        #                                         legalP after a single-item lead
+        #                                         (grafter.py NO_ITEM_PAYLOAD_SINGLE_TEXT_
+        #                                         ARTICLE_PROVENANCE_TAG). Census
+        #                                         visibility only.
         "no_stored_consolidation",  # W-45 census key under build_no_verify_partition's
         #                             ``unverifiable`` sibling (verify.py). A report
         #                             dict key naming a corpus population, not a
