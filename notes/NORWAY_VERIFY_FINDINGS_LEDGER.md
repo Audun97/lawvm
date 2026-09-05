@@ -7598,7 +7598,7 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
 ## 6. Changelog
 
 - **2026-09-06 (W-101 — the structured chapter address; kringkastingsloven's
-  chapter 5 A; product `PRODUCT_HASH`)** — Lovdata's ``kap<label>`` attribute
+  chapter 5 A; product `1055588c`)** — Lovdata's ``kap<label>`` attribute
   token lowers to a chapter step (77 blocks / 45 instruments were refused
   before), a section address takes its carrier's case (`5a-1` → `5A-1`),
   and a chapter op with a heading-only payload stands before the sections
