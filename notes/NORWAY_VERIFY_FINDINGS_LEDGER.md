@@ -7452,6 +7452,134 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    believed_spec entries, the four provenance tags excluded as carrier
    marks with the W-66/W-77 rationale, the catalog test 6/6 green again).
 
+101. **W-101 (the structured chapter address: `kap5A`, the carrier's case,
+   and the new chapter's sections):** after W-100 the largest single block
+   of kringkastingsloven's 23 remaining divergent sections was chapter 5 A's
+   nine (`Nytt kapittel 5 A skal lyde:`, `no/lovtid/2025-02-28-2`). The
+   ledger had called it a grafter gap; the probe found something narrower.
+   The block IS structured — Lovdata's
+   `data-add-new-part="…/kap5A …/§5a-1 … …/§5a-9"` — and W-82's carrier
+   reach already lowered the nine sections. Three things went wrong with
+   them, all in the structured lane: the `kap5A` token never lowered at
+   all (`_eli_kind_and_step` read `KAPITTEL_…` but not Lovdata's `kap…`
+   form, so EVERY chapter attribute in the corpus — 77 change blocks over
+   45 instruments, all since 2022 — was refused
+   `no_parse_unresolved_structured_target_skipped`); the sections took the
+   attribute's lower-case labels (`5a-1`) although the carriers and the
+   consolidation spell them `5A-1` (the verify compares labels exactly, so
+   each section produced one `CONSOLIDATED_MISSING` row for `5a-n` and one
+   `OPS_MISSING` row for `5A-n`); and with no chapter to land in, the apply
+   seam placed them by label family into chapter 5. Census of the 77
+   blocks: 28 heading-only REPLACE (`Overskriften til kapittel 13 skal
+   lyde:` + `span.futuretitle`), 19 INSERT with sections, 11 REPLACE with
+   sections (`Kapittel 8 skal lyde:` listing them), 7 REPEAL, 3
+   heading-only INSERT (`Ny kapitteloverskrift før § 1`), 3 `move-part`
+   chapter relabels, 6 other. Consolidated labels with a letter before the
+   hyphen: 182 upper (`8A-1`) and 13 lower (`13a-1`), so the case is NOT
+   derivable from the token — only the carrier knows it (22 lower-case
+   attribute tokens in 6 instruments: 17 with an upper-case carrier, 5
+   genuinely lower). **Three productions, each additive** (`grafter.py`):
+   (1) the `kap<label>` chapter step, only as the LAST path segment
+   (`kap12/avsnitt/II` and `kap3/overskrift` stay unresolved — they address
+   something inside the chapter the walk does not model); (2) the
+   carrier-cased section label — a section token whose `futureLegalArticle`
+   carrier differs from it by case alone takes the carrier's spelling
+   (exactly one carrier must match; an exact-case carrier outranks any
+   variant), a non-blocking provenance receipt
+   (`no_parse_structured_section_label_cased_from_carrier`, 17 corpus-wide);
+   (3) the chapter op, a HEADING-ONLY payload (the block's `futuretitle`)
+   — REPLACE merges it over the standing chapter through W-98 (f)'s
+   heading-only merge, INSERT creates the container and carries W-98's
+   re-enactment tag so an occupied chapter label refuses instead of
+   replacing, REPEAL carries nothing — while the sections announced with it
+   keep their own ops and, inside a new chapter, take the chapter as the
+   first step of their address (`chapter:5A/section:5A-1`, receipt
+   `no_parse_structured_section_target_scoped_to_new_chapter`, 118; tag
+   `no_new_chapter_section`) so the seam places them under the chapter op
+   that precedes them. **Conjuncts, all typed on ONE refusal kind with the
+   reason named** (`no_parse_structured_chapter_target_refused`, 29
+   corpus-wide): the lead must name that chapter after a chapter word
+   (`_no_lead_names_chapter`, reading `Kapittel 34, 35 og 36`, `5 A`, `VII
+   A`, `17 d`; refusing `Lovens del II oppheves` carrying `kapII`, `Ny
+   kapitteloverskrift før § 1` carrying `kap1`, `Under del II … skal § 3
+   lyde` carrying `kapII`, and Lovdata's avsnitt address `kap8-3` against
+   "Kapittel 8 avsnitt III" — 11 `lead_disagrees`); the lead must not
+   announce a subdivision (`I kapittel 9 skal avsnitt VIII lyde:` would
+   have put the avsnitt's title over chapter 9 — 1 `subdivision_announced`);
+   a single future title must be carried (the two innholdsfortegnelse
+   blocks — 2 `heading_payload_missing`); every carrier in the block must be
+   claimed by a section spec of the block (`Nytt kapittel XVII (nåværende
+   kapittel XIV) skal lyde:` with eight carriers and no section specs — 1
+   `carriers_unaccounted`); chapter relabels are not lowered (14
+   `renumber_unsupported`, twelve of them one act's `Nåværende kapittel VIII
+   til XIX blir nye kapittel XI til XXII`). The lead gate runs in the spec
+   loop, BEFORE the lane's recoveries count the block's specs, so a block
+   whose chapter token is spurious lowers its sections exactly as it did
+   when the token did not resolve. W-82's `KAPITTEL_…` chapter addresses
+   (11 tokens, 5 instruments: deloverskrift/avsnitt headings) are exempt
+   from every W-101 route and keep W-82's behaviour byte for byte,
+   including the three W-69a text patches on `chapter:2-5-3`. **The apply
+   plane, one branch, tag-gated:** klimakvoteloven's 2023 act announces
+   `Nytt kapittel 4 A med §§ 16 til 16 d` while chapter 4 still holds a
+   § 16; the unscoped insert used to hit it and the θ (INSERT,
+   target_occupied) cell replaced it in place — right text, wrong chapter
+   — and the scoped insert would have left TWO § 16, every later `§ 16`
+   resolving to the stale one. Section labels are law-unique, so a new
+   chapter's section whose label stands outside the chapter removes the
+   standing node and lands at the announced address, recorded as a
+   recovery (`no_replay_new_chapter_section_relocated_from_occupied_label`,
+   occupant path on the receipt); klimakvoteloven is consistent again.
+   **The verify classifier** (`verify.py`, the W-98 follow-up): a
+   container-only op path (a chapter heading replace, a new chapter)
+   stripped of its containers was EMPTY, and an empty path is a prefix of
+   every row, so one chapter op "touched" the whole law; it now relates to
+   the rows under that chapter alone. **Corpus (op diff before/after over
+   all 3,089 artifacts):** 29,642 → 29,697 ops (+55), 36 acts moving: 55
+   new structured chapter ops — 35 heading-only REPLACE, 16 INSERT, 4
+   REPEAL — beside W-82's eight `KAPITTEL_` ones (40/18/5 in all); 117
+   section inserts re-addressed under their new chapter (the 118th receipt
+   is `2024-04-12-14`'s § 6, scoped and then refused for its undeclared
+   payload), 17 recased, ZERO ops lost at section level, 0 strays; three
+   `kap…` tokens still unresolved. Index: commencement statuses unchanged
+   (dated 1,068 / instrument-authorized 1,015 / contingent 511),
+   `no/lovtid/2026-06-19-59` binds folkehøgskoleloven
+   (`no/lov/2025-06-20-99`) through its `kap4` heading block — the act's
+   only instruction against it — so unbound target ids 2,370 → 2,369 and
+   `fully_replayable` 83 → 84. **Witness (kringkastingsloven, glm proposal
+   variant, full chain to 2026-08-25):** ops accepted 186 → 187 (the chapter op; the nine section ops were accepted before, at the wrong labels), divergence rows **68 → 29** (MISMATCH 17 → 18, OPS_MISSING 23 → 3, CONSOLIDATED_MISSING 28 → 8), zero-divergence sections **52/75 → 61/75** (POST2001 41 → 50); chapter 5 A's nine sections stand under chapter 5 A as `5A-1` … `5A-9` with zero rows. As-of 2000-12-31 is untouched at 14/75. The 14 still diverging: § 2-1's ledd relabels, the four ledd-qualified commencement sections (§§ 2-3, 4-4, 10-3, 10-4), and the POST2001 remainder recorded before (§§ 4-6, 6-1a, 7-1, 8-4, 9-2, 9-3, 10-1, 10-5, 10-6). **Tests:** W-101
+   block in `tests/test_norway_grafter.py` (the ELI step on every corpus
+   spelling and the two forms it must not read; `_no_lead_names_chapter`
+   over eighteen leads incl. the spurious-token negatives; the subdivision
+   predicate; the witness block minting the chapter first with cased,
+   scoped, tagged sections and four provenance receipts; heading-only
+   REPLACE and chapter REPEAL sequenced after its sections; seven typed
+   refusals parametrized with the surviving section ops asserted; the
+   avsnitt segment staying unresolved; the carrier-case rule's two
+   negatives; the apply test placing chapter 5 A between 5 and 6 with
+   upper-case sections and refusing an occupied label; the relocation test
+   with its untagged control; a corpus pin of every W-101 count), the
+   per-op replay label behind a chapter step (`tests/test_norway_replay.py`),
+   the container-only relation (`tests/test_norway_verify.py`). Four rule
+   ids catalogued, one tag excluded as a carrier mark. **Verification:**
+   ruff and `ty` clean on every touched module; regex gate and catalog
+   green; grafter shard 500 passed; the shards run here with the corpus — grafter 500 passed, replay 31, verify 94, inventory 21, index and renumber-migration green after the pins below moved; the canonical gate's project-wide `ty` step stays red on the W-99-recorded diagnostics. **Pins moved, each with
+   its note:** W-82's label-for-label test (the chapter op first, `5A-1`,
+   the chapter step) and its corpus witness; W-75's domstolloven witness
+   (20 → 21 ops, the chapter 11 heading REPLACE before §§ 218–220); the
+   W-45 unbound census 2,370 → 2,369 and `fully_replayable` 83 → 84; the
+   W-23 verify partition 81 → 82 (folkehøgskoleloven enters as
+   untouched_drift: its two § 24 rows are in chapter 5, the op on chapter
+   4), summary 30/51 → 30/52, totals 1,476/1,011/465 → 1,478/1,011/467,
+   and three laws re-bucketing replay_defect → untouched_drift with zero
+   row movement (`2009-06-19-103`, `2014-08-15-59`, `2017-06-16-65` — the
+   classifier fix); the W-72 sweep baseline regenerated: **firings 9 → 9, zero new**; hazard membership unchanged at 156 laws, destructive writes 4,036 → 4,039 (three known-incomplete bases take one chapter-heading REPLACE each — `2001-05-18-21`, `2018-04-20-8`, `2023-06-09-30`), content-removing flat at 238 over 76 laws, bases with destructive writes 267 → 268 and the swept population 789 → 790 (folkehøgskoleloven's first write); the three mid-apply blind-spot laws are the same three.
+   **Recorded follow-ups:** chapter relabels (`move-part` on `kap…`, 3
+   blocks); the three heading-only INSERTs before an existing section (`Ny
+   kapitteloverskrift før § 1`), which would need the following sections
+   moved under the new chapter; the `kap12/avsnitt/II` subdivision
+   addresses; folkehøgskoleloven's § 24 (its original-act ledd 1 is
+   missing from the replay, a source question, not a W-101 one).
+
 ## 5. Demo / Inspection Tooling
 
 Browser views of any replayable law across its own amendment dates, plus an
@@ -7469,6 +7597,20 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
 
+- **2026-09-06 (W-101 — the structured chapter address; kringkastingsloven's
+  chapter 5 A; product `PRODUCT_HASH`)** — Lovdata's ``kap<label>`` attribute
+  token lowers to a chapter step (77 blocks / 45 instruments were refused
+  before), a section address takes its carrier's case (`5a-1` → `5A-1`),
+  and a chapter op with a heading-only payload stands before the sections
+  announced with it — new-chapter sections addressed under the chapter,
+  a label already standing elsewhere relocated with a receipt. Lead
+  agreement, the subdivision predicate, the future-title and
+  carrier-accounting conjuncts and the relabel exclusion refuse typed on
+  one kind with the reason named (29). The verify classifier no longer
+  relates a container-only op path to the whole law. Witness full chain:
+  zero-divergence sections 52/75 → 61/75, rows 68 → 29; partition 81 → 82
+  candidates, three laws re-bucket to untouched drift with zero row
+  movement; sweep firings 9 → 9.
 - **2026-09-05 (W-100 follow-up — the eleven W-98 grafter ids catalogued;
   `66e50211`)** — `test_spec_ledger_no_catalog.py` had been red since
   `1c405afe`. Seven believed_spec hypotheses join `_NO_RULE_SPECS` (the

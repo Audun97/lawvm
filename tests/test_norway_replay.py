@@ -1377,3 +1377,57 @@ def test_replay_no_to_pit_skips_a_section_dated_after_as_of_per_op(tmp_path) -> 
     assert future.detail["effective_date"] == "2026-01-01"
     _chapter, sections = _chapter_sections(result)
     assert [section.label for section in sections] == ["1", "2"]
+
+
+def _new_chapter_amendment_xml(date_in_force: str) -> bytes:
+    """W-101: a ``Nytt kapittel 2`` block whose section insert carries the chapter step."""
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="dateInForce">{date_in_force}</dd>
+    <article class="document-change" data-document="lov/2025-01-01-1">
+      <article class="change" data-add-new-part="lov/2025-01-01-1/kap2 lov/2025-01-01-1/§3">
+        <article class="defaultP">Nytt kapittel 2 skal lyde:</article>
+        <span class="futuretitle">Kapittel 2. Tilsyn</span>
+        <article class="futureLegalArticle" data-name="§3">
+          <span class="futureLegalArticleHeader"><span class="legalArticleValue">§ 3</span>. <span class="legalArticleTitle">Tilsyn</span></span>
+          <article class="legalP">Departementet fører tilsyn.</article>
+        </article>
+      </article>
+    </article>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def test_replay_no_to_pit_finds_the_section_label_behind_a_chapter_step(tmp_path) -> None:
+    """W-101: a section op addressed ``chapter:2/section:3`` is dated by § 3, not by the chapter."""
+    archive_path = tmp_path / "lovtidend-avd1-2001-2025.tar.bz2"
+    _write_archive(
+        archive_path,
+        [
+            ("lti/2025/nl-20250101-001.xml", _BASE_XML),
+            ("lti/2025/nl-20250202-005.xml", _new_chapter_amendment_xml("Kongen bestemmer")),
+        ],
+    )
+    base = "no/lov/2025-01-01-1"
+    index = NOAmendmentIndex(
+        data_dir=str(tmp_path),
+        entries=[
+            _section_scoped_entry(
+                section_scoped_binding_dates=((base, "2025-03-01"),),
+                section_scoped_exclusions=((base, "3"),),
+            )
+        ],
+    )
+
+    result = replay_no_to_pit(base, as_of="2025-12-31", data_dir=tmp_path, index=index)
+
+    assert result.error is None
+    skips = [a for a in result.adjudications if a.kind == "no_replay_section_commencement_contingent_skipped"]
+    assert [a.detail["section_label"] for a in skips] == ["3"]
+    # The chapter op (no section step) took the binding date and landed; § 3 did not.
+    assert result.replayed is not None
+    chapters = [c for c in result.replayed.body.children if str(c.kind).split(".")[-1].lower() == "chapter"]
+    assert [c.label for c in chapters] == ["1", "2"]
+    assert [child.label for child in chapters[1].children if str(child.kind).split(".")[-1].lower() == "section"] == []

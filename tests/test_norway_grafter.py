@@ -95,6 +95,13 @@ from lawvm.norway.grafter import (
     lovdata_amendment_filename_to_id,
     lovdata_filename_to_id,
     lovdata_path_to_address,
+    NO_PARSE_STRUCTURED_CHAPTER_TARGET_REFUSED,
+    NO_PARSE_STRUCTURED_SECTION_LABEL_CASED_FROM_CARRIER,
+    NO_PARSE_STRUCTURED_SECTION_TARGET_SCOPED_TO_NEW_CHAPTER,
+    NO_NEW_CHAPTER_SECTION_PROVENANCE_TAG,
+    NO_REPLAY_NEW_CHAPTER_SECTION_RELOCATED_FROM_OCCUPIED_LABEL,
+    _no_lead_announces_subdivision,
+    _no_lead_names_chapter,
     normalize_lovdata_refid,
     open_lovdata_amendment_archive,
     parse_no_heading_groups,
@@ -9567,12 +9574,18 @@ def test_no_w82_future_article_carriers_land_label_for_label() -> None:
 
     assert not [a for a in adjudications if a.kind == NO_PARSE_STRUCTURED_PAYLOAD_NOT_DECLARED]
     ops = grouped["no/lov/2015-06-19-70"]
-    assert [op.target.path for op in ops] == [(("section", "5a-1"),), (("section", "5a-2"),)]
-    # Each destination gets ITS OWN article, relabelled to the address it lands at
-    # — never the block's lead, and never another article's text.
-    first, second = (op.payload for op in ops)
+    # W-101 moved this pin: ``kap5A`` now lowers (the chapter op stands first,
+    # heading-only), the section addresses take the CARRIER's case (``5A-1``,
+    # the consolidation's spelling) and start at the new chapter. The bijection
+    # this test is about is unchanged — each address still gets its own article.
+    assert [op.target.path for op in ops] == [
+        (("chapter", "5A"),),
+        (("chapter", "5A"), ("section", "5A-1")),
+        (("chapter", "5A"), ("section", "5A-2")),
+    ]
+    first, second = (op.payload for op in ops[1:])
     assert first is not None and second is not None
-    assert (_kind_value(first.kind), first.label) == ("section", "5a-1")
+    assert (_kind_value(first.kind), first.label) == ("section", "5A-1")
     assert [child.text for child in first.children] == [
         "Jurisdiksjon",
         "Kongen kan gi forskrift.",
@@ -9954,10 +9967,12 @@ def test_no_w82_corpus_witness_the_second_lost_instrument_stays_refused() -> Non
 def test_no_w82_corpus_witness_a_whole_new_chapter_lands_one_section_per_address() -> None:
     """``no/lovtid/2025-02-28-2`` — the census's largest single node: 9 ops.
 
-    ``data-add-new-part`` names ``kap5A`` and §§ 5a-1 … 5a-9; ``kap5A`` does not
-    lower to an address at all (it is one of the 111
-    ``no_parse_unresolved_structured_target_skipped``), so the bijection is over
-    the NINE section addresses and the nine ``futureLegalArticle`` carriers.
+    ``data-add-new-part`` names ``kap5A`` and §§ 5a-1 … 5a-9. Until W-101
+    ``kap5A`` did not lower at all (one of the 111
+    ``no_parse_unresolved_structured_target_skipped``); now it is the chapter op
+    the nine section inserts follow, and their addresses carry the carrier's
+    case and the chapter step. The bijection is over the NINE section addresses
+    and the nine ``futureLegalArticle`` carriers, as before.
     """
     html_bytes = load_no_amendment_bytes("no/lovtid/2025-02-28-2", _NO_FARCHIVE_PATH)
     assert html_bytes is not None
@@ -9970,12 +9985,10 @@ def test_no_w82_corpus_witness_a_whole_new_chapter_lands_one_section_per_address
     )
 
     assert not [a for a in adjudications if a.kind == NO_PARSE_STRUCTURED_PAYLOAD_NOT_DECLARED]
-    ops = [
-        op
-        for op in grouped["no/lov/1992-12-04-127"]
-        if op.target.path and op.target.path[0][1].startswith("5a-")
-    ]
-    assert [op.target.path for op in ops] == [(("section", f"5a-{n}"),) for n in range(1, 10)]
+    chapter_ops = [op for op in grouped["no/lov/1992-12-04-127"] if op.target.path[0] == ("chapter", "5A")]
+    assert [op.target.path for op in chapter_ops[:1]] == [(("chapter", "5A"),)]
+    ops = chapter_ops[1:]
+    assert [op.target.path for op in ops] == [(("chapter", "5A"), ("section", f"5A-{n}")) for n in range(1, 10)]
     # Each address gets its OWN article's heading, not the block's title and not
     # a neighbour's text.
     headings = []
@@ -10326,13 +10339,17 @@ def test_no_w75_multi_address_non_substitution_change_node_is_untouched() -> Non
 
     assert not [a for a in adjudications if a.kind == NO_PARSE_SUBSTITUTION_ANNOUNCEMENT_NOT_LOWERED]
     ops = grouped["no/lov/1915-08-13-5"]
-    assert [(str(op.action.value), op.target.path) for op in ops][:4] == [
+    # W-101 moved this pin: the block's ``kap11`` token now lowers to a
+    # heading-only chapter REPLACE that stands before the sections it announces
+    # (``Kapittel 11 med §§ 218, 219 og 220 skal lyde:``); 20 → 21 ops.
+    assert [(str(op.action.value), op.target.path) for op in ops][:5] == [
         ("insert", (("section", "217a"),)),
+        ("replace", (("chapter", "11"),)),
         ("replace", (("section", "218"),)),
         ("replace", (("section", "219"),)),
         ("replace", (("section", "220"),)),
     ]
-    assert len(ops) == 20
+    assert len(ops) == 21
     replace_218 = next(op for op in ops if op.target.path == (("section", "218"),))
     assert replace_218.payload is not None
     assert (replace_218.payload.children[0].text or "").startswith(
@@ -13953,3 +13970,429 @@ def test_no_address_after_citation_with_inline_payload_binds_kystvaktloven() -> 
         (StructuralAction.REPLACE, (("section", "3"), ("subsection", "2")))
     ]
     assert not any(op.target.path[0] == ("section", "9") for op in grouped.get("no/lov/1985-06-14-68", []))
+
+
+# ── W-101: the structured chapter address ────────────────────────────────────
+
+
+def _w101_change(change_node: str, *, source_id: str = "no/lovtid/2025-02-28-2", base: str = _W98_BASE):
+    adjudications: list[CompileAdjudication] = []
+    grouped = dict(
+        iter_no_document_change_ops(
+            _w79_change_html(change_node=change_node, base=base.removeprefix("no/")),
+            source_id,
+            adjudications_out=adjudications,
+        )
+    )
+    return list(grouped.get(base, [])), adjudications
+
+
+def _w101_kinds(adjudications: Sequence[CompileAdjudication], kind: str) -> list[dict]:
+    return [dict(item.detail or {}) for item in adjudications if item.kind == kind]
+
+
+_W101_NEW_CHAPTER_BLOCK = (
+    f'<article class="change" data-add-new-part="{_W98_BASE.removeprefix("no/")}/kap5A '
+    f'{_W98_BASE.removeprefix("no/")}/§5a-1 {_W98_BASE.removeprefix("no/")}/§5a-2">'
+    '<article class="defaultP">Nytt kapittel 5 A skal lyde:</article>'
+    '<span class="futuretitle">Kap. 5 A. Videodelingsplattformtjenester</span>'
+    + _w82_future_article("§5A-1", "Jurisdiksjon", "Kongen kan gi forskrift.")
+    + _w82_future_article("§5A-2", "Registreringsplikt", "Tilbydere plikter å registrere seg.")
+    + "</article>"
+)
+
+
+def test_no_w101_kap_step_lowers_only_as_the_last_segment() -> None:
+    """Lovdata's ``kap<label>`` step, in every case the corpus spells it, and the two forms it must not read."""
+    assert lovdata_path_to_address("lov/1992-12-04-127/kap5A") == LegalAddress(path=(("chapter", "5A"),))
+    assert lovdata_path_to_address("lov/2014-06-20-49/kapIII") == LegalAddress(path=(("chapter", "III"),))
+    assert lovdata_path_to_address("lov/1981-05-22-25/kap17d") == LegalAddress(path=(("chapter", "17d"),))
+    assert lovdata_path_to_address("lov/2010-06-25-45/kapVIIA") == LegalAddress(path=(("chapter", "VIIA"),))
+    assert lovdata_path_to_address("lov/1949-07-28-26/kap5b") == LegalAddress(path=(("chapter", "5b"),))
+    # Something INSIDE the chapter: not this step's to read.
+    assert lovdata_path_to_address("lov/2007-06-29-75/kap12/avsnitt/II") is None
+    assert lovdata_path_to_address("lov/1998-07-17-56/kap3/overskrift") is None
+    # The older ``KAPITTEL_`` form is untouched.
+    assert lovdata_path_to_address("lov/1999-03-26-14/KAPITTEL_19-1") == LegalAddress(path=(("chapter", "19-1"),))
+
+
+@pytest.mark.parametrize(
+    ("lead", "label", "expected"),
+    [
+        ("Nytt kapittel 5 A skal lyde:", "5A", True),
+        ("Nytt kapittel 5A skal lyde:", "5A", True),
+        ("Kapittel 34, 35 og 36 oppheves.", "35", True),
+        ("Kapittel 34, 35 og 36 oppheves.", "36", True),
+        ("Overskriften i kapittel III skal lyde:", "III", True),
+        ("Nytt kapittel VII A skal lyde:", "VIIA", True),
+        ("I fjerde del skal nytt kapittel 17 d lyde:", "17d", True),
+        ("Kapitteloverskriften til kapittel 8 skal lyde:", "8", True),
+        ("Kapittel 4 kapitteloverskriften skal lyde:", "4", True),
+        ("Kap. 15 b skal lyde:", "15b", True),
+        ("Nytt kapittel 5 b med §§ 26 m til 26 u skal lyde:", "5b", True),
+        # A longer label is not the shorter one.
+        ("Kapittel 11 med §§ 218, 219 og 220 skal lyde:", "1", False),
+        # The token means a PART, not a chapter.
+        ("Lovens del II oppheves. Del III blir del II.", "II", False),
+        ("Under del II om endringer i lov om pensjonsordning skal § 3 første ledd lyde:", "II", False),
+        # A new heading before an existing section names no chapter.
+        ("Ny kapitteloverskrift før § 1 skal lyde:", "1", False),
+        # ``I`` the preposition is not a roman suffix.
+        ("I kapittel I i loven skal overskriften lyde:", "Ii", False),
+        ("I kapittel I i loven skal overskriften lyde:", "I", True),
+        # An avsnitt address (Lovdata's ``kap8-3``) is not chapter 8.
+        ("Kapittel 8 avsnitt III overskriften skal lyde:", "8-3", False),
+    ],
+)
+def test_no_w101_lead_names_chapter(lead: str, label: str, expected: bool) -> None:
+    assert _no_lead_names_chapter(lead, label) is expected
+
+
+def test_no_w101_lead_announces_subdivision() -> None:
+    assert _no_lead_announces_subdivision("I kapittel 9 skal avsnitt VIII lyde:")
+    assert _no_lead_announces_subdivision("Ny deloverskrift til §§ 18-2 til 18-8 skal lyde:")
+    assert _no_lead_announces_subdivision("Kapittel 12 avsnitt II oppheves.")
+    assert not _no_lead_announces_subdivision("Nytt kapittel 5 A skal lyde:")
+    assert not _no_lead_announces_subdivision("Overskriften til kapittel 13 skal lyde:")
+
+
+def test_no_w101_new_chapter_block_mints_the_chapter_first_and_scopes_its_cased_sections() -> None:
+    """The witness shape: ``kap5A`` + two lower-case section tokens + a future title + two carriers."""
+    ops, adjudications = _w101_change(_W101_NEW_CHAPTER_BLOCK)
+    assert [(_action_value(op.action), op.target.path) for op in ops] == [
+        ("insert", (("chapter", "5A"),)),
+        ("insert", (("chapter", "5A"), ("section", "5A-1"))),
+        ("insert", (("chapter", "5A"), ("section", "5A-2"))),
+    ]
+    chapter_op = ops[0]
+    assert chapter_op.payload is not None
+    assert (_kind_value(chapter_op.payload.kind), chapter_op.payload.label, chapter_op.payload.text) == (
+        "chapter",
+        "5A",
+        "",
+    )
+    assert [(_kind_value(c.kind), c.text) for c in chapter_op.payload.children] == [
+        ("heading", "Kap. 5 A. Videodelingsplattformtjenester")
+    ]
+    assert NO_CHAPTER_REENACTMENT_PROVENANCE_TAG in chapter_op.provenance_tags
+    # The sections carry the carrier's case on the PAYLOAD too, so the landed
+    # label is the consolidation's ``5A-1``, not the attribute's ``5a-1``.
+    assert [op.payload.label for op in ops[1:] if op.payload is not None] == ["5A-1", "5A-2"]
+    assert all(NO_CHAPTER_REENACTMENT_PROVENANCE_TAG not in op.provenance_tags for op in ops[1:])
+    assert all(NO_NEW_CHAPTER_SECTION_PROVENANCE_TAG in op.provenance_tags for op in ops[1:])
+    cased = _w101_kinds(adjudications, NO_PARSE_STRUCTURED_SECTION_LABEL_CASED_FROM_CARRIER)
+    assert [(d["attribute_label"], d["carrier_label"], d["blocking"]) for d in cased] == [
+        ("5a-1", "5A-1", False),
+        ("5a-2", "5A-2", False),
+    ]
+    scoped = _w101_kinds(adjudications, NO_PARSE_STRUCTURED_SECTION_TARGET_SCOPED_TO_NEW_CHAPTER)
+    assert [(d["unscoped_target"], d["chapter"], d["blocking"]) for d in scoped] == [
+        ("section:5A-1", "5A", False),
+        ("section:5A-2", "5A", False),
+    ]
+    assert not _w101_kinds(adjudications, NO_PARSE_STRUCTURED_CHAPTER_TARGET_REFUSED)
+    assert not _w101_kinds(adjudications, "no_parse_unresolved_structured_target_skipped")
+
+
+def test_no_w101_heading_only_chapter_replace_and_chapter_repeal_after_its_sections() -> None:
+    base = _W98_BASE.removeprefix("no/")
+    ops, adjudications = _w101_change(
+        f'<article class="change" data-change-part="{base}/kap13">'
+        '<article class="defaultP">Overskriften til kapittel 13 skal lyde:</article>'
+        '<span class="futuretitle">Kapittel 13. Ordenstiltak og skadeførebygging m.m.</span>'
+        "</article>"
+    )
+    assert [(_action_value(op.action), op.target.path) for op in ops] == [("replace", (("chapter", "13"),))]
+    assert ops[0].payload is not None
+    assert [(_kind_value(c.kind), c.text) for c in ops[0].payload.children] == [
+        ("heading", "Kapittel 13. Ordenstiltak og skadeførebygging m.m.")
+    ]
+    # A REPLACE carries no re-enactment tag: it merges its heading over the
+    # standing chapter (W-98 (f)) and must not trip the uncarried-sections guard.
+    assert NO_CHAPTER_REENACTMENT_PROVENANCE_TAG not in ops[0].provenance_tags
+    assert not _w101_kinds(adjudications, NO_PARSE_STRUCTURED_CHAPTER_TARGET_REFUSED)
+
+    ops, adjudications = _w101_change(
+        f'<article class="change" data-repeal-part="{base}/kap34 {base}/kap35 {base}/§34-1 {base}/§35-1">'
+        '<article class="defaultP">Kapittel 34 og 35 oppheves.</article>'
+        "</article>"
+    )
+    # The chapters go AFTER the sections the same block repeals, so neither
+    # section repeal finds its target already gone.
+    assert [(_action_value(op.action), op.target.path, op.payload) for op in ops] == [
+        ("repeal", (("section", "34-1"),), None),
+        ("repeal", (("section", "35-1"),), None),
+        ("repeal", (("chapter", "34"),), None),
+        ("repeal", (("chapter", "35"),), None),
+    ]
+    assert not _w101_kinds(adjudications, NO_PARSE_STRUCTURED_CHAPTER_TARGET_REFUSED)
+
+
+@pytest.mark.parametrize(
+    ("change_node", "reason", "surviving_targets"),
+    [
+        (
+            '<article class="change" data-repeal-part="{base}/kapII">'
+            '<article class="defaultP">Lovens del II oppheves. Del III blir del II.</article></article>',
+            "lead_disagrees",
+            [],
+        ),
+        (
+            '<article class="change" data-add-new-part="{base}/kap1">'
+            '<article class="defaultP">Ny kapitteloverskrift før § 1 skal lyde:</article>'
+            '<span class="futuretitle">Kapittel 1 Avtalefestet pensjon</span></article>',
+            "lead_disagrees",
+            [],
+        ),
+        (
+            '<article class="change" data-change-part="{base}/kapII {base}/§3/ledd/1">'
+            '<article class="defaultP">Under del II om endringer i lov om pensjonsordning skal § 3 første ledd lyde:</article>'
+            '<article class="legalP">Medlemmer har rett til pensjon.</article></article>',
+            "lead_disagrees",
+            [(("section", "3"), ("subsection", "1"))],
+        ),
+        (
+            '<article class="change" data-change-part="{base}/kap9 {base}/§9-39">'
+            '<article class="defaultP">I kapittel 9 skal avsnitt VIII lyde:</article>'
+            '<span class="futuretitle">VIII Kapitalforhold mv.</span>'
+            + _w82_future_article("§9-39", "Verdipapirisering", "Foretaket kan verdipapirisere.")
+            + "</article>",
+            "subdivision_announced",
+            [(("section", "9-39"),)],
+        ),
+        (
+            '<article class="change" data-change-part="{base}/kapXIV">'
+            '<article class="defaultP">Nytt kapittel XVII (nåværende kapittel XIV) skal lyde:</article>'
+            '<span class="futuretitle">Kapittel XVII. Tvangsakkord</span>'
+            + _w82_future_article("§17-1", "Virkeområde", "Kapitlet gjelder tvangsakkord.")
+            + "</article>",
+            "carriers_unaccounted",
+            [],
+        ),
+        (
+            '<article class="change" data-change-part="{base}/kap15">'
+            '<article class="defaultP">I innholdsfortegnelsen i kapittel 15 skal nytt andre strekpunkt lyde:</article>'
+            '<li data-li-identifier="-" data-name="-">forholdet til folketrygden</li></article>',
+            "heading_payload_missing",
+            [],
+        ),
+        (
+            '<article class="change" data-move-part="{base}/kap6;;{base}/kap4">'
+            '<article class="defaultP">Nåværende kapittel 6 blir kapittel 4.</article></article>',
+            "renumber_unsupported",
+            [],
+        ),
+    ],
+)
+def test_no_w101_chapter_token_refusals_are_typed_and_leave_the_sections_as_before(
+    change_node: str, reason: str, surviving_targets: list
+) -> None:
+    base = _W98_BASE.removeprefix("no/")
+    ops, adjudications = _w101_change(change_node.format(base=base))
+    refused = _w101_kinds(adjudications, NO_PARSE_STRUCTURED_CHAPTER_TARGET_REFUSED)
+    assert [d["reason"] for d in refused] == [reason]
+    assert refused[0]["blocking"] is True
+    assert refused[0]["phase"] == "parse"
+    assert [op.target.path for op in ops] == surviving_targets
+    assert not [op for op in ops if op.target.leaf_kind() == "chapter"]
+
+
+def test_no_w101_an_avsnitt_segment_and_a_bare_kap_stay_unresolved() -> None:
+    base = _W98_BASE.removeprefix("no/")
+    ops, adjudications = _w101_change(
+        f'<article class="change" data-repeal-part="{base}/kap12/avsnitt/II">'
+        '<article class="defaultP">Kapittel 12 avsnitt II oppheves.</article></article>'
+    )
+    assert ops == []
+    assert [item.kind for item in adjudications] == ["no_parse_unresolved_structured_target_skipped"]
+    assert not _w101_kinds(adjudications, NO_PARSE_STRUCTURED_CHAPTER_TARGET_REFUSED)
+
+
+def test_no_w101_carrier_case_is_taken_only_when_the_forms_differ_by_case_alone() -> None:
+    base = _W98_BASE.removeprefix("no/")
+    # A genuinely lower-case chapter-lettered section (``§ 13a-6``) keeps its label.
+    ops, adjudications = _w101_change(
+        f'<article class="change" data-change-part="{base}/§13a-6">'
+        '<article class="defaultP">§ 13a-6 skal lyde:</article>'
+        + _w82_future_article("§13a-6", "Tilsyn", "Tilsynet føres av departementet.")
+        + "</article>"
+    )
+    assert [op.target.path for op in ops] == [(("section", "13a-6"),)]
+    assert not _w101_kinds(adjudications, NO_PARSE_STRUCTURED_SECTION_LABEL_CASED_FROM_CARRIER)
+    # Two carriers that both fold to the token's label: ambiguous, nothing recased.
+    ops, adjudications = _w101_change(
+        f'<article class="change" data-change-part="{base}/§5a-1">'
+        '<article class="defaultP">§ 5 A-1 skal lyde:</article>'
+        + _w82_future_article("§5A-1", "Jurisdiksjon", "Kongen kan gi forskrift.")
+        + _w82_future_article("§5a-1", "Jurisdiksjon", "Kongen kan gi forskrift.")
+        + "</article>"
+    )
+    assert [op.target.path for op in ops] == [(("section", "5a-1"),)]
+    assert not _w101_kinds(adjudications, NO_PARSE_STRUCTURED_SECTION_LABEL_CASED_FROM_CARRIER)
+
+
+def test_no_w101_apply_places_the_new_chapter_and_its_sections_and_refuses_an_occupied_label() -> None:
+    ops, _ = _w101_change(_W101_NEW_CHAPTER_BLOCK)
+    statute = _w98_statute([("5", "Kap. 5", [("5-1", "A", ["a"])]), ("6", "Kap. 6", [("6-1", "B", ["b"])])])
+    result = apply_no_ops(statute, ops, adjudications_out=[])
+    assert [child.label for child in result.body.children] == ["5", "5A", "6"]
+    assert _w98_heading(_w98_chapter(result, "5A")) == "Kap. 5 A. Videodelingsplattformtjenester"
+    # Under the NEW chapter, with the consolidation's case — not under chapter 5
+    # by label family, and not as ``5a-1``.
+    assert _w98_sections(_w98_chapter(result, "5A")) == [
+        ("5A-1", ["Kongen kan gi forskrift."]),
+        ("5A-2", ["Tilbydere plikter å registrere seg."]),
+    ]
+    assert _w98_sections(_w98_chapter(result, "5")) == [("5-1", ["a"])]
+    # Occupied: the standing chapter is in-force law and is not the thing to delete.
+    occupied = _w98_statute(
+        [("5", "Kap. 5", [("5-1", "A", ["a"])]), ("5A", "Kap. 5 A. Gammel", [("5A-9", "Z", ["z"])])]
+    )
+    adjudications: list[CompileAdjudication] = []
+    result = apply_no_ops(occupied, ops, adjudications_out=adjudications)
+    assert _w98_heading(_w98_chapter(result, "5A")) == "Kap. 5 A. Gammel"
+    refusals = [
+        item for item in adjudications if item.kind == NO_REPLAY_REENACTMENT_INSERT_OCCUPIED_TARGET_REFUSED
+    ]
+    assert len(refusals) == 1
+    assert (refusals[0].detail or {}).get("production") == NO_CHAPTER_REENACTMENT_PROVENANCE_TAG
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w101_corpus_totals() -> None:
+    """The W-101 census at its base pin, over every amendment artifact.
+
+    77 change blocks over 45 instruments carry a ``kap…`` token. Chapter ops
+    from the structured lane (no ``fallback:unstructured`` tag), W-82's eight
+    ``KAPITTEL_`` ops (5 REPLACE, 2 INSERT, 1 REPEAL) included: 40 REPLACE,
+    18 INSERT, 5 REPEAL; 117 section inserts scoped to a new chapter (118
+    receipts: ``no/lovtid/2024-04-12-14`` scopes § 6 and then refuses its
+    payload as undeclared, so that receipt has no op); 17 section addresses
+    recased from their carriers; 29 typed chapter refusals by reason;
+    3 ``kap…`` tokens still unresolved (an ``avsnitt`` and an ``overskrift``
+    segment inside the chapter).
+    """
+    from collections import Counter
+
+    from lawvm.norway.sources import iter_no_amendment_artifacts
+
+    chapter_ops: Counter[str] = Counter()
+    receipts: Counter[str] = Counter()
+    reasons: Counter[tuple[str, str]] = Counter()
+    unresolved_kap: list[str] = []
+    for artifact in iter_no_amendment_artifacts(_NO_FARCHIVE_PATH):
+        adjudications: list[CompileAdjudication] = []
+        ops = parse_no_amendment_ops(artifact.payload, artifact.logical_id, adjudications_out=adjudications)
+        for op in ops:
+            if "fallback:unstructured" in (op.provenance_tags or ()):
+                continue
+            path = op.target.path
+            if len(path) == 1 and path[0][0] == "chapter":
+                chapter_ops[_action_value(op.action)] += 1
+            elif len(path) == 2 and path[0][0] == "chapter" and path[1][0] == "section":
+                chapter_ops[f"scoped_section_{_action_value(op.action)}"] += 1
+        for item in adjudications:
+            if item.kind in {
+                NO_PARSE_STRUCTURED_SECTION_LABEL_CASED_FROM_CARRIER,
+                NO_PARSE_STRUCTURED_SECTION_TARGET_SCOPED_TO_NEW_CHAPTER,
+                NO_PARSE_STRUCTURED_CHAPTER_TARGET_REFUSED,
+            }:
+                receipts[item.kind] += 1
+            if item.kind == NO_PARSE_STRUCTURED_CHAPTER_TARGET_REFUSED:
+                detail = item.detail or {}
+                reasons[(str(detail.get("reason")), str(detail.get("action")))] += 1
+            if item.kind == "no_parse_unresolved_structured_target_skipped" and "/kap" in str(
+                (item.detail or {}).get("raw_target", "")
+            ):
+                unresolved_kap.append(str((item.detail or {}).get("raw_target")))
+
+    # The three ``text_patch`` are W-69a's on ``chapter:2-5-3`` (a ``KAPITTEL_``
+    # address in a word-substitution block), untouched by W-101.
+    assert dict(chapter_ops) == {
+        "replace": 40,
+        "insert": 18,
+        "repeal": 5,
+        "text_patch": 3,
+        "scoped_section_insert": 117,
+    }
+    assert dict(receipts) == {
+        NO_PARSE_STRUCTURED_SECTION_LABEL_CASED_FROM_CARRIER: 17,
+        NO_PARSE_STRUCTURED_SECTION_TARGET_SCOPED_TO_NEW_CHAPTER: 118,
+        NO_PARSE_STRUCTURED_CHAPTER_TARGET_REFUSED: 29,
+    }
+    assert dict(reasons) == {
+        ("renumber_unsupported", "renumber"): 14,
+        ("lead_disagrees", "replace"): 5,
+        ("lead_disagrees", "insert"): 3,
+        ("lead_disagrees", "repeal"): 3,
+        ("heading_payload_missing", "replace"): 2,
+        ("subdivision_announced", "replace"): 1,
+        ("carriers_unaccounted", "replace"): 1,
+    }
+    assert sorted(unresolved_kap) == [
+        "lov/1998-07-17-56/kap3/overskrift",
+        "lov/2007-06-29-75/kap12/avsnitt/I",
+        "lov/2007-06-29-75/kap12/avsnitt/II",
+    ]
+
+
+def test_no_w101_new_chapter_section_relocates_a_label_standing_elsewhere() -> None:
+    """klimakvoteloven's shape: ``Nytt kapittel 4 A med §§ 16 til 16 d`` while chapter 4 still holds a § 16.
+
+    Section labels are law-unique, so the standing § 16 is the provision the
+    new chapter re-enacts. Before W-101 the unscoped insert hit it and the θ
+    (INSERT, target_occupied) cell replaced it IN PLACE — right text, wrong
+    chapter. Now the standing node is removed and the new text lands under
+    chapter 4 A, with the occupant on the receipt; a § 16 a with no standing
+    twin just lands. Nothing outside the production's own tag reaches this.
+    """
+    base = _W98_BASE.removeprefix("no/")
+    ops, _ = _w101_change(
+        f'<article class="change" data-add-new-part="{base}/kap4A {base}/§16 {base}/§16a">'
+        '<article class="defaultP">Nytt kapittel 4 A med §§ 16 til 16 a skal lyde:</article>'
+        '<span class="futuretitle">Kapittel 4 A. Tilsyn</span>'
+        + _w82_future_article("§16", "Tilsyn", "Klimakvotemyndigheten fører tilsyn.")
+        + _w82_future_article("§16a", "Pålegg", "Klimakvotemyndigheten kan gi pålegg.")
+        + "</article>"
+    )
+    assert [op.target.path for op in ops] == [
+        (("chapter", "4A"),),
+        (("chapter", "4A"), ("section", "16")),
+        (("chapter", "4A"), ("section", "16a")),
+    ]
+    statute = _w98_statute(
+        [
+            ("4", "Kap. 4", [("15", "Kontroll", ["k"]), ("16", "Internkontroll", ["Forurensningsmyndigheten kan gi forskrifter."])]),
+            ("5", "Kap. 5", [("17", "Suspensjon", ["s"])]),
+        ]
+    )
+    adjudications: list[CompileAdjudication] = []
+    result = apply_no_ops(statute, ops, adjudications_out=adjudications)
+    assert [child.label for child in result.body.children] == ["4", "4A", "5"]
+    assert _w98_sections(_w98_chapter(result, "4")) == [("15", ["k"])]
+    assert _w98_sections(_w98_chapter(result, "4A")) == [
+        ("16", ["Klimakvotemyndigheten fører tilsyn."]),
+        ("16a", ["Klimakvotemyndigheten kan gi pålegg."]),
+    ]
+    relocated = [
+        item for item in adjudications if item.kind == NO_REPLAY_NEW_CHAPTER_SECTION_RELOCATED_FROM_OCCUPIED_LABEL
+    ]
+    assert [(item.detail or {}).get("occupant_path") for item in relocated] == ["chapter:4/section:16"]
+    assert [(item.detail or {}).get("target") for item in relocated] == ["chapter:4A/section:16"]
+    # The same ops without the tag take the shipped path: a second § 16, no relocation.
+    untagged = [
+        replace(op, provenance_tags=tuple(t for t in op.provenance_tags if t != NO_NEW_CHAPTER_SECTION_PROVENANCE_TAG))
+        for op in ops
+    ]
+    adjudications = []
+    result = apply_no_ops(statute, untagged, adjudications_out=adjudications)
+    assert _w98_sections(_w98_chapter(result, "4")) == [
+        ("15", ["k"]),
+        ("16", ["Forurensningsmyndigheten kan gi forskrifter."]),
+    ]
+    assert not [
+        item for item in adjudications if item.kind == NO_REPLAY_NEW_CHAPTER_SECTION_RELOCATED_FROM_OCCUPIED_LABEL
+    ]

@@ -54,6 +54,10 @@ Honest scope note — what is and is not statically enumerable.
       item productions' ops. Carrier marks like W-66's and W-77's, not hypotheses;
       the rules they gate (``no_replay_chapter_reenactment_uncarried_sections_refused``,
       ``no_replay_reenactment_insert_occupied_target_refused``) ARE cataloged.
+    - ``no_new_chapter_section`` — W-101's provenance tag on the section inserts a
+      ``Nytt kapittel`` block scopes to its new chapter. A carrier mark; the rule it
+      gates (``no_replay_new_chapter_section_relocated_from_occupied_label``) IS
+      cataloged.
     - ``no_stored_consolidation`` — the W-45 census key under
       ``build_no_verify_partition``'s ``unverifiable`` sibling (``verify.py``). A
       report dict key naming a corpus population ("laws with a replayable original
@@ -521,6 +525,31 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "the general closure of the wrong-text class W-75 and W-78 closed dialect "
         "by dialect."
     ),
+    "no_parse_structured_chapter_target_refused": (
+        "A Norway structured change attribute named a chapter (Lovdata's "
+        "``kap<label>`` step, lowered since W-101) but the block does not prove "
+        "the chapter is what it changes: the lead does not name that chapter "
+        "(``Lovens del II oppheves`` carrying ``kapII``, ``Ny kapitteloverskrift "
+        "før § 1`` carrying ``kap1``), the lead announces a subdivision inside it "
+        "(``avsnitt``, ``deloverskrift``), no single future title carries the "
+        "heading, a ``futureLegalArticle`` in the block is claimed by no section "
+        "address of the block, or the action is a chapter relabel. Nothing is "
+        "lowered for the chapter; ``reason`` names the conjunct. W-101."
+    ),
+    "no_parse_structured_section_label_cased_from_carrier": (
+        "A Norway structured section address whose attribute token and "
+        "``futureLegalArticle`` carrier differ only by case (``§5a-1`` against "
+        "``§5A-1``) takes the carrier's case, which is the case the consolidation "
+        "prints; the address and the landed section agree with the consolidated "
+        "label instead of diverging on case alone. Non-blocking provenance. W-101."
+    ),
+    "no_parse_structured_section_target_scoped_to_new_chapter": (
+        "A Norway structured section INSERT announced inside an admitted ``Nytt "
+        "kapittel`` block takes that chapter as the first step of its address, so "
+        "the apply seam places it under the chapter op that precedes it rather "
+        "than under whichever standing chapter shares its label family. "
+        "Non-blocking provenance. W-101."
+    ),
     "no_parse_unresolved_structured_renumber_skipped": (
         "A Norway structured renumber could not lower its source or destination "
         "path; skipped with a typed finding, not coerced."
@@ -823,6 +852,17 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "survives, the op is rejected with a typed blocking receipt, and the "
         "refusal CASCADES down the relabel's vacate-before-occupy chain so the set "
         "drops whole rather than in halves. W-66."
+    ),
+    "no_replay_new_chapter_section_relocated_from_occupied_label": (
+        "A section a W-101 ``Nytt kapittel`` block inserts under its new chapter "
+        "found its LABEL already standing elsewhere in the law (klimakvoteloven's "
+        "old § 16 in chapter 4 when the 2023 act announces \"Nytt kapittel 4 A med "
+        "§§ 16 til 16 d\"). Section labels are law-unique in Norwegian drafting, "
+        "so the standing node is the provision the new chapter re-enacts: it is "
+        "removed and the new text lands at the announced address — the θ "
+        "(INSERT, target_occupied) disposition the unscoped insert used to take in "
+        "place, at the position the amendment names. Non-blocking; the occupant "
+        "path is on the receipt. W-101."
     ),
     "no_replay_item_insert_payload_occupied_target_refused": (
         "A W-77 item-depth newness payload INSERT found its target label already "

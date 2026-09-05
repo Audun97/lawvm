@@ -1839,7 +1839,11 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     # 74 -> 83 at W-100: nine laws whose last unresolved binding was an act the
     # section-scoped lane dated complete or the title-cited citation form dated
     # whole; the seven named below all stay in.
-    assert len(fully_replayable) == 83
+    # 83 -> 84 at W-101: ``no/lov/2025-06-20-99`` (folkehøgskoleloven, a 2025
+    # act with one dated amendment) enters — its only amendment's only
+    # instruction is a ``kap4`` chapter-heading block that lowers now, so the
+    # law gains its first binding and it is a dated one. Nothing leaves.
+    assert len(fully_replayable) == 84
     assert set(fully_replayable) >= {
         "no/lov/2001-06-15-75",
         "no/lov/2004-12-17-99",
@@ -2060,8 +2064,15 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # bound, ``2003-12-19-124`` 2 -> 4, ``2019-03-15-6`` 18 -> 24). ZERO
     # targets newly unbound; the 27 rebound ops (a lead's own act instead of
     # the act before it) move bindings, not receipts.
+    # 2,370 -> 2,369 at W-101: ``no/lovtid/2026-06-19-59`` binds
+    # ``no/lov/2025-06-20-99`` (folkehøgskoleloven) through its
+    # ``Kapittel 4 overskriften skal lyde:`` block, whose ``kap4`` attribute
+    # token now lowers to a heading-only chapter REPLACE — the act's only
+    # instruction against that law, so the declared target was receipted as
+    # unbound until the structured chapter address existed. Receipts 904 ->
+    # 904 (the receipt shrinks by one id and does not close).
     assert len(unbound) == 904
-    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2370
+    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2369
     assert len({diagnostic["source_id"] for diagnostic in unbound}) == 904
 
     # 64 acts gain their FIRST index entry: they announced every one of their
@@ -2269,7 +2280,11 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # target (receipt pairs 2,402 -> 2,370, the exact W-34/W-35 conservation:
     # pair LOSS 32 = binding GAIN 32); the 27 rebound ops move ops between
     # bindings both sides already had. ZERO newly unbound.
-    assert len(bindings) == 6628
+    # 6,628 -> 6,629 at W-101: ONE new (act, law) pair, ``2026-06-19-59`` ×
+    # folkehøgskoleloven, the declared target the receipt note above records
+    # (2,370 -> 2,369). ZERO rebound, ZERO newly unbound; the 36 acts whose
+    # op counts move gain chapter ops on bindings they already had.
+    assert len(bindings) == 6629
     # 26,218 at W-30; +2 at W-24, both reconciled to a named erratum and neither
     # touching this test's own subject. W-24 lowered two Del-scoped Rettelser
     # corrections into the law each part amends — ``2019-12-20-110`` Del I into
@@ -2541,7 +2556,14 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # of the 27 is the SAME op re-emitted under the act its lead names (a
     # period-less citation or an address-after-citation lead resolving where
     # before the op rode on the act the cursor still held); 0 strays, 0 dropped.
-    assert sum(entry.n_ops for entry in index.entries) == 29642
+    # 29,642 -> 29,697 at W-101 (+55): 172 ops added and 117 removed over 36
+    # acts, and every one of the 117 is a new chapter's section INSERT
+    # re-emitted under its chapter step (and, for 17, under its carrier's
+    # case); at section level ZERO ops are lost. The 55 net are exactly the
+    # structured chapter ops Lovdata's ``kap…`` token now lowers — 35
+    # heading-only REPLACE, 16 INSERT (W-98's tag), 4 REPEAL — beside W-82's
+    # eight ``KAPITTEL_`` chapter ops that were already here (5/2/1). 0 strays.
+    assert sum(entry.n_ops for entry in index.entries) == 29697
 
 
 def test_no_amendment_index_staleness_report_detects_archive_change(tmp_path) -> None:

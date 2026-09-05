@@ -538,10 +538,23 @@ def normalize_no_relation_path(path: TreePath) -> TreePath:
     )
 
 
+def _no_container_only_path(path: TreePath) -> bool:
+    return bool(path) and all(kind in _NO_RELATION_CONTAINER_KINDS for kind, _label in path)
+
+
 def no_paths_related(
     left: TreePath,
     right: TreePath,
 ) -> bool:
+    # W-101. A path that is ONLY containers (an op on ``chapter:5A`` — a heading
+    # replace, a new chapter, a chapter repeal) relates to the rows UNDER that
+    # container and to nothing else. Stripping the containers, as the general
+    # rule below does, would leave it empty, and an empty path is a prefix of
+    # every row: one chapter op then "touched" the whole law and re-bucketed
+    # untouched drift as replay defect (W-98 recorded the shape).
+    for container_only, other in ((left, right), (right, left)):
+        if _no_container_only_path(container_only):
+            return tuple(other[: len(container_only)]) == tuple(container_only)
     return paths_related(
         left,
         right,

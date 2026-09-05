@@ -496,12 +496,16 @@ def replay_no_to_pit(
             for op in group_ops:
                 op_effective_date = effective_date
                 if section_scoped:
-                    section_label = (
-                        op.target.path[0][1]
-                        if op.target is not None
-                        and op.target.path
-                        and op.target.path[0][0] == "section"
-                        else None
+                    # W-101: the section step may follow a chapter step
+                    # (``chapter:5A/section:5A-1``), so it is looked up, not
+                    # assumed first.
+                    section_label = next(
+                        (
+                            step_label
+                            for step_kind, step_label in (op.target.path if op.target is not None else ())
+                            if step_kind == "section"
+                        ),
+                        None,
                     )
                     op_effective_date, op_status = entry.effective_date_for_op(
                         norm_base_id, section_label

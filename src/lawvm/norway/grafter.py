@@ -1038,6 +1038,20 @@ def _eli_kind_and_step(parts: Sequence[str], idx: int) -> tuple[Optional[tuple[s
     token = parts[idx]
     if token.startswith("KAPITTEL_"):
         return ("chapter", _normalize_label(token.split("_", 1)[1].replace("_", "-"))), idx
+    if token.startswith("kap") and idx == len(parts) - 1:
+        # W-101. Lovdata's own chapter step — ``…/kap5A``, ``…/kapIII``,
+        # ``…/kap17d`` — the form every ``data-*-part`` attribute has written
+        # since 2022: 77 change blocks over 45 instruments at the W-101 base
+        # pin, EVERY one refused ``no_parse_unresolved_structured_target_skipped``
+        # before this step existed. Only as the LAST segment: ``kap12/avsnitt/II``
+        # and ``kap3/overskrift`` address something inside the chapter this walk
+        # does not model, and lowering them to the bare chapter would repeal or
+        # rewrite the whole of it. The label keeps Lovdata's case (``5A``, ``5b``),
+        # which is the case the consolidated ``data-name="kap…"`` carries.
+        label = _normalize_label(token.removeprefix("kap"))
+        if label:
+            return ("chapter", label), idx
+        return None, idx
     if token.startswith("§"):
         return ("section", _normalize_label(token)), idx
     if token in {"ledd", "nummer", "bokstav", "setning"} and idx + 1 < len(parts):
@@ -1675,6 +1689,63 @@ NO_REPLAY_CHAPTER_REENACTMENT_UNCARRIED_SECTIONS_REFUSED = (
 )
 NO_REPLAY_REENACTMENT_INSERT_OCCUPIED_TARGET_REFUSED = (
     "no_replay_reenactment_insert_occupied_target_refused"
+)
+# ── W-101: the structured chapter address ────────────────────────────────────
+#
+# Lovdata's ``data-add-new-part="…/kap5A …/§5a-1 … …/§5a-9"`` is the structured
+# form of W-98 (g)'s ``Nytt kapittel 5 A skal lyde:``. Before W-101 the ``kap5A``
+# token never lowered (blocking ``no_parse_unresolved_structured_target_skipped``,
+# 77 blocks / 45 instruments, every chapter attribute in the corpus), the nine
+# sections lowered under the ATTRIBUTE's lower-case labels (``5a-1``) although
+# the carriers — and the consolidation — spell them ``5A-1``, and at apply they
+# were placed by label family into chapter 5. Three productions, each additive:
+# the chapter step (``_eli_kind_and_step``), the carrier-cased section label
+# (``_no_structured_carrier_cased_label``) and the chapter op itself
+# (``_no_structured_chapter_heading_payload`` + the emission branch), whose
+# payload is the heading ALONE — the sections announced with it keep their own
+# ops and, for a new chapter, take the chapter as the first step of their
+# address so the apply seam places them under it. The chapter op is admitted
+# only when the lead names that chapter (``_no_lead_names_chapter``: the
+# attribute token means the chapter ONLY when the prose does — ``Lovens del II
+# oppheves`` carries ``kapII``, ``Ny kapitteloverskrift før § 1`` carries
+# ``kap1``), a ``span.futuretitle`` carries the heading, and every
+# ``futureLegalArticle`` in the block is claimed by a section spec of the block
+# (a carrier no spec claims is content the chapter op would silently drop).
+# Chapter relabels (``data-move-part`` on ``kap…``) and every other action
+# refuse typed. Census at the W-101 base pin (``aa6b6cc7``), 77 blocks: 28
+# heading-only REPLACE, 19 INSERT with sections, 11 REPLACE with sections, 7
+# REPEAL, 3 heading-only INSERT (``Ny kapitteloverskrift før § …``, refused:
+# the lead does not name the chapter), 3 move, 6 other.
+#: Blocking. A structured ``kap<label>`` target the lane lowered but refused to
+#: act on; ``reason`` names the failed conjunct (``lead_disagrees``,
+#: ``heading_payload_missing``, ``carriers_unaccounted``, ``renumber_unsupported``,
+#: ``action_unsupported``).
+NO_PARSE_STRUCTURED_CHAPTER_TARGET_REFUSED = "no_parse_structured_chapter_target_refused"
+#: Non-blocking provenance: a section address whose attribute token Lovdata
+#: wrote in one case (``§5a-1``) and whose carrier it wrote in another
+#: (``§5A-1``) took the carrier's — the printed — case.
+NO_PARSE_STRUCTURED_SECTION_LABEL_CASED_FROM_CARRIER = (
+    "no_parse_structured_section_label_cased_from_carrier"
+)
+#: Non-blocking provenance: a section INSERT announced inside an admitted
+#: ``Nytt kapittel`` block took the new chapter as the first step of its address.
+NO_PARSE_STRUCTURED_SECTION_TARGET_SCOPED_TO_NEW_CHAPTER = (
+    "no_parse_structured_section_target_scoped_to_new_chapter"
+)
+#: Stamped on every section INSERT the W-101 emission scoped to a new chapter.
+#: The apply seam reads it for the relocation below; a carrier mark, not a
+#: hypothesis.
+NO_NEW_CHAPTER_SECTION_PROVENANCE_TAG = "no_new_chapter_section"
+#: Non-blocking, apply plane. A new chapter's section found its LABEL standing
+#: elsewhere in the law (klimakvoteloven's old § 16 in chapter 4 when the 2023
+#: act announces ``Nytt kapittel 4 A med §§ 16 til 16 d``). Section labels are
+#: law-unique in Norwegian drafting, so the standing node is the provision the
+#: new chapter re-enacts: it is removed and the new text lands at the announced
+#: address — the θ (INSERT, target_occupied) disposition the unscoped insert
+#: used to take in place, at the position the amendment names. Without this
+#: the tree carries two § 16 and every later ``§ 16`` resolves to the stale one.
+NO_REPLAY_NEW_CHAPTER_SECTION_RELOCATED_FROM_OCCUPIED_LABEL = (
+    "no_replay_new_chapter_section_relocated_from_occupied_label"
 )
 #: The (INSERT, target_occupied) refusal, keyed on provenance tag: W-77's tag keeps
 #: W-77's kind byte-for-byte; the W-98 productions share one generic kind and are
@@ -4455,6 +4526,236 @@ def _no_structured_future_title_container_payload(
         label=target.leaf_label() or None,
         children=(IRNode(kind=IRNodeKind.HEADING, text=title),),
     )
+
+
+def _append_no_structured_chapter_target_refusal(
+    adjudications_out: Optional[List[CompileAdjudication]],
+    *,
+    source_id: str,
+    base_id: str,
+    source_doc: str,
+    action: str,
+    raw_target: str,
+    target: LegalAddress,
+    reason: str,
+    raw_text: str,
+) -> None:
+    """The one typed refusal every W-101 chapter conjunct records, ``reason`` naming the conjunct."""
+    _append_no_parse_adjudication(
+        adjudications_out,
+        kind=NO_PARSE_STRUCTURED_CHAPTER_TARGET_REFUSED,
+        message=(
+            "Norway structured chapter target was lowered but refused: "
+            f"{reason.replace('_', ' ')}; nothing was lowered for the chapter."
+        ),
+        source_id=source_id,
+        detail=diagnostic_detail(
+            rule_id=NO_PARSE_STRUCTURED_CHAPTER_TARGET_REFUSED,
+            phase="parse",
+            family="target_resolution_recovery",
+            blocking=True,
+            reason=reason,
+            base_id=base_id,
+            source_doc=source_doc,
+            action=action,
+            raw_target=raw_target,
+            target=str(target),
+            raw_text=raw_text,
+        ),
+    )
+
+
+def _no_structured_kap_form_target(raw_target: str) -> bool:
+    """Whether a structured attribute token ends in Lovdata's ``kap<label>`` chapter step (W-101)."""
+    return raw_target.rstrip("/").rsplit("/", 1)[-1].startswith("kap")
+
+
+#: The words that announce a subdivision INSIDE a chapter rather than the chapter.
+_NO_SUBDIVISION_LEAD_WORDS = frozenset(
+    {
+        "avsnitt",
+        "avsnittet",
+        "avsnitta",
+        "avsnittene",
+        "avsnittsoverskriften",
+        "avsnittsoverskrifta",
+        "deloverskrift",
+        "deloverskrifta",
+        "deloverskriften",
+        "underkapittel",
+        "underkapitlet",
+        "underkapitla",
+    }
+)
+
+
+def _no_lead_announces_subdivision(lead_text: str) -> bool:
+    """Whether the lead speaks of an avsnitt/deloverskrift/underkapittel (W-101).
+
+    ``I kapittel 9 skal avsnitt VIII lyde:`` names chapter 9 and re-enacts a
+    subdivision of it; a chapter-level op minted for it would put the
+    subdivision's title over the chapter's. The walk does not model
+    subdivisions, so the chapter token is refused whole.
+    """
+    return any(token.strip(".,:;()«»").casefold() in _NO_SUBDIVISION_LEAD_WORDS for token in _normalize_space(lead_text).split(" "))
+
+
+#: The words a chapter label follows in an amendment lead (bokmål and nynorsk,
+#: singular, definite and plural; ``kap.`` with its period stripped).
+_NO_CHAPTER_LEAD_KEYWORDS = frozenset({"kapittel", "kapitlet", "kapitlene", "kapitla", "kap"})
+#: One chapter label token: a number or an UPPERCASE roman, optionally carrying
+#: its letter suffix inline (``5A``, ``17d``, ``VIIA``).
+_NO_CHAPTER_LEAD_LABEL_RE = re.compile(r"^(?:[0-9]+|[IVXL]+)[A-Za-zæøå]?$")
+#: A detached single-letter suffix (``5 A``, ``17 d``, ``VII A``).
+_NO_CHAPTER_LEAD_SUFFIX_RE = re.compile(r"^[A-Za-zæøå]$")
+
+
+def _no_lead_names_chapter(lead_text: str, label: str) -> bool:
+    """Whether the lead names chapter ``label`` right after a chapter word (W-101).
+
+    ``Nytt kapittel 5 A skal lyde:``, ``Kapittel 34, 35 og 36 oppheves.`` and
+    ``Overskriften i kapittel III skal lyde:`` name their chapter; ``Lovens del
+    II oppheves`` (attribute ``kapII``) and ``Ny kapitteloverskrift før § 1``
+    (attribute ``kap1``) do not, and those are exactly the attributes whose
+    chapter token does not mean the chapter. After the word, labels are read as
+    a number or an UPPERCASE roman with at most one letter suffix (inline or
+    detached; a roman's detached suffix must itself be uppercase, so ``kapittel
+    I i loven`` reads ``I``, not ``Ii``), listed with commas and ``og``; any
+    other token closes the list. Comparison is on the space-free, case-folded
+    label, which is how the attribute spells it.
+    """
+    wanted = _normalize_no_section_label(label).casefold()
+    if not wanted:
+        return False
+    tokens = _normalize_space(lead_text).split(" ")
+    for index, token in enumerate(tokens):
+        if token.strip(".,:;()").casefold() not in _NO_CHAPTER_LEAD_KEYWORDS:
+            continue
+        found: list[str] = []
+        current = ""
+        suffixed = False
+        cursor = index + 1
+        while cursor < len(tokens):
+            raw = tokens[cursor]
+            bare = raw.strip(".,:;()")
+            if bare.casefold() == "og":
+                if current:
+                    found.append(current)
+                current = ""
+                suffixed = False
+            elif _NO_CHAPTER_LEAD_LABEL_RE.match(bare):
+                if current:
+                    found.append(current)
+                current = bare
+                # An inline suffix is any trailing letter after a digit, or a
+                # trailing letter that is not part of the roman itself.
+                suffixed = bare[-1].isalpha() and (bare[0].isdigit() or bare[-1] not in "IVXL")
+            elif (
+                current
+                and not suffixed
+                and _NO_CHAPTER_LEAD_SUFFIX_RE.match(bare)
+                and (current[-1].isdigit() or bare.isupper())
+            ):
+                current += bare
+                suffixed = True
+            else:
+                break
+            if raw.endswith(",") and current:
+                found.append(current)
+                current = ""
+                suffixed = False
+            cursor += 1
+        if current:
+            found.append(current)
+        if wanted in {item.casefold() for item in found}:
+            return True
+    return False
+
+
+def _no_structured_carrier_cased_label(change_el: etree._Element, label: str) -> Optional[str]:
+    """The carrier's spelling of ``label`` when it differs from the attribute's only by case (W-101).
+
+    Lovdata writes ``§5a-1`` in ``data-add-new-part`` and ``§5A-1`` in the
+    ``futureLegalArticle`` it carries for it; the consolidation carries the
+    carrier's form. Exactly one carrier must match, or nothing is recased.
+    """
+    normalized = _normalize_no_section_label(label)
+    if not normalized:
+        return None
+    carrier_labels = {
+        _normalize_no_section_label(carrier.get("data-name", "") or "")
+        for carrier in _direct_children(change_el, "article")
+        if "futureLegalArticle" in _classes(carrier)
+    }
+    if normalized in carrier_labels:
+        # An exact carrier outranks any case variant.
+        return None
+    cased = sorted(
+        carrier_label
+        for carrier_label in carrier_labels
+        if carrier_label and carrier_label.casefold() == normalized.casefold()
+    )
+    return cased[0] if len(cased) == 1 else None
+
+
+def _no_structured_chapter_heading_payload(
+    change_el: etree._Element,
+    target: LegalAddress,
+    declared_specs: Sequence[tuple[StructuralAction, LegalAddress]],
+    lead_text: str,
+) -> tuple[Optional[IRNode], str]:
+    """A chapter announced by attribute, as a heading-only payload (W-101).
+
+    Returns ``(payload, "")`` or ``(None, reason)``. The payload is the chapter
+    carrying its ``span.futuretitle`` heading and NOTHING else: the sections the
+    block announces keep their own ops (a REPLACE merges the heading over the
+    standing chapter, W-98 (f); an INSERT creates the container the section ops
+    then land in). Refused when the lead does not name the chapter, when no
+    single future title is carried, or when a ``futureLegalArticle`` in the block
+    is claimed by no section spec of the block — that carrier is content this
+    heading-only op would leave unlanded.
+    """
+    label = target.leaf_label() or ""
+    if not _no_lead_names_chapter(lead_text, label):
+        return None, "lead_disagrees"
+    title = _no_structured_future_title(change_el)
+    if not title:
+        return None, "heading_payload_missing"
+    section_keys = {
+        _normalize_no_section_label(spec_target.leaf_label() or "").casefold()
+        for _action, spec_target in declared_specs
+        if spec_target.leaf_kind() == "section"
+    }
+    for carrier in _direct_children(change_el, "article"):
+        if "futureLegalArticle" not in _classes(carrier):
+            continue
+        key = _normalize_no_section_label(carrier.get("data-name", "") or "").casefold()
+        if not key or key not in section_keys:
+            return None, "carriers_unaccounted"
+    return (
+        IRNode(
+            kind=IRNodeKind.CHAPTER,
+            label=label or None,
+            children=(IRNode(kind=IRNodeKind.HEADING, text=title),),
+        ),
+        "",
+    )
+
+
+def _no_order_structured_specs_around_chapters(
+    specs: Sequence[tuple[StructuralAction, LegalAddress]],
+) -> list[tuple[StructuralAction, LegalAddress]]:
+    """A new or re-headed chapter before its sections; a repealed chapter after them (W-101)."""
+    leading = [
+        spec for spec in specs if spec[1].leaf_kind() == "chapter" and _no_action_value(spec[0]) in ("insert", "replace")
+    ]
+    trailing = [
+        spec
+        for spec in specs
+        if spec[1].leaf_kind() == "chapter" and _no_action_value(spec[0]) not in ("insert", "replace")
+    ]
+    rest = [spec for spec in specs if spec[1].leaf_kind() != "chapter"]
+    return [*leading, *rest, *trailing]
 
 
 def _no_structured_single_leaf_carrier_payload(
@@ -9814,7 +10115,12 @@ def iter_no_document_change_ops(
                 group_sequence = sequence
                 for raw_address in refused_addresses:
                     target = lovdata_path_to_address(raw_address)
-                    if target is None:
+                    # W-101: a chapter address now lowers, but a word substitution
+                    # is proved per provision (S5-S7 need the addressed node's own
+                    # text), so a chapter stays "not lowerable" here as before.
+                    if target is None or (
+                        target.leaf_kind() == "chapter" and _no_structured_kap_form_target(raw_address)
+                    ):
                         _append_no_parse_adjudication(
                             adjudications_out,
                             kind=NO_PARSE_SUBSTITUTION_ADDRESS_NOT_LOWERABLE,
@@ -9996,6 +10302,10 @@ def iter_no_document_change_ops(
             specs.extend(_split_change_attr(change_el.get("data-repeal-part", ""), "repeal"))
 
             parsed_specs: list[tuple[StructuralAction, LegalAddress]] = []
+            # W-101: the chapter specs that came from Lovdata's ``kap<label>`` form.
+            # Only those take the W-101 route; a ``KAPITTEL_…`` chapter address
+            # keeps W-82's (a deloverskrift/avsnitt heading at a chapter address).
+            kap_chapter_keys: set[tuple[str, str]] = set()
             skipped_cross_base_specs: list[tuple[str, str]] = []
             for action, raw_target in specs:
                 if action == "renumber":
@@ -10010,6 +10320,64 @@ def iter_no_document_change_ops(
                     continue
                 target = lovdata_path_to_address(raw_target)
                 if target is not None:
+                    if target.leaf_kind() == "section" and target.leaf_label():
+                        cased = _no_structured_carrier_cased_label(change_el, target.leaf_label() or "")
+                        if cased is not None:
+                            # W-101: the carrier's case is the printed one.
+                            attribute_label = target.leaf_label() or ""
+                            target = LegalAddress(path=(*target.path[:-1], ("section", cased)))
+                            _append_no_parse_adjudication(
+                                adjudications_out,
+                                kind=NO_PARSE_STRUCTURED_SECTION_LABEL_CASED_FROM_CARRIER,
+                                message=(
+                                    "Norway structured section address took its carrier's case: the "
+                                    "attribute token and the futureLegalArticle differ only by case."
+                                ),
+                                source_id=source_id,
+                                detail=diagnostic_detail(
+                                    rule_id=NO_PARSE_STRUCTURED_SECTION_LABEL_CASED_FROM_CARRIER,
+                                    phase="parse",
+                                    family="target_resolution_recovery",
+                                    blocking=False,
+                                    quirks_disposition=QuirksDisposition.APPLY,
+                                    base_id=base_id,
+                                    source_doc=source_doc,
+                                    action=action,
+                                    raw_target=raw_target,
+                                    attribute_label=attribute_label,
+                                    carrier_label=cased,
+                                    raw_text=raw_text,
+                                ),
+                            )
+                    if target.leaf_kind() == "chapter" and _no_structured_kap_form_target(raw_target):
+                        # W-101: the attribute's chapter token means the chapter
+                        # only when the prose names it, and names it as a CHAPTER
+                        # (an ``avsnitt``/``deloverskrift`` inside it is what the
+                        # unresolved ``kap12/avsnitt/II`` form addresses, and
+                        # Lovdata also spells that ``kap8-3``). Refused HERE,
+                        # before the recoveries below count the block's specs, so
+                        # a block whose chapter token is spurious lowers its
+                        # sections exactly as it did when the token did not
+                        # resolve at all.
+                        chapter_gate = ""
+                        if _no_lead_announces_subdivision(lead_text):
+                            chapter_gate = "subdivision_announced"
+                        elif not _no_lead_names_chapter(lead_text, target.leaf_label() or ""):
+                            chapter_gate = "lead_disagrees"
+                        if chapter_gate:
+                            _append_no_structured_chapter_target_refusal(
+                                adjudications_out,
+                                source_id=source_id,
+                                base_id=base_id,
+                                source_doc=source_doc,
+                                action=action,
+                                raw_target=raw_target,
+                                target=target,
+                                reason=chapter_gate,
+                                raw_text=raw_text,
+                            )
+                            continue
+                        kap_chapter_keys.add(("chapter", target.leaf_label() or ""))
                     parsed_specs.append((StructuralAction(action), target))
                     continue
                 _append_no_parse_adjudication(
@@ -10030,6 +10398,47 @@ def iter_no_document_change_ops(
                         raw_text=raw_text,
                     ),
                 )
+
+            # W-101: a chapter INSERT/REPLACE needs its heading-only payload proved
+            # against the whole block; a chapter REPEAL needs nothing more than the
+            # lead agreement already checked. Refused specs leave the list here,
+            # before the recoveries below count it.
+            chapter_payloads: dict[tuple[str, str], IRNode] = {}
+            if kap_chapter_keys:
+                admitted_specs: list[tuple[StructuralAction, LegalAddress]] = []
+                for spec_action, spec_target in parsed_specs:
+                    if (
+                        spec_target.leaf_kind() != "chapter"
+                        or ("chapter", spec_target.leaf_label() or "") not in kap_chapter_keys
+                    ):
+                        admitted_specs.append((spec_action, spec_target))
+                        continue
+                    spec_action_value = _no_action_value(spec_action)
+                    if spec_action_value in ("repeal", "text_repeal"):
+                        admitted_specs.append((spec_action, spec_target))
+                        continue
+                    chapter_refusal = "action_unsupported"
+                    chapter_payload: Optional[IRNode] = None
+                    if spec_action_value in ("insert", "replace"):
+                        chapter_payload, chapter_refusal = _no_structured_chapter_heading_payload(
+                            change_el, spec_target, parsed_specs, lead_text
+                        )
+                    if chapter_payload is None:
+                        _append_no_structured_chapter_target_refusal(
+                            adjudications_out,
+                            source_id=source_id,
+                            base_id=base_id,
+                            source_doc=source_doc,
+                            action=spec_action_value,
+                            raw_target="",
+                            target=spec_target,
+                            reason=chapter_refusal or "heading_payload_missing",
+                            raw_text=raw_text,
+                        )
+                        continue
+                    chapter_payloads[("chapter", spec_target.leaf_label() or "")] = chapter_payload
+                    admitted_specs.append((spec_action, spec_target))
+                parsed_specs = admitted_specs
 
             if skipped_cross_base_specs and parsed_specs:
                 non_skipped_actions = {_no_action_value(action) for action, _target in parsed_specs}
@@ -10160,6 +10569,7 @@ def iter_no_document_change_ops(
                 change_el,
                 [target for _action, target in parsed_specs],
             )
+            payload_candidates.update(chapter_payloads)
 
             emitted_renumber_destinations: list[LegalAddress] = []
             for raw_target, raw_destination in renumber_specs:
@@ -10217,6 +10627,22 @@ def iter_no_document_change_ops(
                             destination_resolved=destination is not None,
                             raw_text=raw_text,
                         ),
+                    )
+                    continue
+                if target.leaf_kind() == "chapter" or destination.leaf_kind() == "chapter":
+                    # W-101: a chapter relabel (``Nåværende kapittel 6 blir kapittel
+                    # 4``; 3 blocks, one of them twelve legs) is not lowered — the
+                    # relabel machinery is measured on ledd and sections only.
+                    _append_no_structured_chapter_target_refusal(
+                        adjudications_out,
+                        source_id=source_id,
+                        base_id=base_id,
+                        source_doc=source_doc,
+                        action="renumber",
+                        raw_target=f"{raw_target};;{raw_destination}",
+                        target=target,
+                        reason="renumber_unsupported",
+                        raw_text=raw_text,
                     )
                     continue
                 doc_ops.append(
@@ -10338,7 +10764,92 @@ def iter_no_document_change_ops(
                         )
                         sequence += 1
 
+            # W-101: a new or re-headed chapter stands before the sections announced
+            # with it, a repealed chapter after the sections the block repeals; the
+            # order among everything else is untouched.
+            parsed_specs = _no_order_structured_specs_around_chapters(parsed_specs)
+            new_chapter_label: Optional[str] = None
             for action, target in parsed_specs:
+                section_scope_tags: tuple[str, ...] = ()
+                if target.leaf_kind() == "chapter" and ("chapter", target.leaf_label() or "") in kap_chapter_keys:
+                    chapter_label = target.leaf_label() or ""
+                    chapter_action = _no_action_value(action)
+                    chapter_op_payload = payload_candidates.get(("chapter", chapter_label))
+                    if chapter_action in ("insert", "replace") and chapter_op_payload is None:
+                        _append_no_structured_chapter_target_refusal(
+                            adjudications_out,
+                            source_id=source_id,
+                            base_id=base_id,
+                            source_doc=source_doc,
+                            action=chapter_action,
+                            raw_target="",
+                            target=target,
+                            reason="heading_payload_missing",
+                            raw_text=raw_text,
+                        )
+                        continue
+                    if chapter_action not in ("insert", "replace"):
+                        chapter_op_payload = None
+                    chapter_tags: tuple[str, ...] = (f"base_act:{base_id}",)
+                    if chapter_action == "insert":
+                        # The tag makes an occupied chapter label REFUSE at apply
+                        # (W-98's ``_NO_INSERT_OCCUPIED_REFUSING_TAGS``) instead of
+                        # replacing the standing chapter.
+                        chapter_tags = (*chapter_tags, NO_CHAPTER_REENACTMENT_PROVENANCE_TAG)
+                        new_chapter_label = chapter_label
+                    doc_ops.append(
+                        LegalOperation(
+                            op_id=f"{source_id}:{sequence}",
+                            sequence=sequence,
+                            action=action,
+                            target=target,
+                            payload=chapter_op_payload,
+                            source=OperationSource(
+                                statute_id=source_id,
+                                raw_text=raw_text,
+                                title=source_doc,
+                            ),
+                            provenance_tags=chapter_tags,
+                            group_id=f"{source_id}:{source_doc}:{sequence}",
+                        )
+                    )
+                    sequence += 1
+                    continue
+                if (
+                    new_chapter_label is not None
+                    and _no_action_value(action) == "insert"
+                    and target.leaf_kind() == "section"
+                    and target.path[0][0] != "chapter"
+                ):
+                    # W-101: the section is announced INSIDE the new chapter, so
+                    # its address starts there and the apply seam places it under
+                    # the chapter op that precedes it, not by label family.
+                    unscoped_target = target
+                    target = LegalAddress(path=(("chapter", new_chapter_label), *target.path))
+                    section_scope_tags = (NO_NEW_CHAPTER_SECTION_PROVENANCE_TAG,)
+                    _append_no_parse_adjudication(
+                        adjudications_out,
+                        kind=NO_PARSE_STRUCTURED_SECTION_TARGET_SCOPED_TO_NEW_CHAPTER,
+                        message=(
+                            "Norway structured section insert announced inside a new chapter "
+                            "took that chapter as the first step of its address."
+                        ),
+                        source_id=source_id,
+                        detail=diagnostic_detail(
+                            rule_id=NO_PARSE_STRUCTURED_SECTION_TARGET_SCOPED_TO_NEW_CHAPTER,
+                            phase="parse",
+                            family="target_resolution_recovery",
+                            blocking=False,
+                            quirks_disposition=QuirksDisposition.APPLY,
+                            base_id=base_id,
+                            source_doc=source_doc,
+                            action=_no_action_value(action),
+                            target=str(target),
+                            unscoped_target=str(unscoped_target),
+                            chapter=new_chapter_label,
+                            raw_text=raw_text,
+                        ),
+                    )
                 payload = payload_candidates.get((target.leaf_kind(), target.leaf_label()))
                 if payload is None:
                     payload = _heading_only_section_payload(change_el, action, target)
@@ -10433,7 +10944,7 @@ def iter_no_document_change_ops(
                             raw_text=raw_text,
                             title=source_doc,
                         ),
-                        provenance_tags=(f"base_act:{base_id}",),
+                        provenance_tags=(f"base_act:{base_id}", *section_scope_tags),
                         group_id=f"{source_id}:{source_doc}:{sequence}",
                     )
                 )
@@ -12636,6 +13147,35 @@ def _apply_no_ops_fold(
                     inferred = _find_insert_parent(parent_node, str(payload.kind))
                     if inferred is not None:
                         parent_path = parent_path + inferred
+                if (
+                    NO_NEW_CHAPTER_SECTION_PROVENANCE_TAG in (op.provenance_tags or ())
+                    and _no_kind_value(payload.kind) == "section"
+                    and payload.label
+                    and parent_path
+                ):
+                    # W-101. Gated on the production's own tag, so nothing that is
+                    # not a new chapter's section reaches it.
+                    standing_path = tree_ops.find(body, "section", payload.label)
+                    if standing_path is not None and tuple(standing_path[: len(parent_path)]) != tuple(parent_path):
+                        _record_structural_recovery(
+                            kind=NO_REPLAY_NEW_CHAPTER_SECTION_RELOCATED_FROM_OCCUPIED_LABEL,
+                            message=(
+                                "Norway replay found a new chapter's section label standing outside "
+                                "the chapter; the standing provision is replaced by the new text at "
+                                "the announced address."
+                            ),
+                            op=op,
+                            detail={
+                                "rule_id": NO_REPLAY_NEW_CHAPTER_SECTION_RELOCATED_FROM_OCCUPIED_LABEL,
+                                "family": "target_resolution_recovery",
+                                "target": str(op.target),
+                                "occupant_path": _no_path_label(tuple(standing_path)),
+                                "parent_path": _no_path_label(parent_path),
+                                **_no_replay_payload_detail(payload),
+                            },
+                        )
+                        body = tree_ops.remove_at(body, tuple(standing_path))
+                        _record_landed_path(tuple(standing_path))
                 direct_existing_path = _find_direct_child_path(
                     body,
                     parent_path,

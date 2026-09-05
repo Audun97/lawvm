@@ -1508,7 +1508,11 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # and the membership digest below move for a different, single-row reason.
     # 265 -> 267 at W-100: two laws take their first destructive writes from
     # acts the section-scoped lane dated.
-    "bases_with_destructive_writes": 267,
+    # 267 -> 268 at W-101: folkehøgskoleloven ``no/lov/2025-06-20-99`` takes
+    # its first (and only) write, the ``kap4`` chapter-heading REPLACE of
+    # ``no/lovtid/2026-06-19-59`` that lowers now — a heading merge, nothing
+    # removed. The base-law population is 789 -> 790 for the same reason.
+    "bases_with_destructive_writes": 268,
     # 162 -> 164 at W-66c: the two laws named in the ``incomplete_bases`` note
     # above ENTER the intersection. Both already took destructive writes (6 and
     # 12 of them), so they arrive with a full row rather than a zero one; nothing
@@ -1786,7 +1790,13 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # 3,953 -> 4,036 at W-100: the surviving 156 take 83 more writes, all from
     # bindings the section-scoped lane dated; the dated acts' writes on the
     # bases that LEFT are no longer hazard writes at all.
-    "hazard_destructive_writes": 4036,
+    # 4,036 -> 4,039 at W-101: three known-incomplete bases take ONE write each,
+    # every one a structured chapter-heading REPLACE (Lovdata's ``kap…`` token
+    # lowering for the first time) that merges its heading over the standing
+    # chapter — ``no/lov/2001-05-18-21`` [63, 4] -> [64, 4],
+    # ``no/lov/2018-04-20-8`` [16 -> 17], ``no/lov/2023-06-09-30`` [19 -> 20].
+    # The content-removing column is flat (238 over 76 laws): nothing repeals.
+    "hazard_destructive_writes": 4039,
     # 167 -> 168, and the +1 is NOT a relabel op. ``no/lov/2016-05-27-14`` gains
     # ``no/lovtid/2021-12-22-158:1``, a REPEAL of § 7-6 annet ledd that could not
     # bind before because that law's ledd sequence was one slot out of step; with
@@ -1896,9 +1906,12 @@ _NO_INCOMPLETE_BASE_HAZARD_LAWS_DIGEST = (
     # the period-less citation and address-after-citation leads binding to the
     # act they name, each a REPLACE/INSERT the source commands by name (see the
     # count note above); every removing column is byte-identical.
-    "4fbec9afae67ef58835be384617403aca430830d26de0cf41ebcf65b148dcbf6"
     # W-100: MEMBERSHIP moves (165 -> 156, twelve leave, two enter) and rows
     # move on the bases the section-scoped lane dated; see the count notes.
+    # W-101: MEMBERSHIP UNCHANGED (156 laws, same set). THREE rows move, each
+    # +1 in the destructive column only (the chapter-heading REPLACEs named in
+    # the count note above); every removing column is byte-identical.
+    "8ad2557c6523a12bdf467295962f731d71796395f33304cfe78f843057f27d72"
 )
 
 _REGENERATE = (
@@ -2032,7 +2045,12 @@ def test_no_occupied_destination_sweep_baseline_is_not_stale(
     # 2000 nr. 118 om havbeite § 3 andre ledd skal lyde:", an address-after-citation
     # lead that used to bind to the 1933 act before it. No original-act source, so
     # it joins the errored class on arrival (442 -> 443 below).
-    assert len(swept) == baseline["swept"]["base_laws"] == 789
+    # 789 -> 790 at W-101: folkehøgskoleloven ``no/lov/2025-06-20-99`` enters
+    # on its first lowered op ever — ``no/lovtid/2026-06-19-59``'s ``kap4``
+    # chapter-heading block, Lovdata's structured chapter token lowering for
+    # the first time. It has an original-act source and replays (the errored
+    # class stays at 443), and it enters the verify scan candidate set too.
+    assert len(swept) == baseline["swept"]["base_laws"] == 790
     assert sorted(set(swept)) == swept
     assert set(_NO_OCCUPIED_DESTINATION_LAWS) <= set(swept)
     # 440 laws error before a single op is applied — F-09's sparse-source class,

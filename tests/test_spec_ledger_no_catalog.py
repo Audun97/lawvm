@@ -85,6 +85,12 @@ _NON_RULE_LITERALS = frozenset(
         #                                         (grafter.py NO_ITEM_PAYLOAD_SINGLE_TEXT_
         #                                         ARTICLE_PROVENANCE_TAG). Census
         #                                         visibility only.
+        "no_new_chapter_section",  # W-101 PROVENANCE TAG on the section INSERTs a
+        #                            "Nytt kapittel" block scopes to its new chapter
+        #                            (grafter.py NO_NEW_CHAPTER_SECTION_PROVENANCE_TAG).
+        #                            A carrier mark; the rule it gates
+        #                            (no_replay_new_chapter_section_relocated_from_
+        #                            occupied_label) IS cataloged.
         "no_stored_consolidation",  # W-45 census key under build_no_verify_partition's
         #                             ``unverifiable`` sibling (verify.py). A report
         #                             dict key naming a corpus population, not a

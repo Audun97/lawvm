@@ -2691,8 +2691,14 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # 74 -> 81 and 29/45 -> 30/51 at W-100 (2026-09-05): seven candidates
     # enter on newly dated bindings and none leaves; see the membership note
     # on ``expected`` below for each entrant and its bucket.
-    assert report["scanned_count"] == 81
-    assert report["summary"] == {"consistent": 30, "divergent": 51, "error": 0}
+    # 81 -> 82 and 30/51 -> 30/52 at W-101 (2026-09-06): folkehøgskoleloven
+    # ``no/lov/2025-06-20-99`` enters on its first binding — the ``kap4``
+    # chapter-heading block of ``no/lovtid/2026-06-19-59`` lowers now — and its
+    # two § 24 rows are untouched drift (the op is on chapter 4, the rows are in
+    # chapter 5). Nothing leaves; see the membership note below for the three
+    # laws whose BUCKET moves with zero row movement.
+    assert report["scanned_count"] == 82
+    assert report["summary"] == {"consistent": 30, "divergent": 52, "error": 0}
     # W-67 + W-74 (2026-08-11). The first landing in this series that moves the
     # scoreboard by CLOSING rows rather than by admitting laws: the candidate set
     # is unmoved at 76 element for element, the summary is unmoved at 29/47/0, and
@@ -2898,7 +2904,11 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # 1,454/1,011/443 -> 1,476/1,011/465 at W-100: the seven entrants bring 22
     # rows, all unexplained, and the ceiling is untouched — no row that was here
     # before moves.
-    assert report["divergence_totals"] == {"total": 1476, "ceiling": 1011, "unexplained": 465}
+    # 1,476/1,011/465 -> 1,478/1,011/467 at W-101: the entrant's two rows, both
+    # unexplained; klimakvoteloven's one new row (a second § 16 under chapter 4
+    # while the 2023 act's chapter 4 A re-enacts § 16) appeared and closed
+    # inside the item, through the new-chapter relocation. No other row moves.
+    assert report["divergence_totals"] == {"total": 1478, "ceiling": 1011, "unexplained": 467}
     # 3 -> 2 at W-34: no/lov/2001-01-05-1 gains 4 bound ops from
     # no/lovtid/2015-06-19-65 item 178, so its indexed history is no longer
     # sparse. Its 83 divergences do not move; only the bucket does.
@@ -2919,6 +2929,15 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     #     now, so both return.
     # source_sparse and annex_ceiling are unmoved; no candidate row that was
     # here before moves bucket.
+    # W-101 (2026-09-06): 81 -> 82, ``no/lov/2025-06-20-99`` ENTERS as
+    # untouched_drift (above). Three laws move replay_defect -> untouched_drift
+    # with ZERO row movement — ``2009-06-19-103``, ``2014-08-15-59``,
+    # ``2017-06-16-65`` — because ``no_paths_related`` no longer relates a
+    # container-only op path (a chapter heading replace, a new chapter) to every
+    # row of the law: stripped of its containers such a path was EMPTY, and an
+    # empty path is a prefix of everything. It now relates to the rows under
+    # that chapter alone, which for these three is none of their rows. This is
+    # the classifier over-reach W-98 recorded as a follow-up.
     expected = {
         "replay_defect": [
             "no/lov/2001-06-15-65",
@@ -2927,17 +2946,14 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             "no/lov/2003-12-19-130",
             "no/lov/2004-05-28-29",
             "no/lov/2004-12-17-101",
-            "no/lov/2009-06-19-103",
             "no/lov/2010-06-25-28",
             "no/lov/2012-01-27-9",
             "no/lov/2012-11-30-70",
-            "no/lov/2014-08-15-59",
             "no/lov/2015-02-13-9",
             "no/lov/2015-05-22-33",
             "no/lov/2015-06-19-70",
             "no/lov/2016-06-17-29",
             "no/lov/2016-06-17-46",
-            "no/lov/2017-06-16-65",
             "no/lov/2018-03-23-3",
             "no/lov/2019-06-14-21",
             "no/lov/2019-06-21-63",
@@ -2952,13 +2968,16 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             "no/lov/2007-06-29-89",
             "no/lov/2009-03-06-12",
             "no/lov/2009-05-15-28",
+            "no/lov/2009-06-19-103",
             "no/lov/2010-06-04-21",
             "no/lov/2011-06-24-39",
             "no/lov/2013-06-21-75",
+            "no/lov/2014-08-15-59",
             "no/lov/2015-05-12-27",
             "no/lov/2017-05-22-28",
             "no/lov/2017-05-22-29",
             "no/lov/2017-05-22-30",
+            "no/lov/2017-06-16-65",
             "no/lov/2017-06-16-67",
             "no/lov/2018-04-20-7",
             "no/lov/2020-12-04-136",
@@ -2969,6 +2988,7 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             "no/lov/2022-12-20-97",
             "no/lov/2023-11-24-85",
             "no/lov/2024-12-13-76",
+            "no/lov/2025-06-20-99",
         ],
         "source_sparse": [
             "no/lov/2013-04-12-13",
@@ -3026,8 +3046,8 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # 75 -> 74 at W-98: one candidate downgrades the same way and none enters.
     # 74 -> 81 at W-100: seven enter on newly dated bindings, none leaves (see
     # the membership note above).
-    assert len(routed) == 81
-    assert len(set(routed)) == 81
+    assert len(routed) == 82
+    assert len(set(routed)) == 82
 
     # Every member of the ceiling bucket is ceiling-DOMINATED, and the margin
     # to the routing boundary is enormous in both directions: the smallest
@@ -3245,3 +3265,20 @@ def test_verify_no_against_current_ignores_sentence_only_segmentation_drift(tmp_
     assert result.error is None
     assert result.consistent is True
     assert result.divergence_count == 0
+
+
+def test_no_paths_related_container_only_path_relates_to_its_own_rows_only() -> None:
+    """W-101: an op on ``chapter:5A`` touches rows under chapter 5A, not the whole law."""
+    chapter = (("chapter", "5A"),)
+    assert no_paths_related(chapter, (("chapter", "5A"), ("section", "5A-1"), ("subsection", "1")))
+    assert no_paths_related((("chapter", "5A"), ("section", "5A-1"), ("subsection", "1")), chapter)
+    assert not no_paths_related(chapter, (("chapter", "7"), ("section", "30"), ("subsection", "1")))
+    assert not no_paths_related(chapter, (("chapter", "5"), ("section", "5-1"), ("subsection", "1")))
+    assert no_paths_related(chapter, chapter)
+    assert not no_paths_related(chapter, (("chapter", "5"),))
+    # The general rule is untouched: containers are still ignored between two
+    # non-container paths.
+    assert no_paths_related(
+        (("chapter", "5"), ("section", "5A-1"), ("subsection", "1")),
+        (("chapter", "5A"), ("section", "5A-1"), ("subsection", "1")),
+    )
