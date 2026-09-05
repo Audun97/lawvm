@@ -7448,7 +7448,9 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    would date the 2020 act's part VI); a later section-scoped sibling
    currently REFUTES an earlier whole-act grant instead of refining it
    (the W-51 ordering); the `Nytt kapittel 5 A` insert; the eleven
-   uncatalogued W-98 ids.
+   uncatalogued W-98 ids (CLOSED 2026-09-05 in `66e50211`: seven
+   believed_spec entries, the four provenance tags excluded as carrier
+   marks with the W-66/W-77 rationale, the catalog test 6/6 green again).
 
 ## 5. Demo / Inspection Tooling
 
@@ -7467,6 +7469,14 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
 
+- **2026-09-05 (W-100 follow-up — the eleven W-98 grafter ids catalogued;
+  `66e50211`)** — `test_spec_ledger_no_catalog.py` had been red since
+  `1c405afe`. Seven believed_spec hypotheses join `_NO_RULE_SPECS` (the
+  five W-98 parse refusals and the two apply-plane re-enactment
+  refusals); the four W-98 provenance tags join the test's documented
+  non-rule literals as carrier marks, the rules they gate being the
+  ones catalogued. No product code touched; the shard is 6/6 and the
+  adapter shard unchanged.
 - **2026-09-05 (W-100 — the section-scoped commencement lane; seven
   contingent acts in kringkastingsloven's chain dated below binding level;
   product `964c2186`)** — a new reader (`commencement_scope.py`) turns an
