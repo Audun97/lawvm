@@ -2,7 +2,7 @@
  "_doc": "Corpus-wide (RENUMBER, dest_occupied) firing sweep + the known-incomplete-base destructive-write census, over EVERY Norway base law. Cached because the sweep is ~10 CPU-minutes and the norway shard is not. `corpus` and `code` are the staleness receipt: tests/test_no_renumber_migration.py recomputes both and FAILS when either moved, rather than passing on a stale measurement. Regenerate with `uv run python scripts/inventory_no_occupied_destination_sweep.py --update-baseline`. NOTE: this file is a RECEIPT of what the corpus does, never a statement of what it should do -- a new firing row here is an unadjudicated firing, and it must be adjudicated W-54 style before the verdict table in the test is extended.",
  "as_of": "2026-07-10",
  "code": {
-  "digest": "35399365518641cdbb0a09f3919f4eeb9136f8ebdb278762f0e5bb5e1b3bb793",
+  "digest": "21ed4c9e43fe147527089e8f211803bd2c7d21094bee723643aa2dfbd93dc31c",
   "files": [
    {
     "digest": "e3c727b378ae497fa2fc65a174f837dff2a8417dd458378ac22af35d4bf339fb",
@@ -269,7 +269,7 @@
     "module": "lawvm.norway.commencement_instruments"
    },
    {
-    "digest": "2ae0437aa9a05bcb6c7a9f788575b6ab05083a78fcc0e8ce0ef486a88b037351",
+    "digest": "e8495ea92c357ac5249d2f748ab353945c4e0068136aa44f05c671a479ad5918",
     "module": "lawvm.norway.grafter"
    },
    {
@@ -446,7 +446,7 @@
    "unknown_effective": 1
   },
   "hazard_content_removing_writes": 219,
-  "hazard_destructive_writes": 3942,
+  "hazard_destructive_writes": 3953,
   "incomplete_bases": 202,
   "laws": {
    "no/lov/2001-04-20-13": [
@@ -458,7 +458,7 @@
     3
    ],
    "no/lov/2001-05-18-24": [
-    30,
+    31,
     1
    ],
    "no/lov/2001-06-15-53": [
@@ -546,11 +546,11 @@
     0
    ],
    "no/lov/2003-06-06-38": [
-    31,
+    32,
     0
    ],
    "no/lov/2003-06-06-39": [
-    30,
+    32,
     0
    ],
    "no/lov/2003-06-20-41": [
@@ -630,7 +630,7 @@
     0
    ],
    "no/lov/2005-04-01-14": [
-    2,
+    3,
     0
    ],
    "no/lov/2005-04-01-15": [
@@ -694,7 +694,7 @@
     0
    ],
    "no/lov/2005-06-17-90": [
-    52,
+    53,
     0
    ],
    "no/lov/2005-12-21-123": [
@@ -706,7 +706,7 @@
     0
    ],
    "no/lov/2006-05-19-16": [
-    11,
+    12,
     0
    ],
    "no/lov/2006-06-16-20": [
@@ -714,7 +714,7 @@
     3
    ],
    "no/lov/2007-02-16-9": [
-    14,
+    15,
     0
    ],
    "no/lov/2007-06-15-40": [
@@ -734,7 +734,7 @@
     2
    ],
    "no/lov/2007-06-29-75": [
-    84,
+    85,
     4
    ],
    "no/lov/2007-06-29-81": [
@@ -958,7 +958,7 @@
     0
    ],
    "no/lov/2016-05-27-14": [
-    142,
+    144,
     7
    ],
    "no/lov/2016-06-17-30": [
@@ -1110,7 +1110,7 @@
     0
    ]
   },
-  "laws_digest": "60b5e159ed3a35b32707b5fbed1b1e9324ca90255f44a1da6888675b2e401b9b"
+  "laws_digest": "4c5801331168b43e5fd316f5a2b831054f34ae5590e4e491ff94cc0ca3853c64"
  },
  "rule_id": "no_replay_renumber_occupied_destination_removed",
  "runtime": {
@@ -1567,6 +1567,7 @@
    "no/lov/2000-11-24-84",
    "no/lov/2000-12-21-105",
    "no/lov/2000-12-21-113",
+   "no/lov/2000-12-21-118",
    "no/lov/2001-01-05-1",
    "no/lov/2001-04-20-13",
    "no/lov/2001-04-27-14",
@@ -1914,8 +1915,8 @@
    "no/lov/2025-12-22-116",
    "no/lov/2026-02-06-2"
   ],
-  "base_laws": 788,
-  "errored_before_any_op": 442,
+  "base_laws": 789,
+  "errored_before_any_op": 443,
   "errored_with_ops_applied": [
    "no/lov/2003-07-04-74",
    "no/lov/2005-06-17-62",

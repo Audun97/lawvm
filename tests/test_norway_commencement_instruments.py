@@ -2800,7 +2800,15 @@ def test_w51_corpus_zero_early_over_every_whole_act_grant() -> None:
     # ops, and with no index entry it no longer reaches this lane. The OFFERING
     # shrank by one instrument; the gate did not move, and the P1 assertion
     # below still reads EMPTY over the smaller grant set.
-    assert len(grants) == 541
+    # 541 -> 545 at W-98 and 545 -> 546 at W-99 — recorded together because this
+    # shard was not run at W-98 and the pin sat stale for it: W-98's pre-2001
+    # lead grammar gave four acts their first index entry, each dated by its own
+    # kongelig resolusjon through this route (``no/lovtid/2010-06-25-50``,
+    # ``2016-01-22-1``, ``2016-12-16-99``, ``2022-12-16-93``; the index shard's
+    # own notes carry the same four), and W-99's address-after-citation lead
+    # gives ``no/lovtid/2017-06-16-51`` its first entry, dated 2018-01-01 by its
+    # own ``no/forskrift/2017-06-16-751``. Every one is ``plain``.
+    assert len(grants) == 546
     early = [
         (d["source_id"], d["effective_date"], sibling_id, sibling_date)
         for d in grants
@@ -2876,9 +2884,21 @@ def test_w51_corpus_totals_and_the_untouched_part_routes() -> None:
     # loses its only op to the structured payload lane's own-text invariant and
     # with it its index entry. 438/33/4/33 all hold — the shrinkage reaches this
     # lane only by shrinking what is offered to it, exactly as the growths did.
+    # 541 -> 545 at W-98 and 545 -> 546 at W-99 — recorded together because this
+    # shard was not run at W-98 and the pin sat stale for it: W-98's pre-2001
+    # lead grammar gave four acts their first index entry, each dated by its own
+    # kongelig resolusjon through this route (``no/lovtid/2010-06-25-50``,
+    # ``2016-01-22-1``, ``2016-12-16-99``, ``2022-12-16-93``; the index shard's
+    # own notes carry the same four), and W-99's address-after-citation lead
+    # gives ``no/lovtid/2017-06-16-51`` its first entry, dated 2018-01-01 by its
+    # own ``no/forskrift/2017-06-16-751``. Every one is ``plain``.
+    # 438 -> 440 at W-98, recorded at W-99 for the same reason as the whole-act
+    # pin above: two of W-98's entrants (``no/lovtid/2002-08-30-68``,
+    # ``2016-09-16-81``) are dated through the widened route. W-99 itself
+    # moves nothing here.
     assert counts == {
-        NO_COMMENCEMENT_EXECUTION_AUTHORIZED: 541,
-        NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED: 438,
+        NO_COMMENCEMENT_EXECUTION_AUTHORIZED: 546,
+        NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED: 440,
         NO_COMMENCEMENT_PART_EXECUTION_AUTHORIZED: 33,
         NO_COMMENCEMENT_MULTI_PART_EXECUTION_AUTHORIZED: 4,
         NO_COMMENCEMENT_NAMED_PART_LIST_EXECUTION_AUTHORIZED: 33,
@@ -2939,7 +2959,14 @@ def test_w51_corpus_totals_and_the_untouched_part_routes() -> None:
     # act wholesale, so ``no/forskrift/2012-12-07-1149`` — the resolution that
     # would have commenced it — again has nothing to be refused against (its
     # ``scope_unresolved`` receipt remains). One pair withdrawn, none gained.
-    assert len(refused_pairs) == 879
+    # 879 -> 882 at W-99, the SAME mechanism forward: three acts had no index
+    # entry at all until the address-after-citation lead gave each its first
+    # lowered op (``no/lovtid/2002-05-03-13``, ``2004-03-26-17``,
+    # ``2005-12-21-123`` — all contingent), so their own resolutions
+    # (``no/forskrift/2002-05-03-420``, ``2004-03-26-575``, ``2005-12-21-1610``)
+    # now have something to be refused AGAINST. Three pairs gained, none
+    # withdrawn; the disjointness assertion above still holds.
+    assert len(refused_pairs) == 882
 
     # The inert part-grant population, 31 -> 4 at W-53 with the absorption.
     inert = [
@@ -3587,7 +3614,11 @@ def test_w53_corpus_zero_early_over_every_widened_grant() -> None:
     # Gained by CONTENT, 0 lost.
     # The zero-early property below is what actually matters here, and it holds
     # over the grown set.
-    assert len(grants) == 438
+    # 438 -> 440 at W-98, recorded at W-99 for the same reason as the whole-act
+    # pin above: two of W-98's entrants (``no/lovtid/2002-08-30-68``,
+    # ``2016-09-16-81``) are dated through the widened route. W-99 itself
+    # moves nothing here.
+    assert len(grants) == 440
     early = [
         (d["source_id"], d["effective_date"], sibling_id, sibling_date)
         for d in grants
@@ -3896,7 +3927,15 @@ def test_w73_corpus_title_cited_route_dates_exactly_five_acts() -> None:
     # 542 -> 541 at W-79: ``no/lovtid/2025-03-28-4`` loses its only op (and with
     # it its index entry) to the structured payload lane's own-text invariant.
     # The offering shrank; the route still did not move.
-    assert len(shipped) == 541
+    # 541 -> 545 at W-98 and 545 -> 546 at W-99 — recorded together because this
+    # shard was not run at W-98 and the pin sat stale for it: W-98's pre-2001
+    # lead grammar gave four acts their first index entry, each dated by its own
+    # kongelig resolusjon through this route (``no/lovtid/2010-06-25-50``,
+    # ``2016-01-22-1``, ``2016-12-16-99``, ``2022-12-16-93``; the index shard's
+    # own notes carry the same four), and W-99's address-after-citation lead
+    # gives ``no/lovtid/2017-06-16-51`` its first entry, dated 2018-01-01 by its
+    # own ``no/forskrift/2017-06-16-751``. Every one is ``plain``.
+    assert len(shipped) == 546
 
     # The reader's own corpus population, over the candidates rather than the
     # grants: 15 instruments carry the title-cited proof, and the five above are

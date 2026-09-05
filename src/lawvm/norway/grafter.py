@@ -215,7 +215,19 @@ _NO_LEAD_ITEM_ORDINAL_PREFIX = r"^" + _NO_LEAD_ITEM_ORDINAL + r"\s*"
 # ``nr`` grammar lives.
 # Split from ``_NO_LAW_CITATION_DATE`` so the numberless spellings below can
 # compose the date without the separator the ``nr`` token needs in front of it.
-_NO_LAW_CITATION_BARE_DATE = r"(\d{1,2})\.\s+([A-Za-zæøåÆØÅ]+)\s+(\d{4})"
+# W-99: the day's period is OPTIONAL. Norsk Lovtidend's pre-2001 house style
+# cites without it — "59. I lov 4 desember 1992 nr 127 om kringkasting skal
+# § 6-1 første ledd annet punktum lyde:" (1997 nr. 44, the print-era witness) —
+# and the shipped requirement dropped that lead SILENTLY: no op, and no refusal
+# either, because ``_no_unstructured_lead_looks_operative`` capped the span
+# between ``skal`` and ``lyde`` at five tokens (fixed there, same item).
+# Corpus-measured 2026-09-05 over every text node of all 3,089 unstructured
+# artifacts: 40 period-less numbered spans across 12 acts, every one a genuine
+# citation (`2003-06-20-45` alone carries 27, an old-law list written "Lov 14
+# juni 1912 nr. 1"), 0 false positives — the month must still be a month name
+# and a four-digit year plus ``nr N`` must still follow, so prose cannot reach
+# it. Which of the 40 change an op is the after-diff recorded in the ledger.
+_NO_LAW_CITATION_BARE_DATE = r"(\d{1,2})\.?\s+([A-Za-zæøåÆØÅ]+)\s+(\d{4})"
 _NO_LAW_CITATION_DATE = _NO_LAW_CITATION_BARE_DATE + r"\s+"
 _NO_LAW_CITATION_PATTERN = (
     r"(?:^|\b)(?:Midlertidig\s+)?lov\s+" + _NO_LAW_CITATION_DATE + _NO_LAW_CITATION_NUMBER
@@ -376,6 +388,35 @@ _NO_SECTION_INTRO_MARKER_RE = compile_classifier_regex(
 # lyde"). The capture begins at ``§`` so the rebuilt embedded lead stays a ``§ …``
 # form the section/subsection lowering families consume.
 _NO_EMBEDDED_LEAD_TAIL = r"\s+.+?\s+skal\s+(?:\S+\s+)*?(§.+)$"
+# W-99: the ADDRESS-AFTER-CITATION spelling. The section address follows the
+# cited act's title and the verb CLOSES the lead: "47. Lov 4. desember 1992
+# nr. 127 om kringkasting § 8-2 fjerde ledd annet punktum skal lyde:" (1998
+# nr. 56, print-era witness); "12. I lov 8. juni 1984 nr. 59 om
+# fordringshavernes dekningsrett (dekningsloven) § 9-4 annet ledd skal lyde:"
+# (`2005-06-17-67`). The capture starts at the first ``§`` after the citation
+# and runs to the end, so the rebuilt embedded lead is already in the
+# ``§ … skal lyde:`` form the section families consume, INCLUDING a payload
+# Lovdata ran on after the colon ("5. Lov 13. juni 1997 nr. 42 om Kystvakten
+# § 9 første ledd bokstav b skal lyde: lov om matproduksjon …",
+# `2003-12-19-124`) — without that the run-on lead is no switch, and its
+# address binds to the PREVIOUS item's act (measured: 3 such mis-bindings,
+# `2002-05-03-13` ekteskapsloven § 12, `2004-03-26-17` banksikringsloven § 4-6,
+# and the Kystvakten item). Tempered so neither the title span nor the address
+# span can cross a ``§`` or a colon: a title never carries either, and the
+# colon is what keeps the W-36 run-on PART ANNOUNCEMENT out ("I lov … gjøres
+# følgende endringer: § 4-1 andre ledd skal lyde: …" has its colon before the
+# ``§`` and stays the announcement resolver's). The address span additionally
+# cannot cross a sentence end (``. `` followed by a capital; ``nr. 3`` is
+# followed by a digit and passes): "120. I lov 25. juni 1999 nr. 46 om
+# finansavtaler … blir § 1 andre ledd bokstav g oppheva. Bokstav f skal lyde:
+# …" (`2003-06-20-45`) is a nynorsk repeal-then-replace item, not this
+# production, and reading it here swung the five ops after it onto
+# finansavtaleloven. What keeps this DISJOINT from ``_NO_EMBEDDED_LEAD_TAIL``:
+# that tail needs ``skal`` before the ``§``, this one needs ``skal lyde:``
+# after it, so no lead can match both.
+_NO_EMBEDDED_ADDRESS_FIRST_TAIL = (
+    r"\s+(?:(?!§)[^:]){0,200}?(§(?:(?!§)(?!\.\s[A-ZÆØÅ])[^:]){0,160}?\bskal\s+lyde\s*:(?:\s.*)?)$"
+)
 _NO_EMBEDDED_MULTI_ACT_PATTERNS = (
     r"^"
     + _NO_LEAD_ITEM_ORDINAL
@@ -387,6 +428,25 @@ _NO_EMBEDDED_MULTI_ACT_PATTERNS = (
     + _NO_LAW_CITATION_DATE
     + _NO_LAW_CITATION_NUMBER
     + _NO_EMBEDDED_LEAD_TAIL,
+    # W-99, address-after-citation: both the nominative ``Lov …`` and the
+    # prepositional ``I lov …`` head, ordinal optional. Ranked after the two
+    # ``skal § …`` spellings above (disjoint anyway, see the tail) and before
+    # the numberless W-28 pair: numbered citations only, because no numberless
+    # lead of this shape exists in the corpus. Corpus-measured 2026-09-05: 29
+    # leads across 15 acts. 27 produced nothing (refused base-unresolved or
+    # unmatched); the other 2 — `2008-06-27-72` "Lov 16. februar 2007 nr. 9 om
+    # skipssikkerhet … § 47 annet ledd skal lyde:" and `2018-06-01-23` item 5
+    # (inkassoloven § 28) — LOWERED AGAINST THE PREVIOUS PART'S BASE ACT: the
+    # citation was walked past as prose and the address bound to whatever law
+    # the cursor still held (sjøloven, and a 1927 act). This production makes
+    # the lead a law switch of its own, so both rebind to the act the drafter
+    # named.
+    r"^(?:"
+    + _NO_LEAD_ITEM_ORDINAL
+    + r"\s+)?(?:I\s+)?(?:midlertidig\s+)?lov\s+"
+    + _NO_LAW_CITATION_DATE
+    + _NO_LAW_CITATION_NUMBER
+    + _NO_EMBEDDED_ADDRESS_FIRST_TAIL,
     # W-28, ranked LAST and behind an explicit ``lov`` token: the same two shapes
     # for a pre-numbering act, which carries no ``nr`` to match on. Both numbered
     # patterns above are tried first, so a citation that has a number can never
@@ -8079,7 +8139,22 @@ def _no_unstructured_lead_looks_operative(lead: str) -> bool:
             # nynorsk action verbs (gjer/vert gjort/gjerast/endrast/opphevast)
             # alongside the bokmål forms so genuinely operative leads are honestly
             # adjudicated rather than silently treated as inert prose.
-            r"(\bskal\s+lyde\b|\bskal(?:\s+\S+){1,5}?\s+lyde\b|\boppheves\b|\bopphevast\b"
+            # W-99: ``skal § <address> lyde`` with the address of ANY depth —
+            # "skal § 6-1 første ledd annet punktum lyde" is six tokens and the
+            # bound above left it inert, so the 1997 nr. 44 lead that also
+            # failed the citation grammar vanished with neither op nor refusal.
+            # Anchored on the ``§`` right after ``skal`` (optionally ``ny``), so
+            # prose that happens to hold ``skal`` and ``lyde`` far apart stays
+            # inert. Corpus-measured 2026-09-05 (after-diff, not a text census
+            # — the text census misread ``§`` through Lovdata's mojibake): 21
+            # leads in 21 acts were silent drops and are now refused loudly,
+            # every one operative ("I lov 21. juni 1963 nr. 23 skal § 60 andre
+            # ledd første punktum lyde:", `2001-06-15-78`; "I kapittel 5 B skal
+            # nye §§ 28-2 a til 28-2 v lyde:", `2012-05-25-28`). None lowers
+            # yet — they are the next grammar gaps, now visible.
+            r"(\bskal\s+lyde\b|\bskal(?:\s+\S+){1,5}?\s+lyde\b"
+            r"|\bskal\s+(?:ny(?:tt|e)?\s+)?§.{0,120}?\blyde\b"
+            r"|\boppheves\b|\bopphevast\b"
             r"|\bblir\b|\bendres\b|\bendrast\b|\btilf[øo]yes\b|\btilf[øo]yast\b"
             r"|\bf[øo]yes\b|\bf[øo]yast\b|\bflyttes\b|\bflyttast\b"
             r"|\bgjer\b|\bgjerast\b|\bvert\s+gjort\b)",

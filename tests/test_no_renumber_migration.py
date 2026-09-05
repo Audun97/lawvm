@@ -1759,7 +1759,17 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # occupant: the two W-98 re-enactment productions REFUSE an occupied target
     # rather than take the θ recovery, and their apply-plane refusals are in
     # ``_NO_SKIP_ADJUDICATION_KINDS``.
-    "hazard_destructive_writes": 3942,
+    #
+    # 3,942 -> 3,953 at W-99 (+11), across nine of the 165 hazard laws and no
+    # entrant: the period-less citation grammar and the address-after-citation
+    # lead binding ops to the act their lead names — verdipapirhandelloven
+    # ``no/lov/2007-06-29-75`` [84, 4] -> [85, 4] (`2018-06-01-23` item 7),
+    # skipssikkerhetsloven ``no/lov/2007-02-16-9`` [14, 4] -> [15, 4]
+    # (`2008-06-27-72` § 47, off sjøloven), skatteforvaltningsloven
+    # ``no/lov/2016-05-27-14`` [142, 7] -> [144, 7] (`2019-03-15-6` item 25,
+    # bokstav h og i), and six single REPLACEs. The content-removing column
+    # does not move (219 over 81 laws): nothing here repeals.
+    "hazard_destructive_writes": 3953,
     # 167 -> 168, and the +1 is NOT a relabel op. ``no/lov/2016-05-27-14`` gains
     # ``no/lovtid/2021-12-22-158:1``, a REPEAL of § 7-6 annet ledd that could not
     # bind before because that law's ledd sequence was one slot out of step; with
@@ -1863,7 +1873,12 @@ _NO_INCOMPLETE_BASE_HAZARD_LAWS_DIGEST = (
     # W-98: ONE law ENTERS (``no/lov/2004-03-26-17``, [4, 0]) and 31 laws' per-law
     # counts move (the nine productions landing on known-incomplete bases; see
     # the destructive-writes note above), so the digest moves with them.
-    "60b5e159ed3a35b32707b5fbed1b1e9324ca90255f44a1da6888675b2e401b9b"
+    # W-99: MEMBERSHIP UNCHANGED (165 laws, same set, both set differences
+    # empty). NINE rows move, all upward and only in the destructive column —
+    # the period-less citation and address-after-citation leads binding to the
+    # act they name, each a REPLACE/INSERT the source commands by name (see the
+    # count note above); every removing column is byte-identical.
+    "4c5801331168b43e5fd316f5a2b831054f34ae5590e4e491ff94cc0ca3853c64"
 )
 
 _REGENERATE = (
@@ -1992,7 +2007,12 @@ def test_no_occupied_destination_sweep_baseline_is_not_stale(
     # (``errored_before_any_op`` moves 440 -> 442 with them); the third,
     # ``no/lov/2009-05-15-28``, replays and ENTERS the scan candidate set, which
     # is the first time an entrant to this census has also been an entrant there.
-    assert len(swept) == baseline["swept"]["base_laws"] == 788
+    # 788 -> 789 at W-99: ``no/lov/2000-12-21-118`` (havbeiteloven) enters on its
+    # first lowered op ever — `no/lovtid/2003-12-19-124` item 6, "Lov 21. desember
+    # 2000 nr. 118 om havbeite § 3 andre ledd skal lyde:", an address-after-citation
+    # lead that used to bind to the 1933 act before it. No original-act source, so
+    # it joins the errored class on arrival (442 -> 443 below).
+    assert len(swept) == baseline["swept"]["base_laws"] == 789
     assert sorted(set(swept)) == swept
     assert set(_NO_OCCUPIED_DESTINATION_LAWS) <= set(swept)
     # 440 laws error before a single op is applied — F-09's sparse-source class,
@@ -2000,7 +2020,8 @@ def test_no_occupied_destination_sweep_baseline_is_not_stale(
     # them, not an unobserved one.
     # 440 -> 442 at W-66c: two of the three entrants above have no original-act
     # bytes either, so they join this class on arrival.
-    assert baseline["swept"]["errored_before_any_op"] == 442
+    # 442 -> 443 at W-99: the havbeiteloven entrant above.
+    assert baseline["swept"]["errored_before_any_op"] == 443
     # THE SWEEP'S BLIND SPOT, and W-69c has taken it from four laws to THREE.
     # These abort mid-apply on a replay invariant violation, which discards the
     # apply plane's receipts and adjudications along with the statute, so whether

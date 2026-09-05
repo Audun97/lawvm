@@ -13765,3 +13765,191 @@ def test_no_w98_nynorsk_ledd_repeal_lowers_the_witness_and_declines_what_it_cann
     ops, adjudications = _w98_ops('<article class="defaultP">§ 20 siste ledd blir oppheva.</article>')
     assert ops == []
     assert _w98_unmatched(adjudications) == ["§ 20 siste ledd blir oppheva."]
+
+
+# --- W-99: pre-2001 house-style citations and the address-after-citation lead ---
+
+
+def _w99_amendment(lead: str, payload: str = "Ny setning.") -> bytes:
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="changesToDocuments"><ul><li>lov/1992-12-04-127</li></ul></dd>
+    <dd class="dateInForce">1999-01-01</dd>
+    <main>
+      <section data-name="kapI">
+        <article class="legalP">{lead}</article>
+        <article class="legalP">{payload}</article>
+      </section>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def test_no_law_citation_admits_the_period_less_day_of_pre_2001_house_style() -> None:
+    """W-99 print-era witness: 1997 nr. 44 item 59, as printed in Norsk Lovtidend.
+
+    The 1997 house style writes "lov 4 desember 1992 nr 127" — no period after
+    the day. The shipped date grammar required it, so this lead resolved no law
+    and, because the ``skal … lyde`` span is six tokens, was not even refused.
+    """
+    grouped = iter_no_document_change_ops(
+        _w99_amendment(
+            "59. I lov 4 desember 1992 nr 127 om kringkasting skal § 6-1 første ledd annet punktum lyde:",
+            "Lov om aksjeselskaper gjelder for Norsk rikskringkasting AS om ikke annet følger av denne lov.",
+        ),
+        "no/lovtid/1997-06-13-44",
+    )
+    assert [(base_id, [(op.action, op.target.path) for op in ops]) for base_id, ops in grouped] == [
+        (
+            "no/lov/1992-12-04-127",
+            [(StructuralAction.REPLACE, (("section", "6-1"), ("subsection", "1"), ("sentence", "2")))],
+        )
+    ]
+
+
+def test_no_address_after_citation_lead_nominative_with_ordinal() -> None:
+    """W-99 print-era witness: 1998 nr. 56 item 47 — ``Lov <cite> om X § … skal lyde:``."""
+    grouped = iter_no_document_change_ops(
+        _w99_amendment(
+            "47. Lov 4. desember 1992 nr. 127 om kringkasting § 8-2 fjerde ledd annet punktum skal lyde:",
+            "Til dette formål kan det kreves innsyn i registrerte regnskapsopplysninger.",
+        ),
+        "no/lovtid/1998-07-17-56",
+    )
+    assert [(base_id, [(op.action, op.target.path) for op in ops]) for base_id, ops in grouped] == [
+        (
+            "no/lov/1992-12-04-127",
+            [(StructuralAction.REPLACE, (("section", "8-2"), ("subsection", "4"), ("sentence", "2")))],
+        )
+    ]
+
+
+def test_no_address_after_citation_lead_prepositional_and_insert_forms() -> None:
+    """The corpus spellings of the same production (`2005-06-17-67`, `2018-06-01-23`)."""
+    assert _extract_no_embedded_multi_act_lead(
+        "12. I lov 8. juni 1984 nr. 59 om fordringshavernes dekningsrett (dekningsloven) § 9-4 annet ledd skal lyde:"
+    ) == ("no/lov/1984-06-08-59", "§ 9-4 annet ledd skal lyde:")
+    assert _extract_no_embedded_multi_act_lead(
+        "5. Lov 13. mai 1988 nr. 26 om inkassovirksomhet og annen inndriving av forfalte pengekrav "
+        "§ 28 nytt tredje ledd skal lyde:"
+    ) == ("no/lov/1988-05-13-26", "§ 28 nytt tredje ledd skal lyde:")
+    # A payload Lovdata ran on after the colon rides along; the lead is still a switch (`2003-12-19-124` item 5).
+    assert _extract_no_embedded_multi_act_lead(
+        "5. Lov 13. juni 1997 nr. 42 om Kystvakten § 9 første ledd bokstav b skal lyde: "
+        "lov om matproduksjon og mattrygghet mv. (matloven)."
+    ) == (
+        "no/lov/1997-06-13-42",
+        "§ 9 første ledd bokstav b skal lyde: lov om matproduksjon og mattrygghet mv. (matloven).",
+    )
+    # The shipped ``skal § …`` spelling is untouched: same act, same rebuilt lead.
+    assert _extract_no_embedded_multi_act_lead(
+        "206. I lov 17. desember 2004 nr. 99 om kvoteplikt og handel med kvoter for utslipp av klimagasser "
+        "(klimakvoteloven) skal § 21 nytt annet punktum lyde:"
+    ) == ("no/lov/2004-12-17-99", "§ 21 nytt annet punktum skal lyde:")
+
+
+def test_no_address_after_citation_lead_does_not_fire_on_nearby_shapes() -> None:
+    # A bare citation acted on as a whole, and a part announcement: neither closes with ``skal lyde``.
+    assert _extract_no_embedded_multi_act_lead("Lov 22. mai 1902 nr. 13 § 107 oppheves.") is None
+    assert _extract_no_embedded_multi_act_lead("Lov 20. mai 2005 nr. 28 om straff endres slik:") is None
+    # A W-36 run-on PART ANNOUNCEMENT: the colon before the ``§`` keeps it the announcement resolver's.
+    assert (
+        _extract_no_embedded_multi_act_lead(
+            "I lov 26. mars 1999 nr. 14 om skatt av formue og inntekt gjøres følgende endringer: "
+            "§ 4-1 andre ledd skal lyde: (2) For skattyter med avvikende regnskapsår gjelder følgende."
+        )
+        is None
+    )
+    # A repeal-then-replace item: the address span may not cross a sentence end (`2003-06-20-45` item 120).
+    assert (
+        _extract_no_embedded_multi_act_lead(
+            "120. I lov 25. juni 1999 nr. 46 om finansavtaler og finansoppdrag blir § 1 andre ledd bokstav g "
+            "oppheva. Bokstav f skal lyde: institusjon som loven gjelder for etter forskrift."
+        )
+        is None
+    )
+    # The day's period is optional, but a month name, a year and ``nr N`` are not.
+    assert _extract_no_embedded_multi_act_lead("I lov 4 dsm 1992 nr 127 om kringkasting skal § 6-1 lyde:") is None
+
+
+def test_no_unstructured_lead_looks_operative_admits_deep_skal_section_address() -> None:
+    """W-99: a ``skal § <address> lyde`` lead is operative at any address depth."""
+    assert _no_unstructured_lead_looks_operative(
+        "I lov 4 desember 1992 nr 127 om kringkasting skal § 6-1 første ledd annet punktum lyde:"
+    )
+    assert _no_unstructured_lead_looks_operative("skal ny § 6-1 første ledd annet punktum nr. 3 bokstav a lyde:")
+    # Without the ``§`` right after ``skal`` the widened span does not reach prose.
+    assert not _no_unstructured_lead_looks_operative("Reglene skal i den grad det er nødvendig lyde likt.")
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_address_after_citation_rebinds_skipssikkerhetsloven_from_sjoloven() -> None:
+    """W-99 corpus witness: `no/lovtid/2008-06-27-72` part II.
+
+    "Lov 16. februar 2007 nr. 9 om skipssikkerhet (skipssikkerhetsloven) § 47
+    annet ledd skal lyde:" — the citation was walked past as prose and the
+    op bound to sjøloven, the previous part's act. The lead is a law switch.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2008-06-27-72", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+    grouped = dict(iter_no_document_change_ops(html_bytes, "no/lovtid/2008-06-27-72"))
+
+    assert [(op.action, op.target.path) for op in grouped["no/lov/2007-02-16-9"]] == [
+        (StructuralAction.REPLACE, (("section", "47"), ("subsection", "2")))
+    ]
+    assert not any(
+        "skipssikkerhet" in (op.source.raw_text if op.source is not None else "")
+        for op in grouped["no/lov/1994-06-24-39"]
+    )
+    # The two sibling items of the same shape enter with it.
+    assert ("section", "26b") in {op.target.path[0] for op in grouped["no/lov/1998-06-26-47"]}
+    assert ("section", "9") in {op.target.path[0] for op in grouped["no/lov/1987-06-12-48"]}
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_period_less_part_lead_binds_sykepleierpensjonsloven() -> None:
+    """W-99 corpus witness: `no/lovtid/2019-06-21-26`.
+
+    "I lov 22 juni 1962 nr. 12 om pensjonsordning for sykepleiere gjøres
+    følgende endringer:" — no period after the day, so the part resolved no
+    act and its ops rode on samordningsloven from the part before.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2019-06-21-26", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+    grouped = dict(iter_no_document_change_ops(html_bytes, "no/lovtid/2019-06-21-26"))
+
+    sykepleier = grouped["no/lov/1962-06-22-12"]
+    assert (StructuralAction.INSERT, (("chapter", "4a"),)) in {(op.action, op.target.path) for op in sykepleier}
+    assert (StructuralAction.INSERT, (("section", "10d"),)) in {(op.action, op.target.path) for op in sykepleier}
+    assert not any(("chapter", "4a") in op.target.path for op in grouped["no/lov/1957-07-06-26"])
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_address_after_citation_with_inline_payload_binds_kystvaktloven() -> None:
+    """W-99 corpus witness: `no/lovtid/2003-12-19-124` items 4–6.
+
+    Item 5 runs its payload on after the colon; without inline admission the
+    lead was no switch and § 9 bound to item 4's act (oppdrettsloven).
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2003-12-19-124", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+    grouped = dict(iter_no_document_change_ops(html_bytes, "no/lovtid/2003-12-19-124"))
+
+    assert [(op.action, op.target.path) for op in grouped["no/lov/1997-06-13-42"]] == [
+        (StructuralAction.REPLACE, (("section", "9"), ("subsection", "1"), ("item", "b")))
+    ]
+    assert [(op.action, op.target.path) for op in grouped["no/lov/2000-12-21-118"]] == [
+        (StructuralAction.REPLACE, (("section", "3"), ("subsection", "2")))
+    ]
+    assert not any(op.target.path[0] == ("section", "9") for op in grouped.get("no/lov/1985-06-14-68", []))
