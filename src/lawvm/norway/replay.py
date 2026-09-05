@@ -56,6 +56,14 @@ from lawvm.replay_adjudication import CompileAdjudication
 _ISO_DATE_RE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
 NO_REPLAY_MISSING_AMENDMENT_SOURCE = "no_replay_missing_amendment_source"
 NO_REPLAY_CONTINGENT_COMMENCEMENT_SKIPPED = "no_replay_contingent_commencement_skipped"
+# W-100. The per-op siblings of the two temporal skips above, for an entry the
+# section-scoped commencement lane dated only in part: the ops that resolve to
+# a date are applied, and every op that does not is skipped with its own
+# receipt, never silently.
+NO_REPLAY_SECTION_COMMENCEMENT_CONTINGENT_SKIPPED = (
+    "no_replay_section_commencement_contingent_skipped"
+)
+NO_REPLAY_SECTION_FUTURE_EFFECTIVE_SKIPPED = "no_replay_section_future_effective_skipped"
 NO_REPLAY_UNKNOWN_EFFECTIVE_SKIPPED = "no_replay_unknown_effective_skipped"
 NO_REPLAY_FUTURE_EFFECTIVE_SKIPPED = "no_replay_future_effective_skipped"
 NO_REPLAY_NO_MATCHING_CHANGE_GROUP = "no_replay_no_matching_change_group"
@@ -308,7 +316,15 @@ def replay_no_to_pit(
         # is; every other base law it binds falls through to the act-level
         # status below, unchanged.
         effective_date, entry_status = entry.effective_date_for_base(norm_base_id)
-        if entry_status == "contingent":
+        # W-100. A binding the section-scoped lane landed is resolved PER OP
+        # below: the binding-level gates here would either skip it whole (it
+        # may carry no binding date at all) or apply it whole (some of its ops
+        # are carved out). Neither is what the evidence says, so such an entry
+        # passes through to the parse and each op asks the entry for its own
+        # date. The heading groups, which target no section, take the binding
+        # date where there is one and are skipped with a receipt otherwise.
+        section_scoped = entry.has_section_scope(norm_base_id)
+        if entry_status == "contingent" and not section_scoped:
             result.amendments_skipped_contingent.append(source_id)
             result.adjudications.append(
                 _no_replay_temporal_skip_adjudication(
@@ -323,7 +339,9 @@ def replay_no_to_pit(
                 )
             )
             continue
-        if entry_status in {"missing", "unknown"} or effective_date is None:
+        if not section_scoped and (
+            entry_status in {"missing", "unknown"} or effective_date is None
+        ):
             result.amendments_skipped_unknown_effective.append(source_id)
             result.adjudications.append(
                 _no_replay_temporal_skip_adjudication(
@@ -338,7 +356,7 @@ def replay_no_to_pit(
                 )
             )
             continue
-        if effective_date > as_of:
+        if not section_scoped and (effective_date or "") > as_of:
             result.amendments_skipped_future.append(source_id)
             result.adjudications.append(
                 _no_replay_temporal_skip_adjudication(
@@ -347,7 +365,7 @@ def replay_no_to_pit(
                     source_id=source_id,
                     temporal_status=TEMPORAL_FUTURE_EFFECTIVE_DATE,
                     blocking=False,
-                    effective_date=effective_date,
+                    effective_date=effective_date or "",
                     as_of=as_of,
                     detail={
                         "effective_status": entry.effective_status,
@@ -397,17 +415,56 @@ def replay_no_to_pit(
         # the end of this function ran in this loop's collection order — the
         # index's ``source_id`` string order — which is the only Norway replay
         # surface where collection order was not inert.
-        heading_groups.extend(
-            parse_no_heading_groups(
+        if section_scoped and (effective_date is None or effective_date > as_of):
+            entry_heading_groups = parse_no_heading_groups(
                 html_bytes,
                 norm_base_id,
                 source=OperationSource(
                     statute_id=source_id,
                     enacted=_source_date_from_id(source_id),
-                    effective=effective_date,
+                    effective=effective_date or "",
                 ),
             )
-        )
+            if entry_heading_groups:
+                result.adjudications.append(
+                    _no_replay_temporal_skip_adjudication(
+                        kind=(
+                            NO_REPLAY_SECTION_FUTURE_EFFECTIVE_SKIPPED
+                            if effective_date is not None
+                            else NO_REPLAY_SECTION_COMMENCEMENT_CONTINGENT_SKIPPED
+                        ),
+                        message=(
+                            "Norway replay skipped heading groups of a section-scoped amendment: "
+                            "they take the binding date, which is "
+                            + ("after the requested point in time." if effective_date else "unresolved.")
+                        ),
+                        source_id=source_id,
+                        temporal_status=(
+                            TEMPORAL_FUTURE_EFFECTIVE_DATE
+                            if effective_date is not None
+                            else TEMPORAL_UNRESOLVED_CONTINGENT
+                        ),
+                        blocking=effective_date is None,
+                        effective_date=effective_date or "",
+                        as_of=as_of,
+                        detail={
+                            "effective_status": str(entry_status),
+                            "heading_group_count": len(entry_heading_groups),
+                        },
+                    )
+                )
+        else:
+            heading_groups.extend(
+                parse_no_heading_groups(
+                    html_bytes,
+                    norm_base_id,
+                    source=OperationSource(
+                        statute_id=source_id,
+                        enacted=_source_date_from_id(source_id),
+                        effective=effective_date or "",
+                    ),
+                )
+            )
         parser_adjudications: list[CompileAdjudication] = []
         parsed_groups = parse_no_amendment_groups(
             html_bytes,
@@ -433,8 +490,68 @@ def replay_no_to_pit(
                 )
             )
             continue
+        applied_any = False
+        skipped_contingent_any = False
         for _group_base, group_ops in groups:
             for op in group_ops:
+                op_effective_date = effective_date
+                if section_scoped:
+                    section_label = (
+                        op.target.path[0][1]
+                        if op.target is not None
+                        and op.target.path
+                        and op.target.path[0][0] == "section"
+                        else None
+                    )
+                    op_effective_date, op_status = entry.effective_date_for_op(
+                        norm_base_id, section_label
+                    )
+                    if op_effective_date is None or op_status == "contingent":
+                        skipped_contingent_any = True
+                        result.adjudications.append(
+                            _no_replay_temporal_skip_adjudication(
+                                kind=NO_REPLAY_SECTION_COMMENCEMENT_CONTINGENT_SKIPPED,
+                                message=(
+                                    "Norway replay skipped one operation: its section's "
+                                    "commencement is carved out or undated by the instrument(s) "
+                                    "that dated the rest of the binding."
+                                ),
+                                source_id=source_id,
+                                temporal_status=TEMPORAL_UNRESOLVED_CONTINGENT,
+                                blocking=True,
+                                as_of=as_of,
+                                detail={
+                                    "effective_status": str(entry_status),
+                                    "op_id": op.op_id,
+                                    "section_label": section_label or "",
+                                    "target": str(op.target) if op.target is not None else "",
+                                },
+                            )
+                        )
+                        continue
+                    if op_effective_date > as_of:
+                        result.adjudications.append(
+                            _no_replay_temporal_skip_adjudication(
+                                kind=NO_REPLAY_SECTION_FUTURE_EFFECTIVE_SKIPPED,
+                                message=(
+                                    "Norway replay skipped one operation: its section's "
+                                    "commencement date is after the requested point in time."
+                                ),
+                                source_id=source_id,
+                                temporal_status=TEMPORAL_FUTURE_EFFECTIVE_DATE,
+                                blocking=False,
+                                effective_date=op_effective_date,
+                                as_of=as_of,
+                                detail={
+                                    "effective_status": str(entry_status),
+                                    "op_id": op.op_id,
+                                    "section_label": section_label or "",
+                                    "target": str(op.target) if op.target is not None else "",
+                                },
+                            )
+                        )
+                        continue
+                applied_any = True
                 if op.source is None:
                     ops.append(op)
                     continue
@@ -444,12 +561,17 @@ def replay_no_to_pit(
                         source=dc_replace(
                             op.source,
                             enacted=_source_date_from_id(source_id),
-                            effective=effective_date,
+                            effective=op_effective_date,
                         ),
                     )
                 )
-        if groups:
+        if applied_any or (groups and not section_scoped):
             result.amendments_applied.append(source_id)
+        if skipped_contingent_any:
+            # The binding is blocked on a contingent commencement for the ops it
+            # could not date, exactly as a whole contingent entry is; the
+            # base-level status derives from this list.
+            result.amendments_skipped_contingent.append(source_id)
 
     result.n_ops = len(ops)
     for op in ops:

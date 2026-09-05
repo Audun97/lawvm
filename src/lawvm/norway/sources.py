@@ -162,6 +162,22 @@ class NOEffectiveStatus(StrEnum):
     the act's other parts are still uncommenced, and no single date could stand
     for parts that commence years apart."""
 
+    SECTION_INSTRUMENT_AUTHORIZED = "section_instrument_authorized"
+    """W-100. Official instrument(s) dated this (act, base law) binding BELOW
+    binding level — a binding date with carve-outs, per-section dates, or both —
+    and every op of the act on this law resolves to a date through
+    ``NOAmendmentIndexEntry.effective_date_for_op``. Per binding, never
+    act-level, for W-39's reason. The binding's own ``effective_date`` may be
+    ``None`` when only sections were dated; consumers that need one date per op
+    must ask per op."""
+
+    SECTION_INSTRUMENT_PARTIAL = "section_instrument_partial"
+    """W-100. Instrument(s) dated SOME ops of this binding and not others: a
+    carved-out section still undated, or a section list that does not cover
+    every section the act's ops target. Unresolved at binding level — the base
+    law stays ``blocked_contingent`` — while replay still dates the ops it can
+    and skips the rest with a per-op receipt."""
+
     CONTINGENT = "contingent"
     """In force on a condition / future delegated commencement (unresolved)."""
 
@@ -181,10 +197,16 @@ NO_RESOLVED_EFFECTIVE_STATUSES: frozenset[NOEffectiveStatus] = frozenset(
         NOEffectiveStatus.OVERRIDE,
         NOEffectiveStatus.INSTRUMENT_AUTHORIZED,
         NOEffectiveStatus.PART_INSTRUMENT_AUTHORIZED,
+        NOEffectiveStatus.SECTION_INSTRUMENT_AUTHORIZED,
     }
 )
 NO_UNRESOLVED_EFFECTIVE_STATUSES: frozenset[NOEffectiveStatus] = frozenset(
     {NOEffectiveStatus.CONTINGENT, NOEffectiveStatus.MISSING, NOEffectiveStatus.UNKNOWN}
+)
+# W-100. Binding-level statuses that classify a base law as blocked on a
+# contingent commencement even though some of the binding's ops are dated.
+NO_PARTIALLY_RESOLVED_EFFECTIVE_STATUSES: frozenset[NOEffectiveStatus] = frozenset(
+    {NOEffectiveStatus.SECTION_INSTRUMENT_PARTIAL}
 )
 
 
@@ -344,7 +366,11 @@ def no_base_replay_status_from_statuses(
     """
     if not statuses:
         return NOReplayStatus.NO_AMENDMENTS
-    if any(status == NOEffectiveStatus.CONTINGENT for status in statuses):
+    if any(
+        status == NOEffectiveStatus.CONTINGENT
+        or status in NO_PARTIALLY_RESOLVED_EFFECTIVE_STATUSES
+        for status in statuses
+    ):
         return NOReplayStatus.BLOCKED_CONTINGENT
     if any(status not in NO_RESOLVED_EFFECTIVE_STATUSES for status in statuses):
         return NOReplayStatus.BLOCKED_UNKNOWN

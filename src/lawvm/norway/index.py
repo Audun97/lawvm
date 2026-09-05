@@ -114,13 +114,82 @@ class NOAmendmentIndexEntry:
     # evidence does not make. Consumers resolve a base law's date as "this map
     # first, the act-level date otherwise".
     part_scoped_effective_dates: tuple[tuple[str, str], ...] = ()
+    # W-100. The section-scoped lane's landing, per binding, in four sorted
+    # tuples so the entry stays a flat serializable record:
+    #   ``section_scoped_binding_dates``   (law, date)  — the binding's own date,
+    #       the one every op takes unless a finer entry says otherwise; ``""``
+    #       when only sections were dated;
+    #   ``section_scoped_effective_dates`` (law, section label, date);
+    #   ``section_scoped_exclusions``      (law, section label) — carved out and
+    #       still undated, restricted to sections the act's ops target;
+    #   ``section_scoped_complete_laws``   (law, …) — the bindings where every
+    #       targeted op resolves to a date.
+    # Orthogonal to ``part_scoped_effective_dates`` as that is to the act-level
+    # fields: a law here was dated by no older route (the gate yields to them),
+    # and consumers resolve an op's date as "``effective_date_for_op`` first".
+    section_scoped_binding_dates: tuple[tuple[str, str], ...] = ()
+    section_scoped_effective_dates: tuple[tuple[str, str, str], ...] = ()
+    section_scoped_exclusions: tuple[tuple[str, str], ...] = ()
+    section_scoped_complete_laws: tuple[str, ...] = ()
+
+    def has_section_scope(self, base_id: str) -> bool:
+        """Did the section-scoped lane land anything for ``base_id``? W-100."""
+        return any(law_id == base_id for law_id, _date in self.section_scoped_binding_dates) or any(
+            law_id == base_id for law_id, _label, _date in self.section_scoped_effective_dates
+        )
 
     def effective_date_for_base(self, base_id: str) -> tuple[str | None, str]:
-        """``(date, status)`` for this entry AS IT APPLIES TO ``base_id``."""
+        """``(date, status)`` for this entry AS IT APPLIES TO ``base_id``.
+
+        W-100: a binding the section-scoped lane landed reports that lane's
+        status — ``section_instrument_authorized`` when every targeted op
+        resolves to a date, ``section_instrument_partial`` otherwise — and its
+        binding date, which is ``None`` when only sections were dated. Per-op
+        callers must use :meth:`effective_date_for_op`.
+        """
         for law_id, date in self.part_scoped_effective_dates:
             if law_id == base_id:
                 return date, NOEffectiveStatus.PART_INSTRUMENT_AUTHORIZED
+        if self.has_section_scope(base_id):
+            binding_date = next(
+                (date for law_id, date in self.section_scoped_binding_dates if law_id == base_id),
+                "",
+            )
+            status = (
+                NOEffectiveStatus.SECTION_INSTRUMENT_AUTHORIZED
+                if base_id in self.section_scoped_complete_laws
+                else NOEffectiveStatus.SECTION_INSTRUMENT_PARTIAL
+            )
+            return (binding_date or None), status
         return self.effective_date, self.effective_status
+
+    def effective_date_for_op(
+        self, base_id: str, section_label: str | None
+    ) -> tuple[str | None, str]:
+        """``(date, status)`` for ONE op of this entry on ``base_id``. W-100.
+
+        ``section_label`` is the op's leading section label in the grafter's
+        spelling, or ``None`` for an op that targets no section (a chapter
+        heading). Resolution: the section's own date; else a carve-out, which is
+        ``contingent``; else the binding's date; else the binding-level answer.
+        A binding the lane landed without a binding date leaves every op it did
+        not date explicitly ``contingent``.
+        """
+        if not self.has_section_scope(base_id):
+            return self.effective_date_for_base(base_id)
+        if section_label:
+            for law_id, label, date in self.section_scoped_effective_dates:
+                if law_id == base_id and label == section_label:
+                    return date, NOEffectiveStatus.SECTION_INSTRUMENT_AUTHORIZED
+            if (base_id, section_label) in self.section_scoped_exclusions:
+                return None, NOEffectiveStatus.CONTINGENT
+        binding_date = next(
+            (date for law_id, date in self.section_scoped_binding_dates if law_id == base_id),
+            "",
+        )
+        if binding_date:
+            return binding_date, NOEffectiveStatus.SECTION_INSTRUMENT_AUTHORIZED
+        return None, NOEffectiveStatus.CONTINGENT
 
 
 @dataclass
@@ -176,6 +245,26 @@ class NOAmendmentIndex:
                     (str(pair[0]), str(pair[1]))
                     for pair in entry.get("part_scoped_effective_dates", []) or []
                     if isinstance(pair, (list, tuple)) and len(pair) == 2
+                ),
+                section_scoped_binding_dates=tuple(
+                    (str(pair[0]), str(pair[1]))
+                    for pair in entry.get("section_scoped_binding_dates", []) or []
+                    if isinstance(pair, (list, tuple)) and len(pair) == 2
+                ),
+                section_scoped_effective_dates=tuple(
+                    (str(row[0]), str(row[1]), str(row[2]))
+                    for row in entry.get("section_scoped_effective_dates", []) or []
+                    if isinstance(row, (list, tuple)) and len(row) == 3
+                ),
+                section_scoped_exclusions=tuple(
+                    (str(pair[0]), str(pair[1]))
+                    for pair in entry.get("section_scoped_exclusions", []) or []
+                    if isinstance(pair, (list, tuple)) and len(pair) == 2
+                ),
+                section_scoped_complete_laws=tuple(
+                    str(law_id)
+                    for law_id in entry.get("section_scoped_complete_laws", []) or []
+                    if isinstance(law_id, str)
                 ),
             )
             for entry in raw_entries
@@ -781,8 +870,14 @@ def build_no_amendment_index(data_dir: Optional[Path] = None) -> NOAmendmentInde
         # are both in hand; the gate parses no XML of its own. Only acts with
         # roman-numbered parts contribute — for everything else the map is empty
         # and the part route can never fire.
+        # W-100 widens the population to EVERY act with bound ops: the
+        # section-scoped route needs the op stream's section labels for a
+        # part-less act too (``no/lovtid/2015-02-06-7`` binds two laws and has no
+        # romertall). The three part routes refuse an empty part map on their
+        # first structural conjunct, so offering them the wider population
+        # changes nothing they grant.
         part_law_ids = no_part_law_ids(artifact.payload)
-        if part_law_ids:
+        if part_law_ids or base_ids:
             act_part_evidence[source_id] = NOCommencementActPartEvidence(
                 part_law_ids=part_law_ids,
                 bound_law_ids=base_ids,
@@ -795,6 +890,16 @@ def build_no_amendment_index(data_dir: Optional[Path] = None) -> NOAmendmentInde
                     )
                     for base_id, ops in grouped
                 },
+                unsectioned_op_laws=tuple(
+                    sorted(
+                        base_id
+                        for base_id, ops in grouped
+                        if any(
+                            not op.target.path or op.target.path[0][0] != "section"
+                            for op in ops
+                        )
+                    )
+                ),
             )
         # W-84. A swapped entry points ``archive``/``member_name`` at the rectified
         # document, which is what makes replay load the corrected bytes: replay
@@ -985,6 +1090,38 @@ def _authorize_no_commencement_instruments_into_index(
     index.commencement_instruments = list(authorization.instruments)
     effective_dates = authorization.authorized_effective_dates()
     part_dates = authorization.part_authorized_effective_dates()
+    section_landings = authorization.section_scoped_landings()
+
+    def _with_section_scope(entry: NOAmendmentIndexEntry) -> NOAmendmentIndexEntry:
+        # W-100. The fourth landing place. A law the part routes dated is never
+        # in here (the gate yields per binding), so the two maps never overlap.
+        receipts = section_landings.get(entry.source_id, ())
+        if not receipts:
+            return entry
+        return dc_replace(
+            entry,
+            section_scoped_binding_dates=tuple(
+                sorted((receipt.law_id, receipt.binding_date or "") for receipt in receipts)
+            ),
+            section_scoped_effective_dates=tuple(
+                sorted(
+                    (receipt.law_id, label, date)
+                    for receipt in receipts
+                    for label, date in receipt.section_dates
+                )
+            ),
+            section_scoped_exclusions=tuple(
+                sorted(
+                    (receipt.law_id, label)
+                    for receipt in receipts
+                    for label in receipt.excluded_section_labels
+                )
+            ),
+            section_scoped_complete_laws=tuple(
+                sorted(receipt.law_id for receipt in receipts if receipt.complete)
+            ),
+        )
+
     index.entries = [
         dc_replace(
             entry,
@@ -992,14 +1129,16 @@ def _authorize_no_commencement_instruments_into_index(
             effective_date=effective_dates[entry.source_id],
         )
         if entry.source_id in effective_dates
-        else dc_replace(
-            entry,
-            part_scoped_effective_dates=tuple(
-                sorted(part_dates[entry.source_id].items())
-            ),
+        else _with_section_scope(
+            dc_replace(
+                entry,
+                part_scoped_effective_dates=tuple(
+                    sorted(part_dates[entry.source_id].items())
+                ),
+            )
+            if entry.source_id in part_dates
+            else entry
         )
-        if entry.source_id in part_dates
-        else entry
         for entry in index.entries
     ]
     for receipt in authorization.authorizations:
@@ -1008,6 +1147,12 @@ def _authorize_no_commencement_instruments_into_index(
         index.diagnostics.append(receipt.to_diagnostic_detail())
     for multi_part_receipt in authorization.multi_part_authorizations:
         index.diagnostics.append(multi_part_receipt.to_diagnostic_detail())
+    for section_receipt in authorization.section_scoped_authorizations:
+        index.diagnostics.append(section_receipt.to_diagnostic_detail())
+    for section_conflict in authorization.section_scoped_conflicts:
+        index.diagnostics.append(section_conflict.to_diagnostic_detail())
+    for section_refusal in authorization.section_scoped_refusals:
+        index.diagnostics.append(section_refusal.to_diagnostic_detail())
     for named_part_receipt in authorization.named_part_list_authorizations:
         index.diagnostics.append(named_part_receipt.to_diagnostic_detail())
     for widened_receipt in authorization.widened_whole_act_authorizations:

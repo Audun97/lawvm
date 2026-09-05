@@ -2,7 +2,7 @@
  "_doc": "Corpus-wide (RENUMBER, dest_occupied) firing sweep + the known-incomplete-base destructive-write census, over EVERY Norway base law. Cached because the sweep is ~10 CPU-minutes and the norway shard is not. `corpus` and `code` are the staleness receipt: tests/test_no_renumber_migration.py recomputes both and FAILS when either moved, rather than passing on a stale measurement. Regenerate with `uv run python scripts/inventory_no_occupied_destination_sweep.py --update-baseline`. NOTE: this file is a RECEIPT of what the corpus does, never a statement of what it should do -- a new firing row here is an unadjudicated firing, and it must be adjudicated W-54 style before the verdict table in the test is extended.",
  "as_of": "2026-07-10",
  "code": {
-  "digest": "21ed4c9e43fe147527089e8f211803bd2c7d21094bee723643aa2dfbd93dc31c",
+  "digest": "1db7af2277d2662bca767a811b89336f06a1c7e51ee297a311e671e89c2747e3",
   "files": [
    {
     "digest": "e3c727b378ae497fa2fc65a174f837dff2a8417dd458378ac22af35d4bf339fb",
@@ -265,15 +265,19 @@
     "module": "lawvm.norway.commencement"
    },
    {
-    "digest": "c38f04f8ab868ef5d5d794e8ce5dc0c76fc37c524133c11b4e6af7b68e895e6b",
+    "digest": "360d3037c3810fa92b514f139f1c82939808e9050aff4b43a30934024164b680",
     "module": "lawvm.norway.commencement_instruments"
+   },
+   {
+    "digest": "8fe3c55a22abb5e33c69c6b0688fcc9626a0a24a0c4ee39c207358274e357d16",
+    "module": "lawvm.norway.commencement_scope"
    },
    {
     "digest": "e8495ea92c357ac5249d2f748ab353945c4e0068136aa44f05c671a479ad5918",
     "module": "lawvm.norway.grafter"
    },
    {
-    "digest": "c25850bf02c31aea53e79c6172a42c7c8c196e4040864bedbbb5ce3e50fc22ec",
+    "digest": "78a1a211b55b6c9bcf68d276d83e6fcbe140282b8cdb29f9259b5de255b77219",
     "module": "lawvm.norway.index"
    },
    {
@@ -285,7 +289,7 @@
     "module": "lawvm.norway.mutation_boundary_per_op_probe"
    },
    {
-    "digest": "ae2fc5323b82191b788ac31de1934cfc8013f0841f19dccfaf6e66272d6a9603",
+    "digest": "618eaa947a8329f6cb59cba5c6291023cbebf1e4d3382cea5e59626415e3df50",
     "module": "lawvm.norway.replay"
    },
    {
@@ -293,7 +297,7 @@
     "module": "lawvm.norway.scope_confidence"
    },
    {
-    "digest": "56e6cf7bc4a2bde97bd3223b75e111e00bfb4225d02688fb96f4362809f6d93a",
+    "digest": "b57dd48c8b518ca824a88cc2f04a1f4089aeab1191f2501d7ae9d41275fd2d73",
     "module": "lawvm.norway.sources"
    },
    {
@@ -321,7 +325,7 @@
     "module": "lawvm.tools.no_commencement_candidates"
    }
   ],
-  "modules": 79,
+  "modules": 80,
   "roots": [
    "lawvm.norway.replay",
    "lawvm.norway.index",
@@ -437,20 +441,20 @@
  ],
  "incomplete_base_hazard": {
   "_doc": "W-73's rider, re-measured every sweep. A base is known-incomplete when its replay receipted a SKIPPED amendment; a write is destructive when it removes, replaces or renumbers existing content. The intersection is the posture that destroyed husbankloven \u00a7 13. Pinned so the number cannot drift silently -- NOT because the hazard is acceptable.",
-  "bases_with_destructive_writes": 265,
-  "hazard_bases": 165,
-  "hazard_bases_removing_content": 81,
+  "bases_with_destructive_writes": 267,
+  "hazard_bases": 156,
+  "hazard_bases_removing_content": 76,
   "hazard_by_skip_kind": {
-   "contingent": 165,
+   "contingent": 156,
    "missing_source": 0,
    "unknown_effective": 1
   },
-  "hazard_content_removing_writes": 219,
-  "hazard_destructive_writes": 3953,
-  "incomplete_bases": 202,
+  "hazard_content_removing_writes": 238,
+  "hazard_destructive_writes": 4036,
+  "incomplete_bases": 190,
   "laws": {
    "no/lov/2001-04-20-13": [
-    22,
+    23,
     1
    ],
    "no/lov/2001-05-18-21": [
@@ -485,28 +489,20 @@
     29,
     0
    ],
-   "no/lov/2001-12-14-95": [
-    2,
-    0
-   ],
    "no/lov/2002-03-08-4": [
-    9,
+    16,
     0
    ],
    "no/lov/2002-04-26-12": [
-    2,
+    3,
     0
-   ],
-   "no/lov/2002-05-03-13": [
-    1,
-    1
    ],
    "no/lov/2002-06-07-19": [
     3,
     0
    ],
    "no/lov/2002-06-14-20": [
-    13,
+    14,
     1
    ],
    "no/lov/2002-06-21-34": [
@@ -514,12 +510,8 @@
     2
    ],
    "no/lov/2002-06-21-45": [
-    74,
+    72,
     4
-   ],
-   "no/lov/2002-06-28-57": [
-    58,
-    1
    ],
    "no/lov/2002-06-28-61": [
     3,
@@ -538,19 +530,19 @@
     2
    ],
    "no/lov/2003-03-14-15": [
-    16,
-    1
+    25,
+    2
    ],
    "no/lov/2003-05-23-35": [
     5,
     0
    ],
    "no/lov/2003-06-06-38": [
-    32,
+    33,
     0
    ],
    "no/lov/2003-06-06-39": [
-    32,
+    33,
     0
    ],
    "no/lov/2003-06-20-41": [
@@ -558,7 +550,7 @@
     0
    ],
    "no/lov/2003-06-20-56": [
-    5,
+    15,
     0
    ],
    "no/lov/2003-06-27-64": [
@@ -566,11 +558,11 @@
     1
    ],
    "no/lov/2003-07-04-80": [
-    35,
+    37,
     1
    ],
    "no/lov/2003-07-04-83": [
-    62,
+    85,
     3
    ],
    "no/lov/2003-07-04-84": [
@@ -578,7 +570,7 @@
     2
    ],
    "no/lov/2003-11-28-98": [
-    6,
+    7,
     0
    ],
    "no/lov/2003-12-05-100": [
@@ -586,16 +578,12 @@
     3
    ],
    "no/lov/2003-12-12-108": [
-    24,
+    25,
     0
    ],
    "no/lov/2003-12-19-124": [
-    13,
+    14,
     0
-   ],
-   "no/lov/2003-12-19-130": [
-    43,
-    1
    ],
    "no/lov/2004-03-05-12": [
     38,
@@ -606,11 +594,11 @@
     0
    ],
    "no/lov/2004-05-07-21": [
-    6,
+    7,
     0
    ],
    "no/lov/2004-07-02-59": [
-    18,
+    22,
     2
    ],
    "no/lov/2004-07-02-64": [
@@ -622,23 +610,23 @@
     0
    ],
    "no/lov/2004-12-10-76": [
-    17,
-    2
+    27,
+    7
    ],
    "no/lov/2004-12-10-82": [
     5,
     0
    ],
    "no/lov/2005-04-01-14": [
-    3,
+    4,
     0
    ],
    "no/lov/2005-04-01-15": [
-    90,
-    6
+    111,
+    7
    ],
    "no/lov/2005-04-29-20": [
-    16,
+    19,
     2
    ],
    "no/lov/2005-04-29-21": [
@@ -646,7 +634,7 @@
     0
    ],
    "no/lov/2005-05-20-28": [
-    132,
+    136,
     3
    ],
    "no/lov/2005-05-27-31": [
@@ -654,7 +642,7 @@
     0
    ],
    "no/lov/2005-06-03-37": [
-    6,
+    7,
     0
    ],
    "no/lov/2005-06-10-41": [
@@ -678,11 +666,11 @@
     0
    ],
    "no/lov/2005-06-17-64": [
-    29,
+    42,
     1
    ],
    "no/lov/2005-06-17-67": [
-    320,
+    326,
     17
    ],
    "no/lov/2005-06-17-79": [
@@ -694,7 +682,7 @@
     0
    ],
    "no/lov/2005-06-17-90": [
-    53,
+    55,
     0
    ],
    "no/lov/2005-12-21-123": [
@@ -710,12 +698,12 @@
     0
    ],
    "no/lov/2006-06-16-20": [
-    19,
-    3
+    20,
+    4
    ],
    "no/lov/2007-02-16-9": [
-    15,
-    0
+    20,
+    3
    ],
    "no/lov/2007-06-15-40": [
     53,
@@ -726,16 +714,16 @@
     1
    ],
    "no/lov/2007-06-29-73": [
-    24,
+    27,
     2
    ],
    "no/lov/2007-06-29-74": [
-    9,
+    10,
     2
    ],
    "no/lov/2007-06-29-75": [
-    85,
-    4
+    98,
+    6
    ],
    "no/lov/2007-06-29-81": [
     15,
@@ -746,12 +734,12 @@
     0
    ],
    "no/lov/2007-12-21-119": [
-    55,
+    47,
     6
    ],
    "no/lov/2008-05-15-35": [
-    254,
-    10
+    297,
+    16
    ],
    "no/lov/2008-06-06-37": [
     20,
@@ -766,16 +754,12 @@
     0
    ],
    "no/lov/2008-06-27-71": [
-    88,
+    89,
     3
    ],
    "no/lov/2009-01-09-2": [
-    56,
-    6
-   ],
-   "no/lov/2009-03-06-11": [
-    17,
-    0
+    70,
+    7
    ],
    "no/lov/2009-04-17-19": [
     5,
@@ -793,16 +777,8 @@
     30,
     0
    ],
-   "no/lov/2009-06-19-101": [
-    20,
-    1
-   ],
-   "no/lov/2009-06-19-103": [
-    3,
-    0
-   ],
    "no/lov/2009-06-19-44": [
-    11,
+    12,
     0
    ],
    "no/lov/2009-06-19-58": [
@@ -830,40 +806,32 @@
     1
    ],
    "no/lov/2010-03-26-8": [
-    46,
+    52,
     0
    ],
    "no/lov/2010-03-26-9": [
-    40,
+    41,
     1
    ],
    "no/lov/2010-05-28-16": [
-    17,
-    0
-   ],
-   "no/lov/2010-06-04-21": [
-    6,
+    20,
     0
    ],
    "no/lov/2010-06-25-45": [
-    21,
-    1
+    23,
+    2
    ],
    "no/lov/2011-06-24-29": [
     10,
     1
    ],
    "no/lov/2011-06-24-30": [
-    36,
+    37,
     6
    ],
-   "no/lov/2011-06-24-39": [
-    12,
-    2
-   ],
    "no/lov/2011-11-25-44": [
-    18,
-    3
+    25,
+    5
    ],
    "no/lov/2011-12-16-60": [
     21,
@@ -902,7 +870,7 @@
     0
    ],
    "no/lov/2013-12-13-106": [
-    6,
+    11,
     1
    ],
    "no/lov/2014-06-06-19": [
@@ -910,7 +878,7 @@
     0
    ],
    "no/lov/2014-06-20-27": [
-    16,
+    18,
     0
    ],
    "no/lov/2014-06-20-28": [
@@ -934,7 +902,7 @@
     1
    ],
    "no/lov/2015-02-06-7": [
-    2,
+    4,
     0
    ],
    "no/lov/2015-05-07-25": [
@@ -942,7 +910,7 @@
     0
    ],
    "no/lov/2015-05-07-26": [
-    1,
+    7,
     0
    ],
    "no/lov/2015-06-05-39": [
@@ -954,7 +922,7 @@
     2
    ],
    "no/lov/2015-12-04-95": [
-    1,
+    2,
     0
    ],
    "no/lov/2016-05-27-14": [
@@ -970,8 +938,8 @@
     0
    ],
    "no/lov/2016-06-17-73": [
-    8,
-    3
+    16,
+    7
    ],
    "no/lov/2016-08-12-77": [
     25,
@@ -989,12 +957,12 @@
     25,
     0
    ],
-   "no/lov/2017-12-15-107": [
-    5,
+   "no/lov/2017-06-16-56": [
+    1,
     0
    ],
-   "no/lov/2018-03-23-3": [
-    2,
+   "no/lov/2017-12-15-107": [
+    8,
     0
    ],
    "no/lov/2018-04-20-8": [
@@ -1002,16 +970,12 @@
     0
    ],
    "no/lov/2018-06-01-23": [
-    18,
+    19,
     0
    ],
    "no/lov/2018-06-08-28": [
     19,
     1
-   ],
-   "no/lov/2018-06-15-32": [
-    4,
-    2
    ],
    "no/lov/2018-06-15-40": [
     11,
@@ -1035,6 +999,10 @@
    ],
    "no/lov/2019-06-21-31": [
     16,
+    0
+   ],
+   "no/lov/2020-04-24-31": [
+    5,
     0
    ],
    "no/lov/2020-05-07-37": [
@@ -1110,7 +1078,7 @@
     0
    ]
   },
-  "laws_digest": "4c5801331168b43e5fd316f5a2b831054f34ae5590e4e491ff94cc0ca3853c64"
+  "laws_digest": "4fbec9afae67ef58835be384617403aca430830d26de0cf41ebcf65b148dcbf6"
  },
  "rule_id": "no_replay_renumber_occupied_destination_removed",
  "runtime": {
@@ -1925,18 +1893,18 @@
   "errored_with_ops_applied_detail": [
    {
     "base_id": "no/lov/2003-07-04-74",
-    "error": "Failed to apply ops: Norway replay invariant violation after replace (('section', '22'), ('subsection', '3')) from no/lovtid/2009-06-19-74: body/chapter:9/section:31/subsection:5: item out of order: 6 > 3",
-    "n_ops": 15
+    "error": "Failed to apply ops: Norway replay invariant violation after replace (('section', '7'), ('subsection', '2')) from no/lovtid/2007-06-15-40: body/chapter:9/section:31/subsection:5: item out of order: 6 > 3",
+    "n_ops": 18
    },
    {
     "base_id": "no/lov/2005-06-17-62",
     "error": "Failed to apply ops: Norway replay invariant violation after repeal (('section', '14-2'), ('subsection', '9')) from no/lovtid/2005-12-21-121: body/chapter:8: section out of order: 8-20 > 8-3",
-    "n_ops": 284
+    "n_ops": 293
    },
    {
     "base_id": "no/lov/2015-04-10-17",
     "error": "Failed to apply ops: Norway replay invariant violation after replace (('section', '21-7'),) from no/lovtid/2018-03-23-2: body/chapter:2/chapter:II: section out of order: 21-7 > 2-18",
-    "n_ops": 138
+    "n_ops": 157
    }
   ],
   "fatals": []

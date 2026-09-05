@@ -118,7 +118,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Collection, Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from typing import Any, cast
 
@@ -128,6 +128,12 @@ from lawvm.core.diagnostic_records import diagnostic_detail
 from lawvm.core.quirks_disposition import QuirksDisposition
 from lawvm.core.regex_safety import compile_classifier_regex
 from lawvm.core.xml_parse import parse_corpus_xml
+from lawvm.norway.commencement_scope import (
+    NOCommencementScopeItem,
+    NOCommencementScopeReading,
+    act_scoped_operative_blocks,
+    read_no_commencement_scope_statements,
+)
 
 NO_COMMENCEMENT_INSTRUMENT_RULE = "no_lovtidend_commencement_instrument_candidate"
 NO_COMMENCEMENT_SCOPE_UNRESOLVED = "no_lovtidend_commencement_scope_unresolved"
@@ -150,6 +156,18 @@ NO_COMMENCEMENT_NAMED_PART_LIST_EXECUTION_AUTHORIZED = (
 )
 NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED = (
     "no_lovtidend_commencement_widened_whole_act_execution_authorized"
+)
+# W-100. The section-scoped lane's three receipts: a grant per (act, law)
+# binding, a date conflict per key, and a refusal per (instrument, act) pair the
+# reader read but the gate could not resolve.
+NO_COMMENCEMENT_SECTION_SCOPE_EXECUTION_AUTHORIZED = (
+    "no_lovtidend_commencement_section_scope_execution_authorized"
+)
+NO_COMMENCEMENT_SECTION_SCOPE_EXECUTION_DATE_CONFLICT = (
+    "no_lovtidend_commencement_section_scope_execution_date_conflict"
+)
+NO_COMMENCEMENT_SECTION_SCOPE_EXECUTION_REFUSED = (
+    "no_lovtidend_commencement_section_scope_execution_refused"
 )
 NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_DATE_CONFLICT = (
     "no_lovtidend_commencement_widened_whole_act_execution_date_conflict"
@@ -313,6 +331,13 @@ _COMMENCEMENT_VERB_RE = compile_classifier_regex(
 # whitespace-collapsed from ``_operative_blocks``, so a single ``\s`` is the
 # whole vocabulary there is to match. This is character-for-character the shape
 # ``_CITED_ACT_SUBJECT_RE`` already passes the lint with.
+# W-100 widens the subject by one optional group: the act's own date-and-number
+# citation between ``lov`` and ``om`` (``Lov 11. januar 2013 nr. 3 om Statens
+# innkrevingssentral trer i kraft 1. juni 2013``, ``no/forskrift/2013-05-24-533``).
+# A NEW act is cited that way at least as often as by bare title, and the four
+# conjuncts below carry the widened shape unchanged: the title phrase still has
+# to agree with the instrument's declared title. Measured: 18 blocked instruments
+# of this shape cite an offered act.
 _TITLE_CITED_ACT_SUBJECT_RE = compile_classifier_regex(
     r"^lov\s(?P<title_phrase>om\s[^§]{1,300}?)" + _COMMENCEMENT_VERB,
     re.IGNORECASE,
@@ -323,6 +348,27 @@ _TITLE_CITED_ACT_SUBJECT_RE = compile_classifier_regex(
 # sentence (``no/forskrift/2009-03-06-266``, "Lov om Statens finansfond og lov om
 # Statens obligasjonsfond trer i kraft straks") — a claim this reader refuses
 # rather than attributes to whichever act it happens to be paired with.
+# W-100. The same subject with the act's own date-and-number citation between
+# ``lov`` and ``om``. Spelled as a SECOND pattern rather than an optional group
+# in the first, because a quantified citation inside an optional group is
+# exactly the nesting the classifier-safety lint refuses; the reader tries the
+# plain shape first and this one second, and the counter below adds the two.
+_TITLE_CITED_ACT_CITATION_SUBJECT_RE = compile_classifier_regex(
+    r"^lov\s(?:av\s)?\d{1,2}\.?\s[a-zæøå]+\s\d{4}\snr\.?\s?\d+\s"
+    r"(?P<title_phrase>om\s[^§]{1,300}?)" + _COMMENCEMENT_VERB,
+    re.IGNORECASE,
+    classifier_id="no.lovtidend.title_cited_act_citation_commencement_subject",
+)
+_BARE_DATE_TAIL_RE = compile_classifier_regex(
+    r"\s(?:fra|frå)?\s?\d{1,2}\.?\s[a-zæøå]+\s\d{4}\.?$",
+    re.IGNORECASE,
+    classifier_id="no.lovtidend.bare_date_tail",
+)
+_INDEFINITE_ACT_TITLE_CITATION_SUBJECT_RE = compile_classifier_regex(
+    r"\blov\s(?:av\s)?\d{1,2}\.?\s[a-zæøå]+\s\d{4}\snr\.?\s?\d+\som\s",
+    re.IGNORECASE,
+    classifier_id="no.lovtidend.indefinite_act_title_citation_subject",
+)
 _INDEFINITE_ACT_TITLE_SUBJECT_RE = compile_classifier_regex(
     r"\blov\s+om\s+",
     re.IGNORECASE,
@@ -808,6 +854,46 @@ class NOCommencementWidenedWholeActAuthorizationConjunct(StrEnum):
     """
 
 
+class NOCommencementSectionScopeAuthorizationConjunct(StrEnum):
+    """W-100. What must hold for the section-scoped route to date a binding.
+
+    The route is the first in this gate to grant BELOW a binding: its landing is
+    a per-(act, law) record carrying an optional binding date, per-section dates,
+    and the sections carved out. All-or-nothing per (instrument, act) pair — one
+    statement the gate cannot resolve refuses the whole pair — and per-key
+    conflict-checked across every instrument that speaks to the same act.
+    """
+
+    BLOCKED_ONLY_ON_SCOPE = "blocked_only_on_scope"
+    """The parse blocked, and every failed whole-act conjunct is one this route
+    reads past on its own terms: the scope proof (this route's whole business)
+    and the single-date requirement (a staged instrument legitimately carries
+    several ``dateInForce`` dates, and the reader cross-checks each prose date
+    against that set)."""
+
+    STATEMENTS_TOTAL = "statements_total"
+    """The reader accounted for every sentence of the operative text."""
+
+    INSTRUMENT_CITES_ONE_ACT = "instrument_cites_one_act"
+    """One cited act, as W-49 requires: the statements are read off one text and
+    two acts' statements would merge."""
+
+    EVERY_SCOPE_RESOLVES_TO_ONE_LAW = "every_scope_resolves_to_one_law"
+    """Every statement subject and every carved-out item resolves to exactly
+    one law of the act — through the act's part map, through a date-and-number
+    citation the act binds, or through the act's single bound law."""
+
+    QUALIFIED_LABELS_NEVER_GRANTED = "qualified_labels_never_granted"
+    """A section named with a ledd-level qualifier is never granted a date (the
+    route cannot prove the act's ops on it stay inside the named ledd); in a
+    carve-out it excludes the whole section, which under-claims."""
+
+    STATEMENTS_DO_NOT_CONTRADICT = "statements_do_not_contradict"
+    """No two statements — in this instrument or across the act's instruments —
+    give one binding or one section two dates, and no section is dated
+    differently from a binding date it was not carved out of."""
+
+
 class NOCommencementInstrumentCoverageError(ValueError):
     """Persisted commencement-instrument coverage has an invalid shape."""
 
@@ -877,6 +963,17 @@ class NOCommencementInstrumentCandidate:
     # whose evidence plane cannot say WHY it authorized is a lane that cannot be
     # audited.
     title_cited_whole_act_scope: bool = False
+    # W-100. The section-scoped statement reader's total outcome over the
+    # operative text (``commencement_scope.read_no_commencement_scope_statements``).
+    # Typed statements, read at parse time where the blocks are in hand, and
+    # consumed only by the section-scoped route; every older route reads exactly
+    # what it read before. ``total`` False means the reader refused, and the
+    # refusing sentence is on the reading for the audit.
+    scope_reading: NOCommencementScopeReading = NOCommencementScopeReading()
+    # W-100. How many forskrift-only consequential blocks the widened route's
+    # single-block reader set aside (``Fra samme tidspunkt oppheves § 2-5 … i
+    # forskrift …``). Zero for every instrument that is not of that shape.
+    forskrift_blocks_dropped: int = 0
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -898,6 +995,8 @@ class NOCommencementInstrumentCandidate:
             "cites_acts_as_hjemmel_only": self.cites_acts_as_hjemmel_only,
             "widened_whole_act_scope": self.widened_whole_act_scope,
             "title_cited_whole_act_scope": self.title_cited_whole_act_scope,
+            "scope_reading": self.scope_reading.to_dict(),
+            "forskrift_blocks_dropped": self.forskrift_blocks_dropped,
         }
 
     @classmethod
@@ -941,6 +1040,10 @@ class NOCommencementInstrumentCandidate:
             title_cited_whole_act_scope=bool(
                 data.get("title_cited_whole_act_scope", False)
             ),
+            scope_reading=NOCommencementScopeReading.from_dict(
+                cast(dict[str, Any], data.get("scope_reading", {}) or {})
+            ),
+            forskrift_blocks_dropped=int(cast(int, data.get("forskrift_blocks_dropped", 0) or 0)),
         )
 
 
@@ -1319,6 +1422,113 @@ class NOCommencementPartDateConflictReceipt:
 
 
 @dataclass(frozen=True, slots=True)
+class NOCommencementSectionScopeAuthorizationReceipt:
+    """W-100. One (act, law) binding dated below binding level.
+
+    ``binding_date`` is the date every op of the act on this law takes unless a
+    finer entry says otherwise; ``None`` when only sections were dated.
+    ``section_dates`` are the per-section dates; ``excluded_section_labels`` the
+    sections carved out and still undated (restricted to sections the act's
+    ops actually target); ``qualified_refused_labels`` the sections the text
+    named with a ledd-level qualifier in a granting position, which this route
+    refuses to date. ``complete`` says whether every targeted op of the binding
+    now resolves to a date.
+    """
+
+    act_source_id: str
+    law_id: str
+    instrument_source_ids: tuple[str, ...]
+    binding_date: str | None
+    section_dates: tuple[tuple[str, str], ...]
+    excluded_section_labels: tuple[str, ...]
+    qualified_refused_labels: tuple[str, ...]
+    unbound_section_labels: tuple[str, ...]
+    complete: bool
+    passed_conjuncts: tuple[NOCommencementSectionScopeAuthorizationConjunct, ...]
+
+    def to_diagnostic_detail(self) -> dict[str, Any]:
+        return diagnostic_detail(
+            rule_id=NO_COMMENCEMENT_SECTION_SCOPE_EXECUTION_AUTHORIZED,
+            family="temporal_recovery",
+            phase="temporal",
+            reason=(
+                "Norway commencement instrument(s) dated ONE binding of an amendment act "
+                "below binding level: a binding date and/or per-section dates, with the "
+                "carved-out sections recorded; the act's other bindings stay as they were."
+            ),
+            blocking=False,
+            strict_disposition="record",
+            quirks_disposition=QuirksDisposition.RECORD,
+            source_id=self.act_source_id,
+            instrument_source_ids=list(self.instrument_source_ids),
+            law_id=self.law_id,
+            binding_date=self.binding_date,
+            section_dates=[[label, date] for label, date in self.section_dates],
+            excluded_section_labels=list(self.excluded_section_labels),
+            qualified_refused_labels=list(self.qualified_refused_labels),
+            unbound_section_labels=list(self.unbound_section_labels),
+            complete=self.complete,
+            passed_conjuncts=[str(conjunct) for conjunct in self.passed_conjuncts],
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class NOCommencementSectionScopeDateConflictReceipt:
+    """W-100. Two statements gave one key two dates; the key dates nothing."""
+
+    act_source_id: str
+    law_id: str
+    section_label: str
+    instrument_source_ids: tuple[str, ...]
+    effective_dates: tuple[str, ...]
+
+    def to_diagnostic_detail(self) -> dict[str, Any]:
+        return diagnostic_detail(
+            rule_id=NO_COMMENCEMENT_SECTION_SCOPE_EXECUTION_DATE_CONFLICT,
+            family="temporal_recovery",
+            phase="temporal",
+            reason=(
+                "Norway section-scoped commencement statements disagree on the date of one "
+                "binding or section; the whole binding is refused rather than resolved."
+            ),
+            blocking=True,
+            strict_disposition="block",
+            quirks_disposition=QuirksDisposition.RECORD,
+            source_id=self.act_source_id,
+            law_id=self.law_id,
+            section_label=self.section_label,
+            instrument_source_ids=list(self.instrument_source_ids),
+            effective_dates=list(self.effective_dates),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class NOCommencementSectionScopeRefusalReceipt:
+    """W-100. The reader read the text, the gate could not resolve it."""
+
+    act_source_id: str
+    instrument_source_id: str
+    reason: str
+
+    def to_diagnostic_detail(self) -> dict[str, Any]:
+        return diagnostic_detail(
+            rule_id=NO_COMMENCEMENT_SECTION_SCOPE_EXECUTION_REFUSED,
+            family="temporal_recovery",
+            phase="temporal",
+            reason=(
+                "Norway section-scoped commencement statements were read in full but a "
+                "scope term could not be resolved against the act; the pair re-dates nothing."
+            ),
+            blocking=False,
+            strict_disposition="record",
+            quirks_disposition=QuirksDisposition.RECORD,
+            source_id=self.act_source_id,
+            instrument_source_id=self.instrument_source_id,
+            refusal=self.reason,
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class NOCommencementActPartEvidence:
     """What the gate needs to know about ONE amendment act's part structure.
 
@@ -1335,6 +1545,12 @@ class NOCommencementActPartEvidence:
 
     law_section_labels: Mapping[str, frozenset[str]]
     """law -> the section labels this act's ops on that law target."""
+
+    unsectioned_op_laws: tuple[str, ...] = ()
+    """W-100. The laws on which at least one of this act's ops targets no
+    section (a chapter heading, a whole-part directive). Such an op can only
+    take a BINDING-level date, so a law here is never section-complete without
+    one."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -1357,6 +1573,27 @@ class NOCommencementExecutionAuthorization:
     widened_whole_act_conflicts: tuple[
         NOCommencementWidenedWholeActDateConflictReceipt, ...
     ] = ()
+    section_scoped_authorizations: tuple[
+        NOCommencementSectionScopeAuthorizationReceipt, ...
+    ] = ()
+    section_scoped_conflicts: tuple[NOCommencementSectionScopeDateConflictReceipt, ...] = ()
+    section_scoped_refusals: tuple[NOCommencementSectionScopeRefusalReceipt, ...] = ()
+
+    def section_scoped_landings(
+        self,
+    ) -> dict[str, list[NOCommencementSectionScopeAuthorizationReceipt]]:
+        """act -> its section-scoped receipts, one per dated binding. W-100.
+
+        A fourth landing place, beside the two maps below, because what it
+        carries is neither an act date nor a binding date but a binding's date
+        PLUS its per-section overrides and carve-outs; the index writes it into
+        the entry's ``section_scoped_*`` fields and the replay resolves each op
+        against it.
+        """
+        out: dict[str, list[NOCommencementSectionScopeAuthorizationReceipt]] = {}
+        for receipt in self.section_scoped_authorizations:
+            out.setdefault(receipt.act_source_id, []).append(receipt)
+        return out
 
     def authorized_effective_dates(self) -> dict[str, str]:
         """act -> date, the act-level dates BOTH whole-act routes granted.
@@ -1541,6 +1778,13 @@ def authorize_no_commencement_instruments(
     named_part_list_proposals: dict[tuple[str, str, str], dict[str, list[str]]] = {}
     named_part_list_spans: dict[tuple[str, str, str], tuple[str, ...]] = {}
     widened_proposals: dict[str, dict[str, list[str]]] = {}
+    # W-100. act, law -> [(instrument id, its proposal)], every instrument that
+    # read a section-scoped statement about that binding; resolved per key
+    # below, after every older route has had its turn.
+    section_scope_proposals: dict[
+        tuple[str, str], list[tuple[str, _SectionScopeProposal]]
+    ] = {}
+    section_scope_refusals: list[NOCommencementSectionScopeRefusalReceipt] = []
     refusals: list[NOCommencementRefusalReceipt] = []
     for parse_status, candidate in parsed_instruments:
         cited_act_ids = tuple(
@@ -1620,6 +1864,32 @@ def authorize_no_commencement_instruments(
                             sorted(label for label, _law in named_part_list_match)
                         )
                     continue
+                # W-100. The section-scoped route proposes LAST and, like the
+                # widened route, consumes nothing here: the generic refusal below
+                # is still written and is withdrawn only for a pair the route
+                # goes on to GRANT. A pair the reader read but the gate could not
+                # resolve gets its own receipt with the reason, beside the
+                # generic one.
+                section_match, section_reason = _section_scoped_authorization_scope(
+                    parse_status,
+                    candidate,
+                    failed_conjuncts,
+                    part_evidence.get(act_id),
+                    part_evidence,
+                )
+                if section_match is not None:
+                    for law_id, proposal in section_match.items():
+                        section_scope_proposals.setdefault((act_id, law_id), []).append(
+                            (candidate.source_id, proposal)
+                        )
+                elif section_reason:
+                    section_scope_refusals.append(
+                        NOCommencementSectionScopeRefusalReceipt(
+                            act_source_id=act_id,
+                            instrument_source_id=candidate.source_id,
+                            reason=section_reason,
+                        )
+                    )
                 refusals.append(
                     NOCommencementRefusalReceipt(
                         act_source_id=act_id,
@@ -1918,6 +2188,152 @@ def authorize_no_commencement_instruments(
         )
         authorized_instrument_ids.update(instrument_source_ids)
 
+    # W-100. The section-scoped route resolves last of all and yields to every
+    # route above it on the terms they already use among themselves: to the two
+    # act-level routes per act, to the three part routes per binding. What it
+    # adds is a per-KEY conflict check finer than any of theirs — a binding date,
+    # each section date, and the consistency of the two (a section dated
+    # differently from a binding it was not carved out of is a contradiction,
+    # not a refinement) — and it drops the WHOLE binding on any contradiction
+    # rather than keeping the parts that happen to agree.
+    named_part_list_authorized_keys = {
+        (receipt.act_source_id, receipt.part_label, receipt.law_id)
+        for receipt in named_part_list_authorizations
+    }
+    part_dated_bindings = {
+        (act_id, law_id)
+        for act_id, _label, law_id in (
+            single_part_authorized_keys | multi_part_authorized_keys | named_part_list_authorized_keys
+        )
+    }
+    section_scoped_authorizations: list[NOCommencementSectionScopeAuthorizationReceipt] = []
+    section_scoped_conflicts: list[NOCommencementSectionScopeDateConflictReceipt] = []
+    for (act_id, law_id), claims in sorted(section_scope_proposals.items()):
+        if act_id in whole_act_authorized:
+            continue
+        if (act_id, law_id) in part_dated_bindings:
+            continue
+        instrument_ids = tuple(sorted({source_id for source_id, _proposal in claims}))
+        binding_dates = sorted({p.binding_date for _s, p in claims if p.binding_date is not None})
+        conflict: tuple[str, tuple[str, ...]] | None = None
+        if len(binding_dates) > 1:
+            conflict = ("", tuple(binding_dates))
+        section_dates: dict[str, set[str]] = {}
+        qualified_dates: dict[str, set[str]] = {}
+        excluded: set[str] = set()
+        for _source_id, proposal in claims:
+            for label, date in proposal.section_dates.items():
+                section_dates.setdefault(label, set()).add(date)
+            for label, date in proposal.qualified_dates.items():
+                qualified_dates.setdefault(label, set()).add(date)
+            excluded.update(proposal.excluded)
+        binding_date = binding_dates[0] if len(binding_dates) == 1 else None
+        if conflict is None:
+            # A whole-section date conflicts with any other date for that
+            # section (another whole-section date, a ledd-level date, or a
+            # binding date it was not carved out of). Two LEDD-level dates for
+            # one section do not conflict with each other: ``§ 4-5 andre ledd``
+            # and ``§ 4-5 første, tredje, fjerde og femte ledd`` commencing on
+            # different days is the staged pattern itself
+            # (``no/lovtid/2021-06-11-84`` under its 2021 and 2025 instruments).
+            for label, dates in sorted(section_dates.items()):
+                all_dates = set(dates) | qualified_dates.get(label, set())
+                if len(all_dates) > 1:
+                    conflict = (label, tuple(sorted(all_dates)))
+                    break
+                if (
+                    binding_date is not None
+                    and label not in excluded
+                    and next(iter(dates)) != binding_date
+                ):
+                    conflict = (label, tuple(sorted(dates | {binding_date})))
+                    break
+            for label, dates in sorted(qualified_dates.items()):
+                if conflict is not None or label in section_dates:
+                    break
+                if (
+                    binding_date is not None
+                    and label not in excluded
+                    and any(date != binding_date for date in dates)
+                ):
+                    conflict = (label, tuple(sorted(dates | {binding_date})))
+                    break
+        if conflict is not None:
+            section_label, dates = conflict
+            section_scoped_conflicts.append(
+                NOCommencementSectionScopeDateConflictReceipt(
+                    act_source_id=act_id,
+                    law_id=law_id,
+                    section_label=section_label,
+                    instrument_source_ids=instrument_ids,
+                    effective_dates=dates,
+                )
+            )
+            continue
+        # A key whose every dated label was ledd-qualified dates nothing; it is
+        # refused with that reason rather than landed as an empty grant, so the
+        # binding keeps its whole-entry contingent skip instead of a per-op one.
+        if binding_date is None and not section_dates:
+            for instrument_source_id in instrument_ids:
+                section_scope_refusals.append(
+                    NOCommencementSectionScopeRefusalReceipt(
+                        act_source_id=act_id,
+                        instrument_source_id=instrument_source_id,
+                        reason=f"every dated label of {law_id} is ledd-qualified",
+                    )
+                )
+            continue
+        evidence = part_evidence.get(act_id)
+        targeted = set(evidence.law_section_labels.get(law_id, frozenset())) if evidence else set()
+        has_unsectioned_ops = bool(evidence and law_id in evidence.unsectioned_op_laws)
+        landed_sections = {label: next(iter(dates)) for label, dates in section_dates.items()}
+        landed_excluded = sorted((excluded - set(landed_sections)) & targeted)
+        qualified_refused = sorted(set(qualified_dates) - set(landed_sections))
+        unbound = sorted((set(section_dates) | excluded) - targeted)
+        # A targeted section is dated by its own entry, or by the binding date
+        # when it was not carved out. A qualified-refused label that was not
+        # carved out takes the binding date like any other (the consistency
+        # check above has already established the two dates agree).
+        dated_targets = {
+            label
+            for label in targeted
+            if label in landed_sections or (binding_date is not None and label not in excluded)
+        }
+        complete = (
+            bool(targeted or binding_date is not None)
+            and not (targeted - dated_targets)
+            and (binding_date is not None or not has_unsectioned_ops)
+        )
+        section_scoped_authorizations.append(
+            NOCommencementSectionScopeAuthorizationReceipt(
+                act_source_id=act_id,
+                law_id=law_id,
+                instrument_source_ids=instrument_ids,
+                binding_date=binding_date,
+                section_dates=tuple(sorted(landed_sections.items())),
+                excluded_section_labels=tuple(landed_excluded),
+                qualified_refused_labels=tuple(qualified_refused),
+                unbound_section_labels=tuple(unbound),
+                complete=complete,
+                passed_conjuncts=tuple(NOCommencementSectionScopeAuthorizationConjunct),
+            )
+        )
+        authorized_instrument_ids.update(instrument_ids)
+    # A pair this route granted must not also carry the generic refusal, for
+    # the reason W-53 gave: that receipt says the instrument re-dates nothing.
+    section_granted_pairs = {
+        (receipt.act_source_id, instrument_source_id)
+        for receipt in section_scoped_authorizations
+        for instrument_source_id in receipt.instrument_source_ids
+    }
+    if section_granted_pairs:
+        refusals = [
+            refusal
+            for refusal in refusals
+            if (refusal.act_source_id, refusal.instrument_source_id)
+            not in section_granted_pairs
+        ]
+
     return NOCommencementExecutionAuthorization(
         instruments=tuple(
             replace(
@@ -1935,6 +2351,9 @@ def authorize_no_commencement_instruments(
         named_part_list_authorizations=tuple(named_part_list_authorizations),
         widened_whole_act_authorizations=tuple(widened_whole_act_authorizations),
         widened_whole_act_conflicts=tuple(widened_whole_act_conflicts),
+        section_scoped_authorizations=tuple(section_scoped_authorizations),
+        section_scoped_conflicts=tuple(section_scoped_conflicts),
+        section_scoped_refusals=tuple(section_scope_refusals),
     )
 
 
@@ -2259,6 +2678,192 @@ def _named_part_list_authorization_scope(
     )
 
 
+class _SectionScopeRefusal(Exception):
+    """Raised inside the section-scoped route on the first unresolvable term."""
+
+
+@dataclass(slots=True)
+class _SectionScopeProposal:
+    """One instrument's claims about one (act, law) binding. W-100."""
+
+    binding_date: str | None = None
+    section_dates: dict[str, str] = field(default_factory=dict)
+    excluded: set[str] = field(default_factory=set)
+    qualified_dates: dict[str, str] = field(default_factory=dict)
+
+
+def _section_scoped_authorization_scope(
+    parse_status: NOCommencementParseStatus,
+    candidate: NOCommencementInstrumentCandidate,
+    failed_whole_act_conjuncts: tuple[NOCommencementAuthorizationConjunct, ...],
+    evidence: "NOCommencementActPartEvidence | None",
+    amendment_act_ids: Collection[str],
+) -> tuple[dict[str, _SectionScopeProposal] | None, str]:
+    """Resolve this pair's scope statements to per-law proposals, or refuse. W-100.
+
+    Returns ``(proposals, "")`` on success, ``(None, reason)`` when the reader
+    read the text but a term could not be resolved (the reason is receipted),
+    and ``(None, "")`` when the pair is simply not this route's business (the
+    reader refused, or an older route's conjunct set applies).
+
+    Resolution rules, each refusing rather than guessing:
+
+    * a PART resolves through the act's part map, and only if the law that
+      part amends is amended by no other part;
+    * a SECTION LIST or a LAW under a date-and-number citation resolves to that
+      law, which must be one the act binds;
+    * a section list under a short name or under no law at all resolves only
+      when the act binds exactly one law;
+    * an ACT-level statement targets every law the act binds; its carve-outs
+      resolve like subjects, and a carved-out whole part or law simply drops
+      out of the target set;
+    * a carve-out under a section-list subject, or an act-level carve-out that
+      names a section without a law on a multi-law act, refuses.
+    """
+    if evidence is None:
+        return None, ""
+    if parse_status is not NOCommencementParseStatus.BLOCKED_UNRESOLVED:
+        return None, ""
+    if not set(failed_whole_act_conjuncts) <= {
+        NOCommencementAuthorizationConjunct.PARSE_STATUS_CANDIDATE,
+        NOCommencementAuthorizationConjunct.WHOLE_ACT_SCOPE,
+        NOCommencementAuthorizationConjunct.SINGLE_EFFECTIVE_DATE,
+    }:
+        return None, ""
+    reading = candidate.scope_reading
+    if not reading.total or not reading.statements:
+        return None, ""
+    # One AMENDMENT act. An instrument commencing an act and, in the same
+    # document, amending a forskrift cites the forskrift's hjemmel statute in
+    # the same ``basedOn`` field (``no/forskrift/2015-06-12-633`` cites
+    # kringkastingsloven beside the act it commences); a principal law is not an
+    # act whose statements could merge with this one's, so only cited ids that
+    # ARE amendment acts in the index — the ones with act evidence — count.
+    cited_amendment_act_ids = {
+        act_id
+        for act_id in (
+            no_commencement_act_id_from_law_id(law_id)
+            for law_id in candidate.affected_law_ids
+        )
+        if act_id and act_id in amendment_act_ids
+    }
+    if len(cited_amendment_act_ids) != 1:
+        return None, "instrument cites several acts"
+
+    parts_by_law: dict[str, list[str]] = {}
+    for part_label, law_id in evidence.part_law_ids.items():
+        parts_by_law.setdefault(law_id, []).append(part_label)
+    bound = set(evidence.bound_law_ids)
+    known_laws = bound | set(parts_by_law)
+    single_law = next(iter(bound)) if len(bound) == 1 else ""
+
+    def resolve(item: NOCommencementScopeItem) -> str:
+        if item.kind == "part":
+            law_id = evidence.part_law_ids.get(item.part_label)
+            if law_id is None:
+                raise _SectionScopeRefusal(f"part {item.part_label} resolves no law")
+            if len(parts_by_law.get(law_id, ())) > 1:
+                raise _SectionScopeRefusal(f"law {law_id} spans several parts")
+            if item.law_ref.startswith("no/lov/") and item.law_ref != law_id:
+                raise _SectionScopeRefusal(
+                    f"part {item.part_label} cites {item.law_ref} but amends {law_id}"
+                )
+            return law_id
+        if item.kind in {"sections", "law"}:
+            if item.law_ref.startswith("no/lov/"):
+                if item.law_ref not in known_laws:
+                    raise _SectionScopeRefusal(f"cited law {item.law_ref} is not bound by the act")
+                return item.law_ref
+            if single_law:
+                return single_law
+            raise _SectionScopeRefusal(
+                "section list without a resolvable law on a multi-law act"
+                + (f" ({item.law_ref})" if item.law_ref else "")
+            )
+        raise _SectionScopeRefusal(f"unexpected scope term kind {item.kind}")
+
+    proposals: dict[str, _SectionScopeProposal] = {}
+
+    def proposal(law_id: str) -> _SectionScopeProposal:
+        return proposals.setdefault(law_id, _SectionScopeProposal())
+
+    def set_binding(law_id: str, date: str) -> None:
+        current = proposal(law_id)
+        if current.binding_date is not None and current.binding_date != date:
+            raise _SectionScopeRefusal(f"two binding dates for {law_id}")
+        current.binding_date = date
+
+    def grant_sections(law_id: str, item: NOCommencementScopeItem, date: str) -> None:
+        current = proposal(law_id)
+        qualified = set(item.qualified_section_labels)
+        for label in item.section_labels:
+            target = current.qualified_dates if label in qualified else current.section_dates
+            if label in target and target[label] != date:
+                raise _SectionScopeRefusal(f"two dates for § {label} of {law_id}")
+            target[label] = date
+
+    def exclude(law_id: str, item: NOCommencementScopeItem) -> None:
+        proposal(law_id).excluded.update(item.section_labels)
+
+    try:
+        for statement in reading.statements:
+            subject = statement.subject
+            date = statement.date
+            if date is None:
+                continue
+            if subject.kind == "act":
+                if not known_laws:
+                    raise _SectionScopeRefusal("act binds no law")
+                targets = set(known_laws)
+                carve_outs: list[tuple[str, NOCommencementScopeItem]] = []
+                for item in statement.excluded:
+                    if item.kind == "act":
+                        raise _SectionScopeRefusal("act carved out of itself")
+                    if item.kind == "sections" and not item.law_ref and not single_law:
+                        raise _SectionScopeRefusal(
+                            "act-level carve-out names a section without a law on a multi-law act"
+                        )
+                    law_id = resolve(item)
+                    if item.section_labels:
+                        carve_outs.append((law_id, item))
+                    else:
+                        targets.discard(law_id)
+                for law_id in sorted(targets):
+                    set_binding(law_id, date)
+                for law_id, item in carve_outs:
+                    if law_id in targets:
+                        exclude(law_id, item)
+                continue
+            law_id = resolve(subject)
+            if subject.section_labels:
+                if statement.excluded:
+                    raise _SectionScopeRefusal("carve-out under a section-list subject")
+                grant_sections(law_id, subject, date)
+                continue
+            set_binding(law_id, date)
+            for item in statement.excluded:
+                if item.kind == "act":
+                    raise _SectionScopeRefusal("act carved out of a part")
+                if item.kind == "part" and not item.section_labels:
+                    raise _SectionScopeRefusal("whole part carved out of a part")
+                if item.kind in {"sections", "law"} and not item.law_ref:
+                    excluded_law = law_id
+                else:
+                    excluded_law = resolve(item)
+                if excluded_law != law_id:
+                    raise _SectionScopeRefusal(
+                        f"carve-out under {law_id} names {excluded_law}"
+                    )
+                if not item.section_labels:
+                    raise _SectionScopeRefusal("whole law carved out of itself")
+                exclude(law_id, item)
+    except _SectionScopeRefusal as refusal:
+        return None, str(refusal)
+    if not proposals:
+        return None, "no statement dated anything"
+    return proposals, ""
+
+
 def _failed_authorization_conjuncts(
     parse_status: NOCommencementParseStatus,
     candidate: NOCommencementInstrumentCandidate,
@@ -2403,12 +3008,21 @@ def _title_cited_whole_act_subject(
     if _SUBDIVISION_SCOPE_RE.search(text):
         return False
     # lawvm-regex: owning_parser this reader's unambiguity witness; a counter, refusing only
-    if len(_INDEFINITE_ACT_TITLE_SUBJECT_RE.findall(text)) != 1:
+    subject_count = len(_INDEFINITE_ACT_TITLE_SUBJECT_RE.findall(text)) + len(
+        _INDEFINITE_ACT_TITLE_CITATION_SUBJECT_RE.findall(text)
+    )
+    if subject_count != 1:
         return False
     # lawvm-regex: owning_parser this IS the title-cited subject reader; anchored at the block start
     match = _TITLE_CITED_ACT_SUBJECT_RE.match(text)
     if match is None:
-        return False
+        match = _TITLE_CITED_ACT_CITATION_SUBJECT_RE.match(text)
+        # lawvm-regex: owning_parser the citation form's fifth conjunct: nothing
+        # but a date after the verb. ``… trer i kraft for Bouvetøya 1. april
+        # 2005`` (``no/forskrift/2005-02-25-173``) commences the act for one
+        # territory, and a territorial or any other qualifier refuses.
+        if match is None or _BARE_DATE_TAIL_RE.match(text, match.end()) is None:
+            return False
     phrase = _WS_RE.sub(" ", match.group("title_phrase")).strip().casefold()
     return bool(phrase) and phrase in _WS_RE.sub(" ", title).strip().casefold()
 
@@ -2624,6 +3238,15 @@ def _law_ids(root: etree._Element) -> tuple[str, ...]:
     return tuple(sorted(law_ids))
 
 
+def _instrument_date_from_source_id(source_id: str) -> str:
+    """``no/forskrift/2023-09-01-1380`` → ``2023-09-01``; empty when not of that shape."""
+    tail = source_id.rsplit("/", 1)[-1]
+    parts = tail.split("-")
+    if len(parts) >= 3 and all(part.isdigit() for part in parts[:3]):
+        return "-".join(parts[:3])
+    return ""
+
+
 def parse_no_commencement_instrument(
     payload: bytes,
     *,
@@ -2680,13 +3303,35 @@ def parse_no_commencement_instrument(
     # this item does not touch. The block count and W-51's fence still gate it,
     # so a title-cited subject buys the pair nothing the other reader would not
     # have had to buy too.
+    # W-100. The widened route reads the ACT-scoped blocks: a consequential
+    # block that acts on a forskrift and names no act (``Fra samme tidspunkt
+    # oppheves § 2-5 og § 2-6 i forskrift …``, ``no/forskrift/2015-06-12-633``)
+    # is not about the act and is set aside before the single-block test. The
+    # shipped ``_WHOLE_ACT_RE`` route above and W-47's ``whole_act_operative_text``
+    # keep reading the raw blocks, so neither can widen through this. The first
+    # block is never dropped, and the count set aside is recorded on the
+    # candidate.
+    act_blocks, forskrift_blocks_dropped = act_scoped_operative_blocks(operative_blocks)
+    act_single_block = act_blocks[0] if len(act_blocks) == 1 else ""
+    # lawvm-regex: owning_parser W-51's fence again, on the act-scoped block
+    act_tail_carve_out = bool(_WHOLE_ACT_TAIL_HAZARD_RE.search(act_single_block))
     title_cited_whole_act_scope = _title_cited_whole_act_subject(
-        operative_blocks, title=title, cited_law_ids=affected_law_ids
+        act_blocks, title=title, cited_law_ids=affected_law_ids
     )
     widened_whole_act_scope = (
-        bool(single_block)
-        and (whole_act_operative_text or title_cited_whole_act_scope)
-        and not tail_carve_out
+        bool(act_single_block)
+        and (_whole_act_operative_text(act_blocks) or title_cited_whole_act_scope)
+        and not act_tail_carve_out
+    )
+    # W-100. The section-scoped statement reader, over the same act-scoped
+    # blocks. ``straks`` resolves to the instrument's own date; every prose date
+    # must be in ``dateInForce``; the cited law ids are what lets the reader tell
+    # the act's own citation from a law's.
+    scope_reading = read_no_commencement_scope_statements(
+        operative_blocks,
+        instrument_date=_instrument_date_from_source_id(source_id),
+        declared_dates=effective_dates,
+        own_act_law_ids=affected_law_ids,
     )
     scope_status = (
         NOCommencementScopeStatus.WHOLE_ACT
@@ -2720,6 +3365,8 @@ def parse_no_commencement_instrument(
         ),
         widened_whole_act_scope=widened_whole_act_scope,
         title_cited_whole_act_scope=title_cited_whole_act_scope,
+        scope_reading=scope_reading,
+        forskrift_blocks_dropped=forskrift_blocks_dropped,
     )
     residuals: tuple[NOCommencementInstrumentResidual, ...] = ()
     parse_status = NOCommencementParseStatus.CANDIDATE

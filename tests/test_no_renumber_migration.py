@@ -1478,7 +1478,16 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # commencement is CONTINGENT, so its replay now receipts a contingent skip
     # and it becomes known-incomplete. It leaves the scan candidate set in the
     # same landing (see ``tests/test_norway_verify.py``).
-    "incomplete_bases": 202,
+    # 202 -> 190 at W-100 (2026-09-05), and for the first time the count moves
+    # DOWN by commencement rather than up by lowering: the section-scoped
+    # commencement lane and the title-cited citation form date acts whose
+    # contingent skip was what made twelve bases known-incomplete
+    # (``no/lovtid/2013-01-11-3`` alone held ``no/lov/2010-06-04-21`` and
+    # ``no/lov/2011-06-24-39`` here since W-66c). Two enter
+    # (``no/lov/2017-06-16-56``, ``no/lov/2020-04-24-31``): their acts now land
+    # per-section dates and skip the rest with a per-op contingent receipt,
+    # which is what makes an incomplete base observable.
+    "incomplete_bases": 190,
     # 265 -> 266 and 161 -> 162 at W-69c, and it is ONE law ENTERING the census:
     # ``no/lov/2009-06-19-44``. It was already counted incomplete (four
     # `contingent` skips, which the replay receipts before it applies anything,
@@ -1497,7 +1506,9 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # over-application W-85 existed to close — and drops to zero. It was never
     # a hazard-intersection member (not known-incomplete), so ``hazard_bases``
     # and the membership digest below move for a different, single-row reason.
-    "bases_with_destructive_writes": 265,
+    # 265 -> 267 at W-100: two laws take their first destructive writes from
+    # acts the section-scoped lane dated.
+    "bases_with_destructive_writes": 267,
     # 162 -> 164 at W-66c: the two laws named in the ``incomplete_bases`` note
     # above ENTER the intersection. Both already took destructive writes (6 and
     # 12 of them), so they arrive with a full row rather than a zero one; nothing
@@ -1505,7 +1516,10 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # ``contingent``.
     # 164 -> 165 at W-98: the law named in the ``incomplete_bases`` note above
     # ENTERS the intersection with a [4, 0] row (four writes, none removing).
-    "hazard_bases": 165,
+    # 165 -> 156 at W-100: nine of the twelve bases that stopped being
+    # known-incomplete (note above) were in the intersection; the two entrants
+    # arrive with rows. See the sweep note in ledger item 100.
+    "hazard_bases": 156,
     # 3,713 -> 3,706 at W-75, and exactly one law moves: ``no/lov/2008-06-27-71``
     # [73, 2] -> [66, 2]. Refusing the word-substitution address lists stops seven
     # REPLACEs that had been writing the amendment's own prose into plan- og
@@ -1769,7 +1783,10 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # ``no/lov/2016-05-27-14`` [142, 7] -> [144, 7] (`2019-03-15-6` item 25,
     # bokstav h og i), and six single REPLACEs. The content-removing column
     # does not move (219 over 81 laws): nothing here repeals.
-    "hazard_destructive_writes": 3953,
+    # 3,953 -> 4,036 at W-100: the surviving 156 take 83 more writes, all from
+    # bindings the section-scoped lane dated; the dated acts' writes on the
+    # bases that LEFT are no longer hazard writes at all.
+    "hazard_destructive_writes": 4036,
     # 167 -> 168, and the +1 is NOT a relabel op. ``no/lov/2016-05-27-14`` gains
     # ``no/lovtid/2021-12-22-158:1``, a REPEAL of § 7-6 annet ledd that could not
     # bind before because that law's ledd sequence was one slot out of step; with
@@ -1798,8 +1815,9 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # ``no/lov/2011-06-24-39``, one of which is its own pre-existing write.
     # ``hazard_bases_removing_content`` 65 -> 77 is the 11 laws whose row goes
     # from 0 removals to some, plus that entrant.
-    "hazard_content_removing_writes": 219,
-    "hazard_bases_removing_content": 81,
+    # 219 -> 238 / 81 -> 76 at W-100, the same movement in the removing column.
+    "hazard_content_removing_writes": 238,
+    "hazard_bases_removing_content": 76,
 }
 
 #: Content hash of the per-law hazard list (base_id -> [destructive, removing]).
@@ -1878,7 +1896,9 @@ _NO_INCOMPLETE_BASE_HAZARD_LAWS_DIGEST = (
     # the period-less citation and address-after-citation leads binding to the
     # act they name, each a REPLACE/INSERT the source commands by name (see the
     # count note above); every removing column is byte-identical.
-    "4c5801331168b43e5fd316f5a2b831054f34ae5590e4e491ff94cc0ca3853c64"
+    "4fbec9afae67ef58835be384617403aca430830d26de0cf41ebcf65b148dcbf6"
+    # W-100: MEMBERSHIP moves (165 -> 156, twelve leave, two enter) and rows
+    # move on the bases the section-scoped lane dated; see the count notes.
 )
 
 _REGENERATE = (
@@ -2332,7 +2352,10 @@ def test_no_incomplete_base_destructive_write_census_is_pinned(
     # keeps the dominance argument exact rather than merely still true.
     # 164 -> 165 at W-98: the entrant (``no/lov/2004-03-26-17``) is a
     # contingent-skip law, so the dominance argument stays exact.
-    assert hazard["hazard_by_skip_kind"]["contingent"] == 165
+    # 165 -> 156 at W-100: nine contingent-skip laws leave (their acts are now
+    # dated) and the two entrants are contingent-skip laws (per-op), so the
+    # dominance argument stays exact.
+    assert hazard["hazard_by_skip_kind"]["contingent"] == 156
     assert hazard["hazard_by_skip_kind"]["missing_source"] == 0
     # Husbankloven is the witness this census exists for, and it is STILL IN THE
     # SET — 8 destructive writes, 3 of them content-removing. W-73 repaired the
@@ -3442,7 +3465,21 @@ _W66C_MINTED_REPEAL_LEGS_DIGEST = (
     "2a1577d65bddff9732b169e30a69d97adb7b966861953c70472e214a1ddafdfd"
 )
 
-# 33 destructions over 29 base acts
+# 33 destructions over 29 base acts; 34/30 at W-98; 50/36 at W-100 (2026-09-05).
+# W-100's 18 entrants and 2 leavers are all COMMENCEMENT movements, not grammar
+# ones: the section-scoped lane and the title-cited citation form date acts
+# whose punktum-depth repeals had been minted since W-66c and refused at replay
+# as contingent — ``no/lovtid/2013-01-11-3`` (nine rows over four laws),
+# ``2013-06-21-92`` (four), ``2010-03-26-8``, ``2010-06-04-20``, ``2015-06-19-79``,
+# ``2015-11-20-94``, ``2016-06-17-72``, ``2016-12-16-90``, ``2018-12-20-98``. Each
+# entrant was adjudicated by its lead: the ``article.defaultP`` text names the
+# section, ledd and ordinal(s) of exactly the address(es) minted (``§ 73 fjerde
+# ledd annet til fjerde punktum oppheves.`` -> sentence 2, 3, 4). The two
+# leavers are the SAME two addresses re-entering with different text
+# (``no/lov/2006-06-16-20`` § 7 andre ledd andre punktum, ``no/lov/2008-05-15-35``
+# § 76 annet ledd annet punktum): an act newly dated EARLIER than the repealing
+# one now rewrites that ledd first, so the ordinal counts to a different
+# sentence at the repeal's moment. See ledger item 100 for what stands.
 _W66C_CORPUS_DESTRUCTIONS: tuple[tuple[str, str, str], ...] = (
     (
         'no/lov/2001-05-18-21',
@@ -3459,14 +3496,6 @@ _W66C_CORPUS_DESTRUCTIONS: tuple[tuple[str, str, str], ...] = (
         'section:26/subsection:3/sentence:3',
         'Avtalefriheten gjelder likevel ikke for installeringsforpliktelser som inngår i salgsavtalen.',
     ),
-    # W-98 ENTRANT, adjudicated by text: ``no/lovtid/2019-06-21-67`` reads
-    # "§ 37 b andre ledd første punktum oppheves." off its own ``article.defaultP``
-    # — THAT section, THAT ledd, THAT ordinal — and the sentence it removes is
-    # absent from the published § 37 b andre ledd today ("Dersom innehavar av
-    # kjøresetel …" stands first). The repeal was minted before W-98 and never
-    # realized because § 37 b did not exist in the replayed tree: chapter 7 A is
-    # ``no/lovtid/2003-12-19-132``'s "Nytt kapittel 7A skal lyde:", which W-98 (g)
-    # now lands as a whole-chapter INSERT. The destruction is commanded by name.
     (
         'no/lov/2002-06-21-45',
         'section:37b/subsection:2/sentence:1',
@@ -3478,6 +3507,11 @@ _W66C_CORPUS_DESTRUCTIONS: tuple[tuple[str, str, str], ...] = (
         'Medvirkning straffes på samme måte.',
     ),
     (
+        'no/lov/2003-03-14-15',
+        'section:39/subsection:2/sentence:3',
+        'Det kan ikke gis oppfriskning mot oversittelse av søksmålsfristen.',
+    ),
+    (
         'no/lov/2003-06-27-64',
         'section:9/subsection:2/sentence:2',
         'Medvirkning straffes på samme måte.',
@@ -3486,6 +3520,11 @@ _W66C_CORPUS_DESTRUCTIONS: tuple[tuple[str, str, str], ...] = (
         'no/lov/2003-07-04-80',
         'section:19/subsection:2/sentence:2',
         'Like med offentlige organer regnes organisasjoner og private som utfører oppgaver for stat, fylkeskommune eller kommune.',
+    ),
+    (
+        'no/lov/2003-12-19-130',
+        'section:7/subsection:1/sentence:2',
+        'Senere endringer av innskuddet vedtas av foretaksmøtet.',
     ),
     (
         'no/lov/2005-04-01-15',
@@ -3509,13 +3548,28 @@ _W66C_CORPUS_DESTRUCTIONS: tuple[tuple[str, str, str], ...] = (
     ),
     (
         'no/lov/2006-06-16-20',
+        'section:18/subsection:2/sentence:2',
+        'Det kan herunder bestemmes at Statens innkrevingssentral skal foreta innkrevingen av feilutbetalte ytelser etter arbeidsmarkedsloven og etter folketrygdloven kapitlene 4 og 11 og opptre på statens vegne ved innkrevingen i samsvar med tidligere §§ 23 og 24 i arbeidsmarkedsloven.',
+    ),
+    (
+        'no/lov/2006-06-16-20',
         'section:7/subsection:2/sentence:2',
-        'Videre kan en brukerkontakt som nevnt i folketrygdloven § 15-12 femte ledd få oppgitt navn og adresse på enslige forsørgere som mottar overgangsstønad innenfor brukerkontaktens virkeområde.',
+        'Det kan herunder bestemmes at Statens innkrevingssentral skal foreta innkrevingen av feilutbetalte ytelser etter arbeidsmarkedsloven og etter folketrygdloven kapitlene 4 og 11 og opptre på statens vegne ved innkrevingen i samsvar med tidligere §§ 23 og 24 i arbeidsmarkedsloven.',
+    ),
+    (
+        'no/lov/2007-02-16-9',
+        'section:57/subsection:1/sentence:2',
+        'Ved inndrivelse av overtredelsesgebyr gjelder bestemmelsen i § 48 annet ledd tilsvarende.',
     ),
     (
         'no/lov/2007-06-29-44',
         'section:8/subsection:1/sentence:3',
         'Departementet oppnevner to varamedlemmer til styret.',
+    ),
+    (
+        'no/lov/2007-06-29-75',
+        'section:7-8/subsection:6/sentence:2',
+        'Departementet kan bestemme at hele eller deler av Kredittilsynets myndighet etter dette kapittelet skal utøves av et regulert marked.',
     ),
     (
         'no/lov/2007-06-29-81',
@@ -3524,8 +3578,28 @@ _W66C_CORPUS_DESTRUCTIONS: tuple[tuple[str, str, str], ...] = (
     ),
     (
         'no/lov/2008-05-15-35',
+        'section:104/subsection:3/sentence:2',
+        'Vernet mot utsendelse er ikke til hinder for at det treffes vedtak om utvisning etter § 66 første ledd bokstav f, § 67 første ledd bokstav e eller § 68 første ledd bokstav d.',
+    ),
+    (
+        'no/lov/2008-05-15-35',
+        'section:73/subsection:4/sentence:2',
+        'Vernet mot utsendelse er ikke til hinder for at det treffes vedtak om utvisning etter § 66 første ledd bokstav f, § 67 første ledd bokstav e eller § 68 første ledd bokstav d.',
+    ),
+    (
+        'no/lov/2008-05-15-35',
+        'section:73/subsection:4/sentence:3',
+        'Slikt vedtak kan ikke iverksettes før grunnlaget for utsendelsesvernet er bortfalt.',
+    ),
+    (
+        'no/lov/2008-05-15-35',
+        'section:73/subsection:4/sentence:4',
+        'Slikt vedtak kan ikke iverksettes før grunnlaget for utsendelsesvernet er bortfalt.',
+    ),
+    (
+        'no/lov/2008-05-15-35',
         'section:76/subsection:2/sentence:2',
-        'Departementet kan heller ikke instruere Utlendingsnemnda om lovtolkning eller skjønnsutøvelse.',
+        'Vernet mot utsendelse er ikke til hinder for at det treffes vedtak om utvisning etter § 66 første ledd bokstav f, § 67 første ledd bokstav e eller § 68 første ledd bokstav d.',
     ),
     (
         'no/lov/2008-05-15-35',
@@ -3573,6 +3647,21 @@ _W66C_CORPUS_DESTRUCTIONS: tuple[tuple[str, str, str], ...] = (
         'Retten kan oppnevne verge, jf. 25 første ledd annet punktum.',
     ),
     (
+        'no/lov/2010-06-04-21',
+        'section:10-9/subsection:2/sentence:3',
+        'Gebyr blir kravd inn av Statens innkrevjingssentral.',
+    ),
+    (
+        'no/lov/2010-06-04-21',
+        'section:10-9/subsection:2/sentence:4',
+        'Innkrevjingssentralen kan drive inn kravet ved trekk i lønn og andre liknande ytingar etter reglane i lov 8. juni 1984 nr. 59 om fordringshavernes dekningsrett (dekningsloven) § 2-7.',
+    ),
+    (
+        'no/lov/2010-06-04-21',
+        'section:10-9/subsection:2/sentence:5',
+        'Innkrevjingssentralen kan òg drive inn kravet ved å stifte utleggspant for kravet dersom panteretten kan gjevast rettsvern ved registrering i eit register eller ved melding til tredjeperson, jf. lov 8. februar 1980 nr. 2 om pant (panteloven) kapittel 5, og utleggsforretninga kan haldast på Innkrevjingssentralens kontor etter lov 19. juni 1992 nr. 86 om tvangsfullbyrdelse (tvangsfullbyrdelsesloven) § 7-9 første ledd.',
+    ),
+    (
         'no/lov/2011-06-24-29',
         'section:18/subsection:1/sentence:2',
         'Medvirkning straffes på samme måte.',
@@ -3590,7 +3679,27 @@ _W66C_CORPUS_DESTRUCTIONS: tuple[tuple[str, str, str], ...] = (
     (
         'no/lov/2011-06-24-39',
         'section:18/subsection:1/sentence:3',
-        'Elsertifikatplikten skal likevel alltid omfatte minst ett elsertifikat.',
+        'Krav på gebyr innkreves av Statens innkrevingssentral.',
+    ),
+    (
+        'no/lov/2011-06-24-39',
+        'section:26/subsection:2/sentence:2',
+        'Ilagt gebyr er tvangsgrunnlag for utlegg.',
+    ),
+    (
+        'no/lov/2011-06-24-39',
+        'section:26/subsection:2/sentence:3',
+        'Krav på gebyr innkreves av Statens innkrevingssentral.',
+    ),
+    (
+        'no/lov/2011-06-24-39',
+        'section:26/subsection:2/sentence:4',
+        'Innkrevingssentralen kan inndrive kravet ved trekk i lønn og andre lignende ytelser etter reglene i dekningsloven § 2-7.',
+    ),
+    (
+        'no/lov/2011-11-25-44',
+        'section:11-1/subsection:1/sentence:2',
+        'For depotmottaker gjelder tilsvarende ansvar for tap som påføres ved forsømmelser i depotmottakeroppgaven.',
     ),
     (
         'no/lov/2012-06-22-43',
@@ -3789,7 +3898,7 @@ def test_no_w66c_corpus_destruction_set_is_pinned_by_content(
 ) -> None:
     """Tripwire 2: what the production ACTUALLY destroys, by text.
 
-    34 sentences over 30 base acts (33/29 before W-98). Pinned with their own TEXT rather than by
+    50 sentences over 36 base acts (34/30 before W-100, 33/29 before W-98). Pinned with their own TEXT rather than by
     address alone, because an address-only pin would pass while the sentence
     splitter counted to a different sentence — which is the one way this
     production can be wrong and stay quiet.
@@ -3797,8 +3906,10 @@ def test_no_w66c_corpus_destruction_set_is_pinned_by_content(
     realized = _no_w66c_realized_destructions
     # 33/29 -> 34/30 at W-98: one entrant, adjudicated by text in the pinned
     # tuple (yrkestransportlova § 37 b andre ledd første punktum).
-    assert len(realized) == 34, _W66C_DESTRUCTION_INSTRUCTION
-    assert len({row[0] for row in realized}) == 30, _W66C_DESTRUCTION_INSTRUCTION
+    # 34/30 -> 50/36 at W-100: eighteen entrants and two leavers, every one a
+    # commencement movement — see the note on the pinned tuple.
+    assert len(realized) == 50, _W66C_DESTRUCTION_INSTRUCTION
+    assert len({row[0] for row in realized}) == 36, _W66C_DESTRUCTION_INSTRUCTION
     assert tuple(realized) == _W66C_CORPUS_DESTRUCTIONS, _W66C_DESTRUCTION_INSTRUCTION
 
 

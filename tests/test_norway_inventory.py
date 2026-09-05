@@ -934,6 +934,10 @@ def test_corpus_no_consolidation_inventory_counters_and_would_be_ceiling() -> No
     would_be = Counter(
         str(row["would_be_status"]) for row in inventory.no_consolidation_rows
     )
+    # 60 -> 64 / 30 -> 26 at W-100 (2026-09-05): four laws leave
+    # ``blocked_contingent`` because the act that held them there is now dated —
+    # through the section-scoped lane's per-binding dates or the title-cited
+    # citation form. The 90-law sum and ``None`` (2,557) are unmoved.
     assert would_be == Counter(
-        {"None": 2557, "fully_replayable": 60, "blocked_contingent": 30}
+        {"None": 2557, "fully_replayable": 64, "blocked_contingent": 26}
     )

@@ -617,7 +617,12 @@ _NO_FARCHIVE_PATH = _no_farchive_path()
 # pinned separately because they answer different questions — how many
 # instruments the reader reads, how many that changes the scope proof for, and
 # how many acts actually move.
-_W73_TITLE_CITED_CANDIDATE_COUNT = 30
+# 30 -> 204 at W-100: the title-cited subject now also reads the act cited by
+# date and number before its title (``Lov 11. januar 2013 nr. 3 om … trer i
+# kraft …``), which most principal-act commencement instruments use; 174 more
+# candidates carry the proof, 29 of them dating an offered act (the rest are
+# already dated by the shipped route or cite an act no caller offers).
+_W73_TITLE_CITED_CANDIDATE_COUNT = 204
 
 
 def _part_evidence(
@@ -2896,9 +2901,12 @@ def test_w51_corpus_totals_and_the_untouched_part_routes() -> None:
     # pin above: two of W-98's entrants (``no/lovtid/2002-08-30-68``,
     # ``2016-09-16-81``) are dated through the widened route. W-99 itself
     # moves nothing here.
+    # 440 -> 469 at W-100 on the WIDENED route (the title-cited citation form);
+    # the shipped route and the three part routes are unmoved, and the two
+    # section-scoped receipts this item adds are censused in the W-100 block.
     assert counts == {
         NO_COMMENCEMENT_EXECUTION_AUTHORIZED: 546,
-        NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED: 440,
+        NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED: 469,
         NO_COMMENCEMENT_PART_EXECUTION_AUTHORIZED: 33,
         NO_COMMENCEMENT_MULTI_PART_EXECUTION_AUTHORIZED: 4,
         NO_COMMENCEMENT_NAMED_PART_LIST_EXECUTION_AUTHORIZED: 33,
@@ -2966,7 +2974,12 @@ def test_w51_corpus_totals_and_the_untouched_part_routes() -> None:
     # (``no/forskrift/2002-05-03-420``, ``2004-03-26-575``, ``2005-12-21-1610``)
     # now have something to be refused AGAINST. Three pairs gained, none
     # withdrawn; the disjointness assertion above still holds.
-    assert len(refused_pairs) == 882
+    # 882 -> 728 at W-100, the mechanism BACKWARDS by design: the section-scoped
+    # route and the title-cited citation form withdraw the generic refusal for
+    # every pair they GRANT (154 of them), exactly as W-53 withdrew it for the
+    # widened route's; a pair the reader read but the gate refused keeps the
+    # generic receipt and gains a reasoned one beside it.
+    assert len(refused_pairs) == 728
 
     # The inert part-grant population, 31 -> 4 at W-53 with the absorption.
     inert = [
@@ -3618,7 +3631,12 @@ def test_w53_corpus_zero_early_over_every_widened_grant() -> None:
     # pin above: two of W-98's entrants (``no/lovtid/2002-08-30-68``,
     # ``2016-09-16-81``) are dated through the widened route. W-99 itself
     # moves nothing here.
-    assert len(grants) == 440
+    # 440 -> 469 at W-100: the title-cited subject's citation form dates 29
+    # principal acts (``no/lovtid/2013-01-11-3`` @2013-06-01 the witness); the
+    # zero-early property below holds over the grown set, and the Bouvetøya
+    # instrument (``no/forskrift/2005-02-25-173``) is refused by the form's
+    # bare-date-tail conjunct rather than dating ``no/lovtid/2003-06-27-57``.
+    assert len(grants) == 469
     early = [
         (d["source_id"], d["effective_date"], sibling_id, sibling_date)
         for d in grants
@@ -3736,7 +3754,9 @@ def test_w53_corpus_the_two_scope_proofs_are_nested_not_overlapping() -> None:
     # this one, never inside it.
     assert len(reader) == 1127
     # 1,107 -> 1,115 at W-73.
-    assert len(widened) == 1115
+    # 1,115 -> 1,189 at W-100: the title-cited citation form (74 more), read
+    # beside W-47's reader as W-73's was — ``reader`` is unmoved at 1,127.
+    assert len(widened) == 1189
     assert len(shipped) == 607
     assert len(title_cited) == _W73_TITLE_CITED_CANDIDATE_COUNT
     # Nesting, in the directions that still hold.
@@ -3759,8 +3779,14 @@ def test_w53_corpus_the_two_scope_proofs_are_nested_not_overlapping() -> None:
         if c.title_cited_whole_act_scope and not c.whole_act_operative_text
     }
     assert widened - reader <= title_cited_only
-    assert len(widened - reader) == 8
-    assert title_cited_only - (widened - reader) == {"no/forskrift/2010-06-25-942"}
+    # 8 -> 82 at W-100 (the citation form), and the one-way gap closes:
+    # ``2010-06-25-942`` now widens too, because W-100's single-block reader sets
+    # its forskrift-only second block aside, so the title-cited proof and the
+    # block count agree on it. The two extra conjuncts stay load-bearing — the
+    # Bouvetøya instrument carries the title-cited proof's shape and is refused
+    # by the citation form's own bare-date-tail conjunct.
+    assert len(widened - reader) == 82
+    assert title_cited_only - (widened - reader) == set()
 
 
 def _title_cited_instrument_xml(
@@ -3944,3 +3970,604 @@ def test_w73_corpus_title_cited_route_dates_exactly_five_acts() -> None:
         c.source_id for c in index.commencement_instruments if c.title_cited_whole_act_scope
     }
     assert len(title_cited) == _W73_TITLE_CITED_CANDIDATE_COUNT
+
+
+# --------------------------------------------------------------------------
+# W-100: the section-scoped commencement route, and the two whole-act reader
+# widenings that shipped with it.
+# --------------------------------------------------------------------------
+
+from lawvm.norway.commencement_instruments import (  # noqa: E402
+    NO_COMMENCEMENT_SECTION_SCOPE_EXECUTION_AUTHORIZED,
+    NO_COMMENCEMENT_SECTION_SCOPE_EXECUTION_DATE_CONFLICT,
+    NO_COMMENCEMENT_SECTION_SCOPE_EXECUTION_REFUSED,
+    NOCommencementSectionScopeAuthorizationConjunct,
+    _title_cited_whole_act_subject,
+)
+from lawvm.norway.commencement_scope import (  # noqa: E402
+    NOCommencementScopeItem,
+    NOCommencementScopeReading,
+    NOCommencementScopeStatement,
+)
+from lawvm.norway.sources import NOEffectiveStatus  # noqa: E402
+
+_W100_ACT = "no/lovtid/2025-02-02-5"
+_W100_LAW_A = "no/lov/2001-01-05-1"
+_W100_LAW_B = "no/lov/2002-02-06-2"
+
+
+def _w100_item(kind: str, *labels: str, part: str = "", law_ref: str = "", qualified: tuple[str, ...] = ()) -> NOCommencementScopeItem:
+    return NOCommencementScopeItem(
+        kind=kind, part_label=part, law_ref=law_ref, section_labels=labels, qualified_section_labels=qualified
+    )
+
+
+def _w100_instrument(
+    source_id: str,
+    statements: tuple[NOCommencementScopeStatement, ...],
+    *,
+    effective_dates: tuple[str, ...] = ("2025-04-01",),
+    affected_law_ids: tuple[str, ...] = ("no/lov/2025-02-02-5",),
+    total: bool = True,
+) -> NOCommencementInstrumentCandidate:
+    """A candidate the whole-act routes refuse and the section-scoped route reads.
+
+    ``scope_status`` is UNRESOLVED and callers pass ``BLOCKED_UNRESOLVED``, as for
+    every route below the shipped one.
+    """
+    return NOCommencementInstrumentCandidate(
+        source_id=source_id,
+        locator=f"no://forskrift/{source_id.rsplit('/', 1)[1]}/original.lti.xml",
+        archive="norway.farchive",
+        member_name="",
+        title="Delt ikraftsetting av lov 2. februar 2025 nr. 5",
+        affected_law_ids=affected_law_ids,
+        effective_dates=effective_dates,
+        scope_status=NOCommencementScopeStatus.UNRESOLVED,
+        source_excerpt="",
+        scope_reading=NOCommencementScopeReading(
+            statements=statements, total=total, dates=tuple(sorted(effective_dates))
+        ),
+    )
+
+
+def _w100_evidence(
+    *,
+    part_law_ids: dict[str, str] | None = None,
+    bound_law_ids: tuple[str, ...] = (_W100_LAW_A,),
+    law_section_labels: dict[str, frozenset[str]] | None = None,
+    unsectioned_op_laws: tuple[str, ...] = (),
+) -> NOCommencementActPartEvidence:
+    return NOCommencementActPartEvidence(
+        part_law_ids=part_law_ids or {},
+        bound_law_ids=bound_law_ids,
+        law_section_labels=law_section_labels or {},
+        unsectioned_op_laws=unsectioned_op_laws,
+    )
+
+
+def _w100_authorize(instruments, evidence, offered=(_W100_ACT,)):
+    return authorize_no_commencement_instruments(
+        [(NOCommencementParseStatus.BLOCKED_UNRESOLVED, instrument) for instrument in instruments],
+        offered_act_ids=set(offered),
+        act_part_evidence={_W100_ACT: evidence},
+    )
+
+
+def test_section_scope_dates_sections_only_and_refuses_the_qualified_ones() -> None:
+    """The 2009-06-19-702 shape: section lists, two dates, no binding date."""
+    authorization = _w100_authorize(
+        [
+            _w100_instrument(
+                "no/forskrift/2025-03-01-700",
+                (
+                    NOCommencementScopeStatement(
+                        subject=_w100_item("sections", "2-3", "2-13", "4-2", qualified=("2-3",)),
+                        date="2025-04-01",
+                    ),
+                    NOCommencementScopeStatement(subject=_w100_item("sections", "6-4"), date="2025-07-01"),
+                ),
+                effective_dates=("2025-04-01", "2025-07-01"),
+            )
+        ],
+        _w100_evidence(law_section_labels={_W100_LAW_A: frozenset({"2-3", "2-13", "4-2", "6-4", "9"})}),
+    )
+    assert authorization.refusals == ()
+    assert authorization.section_scoped_conflicts == ()
+    assert authorization.section_scoped_refusals == ()
+    assert len(authorization.section_scoped_authorizations) == 1
+    receipt = authorization.section_scoped_authorizations[0]
+    assert receipt.act_source_id == _W100_ACT
+    assert receipt.law_id == _W100_LAW_A
+    assert receipt.binding_date is None
+    assert receipt.section_dates == (("2-13", "2025-04-01"), ("4-2", "2025-04-01"), ("6-4", "2025-07-01"))
+    assert receipt.qualified_refused_labels == ("2-3",)
+    assert receipt.excluded_section_labels == ()
+    # § 9 is targeted and undated, § 2-3 was refused: the binding is not complete.
+    assert receipt.complete is False
+    assert receipt.passed_conjuncts == tuple(NOCommencementSectionScopeAuthorizationConjunct)
+    assert [item.replay_authorized for item in authorization.instruments] == [True]
+    # Nothing act-level, nothing per-binding: the landing is its own.
+    assert authorization.authorized_effective_dates() == {}
+    assert authorization.part_authorized_effective_dates() == {}
+    assert list(authorization.section_scoped_landings()) == [_W100_ACT]
+    detail = receipt.to_diagnostic_detail()
+    assert detail["rule_id"] == NO_COMMENCEMENT_SECTION_SCOPE_EXECUTION_AUTHORIZED
+    assert detail["section_dates"] == [["2-13", "2025-04-01"], ["4-2", "2025-04-01"], ["6-4", "2025-07-01"]]
+    assert detail["blocking"] is False
+    assert "base_ids" not in detail
+
+
+def test_section_scope_binding_date_with_carve_outs_restricted_to_targeted_sections() -> None:
+    """The 2005-06-17-631 shape: the act commences, three sections are carved out."""
+    statement = NOCommencementScopeStatement(
+        subject=_w100_item("act"),
+        date="2025-04-01",
+        excluded=(
+            _w100_item("sections", "4-4", qualified=("4-4",)),
+            _w100_item("sections", "10-3", qualified=("10-3",)),
+            _w100_item("sections", "4-6"),
+        ),
+    )
+    authorization = _w100_authorize(
+        [_w100_instrument("no/forskrift/2025-03-01-701", (statement,))],
+        _w100_evidence(
+            law_section_labels={_W100_LAW_A: frozenset({"4-4", "2-1"})},
+            unsectioned_op_laws=(_W100_LAW_A,),
+        ),
+    )
+    receipt = authorization.section_scoped_authorizations[0]
+    assert receipt.binding_date == "2025-04-01"
+    assert receipt.section_dates == ()
+    # A ledd-qualified carve-out excludes the WHOLE section; carve-outs the act's
+    # ops never target are recorded as unbound, not landed.
+    assert receipt.excluded_section_labels == ("4-4",)
+    assert receipt.unbound_section_labels == ("10-3", "4-6")
+    assert receipt.complete is False
+    # With nothing targeted carved out, the binding is complete — the
+    # unsectioned op takes the binding date.
+    complete = _w100_authorize(
+        [_w100_instrument("no/forskrift/2025-03-01-701", (statement,))],
+        _w100_evidence(law_section_labels={_W100_LAW_A: frozenset({"2-1"})}, unsectioned_op_laws=(_W100_LAW_A,)),
+    ).section_scoped_authorizations[0]
+    assert complete.excluded_section_labels == ()
+    assert complete.complete is True
+
+
+def test_section_scope_part_statements_resolve_through_the_part_map() -> None:
+    """The 2025-04-04-601 shape: named parts, one with a carve-out, on a multi-law act."""
+    authorization = _w100_authorize(
+        [
+            _w100_instrument(
+                "no/forskrift/2025-03-01-702",
+                (
+                    NOCommencementScopeStatement(
+                        subject=_w100_item("part", part="I"),
+                        date="2025-04-01",
+                        excluded=(_w100_item("sections", "2-22", "2-23"),),
+                    ),
+                    NOCommencementScopeStatement(subject=_w100_item("part", part="II"), date="2025-04-01"),
+                ),
+            )
+        ],
+        _w100_evidence(
+            part_law_ids={"I": _W100_LAW_A, "II": _W100_LAW_B},
+            bound_law_ids=(_W100_LAW_A, _W100_LAW_B),
+            law_section_labels={
+                _W100_LAW_A: frozenset({"1-1", "2-22", "2-23"}),
+                _W100_LAW_B: frozenset({"35"}),
+            },
+        ),
+    )
+    receipts = {r.law_id: r for r in authorization.section_scoped_authorizations}
+    assert receipts[_W100_LAW_A].binding_date == "2025-04-01"
+    assert receipts[_W100_LAW_A].excluded_section_labels == ("2-22", "2-23")
+    assert receipts[_W100_LAW_A].complete is False
+    assert receipts[_W100_LAW_B].binding_date == "2025-04-01"
+    assert receipts[_W100_LAW_B].complete is True
+    assert authorization.refusals == ()
+
+
+def test_section_scope_act_statement_with_part_carve_outs() -> None:
+    """The 2020-05-20-1032 shape: the act commences less parts I (two sections) and V (whole)."""
+    authorization = _w100_authorize(
+        [
+            _w100_instrument(
+                "no/forskrift/2025-03-01-703",
+                (
+                    NOCommencementScopeStatement(
+                        subject=_w100_item("act"),
+                        date="2025-04-01",
+                        excluded=(
+                            _w100_item("part", "44", "47", part="I", law_ref=_W100_LAW_A, qualified=("44",)),
+                            _w100_item("part", part="II", law_ref=_W100_LAW_B),
+                        ),
+                    ),
+                ),
+            )
+        ],
+        _w100_evidence(
+            part_law_ids={"I": _W100_LAW_A, "II": _W100_LAW_B, "III": "no/lov/2003-03-07-3"},
+            bound_law_ids=(_W100_LAW_A, _W100_LAW_B, "no/lov/2003-03-07-3"),
+            law_section_labels={_W100_LAW_A: frozenset({"44", "47", "50"}), "no/lov/2003-03-07-3": frozenset({"1"})},
+        ),
+    )
+    receipts = {r.law_id: r for r in authorization.section_scoped_authorizations}
+    assert set(receipts) == {_W100_LAW_A, "no/lov/2003-03-07-3"}
+    assert receipts[_W100_LAW_A].excluded_section_labels == ("44", "47")
+    assert receipts[_W100_LAW_A].complete is False
+    assert receipts["no/lov/2003-03-07-3"].complete is True
+
+
+@pytest.mark.parametrize(
+    ("statements", "evidence", "reason"),
+    [
+        (
+            (NOCommencementScopeStatement(subject=_w100_item("sections", "5"), date="2025-04-01"),),
+            _w100_evidence(bound_law_ids=(_W100_LAW_A, _W100_LAW_B)),
+            "section list without a resolvable law on a multi-law act",
+        ),
+        (
+            (NOCommencementScopeStatement(subject=_w100_item("part", part="IV"), date="2025-04-01"),),
+            _w100_evidence(part_law_ids={"I": _W100_LAW_A}),
+            "part IV resolves no law",
+        ),
+        (
+            (NOCommencementScopeStatement(subject=_w100_item("sections", "5", law_ref="no/lov/1999-09-09-9"), date="2025-04-01"),),
+            _w100_evidence(),
+            "cited law no/lov/1999-09-09-9 is not bound by the act",
+        ),
+        (
+            (
+                NOCommencementScopeStatement(
+                    subject=_w100_item("part", part="I"),
+                    date="2025-04-01",
+                    excluded=(_w100_item("part", part="II"),),
+                ),
+            ),
+            _w100_evidence(part_law_ids={"I": _W100_LAW_A, "II": _W100_LAW_B}, bound_law_ids=(_W100_LAW_A, _W100_LAW_B)),
+            "whole part carved out of a part",
+        ),
+        (
+            (
+                NOCommencementScopeStatement(subject=_w100_item("act"), date="2025-04-01"),
+                NOCommencementScopeStatement(subject=_w100_item("act"), date="2025-07-01"),
+            ),
+            _w100_evidence(),
+            f"two binding dates for {_W100_LAW_A}",
+        ),
+        (
+            (NOCommencementScopeStatement(subject=_w100_item("sections", "5", qualified=("5",)), date="2025-04-01"),),
+            _w100_evidence(law_section_labels={_W100_LAW_A: frozenset({"5"})}),
+            f"every dated label of {_W100_LAW_A} is ledd-qualified",
+        ),
+    ],
+)
+def test_section_scope_refuses_with_the_reason_on_the_receipt(statements, evidence, reason: str) -> None:
+    authorization = _w100_authorize(
+        [_w100_instrument("no/forskrift/2025-03-01-704", statements, effective_dates=("2025-04-01", "2025-07-01"))],
+        evidence,
+    )
+    assert authorization.section_scoped_authorizations == ()
+    assert [r.reason for r in authorization.section_scoped_refusals] == [reason]
+    # The generic refusal stands beside it: the pair re-dates nothing.
+    assert [r.instrument_source_id for r in authorization.refusals] == ["no/forskrift/2025-03-01-704"]
+    detail = authorization.section_scoped_refusals[0].to_diagnostic_detail()
+    assert detail["rule_id"] == NO_COMMENCEMENT_SECTION_SCOPE_EXECUTION_REFUSED
+    assert detail["refusal"] == reason
+
+
+def test_section_scope_ignores_a_pair_the_reader_refused() -> None:
+    authorization = _w100_authorize(
+        [_w100_instrument("no/forskrift/2025-03-01-705", (), total=False)],
+        _w100_evidence(),
+    )
+    assert authorization.section_scoped_authorizations == ()
+    assert authorization.section_scoped_refusals == ()
+    assert len(authorization.refusals) == 1
+
+
+def test_section_scope_counts_only_amendment_acts_among_the_cited_ids() -> None:
+    """no/forskrift/2015-06-12-633 cites kringkastingsloven as the forskrift part's hjemmel."""
+    authorization = _w100_authorize(
+        [
+            _w100_instrument(
+                "no/forskrift/2025-03-01-706",
+                (NOCommencementScopeStatement(subject=_w100_item("act"), date="2025-04-01"),),
+                affected_law_ids=("no/lov/2025-02-02-5", "no/lov/1992-12-04-127"),
+            )
+        ],
+        _w100_evidence(),
+    )
+    assert len(authorization.section_scoped_authorizations) == 1
+    # But two AMENDMENT acts in one text refuse.
+    two_acts = authorize_no_commencement_instruments(
+        [(
+            NOCommencementParseStatus.BLOCKED_UNRESOLVED,
+            _w100_instrument(
+                "no/forskrift/2025-03-01-706",
+                (NOCommencementScopeStatement(subject=_w100_item("act"), date="2025-04-01"),),
+                affected_law_ids=("no/lov/2025-02-02-5", "no/lov/2025-03-03-6"),
+            ),
+        )],
+        offered_act_ids={_W100_ACT, "no/lovtid/2025-03-03-6"},
+        act_part_evidence={_W100_ACT: _w100_evidence(), "no/lovtid/2025-03-03-6": _w100_evidence()},
+    )
+    assert two_acts.section_scoped_authorizations == ()
+    assert {r.reason for r in two_acts.section_scoped_refusals} == {"instrument cites several acts"}
+
+
+def test_section_scope_conflicts_drop_the_whole_binding() -> None:
+    """Two binding dates, or a section dated against a binding it was not carved out of."""
+    first = _w100_instrument(
+        "no/forskrift/2025-03-01-707",
+        (NOCommencementScopeStatement(subject=_w100_item("act"), date="2025-04-01"),),
+    )
+    second = _w100_instrument(
+        "no/forskrift/2025-03-01-708",
+        (NOCommencementScopeStatement(subject=_w100_item("act"), date="2025-07-01"),),
+        effective_dates=("2025-07-01",),
+    )
+    authorization = _w100_authorize([first, second], _w100_evidence())
+    assert authorization.section_scoped_authorizations == ()
+    assert len(authorization.section_scoped_conflicts) == 1
+    conflict = authorization.section_scoped_conflicts[0]
+    assert conflict.section_label == ""
+    assert conflict.effective_dates == ("2025-04-01", "2025-07-01")
+    assert conflict.to_diagnostic_detail()["rule_id"] == NO_COMMENCEMENT_SECTION_SCOPE_EXECUTION_DATE_CONFLICT
+    assert conflict.to_diagnostic_detail()["blocking"] is True
+    # Both generic refusals stand: neither pair re-dated anything.
+    assert len(authorization.refusals) == 2
+
+    third = _w100_instrument(
+        "no/forskrift/2025-03-01-709",
+        (NOCommencementScopeStatement(subject=_w100_item("sections", "6"), date="2025-07-01"),),
+        effective_dates=("2025-07-01",),
+    )
+    contradiction = _w100_authorize([first, third], _w100_evidence(law_section_labels={_W100_LAW_A: frozenset({"6"})}))
+    assert contradiction.section_scoped_authorizations == ()
+    assert contradiction.section_scoped_conflicts[0].section_label == "6"
+
+
+def test_section_scope_two_ledd_level_dates_for_one_section_do_not_conflict() -> None:
+    """no/lovtid/2021-06-11-84: § 4-5 andre ledd (2025) beside § 4-5 første, tredje … ledd (2022)."""
+    first = _w100_instrument(
+        "no/forskrift/2025-03-01-710",
+        (NOCommencementScopeStatement(subject=_w100_item("sections", "4-5", "1-7", qualified=("4-5",)), date="2025-04-01"),),
+    )
+    second = _w100_instrument(
+        "no/forskrift/2025-03-01-711",
+        (NOCommencementScopeStatement(subject=_w100_item("sections", "4-5", qualified=("4-5",)), date="2025-07-01"),),
+        effective_dates=("2025-07-01",),
+    )
+    authorization = _w100_authorize([first, second], _w100_evidence(law_section_labels={_W100_LAW_A: frozenset({"4-5", "1-7"})}))
+    assert authorization.section_scoped_conflicts == ()
+    receipt = authorization.section_scoped_authorizations[0]
+    assert receipt.section_dates == (("1-7", "2025-04-01"),)
+    assert receipt.qualified_refused_labels == ("4-5",)
+    assert receipt.instrument_source_ids == ("no/forskrift/2025-03-01-710", "no/forskrift/2025-03-01-711")
+
+
+def test_section_scope_carved_out_section_may_be_dated_by_a_later_instrument() -> None:
+    """The staged pattern itself: carve out now, date later, no conflict."""
+    first = _w100_instrument(
+        "no/forskrift/2025-03-01-712",
+        (
+            NOCommencementScopeStatement(
+                subject=_w100_item("act"), date="2025-04-01", excluded=(_w100_item("sections", "10-3"),)
+            ),
+        ),
+    )
+    second = _w100_instrument(
+        "no/forskrift/2025-03-01-713",
+        (NOCommencementScopeStatement(subject=_w100_item("sections", "10-3"), date="2025-07-01"),),
+        effective_dates=("2025-07-01",),
+    )
+    authorization = _w100_authorize([first, second], _w100_evidence(law_section_labels={_W100_LAW_A: frozenset({"10-3", "2"})}))
+    assert authorization.section_scoped_conflicts == ()
+    receipt = authorization.section_scoped_authorizations[0]
+    assert receipt.binding_date == "2025-04-01"
+    assert receipt.section_dates == (("10-3", "2025-07-01"),)
+    # Once dated, the section is no longer an exclusion, and the binding is complete.
+    assert receipt.excluded_section_labels == ()
+    assert receipt.complete is True
+
+
+def test_section_scope_yields_to_an_act_level_grant_and_to_a_part_grant() -> None:
+    """Older routes win per act and per binding; the section proposal is dropped without a receipt."""
+    widened = _widened_instrument("no/forskrift/2025-03-01-714")
+    sectioned = _w100_instrument(
+        "no/forskrift/2025-03-01-715",
+        (NOCommencementScopeStatement(subject=_w100_item("sections", "5"), date="2025-07-01"),),
+        effective_dates=("2025-07-01",),
+    )
+    authorization = authorize_no_commencement_instruments(
+        [
+            (NOCommencementParseStatus.BLOCKED_UNRESOLVED, widened),
+            (NOCommencementParseStatus.BLOCKED_UNRESOLVED, sectioned),
+        ],
+        offered_act_ids={_W100_ACT},
+        act_part_evidence={_W100_ACT: _w100_evidence(law_section_labels={_W100_LAW_A: frozenset({"5"})})},
+    )
+    # The widened claim is refuted by the LATER sectioned sibling, so nothing
+    # act-level lands either — the ordering W-51 fixed — and the section grant
+    # stands on its own.
+    assert authorization.widened_whole_act_authorizations == ()
+    assert len(authorization.section_scoped_authorizations) == 1
+
+    part_dated = _part_instrument(
+        "no/forskrift/2025-03-01-716",
+        changed_law_ids=(_W100_LAW_A,),
+    )
+    authorization = authorize_no_commencement_instruments(
+        [
+            (NOCommencementParseStatus.BLOCKED_UNRESOLVED, part_dated),
+            (NOCommencementParseStatus.BLOCKED_UNRESOLVED, sectioned),
+        ],
+        offered_act_ids={_W100_ACT},
+        act_part_evidence={
+            _W100_ACT: _w100_evidence(
+                part_law_ids={"I": _W100_LAW_A, "II": _W100_LAW_B},
+                bound_law_ids=(_W100_LAW_A, _W100_LAW_B),
+                law_section_labels={_W100_LAW_A: frozenset({"5"})},
+            )
+        },
+    )
+    assert len(authorization.part_authorizations) == 1
+    assert authorization.section_scoped_authorizations == ()
+    assert authorization.section_scoped_conflicts == ()
+
+
+def test_w100_title_cited_subject_accepts_the_act_cited_by_date_and_number() -> None:
+    """no/forskrift/2013-05-24-533, and the Bouvetøya instrument it must not take with it."""
+    assert _title_cited_whole_act_subject(
+        ("Lov 11. januar 2013 nr. 3 om Statens innkrevingssentral trer i kraft 1. juni 2013.",),
+        title="Ikraftsetting lov 11. januar 2013 nr. 3 om Statens innkrevingssentral",
+        cited_law_ids=("no/lov/2013-01-11-3",),
+    )
+    assert _title_cited_whole_act_subject(
+        ("Lov av 21. juni 2002 nr. 45 om yrkestransport med motorvogn og fartøy (yrkestransportlova) gjeld frå 1. januar 2003.",),
+        title="Ikraftsetjing av lov av 21. juni 2002 nr. 45 om yrkestransport med motorvogn og fartøy (yrkestransportlova)",
+        cited_law_ids=("no/lov/2002-06-21-45",),
+    )
+    # Title agreement still carries the widened shape.
+    assert not _title_cited_whole_act_subject(
+        ("Lov 11. januar 2013 nr. 3 om Statens innkrevingssentral trer i kraft 1. juni 2013.",),
+        title="Ikraftsetting av lov om noe annet",
+        cited_law_ids=("no/lov/2013-01-11-3",),
+    )
+    # no/forskrift/2005-02-25-173: a territorial qualifier between verb and date refuses.
+    assert not _title_cited_whole_act_subject(
+        ("Lov 27. juni 2003 nr. 57 om Norges territorialfarvann og tilstøtende sone trer i kraft for Bouvetøya 1. april 2005.",),
+        title="Ikrafttredelse av lov 27. juni 2003 nr. 57 om Norges territorialfarvann og tilstøtende sone",
+        cited_law_ids=("no/lov/2003-06-27-57",),
+    )
+
+
+def test_w100_parse_sets_aside_a_forskrift_only_block_for_the_widened_route() -> None:
+    """no/forskrift/2015-06-12-633's shape: a whole-act block, then a forskrift carve-out block."""
+    payload = (
+        "<html><body>\n"
+        '<dd class="title">Ikraftsetting av lov 2. februar 2025 nr. 5 om testdata</dd>\n'
+        '<dd class="basedOn"><a href="lov/2025-02-02-5">lov 2. februar 2025 nr. 5</a></dd>\n'
+        '<dd class="dateInForce">2025-04-01</dd>\n'
+        '<main class="documentBody">'
+        '<article class="legalP">Lov 2. februar 2025 nr. 5 om testdata trer i kraft 1. april 2025.</article>'
+        '<article class="legalP">Fra samme tidspunkt oppheves § 2-5 og § 2-6 i forskrift 28. februar 1997 nr. 153 om kringkasting.</article>'
+        "</main></body></html>"
+    ).encode("utf-8")
+    result = parse_no_commencement_instrument(
+        payload,
+        source_id="no/forskrift/2025-03-01-720",
+        locator="no://forskrift/2025-03-01-720/original.lti.xml",
+        archive="lovtidend-avd1-2025.tar.bz2",
+        member_name="lti/2025/sf-20250301-0720.xml",
+    )
+    candidate = result.candidate
+    assert candidate is not None
+    assert result.parse_status is NOCommencementParseStatus.BLOCKED_UNRESOLVED
+    assert candidate.forskrift_blocks_dropped == 1
+    assert candidate.title_cited_whole_act_scope is True
+    assert candidate.widened_whole_act_scope is True
+    # W-47's reader keeps reading the RAW blocks: the ``§`` in the forskrift block still refuses it.
+    assert candidate.whole_act_operative_text is False
+    # And the section-scoped reader read the act block as one act statement.
+    assert candidate.scope_reading.total is True
+    assert [s.to_dict() for s in candidate.scope_reading.statements] == [
+        {"subject": {"kind": "act", "part_label": "", "law_ref": "", "section_labels": [], "qualified_section_labels": []}, "date": "2025-04-01", "excluded": []}
+    ]
+    reloaded = NOCommencementInstrumentCandidate.from_dict(candidate.to_dict())
+    assert reloaded == candidate
+
+
+def test_w100_corpus_the_seven_kringkasting_chain_acts() -> None:
+    """The witness: the seven contingent acts in kringkastingsloven's chain, after W-100."""
+    if _NO_FARCHIVE_PATH is None:
+        pytest.skip("local Norway public archive is not installed")
+    index = build_no_amendment_index(_NO_FARCHIVE_PATH)
+    entries = {e.source_id: e for e in index.entries}
+    kk = "no/lov/1992-12-04-127"
+
+    # Lane A: a principal act cited by date and number, dated whole.
+    assert entries["no/lovtid/2013-01-11-3"].effective_status == "instrument_authorized"
+    assert entries["no/lovtid/2013-01-11-3"].effective_date == "2013-06-01"
+
+    # Sections only, two dates, the two ledd-qualified labels refused.
+    e = entries["no/lovtid/2009-06-19-92"]
+    assert e.effective_status == "contingent"
+    assert e.section_scoped_binding_dates == ((kk, ""),)
+    assert e.section_scoped_effective_dates == (
+        (kk, "2-13", "2009-07-01"), (kk, "4-2", "2009-07-01"), (kk, "6-1a", "2009-07-01"),
+        (kk, "6-4", "2010-01-01"), (kk, "8-5", "2009-07-01"),
+    )
+    assert e.effective_date_for_base(kk) == (None, "section_instrument_partial")
+    assert e.effective_date_for_op(kk, "6-4") == ("2010-01-01", "section_instrument_authorized")
+    assert e.effective_date_for_op(kk, "2-3") == (None, "contingent")
+
+    # A binding date with one targeted carve-out (§ 4-4's renumber), the others unbound.
+    e = entries["no/lovtid/2005-06-17-98"]
+    assert e.section_scoped_binding_dates == ((kk, "2005-07-01"),)
+    assert e.section_scoped_exclusions == ((kk, "4-4"),)
+    assert e.effective_date_for_op(kk, None) == ("2005-07-01", "section_instrument_authorized")
+    assert e.effective_date_for_op(kk, "4-4") == (None, "contingent")
+
+    # A forskrift-tail instrument citing kringkastingsloven as hjemmel: both bindings complete.
+    e = entries["no/lovtid/2015-02-06-7"]
+    assert e.section_scoped_binding_dates == (("no/lov/1987-05-15-21", "2015-07-01"), (kk, "2015-07-01"))
+    assert e.section_scoped_complete_laws == ("no/lov/1987-05-15-21", kk)
+    assert e.effective_date_for_base(kk) == ("2015-07-01", "section_instrument_authorized")
+
+    # Part V of the 2020 act, dated by the 2023 ``straks`` instrument; part I's § 44 stays carved out.
+    e = entries["no/lovtid/2020-05-20-42"]
+    assert (kk, "2023-09-01") in e.section_scoped_binding_dates
+    assert kk in e.section_scoped_complete_laws
+    assert ("no/lov/2009-01-09-2", "44") in e.section_scoped_exclusions
+    assert ("no/lov/2009-01-09-2", "47", "2023-09-01") in e.section_scoped_effective_dates
+
+    # Part I of the 2025 act with §§ 2-22 and 2-23 carved out.
+    e = entries["no/lovtid/2025-02-28-2"]
+    assert (kk, "2025-05-01") in e.section_scoped_binding_dates
+    assert e.section_scoped_exclusions == ((kk, "2-22"), (kk, "2-23"))
+    assert kk not in e.section_scoped_complete_laws
+
+    # The gradual-application instrument stays refused, by the reader.
+    e = entries["no/lovtid/2025-04-25-12"]
+    assert e.effective_status == "contingent"
+    assert not e.has_section_scope(kk)
+    refused = {
+        d["instrument_source_id"]
+        for d in index.diagnostics
+        if d.get("rule_id") == NO_COMMENCEMENT_EXECUTION_REFUSED and d.get("source_id") == "no/lovtid/2025-04-25-12"
+    }
+    assert "no/forskrift/2025-06-10-967" in refused
+
+
+def test_w100_corpus_totals() -> None:
+    """The lane's corpus footprint, pinned so a grammar change has to move it deliberately."""
+    if _NO_FARCHIVE_PATH is None:
+        pytest.skip("local Norway public archive is not installed")
+    index = build_no_amendment_index(_NO_FARCHIVE_PATH)
+    grants = [d for d in index.diagnostics if d.get("rule_id") == NO_COMMENCEMENT_SECTION_SCOPE_EXECUTION_AUTHORIZED]
+    conflicts = [d for d in index.diagnostics if d.get("rule_id") == NO_COMMENCEMENT_SECTION_SCOPE_EXECUTION_DATE_CONFLICT]
+    refusals = [d for d in index.diagnostics if d.get("rule_id") == NO_COMMENCEMENT_SECTION_SCOPE_EXECUTION_REFUSED]
+    # W-100 (2026-09-05): 261 bindings of 110 acts on 160 laws dated below
+    # binding level (204 complete, 223 with a binding date, 38 sections-only; 70
+    # ledd-qualified labels refused), one genuine conflict
+    # (no/lovtid/2004-03-05-11 under two whole-act instruments a year apart),
+    # 131 read-but-unresolved pairs (51 section lists under a short name on a
+    # multi-law act, 28 keys whose every dated label was ledd-qualified, 13
+    # act-level carve-outs naming a section without a law, …). Lane A moved 29
+    # acts to instrument_authorized (widened 440 -> 469) and the generic
+    # refusals fell 882 -> 728.
+    assert len(grants) == 261
+    assert sum(1 for g in grants if g["complete"]) == 204
+    assert sum(1 for g in grants if g["binding_date"]) == 223
+    assert len({g["source_id"] for g in grants}) == 110
+    assert len({g["law_id"] for g in grants}) == 160
+    assert [(c["source_id"], c["law_id"]) for c in conflicts] == [("no/lovtid/2004-03-05-11", "no/lov/1995-05-26-25")]
+    assert len(refusals) == 131
+    widened = [d for d in index.diagnostics if d.get("rule_id") == NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED]
+    assert len(widened) == 469
+    # No act-level grant of this lane, ever: the histogram's contingent column
+    # only moves through lane A.
+    assert index.status_counts()[NOEffectiveStatus.CONTINGENT] == 511

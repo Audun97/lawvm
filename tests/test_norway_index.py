@@ -723,6 +723,8 @@ def test_build_no_amendment_index_refuses_a_partial_instrument_and_keeps_dated_a
 
     index = build_no_amendment_index(tmp_path)
 
+    # The act-level verdicts are what W-7 pinned and they do not move: a partial
+    # instrument never dates an ACT.
     assert [
         (entry.source_id, entry.effective_status, entry.effective_date)
         for entry in index.entries
@@ -730,21 +732,39 @@ def test_build_no_amendment_index_refuses_a_partial_instrument_and_keeps_dated_a
         ("no/lovtid/2025-02-02-5", "contingent", None),
         ("no/lovtid/2025-03-03-6", "dated", "2025-03-15"),
     ]
-    assert all(item.replay_authorized is False for item in index.commencement_instruments)
     assert not [
         diagnostic
         for diagnostic in index.diagnostics
         if diagnostic["rule_id"] == NO_COMMENCEMENT_EXECUTION_AUTHORIZED
     ]
-    refusals = [
+    # W-100. ``Loven § 2 trer i kraft 1. april 2025.`` is exactly the shape the
+    # section-scoped lane reads: the instrument is now replay-authorized for the
+    # ONE section it names, the generic whole-act refusal is withdrawn for the
+    # granted pair, and the act's binding carries a per-section date with no
+    # binding date. § 2 is not a section the act's single op targets (it rewrites
+    # § 1), so the binding is not complete and the act stays contingent for its op.
+    # (The second instrument commences an act that is already ``dated`` and so
+    # is never offered; it stays unauthorized as before.)
+    assert [item.replay_authorized for item in index.commencement_instruments] == [True, False]
+    assert not [
         diagnostic
         for diagnostic in index.diagnostics
         if diagnostic["rule_id"] == NO_COMMENCEMENT_EXECUTION_REFUSED
     ]
-    assert len(refusals) == 1
-    assert refusals[0]["source_id"] == "no/lovtid/2025-02-02-5"
-    assert refusals[0]["instrument_source_id"] == "no/forskrift/2025-03-01-100"
-    assert refusals[0]["failed_conjuncts"] == ["parse_status_candidate", "whole_act_scope"]
+    section_receipts = [
+        diagnostic
+        for diagnostic in index.diagnostics
+        if diagnostic["rule_id"] == "no_lovtidend_commencement_section_scope_execution_authorized"
+    ]
+    assert len(section_receipts) == 1
+    assert section_receipts[0]["source_id"] == "no/lovtid/2025-02-02-5"
+    assert section_receipts[0]["instrument_source_ids"] == ["no/forskrift/2025-03-01-100"]
+    assert section_receipts[0]["section_dates"] == [["2", "2025-04-01"]]
+    assert section_receipts[0]["unbound_section_labels"] == ["2"]
+    assert section_receipts[0]["complete"] is False
+    entry = index.entries[0]
+    assert entry.section_scoped_effective_dates == (("no/lov/2025-01-01-1", "2", "2025-04-01"),)
+    assert entry.effective_date_for_op("no/lov/2025-01-01-1", "1") == (None, "contingent")
 
 
 def test_commencement_override_outranks_an_instrument_authorization(tmp_path) -> None:
@@ -1190,7 +1210,7 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
     # 438 -> 440 at W-98: two more first-entry acts take the widened route,
     # ``no/lovtid/2002-08-30-68`` (``bokstav f)``) and ``2016-09-16-81``
     # ("Kapittel 12 skal lyde:"). Both ``plain``.
-    assert len(widened_ids) == 440
+    assert len(widened_ids) == 469
     assert not (widened_ids & authorized_ids)
     # FIVE of the 430 are staged acts, so the staged re-dating population grows
     # 8 -> 13 — the same offer gate, the same "an official instrument outranks a
@@ -1312,7 +1332,10 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # (``2002-05-03-13``, ``2004-03-26-17``, ``2005-12-21-123`` contingent;
         # ``2020-12-18-144`` dated; ``2017-06-16-51`` instrument-authorized).
         # No existing entry's status moves.
-        "contingent": 540,
+        # W-100: 540 -> 511 contingent and 986 -> 1,015 instrument_authorized —
+        # the 29 principal acts the title-cited citation form dates (lane A);
+        # the section-scoped lane moves NO act-level status by design.
+        "contingent": 511,
         # 1021 -> 1020 at W-15 (multi-part misbinding fix): the sole moved entry
         # is no/lovtid/2018-12-20-119, whose only "op" was its own part II
         # commencement sentence ("Lova tek til å gjelde straks.") swallowed as a
@@ -1429,7 +1452,7 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # ``no/lovtid/2023-12-20-104``, ``contingent`` above); ``dated``,
         # ``unknown`` and ``immediate`` all hold, and no PRE-EXISTING entry's
         # ``effective_status`` changes.
-        "instrument_authorized": 986,
+        "instrument_authorized": 1015,
         "unknown": 2,
     }
 
@@ -1606,14 +1629,16 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     # act, ``no/lovtid/2017-06-16-51``, gains its first index entry from the
     # address-after-citation lead grammar and is dated by its own forskrift
     # through the shipped whole-act route. ``plain``.
-    assert len(authorized) == 986
+    assert len(authorized) == 1015
     assert (
         len([
             entry
             for entry in authorized
             if entry.commencement_shape != NOCommencementShape.STAGED_DELEGATED
         ])
-        == 973
+        # 973 -> 1,002 at W-100: the 29 acts the title-cited citation form
+        # dates are all ``plain`` principal acts (staged unmoved at 13).
+        == 1002
     )
     assert all(entry.effective_date for entry in authorized)
     authorization_receipts = [
@@ -1660,7 +1685,7 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     # first-entry acts named above, one receipt each.
     # 545 -> 546 at W-99: the ``2017-06-16-51`` entrant above.
     assert len(authorization_receipts) == 546
-    assert len(widened_receipts) == 440
+    assert len(widened_receipts) == 469
     assert {d["source_id"] for d in authorization_receipts + widened_receipts} == {
         entry.source_id for entry in authorized
     }
@@ -1811,7 +1836,10 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     # binding is now contingent and it leaves. Nothing enters. The leaver is not
     # less replayable than it was; the contingent act always amended it, and the
     # index could not see the binding until a production lowered the instruction.
-    assert len(fully_replayable) == 74
+    # 74 -> 83 at W-100: nine laws whose last unresolved binding was an act the
+    # section-scoped lane dated complete or the title-cited citation form dated
+    # whole; the seven named below all stay in.
+    assert len(fully_replayable) == 83
     assert set(fully_replayable) >= {
         "no/lov/2001-06-15-75",
         "no/lov/2004-12-17-99",
@@ -3373,3 +3401,99 @@ def test_corpus_resanctioning_population_is_exactly_two_pairs() -> None:
     }
     # Both halves of every pair accounted for: nothing flagged and unread.
     assert _resanctioned_unpaired_receipts(index) == []
+
+
+# --------------------------------------------------------------------------
+# W-100: the section-scoped commencement lane's landing on the index entry.
+# --------------------------------------------------------------------------
+
+
+def _section_scoped_instrument_xml(law_ref: str, body: str, date_in_force: str) -> bytes:
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="title">Delt ikraftsetting av {law_ref}</dd>
+    <dd class="basedOn"><a href="{law_ref}">endringsloven</a></dd>
+    <dd class="dateInForce">{date_in_force}</dd>
+    <main class="documentBody">
+      <article class="legalP">{body}</article>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def test_build_no_amendment_index_lands_a_section_scoped_carve_out(tmp_path) -> None:
+    """``Loven trer i kraft … med unntak av § 1``: a binding date, one targeted carve-out."""
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [
+            ("lti/2025/nl-20250202-005.xml", _amendment_xml("Kongen bestemmer")),
+            (
+                "lti/2025/sf-20250301-0100.xml",
+                _section_scoped_instrument_xml(
+                    "lov/2025-02-02-5",
+                    "Loven trer i kraft 1. april 2025 med unntak av § 1.",
+                    "2025-04-01",
+                ),
+            ),
+        ],
+    )
+
+    index = build_no_amendment_index(tmp_path)
+    entry = index.entries[0]
+    base = "no/lov/2025-01-01-1"
+    # The act's own status is untouched: this lane never dates an act.
+    assert entry.effective_status == "contingent"
+    assert entry.effective_date is None
+    assert entry.part_scoped_effective_dates == ()
+    assert entry.section_scoped_binding_dates == ((base, "2025-04-01"),)
+    assert entry.section_scoped_effective_dates == ()
+    assert entry.section_scoped_exclusions == ((base, "1"),)
+    assert entry.section_scoped_complete_laws == ()
+    assert entry.has_section_scope(base)
+    assert entry.effective_date_for_base(base) == ("2025-04-01", "section_instrument_partial")
+    assert entry.effective_date_for_op(base, "1") == (None, "contingent")
+    assert entry.effective_date_for_op(base, "2") == ("2025-04-01", "section_instrument_authorized")
+    assert entry.effective_date_for_op(base, None) == ("2025-04-01", "section_instrument_authorized")
+    assert [item.replay_authorized for item in index.commencement_instruments] == [True]
+    receipts = [
+        d for d in index.diagnostics
+        if d["rule_id"] == "no_lovtidend_commencement_section_scope_execution_authorized"
+    ]
+    assert len(receipts) == 1
+    assert receipts[0]["source_id"] == "no/lovtid/2025-02-02-5"
+    assert receipts[0]["law_id"] == base
+    assert receipts[0]["binding_date"] == "2025-04-01"
+    assert receipts[0]["excluded_section_labels"] == ["1"]
+    assert receipts[0]["complete"] is False
+    # The generic refusal is withdrawn for a granted pair.
+    assert not [d for d in index.diagnostics if d["rule_id"] == "no_lovtidend_commencement_execution_refused"]
+
+    reloaded = NOAmendmentIndex.from_dict(index.to_dict())
+    assert reloaded.entries[0] == entry
+    assert reloaded.commencement_instruments[0].scope_reading == index.commencement_instruments[0].scope_reading
+
+
+def test_build_no_amendment_index_lands_a_sections_only_complete_binding(tmp_path) -> None:
+    """``Lovens § 1 trer i kraft …`` covers every targeted section: authorized with no binding date."""
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [
+            ("lti/2025/nl-20250202-005.xml", _amendment_xml("Kongen bestemmer")),
+            (
+                "lti/2025/sf-20250301-0100.xml",
+                _section_scoped_instrument_xml(
+                    "lov/2025-02-02-5", "Lovens § 1 trer i kraft 1. april 2025.", "2025-04-01"
+                ),
+            ),
+        ],
+    )
+    entry = build_no_amendment_index(tmp_path).entries[0]
+    base = "no/lov/2025-01-01-1"
+    assert entry.section_scoped_binding_dates == ((base, ""),)
+    assert entry.section_scoped_effective_dates == ((base, "1", "2025-04-01"),)
+    assert entry.section_scoped_complete_laws == (base,)
+    assert entry.effective_date_for_base(base) == (None, "section_instrument_authorized")
+    assert entry.effective_date_for_op(base, "1") == ("2025-04-01", "section_instrument_authorized")
+    assert entry.effective_date_for_op(base, None) == (None, "contingent")

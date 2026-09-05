@@ -1270,3 +1270,110 @@ def _walk_no_nodes(node):
     yield node
     for child in getattr(node, "children", ()) or ():
         yield from _walk_no_nodes(child)
+
+
+# --------------------------------------------------------------------------
+# W-100: per-op dating for a binding the section-scoped commencement lane landed.
+# --------------------------------------------------------------------------
+
+
+def _section_scoped_entry(**fields) -> NOAmendmentIndexEntry:
+    return NOAmendmentIndexEntry(
+        source_id="no/lovtid/2025-02-02-5",
+        archive="lovtidend-avd1-2001-2025.tar.bz2",
+        member_name="lti/2025/nl-20250202-005.xml",
+        effective_status="contingent",
+        effective_date=None,
+        base_ids=("no/lov/2025-01-01-1",),
+        n_ops=3,
+        **fields,
+    )
+
+
+def test_replay_no_to_pit_dates_ops_per_section_and_skips_the_carved_out_one(tmp_path) -> None:
+    """A binding date with § 1 carved out: § 2's ops apply, § 1's repeal is skipped per op."""
+    archive_path = tmp_path / "lovtidend-avd1-2001-2025.tar.bz2"
+    _write_archive(
+        archive_path,
+        [
+            ("lti/2025/nl-20250101-001.xml", _BASE_XML),
+            ("lti/2025/nl-20250202-005.xml", _amendment_xml("Kongen bestemmer")),
+        ],
+    )
+    base = "no/lov/2025-01-01-1"
+    index = NOAmendmentIndex(
+        data_dir=str(tmp_path),
+        entries=[
+            _section_scoped_entry(
+                section_scoped_binding_dates=((base, "2025-03-01"),),
+                section_scoped_exclusions=((base, "1"),),
+            )
+        ],
+    )
+
+    result = replay_no_to_pit(base, as_of="2025-12-31", data_dir=tmp_path, index=index)
+
+    assert result.error is None
+    assert result.amendments_applied == ["no/lovtid/2025-02-02-5"]
+    # The binding is still blocked on the op it could not date, exactly as a
+    # whole contingent entry is, and the base-level status derives from this.
+    assert result.amendments_skipped_contingent == ["no/lovtid/2025-02-02-5"]
+    skips = [a for a in result.adjudications if a.kind == "no_replay_section_commencement_contingent_skipped"]
+    assert len(skips) == 1
+    assert skips[0].blocking is True
+    assert skips[0].detail["phase"] == "temporal"
+    assert skips[0].detail["section_label"] == "1"
+    assert skips[0].detail["effective_status"] == "section_instrument_partial"
+    assert skips[0].detail["temporal_resolution_status"] == "unresolved_contingent"
+    # § 1 survives (its repeal was carved out); § 2's item ops landed with the binding date.
+    _chapter, sections = _chapter_sections(result)
+    assert [section.label for section in sections] == ["1", "2"]
+    applied = [op for op in result.apply_filter_result.accepted_items] if result.apply_filter_result else []
+    assert {op.source.effective for op in applied} == {"2025-03-01"}
+    payload = build_no_replay_payload(result)
+    assert payload["adjudication_kind_counts"]["no_replay_section_commencement_contingent_skipped"] == 1
+    evidence_row = next(
+        row
+        for row in payload["evidence"]["finding_rows"]
+        if row["rule_id"] == "no_replay_section_commencement_contingent_skipped"
+    )
+    assert evidence_row["blocking"] is True
+    assert evidence_row["strict_disposition"] == "block"
+    assert validate_corpus_finding_evidence_row(evidence_row) == ()
+
+
+def test_replay_no_to_pit_skips_a_section_dated_after_as_of_per_op(tmp_path) -> None:
+    """Sections-only dates: § 2 in force, § 1's date still in the future, nothing contingent."""
+    archive_path = tmp_path / "lovtidend-avd1-2001-2025.tar.bz2"
+    _write_archive(
+        archive_path,
+        [
+            ("lti/2025/nl-20250101-001.xml", _BASE_XML),
+            ("lti/2025/nl-20250202-005.xml", _amendment_xml("Kongen bestemmer")),
+        ],
+    )
+    base = "no/lov/2025-01-01-1"
+    index = NOAmendmentIndex(
+        data_dir=str(tmp_path),
+        entries=[
+            _section_scoped_entry(
+                section_scoped_binding_dates=((base, ""),),
+                section_scoped_effective_dates=((base, "1", "2026-01-01"), (base, "2", "2025-03-01")),
+                section_scoped_complete_laws=(base,),
+            )
+        ],
+    )
+
+    result = replay_no_to_pit(base, as_of="2025-12-31", data_dir=tmp_path, index=index)
+
+    assert result.error is None
+    assert result.amendments_applied == ["no/lovtid/2025-02-02-5"]
+    assert result.amendments_skipped_contingent == []
+    assert result.amendments_skipped_future == []
+    kinds = [a.kind for a in result.adjudications]
+    assert kinds.count("no_replay_section_future_effective_skipped") == 1
+    future = next(a for a in result.adjudications if a.kind == "no_replay_section_future_effective_skipped")
+    assert future.blocking is False
+    assert future.detail["effective_date"] == "2026-01-01"
+    _chapter, sections = _chapter_sections(result)
+    assert [section.label for section in sections] == ["1", "2"]

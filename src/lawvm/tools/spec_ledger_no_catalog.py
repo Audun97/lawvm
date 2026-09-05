@@ -617,6 +617,35 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "spurious flag is recorded as a nonblocking reclassification."
     ),
     # --- Replay / apply recovery -----------------------------------------------
+    "no_replay_section_commencement_contingent_skipped": (
+        "W-100. One op of a Norway amendment whose binding the section-scoped "
+        "commencement lane dated only in part is skipped because its own section "
+        "is carved out or undated; the sibling ops that resolve to a date are "
+        "applied, and each skip is recorded per op, never silent."
+    ),
+    "no_replay_section_future_effective_skipped": (
+        "W-100. One op of a Norway amendment resolves, through the section-scoped "
+        "commencement lane, to a date after the requested as-of date and is "
+        "skipped; recorded per op, never silent."
+    ),
+    "no_lovtidend_commencement_section_scope_execution_authorized": (
+        "W-100. Official Norsk Lovtidend commencement instrument(s) dated ONE "
+        "binding of an amendment act below binding level — a binding date with "
+        "carve-outs, per-section dates, or both — through the section-scoped "
+        "statement reader; the receipt carries the sections dated, carved out, "
+        "refused as ledd-qualified, and whether the binding is complete."
+    ),
+    "no_lovtidend_commencement_section_scope_execution_date_conflict": (
+        "W-100. Two section-scoped commencement statements gave one binding or one "
+        "section two dates, or dated a section differently from a binding it was "
+        "not carved out of; the whole binding is refused rather than resolved."
+    ),
+    "no_lovtidend_commencement_section_scope_execution_refused": (
+        "W-100. The section-scoped statement reader read an instrument's operative "
+        "text in full but the gate could not resolve a scope term against the "
+        "act's part map or bound laws; the pair re-dates nothing and the reason is "
+        "recorded."
+    ),
     "no_replay_contingent_commencement_skipped": (
         "A Norway amendment whose entry-into-force is contingent on royal decree "
         "is skipped from replay until the override sidecar supplies an effective "

@@ -2688,8 +2688,11 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # contingent act always amended it. No other candidate row moves (the 74
     # base rows are byte-identical), so total and unexplained are unmoved and the
     # ceiling is untouched at 1,011.
-    assert report["scanned_count"] == 74
-    assert report["summary"] == {"consistent": 29, "divergent": 45, "error": 0}
+    # 74 -> 81 and 29/45 -> 30/51 at W-100 (2026-09-05): seven candidates
+    # enter on newly dated bindings and none leaves; see the membership note
+    # on ``expected`` below for each entrant and its bucket.
+    assert report["scanned_count"] == 81
+    assert report["summary"] == {"consistent": 30, "divergent": 51, "error": 0}
     # W-67 + W-74 (2026-08-11). The first landing in this series that moves the
     # scoreboard by CLOSING rows rather than by admitting laws: the candidate set
     # is unmoved at 76 element for element, the summary is unmoved at 29/47/0, and
@@ -2892,7 +2895,10 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # at § 7 andre ledd bokstav e, the row W-77 opened and W-83 adjudicated. The
     # bokstav was never enacted, the consolidation was right, and the write is
     # withdrawn at its source rather than explained away. No other row moves.
-    assert report["divergence_totals"] == {"total": 1454, "ceiling": 1011, "unexplained": 443}
+    # 1,454/1,011/443 -> 1,476/1,011/465 at W-100: the seven entrants bring 22
+    # rows, all unexplained, and the ceiling is untouched — no row that was here
+    # before moves.
+    assert report["divergence_totals"] == {"total": 1476, "ceiling": 1011, "unexplained": 465}
     # 3 -> 2 at W-34: no/lov/2001-01-05-1 gains 4 bound ops from
     # no/lovtid/2015-06-19-65 item 178, so its indexed history is no longer
     # sparse. Its 83 divergences do not move; only the bucket does.
@@ -2900,165 +2906,63 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # 3 -> 4 at W-47: so does the newly-admitted 2013-04-12-13.
     assert report["source_signal_counts"] == {"sparse_indexed_history": 4}
 
+    # W-100 (2026-09-05): 74 -> 81, seven ENTER and none leave. Every entrant is
+    # a law whose only unresolved binding was an act the section-scoped
+    # commencement lane (or the title-cited citation form) now dates:
+    #   * consistent: 2018-06-15-32 (its 2020-05-20-42 binding, part VII, dated
+    #     2020-07-01 through the act-level carve-out statement).
+    #   * replay_defect: 2001-12-14-95, 2003-12-19-130, 2009-06-19-103,
+    #     2018-03-23-3.
+    #   * untouched_drift: 2010-06-04-21 and 2011-06-24-39 — the two laws W-66c
+    #     recorded as leaving this set when ``no/lovtid/2013-01-11-3`` became
+    #     their first lowered, CONTINGENT binding; that act is dated 2013-06-01
+    #     now, so both return.
+    # source_sparse and annex_ceiling are unmoved; no candidate row that was
+    # here before moves bucket.
     expected = {
-        # W-34 (2026-08-07): -2013-06-21-102 (off-scan, see above),
-        # +2001-01-05-1 (source_sparse -> here, its sparse signal stopped firing
-        # after item 178 bound), +2005-06-03-34 (consistent -> here, the 3
-        # futureLegalArticle rows). 15 -> 16.
-        # W-35: -2005-06-03-34, back to consistent with 0 divergences once those
-        # three rows leave its § 27 payload. 16 -> 15, and the ONLY membership
-        # change in the whole partition.
-        # W-39: 2001-01-05-1 leaves for `consistent` (81 -> 0) and
-        # 2019-06-21-63 enters with the candidate set. 15 -> 15.
-        # W-47: three of the seven entrants land here. 15 -> 18.
-        # W-53: three of the eight entrants land here. 18 -> 21.
         "replay_defect": [
-            # W-77: ``no/lov/2004-03-26-17`` LEAVES for `consistent` (its single
-            # OPS_MISSING row closes when the item-depth newness payload lands
-            # § 2 første ledd bokstav g) and ``no/lov/2017-06-16-60`` ENTERS from
-            # `consistent` (a CONSOLIDATED_MISSING row opens at § 7 andre ledd
-            # bokstav e — the write the instrument commands, which Lovdata's
-            # archived consolidation of klimaloven does not carry). One in, one
-            # out: the SUMMARY holds at 29/46/0 and only the membership moves,
-            # which is exactly what this pin exists to catch.
             "no/lov/2001-06-15-65",
             "no/lov/2001-06-15-75",
+            "no/lov/2001-12-14-95",
+            "no/lov/2003-12-19-130",
             "no/lov/2004-05-28-29",
             "no/lov/2004-12-17-101",
-            # W-67 + W-74: ``no/lov/2010-06-04-21`` LEAVES for `untouched_drift`.
-            # With its two ``OPS_MISSING`` rows closed it has no replay-defect row
-            # left, so the W-23 predicate re-buckets it — the predicate doing what
-            # it was built for, not a membership drift. 23 -> 22.
+            "no/lov/2009-06-19-103",
             "no/lov/2010-06-25-28",
-            # W-66c: `no/lov/2011-06-24-39` LEAVES — not for another bucket but
-            # off the board entirely. The punktum repeal binds
-            # `no/lovtid/2013-01-11-3` (contingent commencement) to it for the
-            # first time, so the law downgrades to `blocked_contingent` and stops
-            # being a scan candidate. 24 -> 23.
-            # W-66: ARRIVES from `untouched_drift`, and the direction is the point.
-            # Its § 46 fjerde ledd row used to sit at an address no op touched;
-            # the sibling-set ledd relabel now LANDS there (the row goes
-            # OPS_MISSING -> MISMATCH, the ledd existing and matching the
-            # consolidation but for a trailing full stop), so the W-23 predicate
-            # re-buckets it as touched. 22 -> 23. Same predicate, opposite
-            # direction to W-67+W-74's `2010-06-04-21` move below.
             "no/lov/2012-01-27-9",
             "no/lov/2012-11-30-70",
             "no/lov/2014-08-15-59",
-            # W-73: two of the three entrants land here, both unblocked by
-            # 2017-06-16-67 @2017-07-01 (statsansatteloven's own kgl.res.).
-            # 21 -> 23.
             "no/lov/2015-02-13-9",
             "no/lov/2015-05-22-33",
             "no/lov/2015-06-19-70",
             "no/lov/2016-06-17-29",
             "no/lov/2016-06-17-46",
-            # W-98: ``no/lov/2017-06-16-65`` and ``no/lov/2020-06-19-77`` ARRIVE
-            # from `untouched_drift` with every row UNMOVED (totals hold at
-            # 1,454 / 1,011 / 443). Each law now carries one heading-only
-            # CHAPTER op ("Overskrifta til kapittel IV skal lyde:" from
-            # ``2020-12-04-137``; "Kapittel 8 overskriften skal lyde:" from
-            # ``2023-06-16-54``), and the W-23 predicate relates a chapter-level
-            # target to every address beneath it by prefix, so rows that were
-            # untouched read as touched. The predicate over-reaches for a
-            # heading-only container op (the merge writes the heading and
-            # nothing else); tightening it is a verify-classifier follow-up,
-            # recorded here rather than absorbed. 19 -> 21.
             "no/lov/2017-06-16-65",
-            # W-79: ``no/lov/2017-05-22-29`` and ``no/lov/2017-05-22-30`` both
-            # LEAVE for `untouched_drift`, and the direction is the point. Their
-            # replay-defect rows were caused by the own-text fallback writing
-            # "Noverande §§ 29, 30 og 31 blir §§ 30, 31 og ny 32." (and its twin)
-            # over §§ 25-31; with those writes refused, no op this system lowers
-            # touches any address either law still diverges at, so the W-23
-            # predicate re-buckets both. 22 -> 20. Same predicate, same direction
-            # as W-67+W-74's `2010-06-04-21` move.
-            # W-77: ARRIVES from `consistent`. See the note at the head of this
-            # bucket.
-            # W-84: and LEAVES again, back to `consistent` with ZERO rows,
-            # closing the loop W-77 opened. The bokstav the 2021 act's first
-            # announcement commanded was never enacted — Lovdata superseded that
-            # announcement and re-announced the act without it — so withdrawing
-            # the write is not explaining a divergence away, it is the write
-            # ceasing to exist. See the note at the head of this bucket.
+            "no/lov/2018-03-23-3",
             "no/lov/2019-06-14-21",
             "no/lov/2019-06-21-63",
             "no/lov/2019-12-20-109",
             "no/lov/2020-04-17-29",
             "no/lov/2020-06-19-77",
             "no/lov/2021-06-11-79",
-            # W-66b: ARRIVES from `untouched_drift`, and like W-66's
-            # `2012-01-27-9` above this is the W-23 predicate doing its job rather
-            # than membership drift — but in the REFUSING direction, which is the
-            # more interesting one. `no/lovtid/2022-06-10-38` carries exactly two
-            # instructions: "§ 20 første ledd annet punktum oppheves." and
-            # "Nåværende tredje punktum blir annet punktum." The punktum relabel
-            # now lowers; the punktum-depth REPEAL does not, because no production
-            # reads one. So the relabel's destination is still occupied by the live
-            # second sentence when the leg runs, and W-66's apply-plane guard
-            # REFUSES it (blocking, nothing written) rather than take the θ
-            # (RENUMBER, dest_occupied) recovery, which would have deleted that
-            # sentence — W-54's `removal_wrong` shape, one depth word down.
-            # The law's § 20 første ledd row is therefore no longer "untouched":
-            # something addressed it and declined. 22 -> 23.
-            #
-            # W-66c: and it LEAVES again, back to `untouched_drift`, closing the
-            # loop W-66b opened. The companion punktum REPEAL now lowers, vacates
-            # slot 2, the relabel lands behind it, and the § 20 første ledd row
-            # CLOSES. Nothing on this law declines any more, so the W-23 predicate
-            # buckets its one remaining row as ordinary drift. 23 -> 22.
             "no/lov/2022-03-11-9",
         ],
         "untouched_drift": [
             "no/lov/2003-06-27-57",
             "no/lov/2007-06-29-89",
             "no/lov/2009-03-06-12",
-            # W-67 + W-74: arrives from `replay_defect` with its two OPS_MISSING
-            # rows closed; the one MISMATCH row it keeps is untouched drift.
-            # 19 -> 20.
-            # W-66c: and LEAVES the board entirely, the same way
-            # `no/lov/2011-06-24-39` leaves `replay_defect` — the punktum repeal
-            # binds `no/lovtid/2013-01-11-3` (contingent) to it for the first
-            # time and the law downgrades to `blocked_contingent`. 20 -> 19.
-            # W-66c: `no/lov/2009-05-15-28` ENTERS the candidate set on its first
-            # lowered op ever (a punktum repeal from a `dated` instrument),
-            # divergent at 2 rows, neither a ceiling row nor traceable to a
-            # replay defect. 19 -> 20.
             "no/lov/2009-05-15-28",
-            # W-66: `no/lov/2012-01-27-9` LEAVES for `replay_defect`; see the note
-            # there. 20 -> 19.
-            # W-34: enters the candidate set with its first indexed amendment.
+            "no/lov/2010-06-04-21",
+            "no/lov/2011-06-24-39",
             "no/lov/2013-06-21-75",
-            # W-53: the one entrant of the eight that lands here, at 7 rows,
-            # none of them a ceiling row and none traceable to a replay defect.
-            # 17 -> 18.
             "no/lov/2015-05-12-27",
             "no/lov/2017-05-22-28",
-            # W-79: both ARRIVE from `replay_defect` — see the note there. Each
-            # keeps three rows, and all six are the honest report of a relabel
-            # this system does not lower ("Noverande §§ 29, 30 og 31 blir …"):
-            # our text is the statute's real text at its pre-relabel label, the
-            # consolidation's is the same text one label higher. 19 -> 21.
             "no/lov/2017-05-22-29",
             "no/lov/2017-05-22-30",
-            # W-98: ``no/lov/2017-06-16-65`` LEAVES for `replay_defect` on the
-            # W-23 predicate alone (a heading-only chapter op relates to every
-            # row under the chapter); rows unmoved. See the note there.
             "no/lov/2017-06-16-67",
-            # W-47: enters the candidate set at 14 rows, none of them a ceiling
-            # row and none of them traceable to a replay defect. 16 -> 17.
             "no/lov/2018-04-20-7",
-            # W-73: the third entrant, at 3 rows, unblocked by 2024-12-13-76
-            # @2025-01-01 (ekomloven's own kgl.res.). 18 -> 19.
-            # W-98: ``no/lov/2020-06-19-77`` LEAVES for `replay_defect` the same
-            # way as ``2017-06-16-65`` above; rows unmoved. 21 -> 19.
             "no/lov/2020-12-04-136",
             "no/lov/2021-04-16-18",
-            # W-66b: `no/lov/2021-06-18-121` LEAVES for `replay_defect`; see the
-            # note there. 20 -> 19.
-            # W-66c: and RETURNS, with the row that sent it away CLOSED — the
-            # punktum repeal vacates the slot, the W-66b relabel lands behind it,
-            # and § 20 første ledd matches the consolidation. 19 -> 20.
             "no/lov/2021-06-18-121",
             "no/lov/2022-06-17-49",
             "no/lov/2022-12-20-118",
@@ -3066,62 +2970,16 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             "no/lov/2023-11-24-85",
             "no/lov/2024-12-13-76",
         ],
-        # F-09 proper: the two laws whose divergences really are an
-        # acquisition ceiling. Both carry 0 annex-ceiling rows, and both are
-        # the ONLY two on which the signal would still fire if it were
-        # re-derived from the W-17 residue instead of the raw total
-        # (.tmp/w23/annex_coverage.json) — the bucket's story is now true of
-        # every member.
-        # W-34: 2001-01-05-1 leaves — the sparse-history signal stops firing
-        # once no/lovtid/2015-06-19-65 item 179 binds to it. The bucket's story
-        # (0 annex-ceiling rows, signal would still fire off the W-17 residue)
-        # remains true of the one member left.
-        # W-39: 2012-12-14-81 enters with the candidate set carrying the signal.
-        # W-40 (2026-08-08): and leaves again for annex_ceiling once its 93
-        # annex-shaped rows are typed — the contradiction W-39 recorded here
-        # ("0 annex-ceiling rows" true of one member and not the other) is
-        # closed by typing the rows rather than by re-bucketing the law. The
-        # bucket is F-09 proper again: one member, 0 ceiling rows, and the
-        # sparse signal would still fire off the W-17 residue.
-        # W-47 (2026-08-08): 2013-04-12-13 enters the candidate set carrying the
-        # signal, at 191 unexplained rows and 0 ceiling rows — the same shape as
-        # the bucket's other member. 1 -> 2.
         "source_sparse": [
             "no/lov/2013-04-12-13",
             "no/lov/2020-11-27-131",
         ],
-        # no/lov/2006-06-30-50 left this bucket with the candidate set at
-        # W-30 (contingent amender no/lovtid/2007-06-29-81); it returns when
-        # that commencement resolves.
-        # W-40: 2012-12-14-81 arrives from source_sparse at 93/97 ceiling —
-        # the first member routed on the nested annex encoding, and the first
-        # whose sparse signal was the thing the bucket had to overrule.
         "annex_ceiling": [
             "no/lov/2012-12-14-81",
             "no/lov/2017-06-16-51",
             "no/lov/2018-06-15-38",
         ],
-        # W-34: 2005-06-03-34 leaves for replay_defect (see above). 22 -> 21.
-        # W-35: it returns. 21 -> 22.
-        # W-39: 2001-01-05-1 arrives from replay_defect at 0 divergences,
-        # the largest single-law repair in the series. 22 -> 23.
-        # W-47: 2022-06-17-56 and 2024-12-20-96 ENTER the candidate set already
-        # consistent — a first for this series, and the cheapest coverage the
-        # programme has bought: two laws certified with no repair at all,
-        # each on a single multi-part grant. 23 -> 25.
-        # W-53: FOUR of the eight entrants enter already consistent, the largest
-        # zero-repair cohort the programme has bought in one landing — and one of
-        # them (2004-12-17-99, klimakvoteloven) is the law W-52's receipt fix was
-        # opened for. 25 -> 29.
         "consistent": [
-            # W-77: ``no/lov/2004-03-26-17`` ENTERS here from `replay_defect` and
-            # ``no/lov/2017-06-16-60`` LEAVES for it. See the note on the
-            # `replay_defect` bucket above.
-            # W-84: ``no/lov/2017-06-16-60`` RETURNS here at 0 rows and is the
-            # only membership change in the whole partition.
-            # W-98: ``no/lov/2004-03-26-17`` LEAVES the candidate set altogether
-            # (`blocked_contingent` on its first lowered op from a contingent
-            # instrument); see the scanned_count note above. 30 -> 29.
             "no/lov/2001-01-05-1",
             "no/lov/2004-05-14-25",
             "no/lov/2004-12-17-99",
@@ -3132,6 +2990,7 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             "no/lov/2016-12-16-92",
             "no/lov/2017-04-28-23",
             "no/lov/2017-06-16-60",
+            "no/lov/2018-06-15-32",
             "no/lov/2018-06-15-44",
             "no/lov/2019-06-21-70",
             "no/lov/2020-05-07-38",
@@ -3165,8 +3024,10 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # 76 -> 75 at W-66c: two candidates downgrade to `blocked_contingent` on a
     # newly-visible contingent binding and one enters. See the membership note.
     # 75 -> 74 at W-98: one candidate downgrades the same way and none enters.
-    assert len(routed) == 74
-    assert len(set(routed)) == 74
+    # 74 -> 81 at W-100: seven enter on newly dated bindings, none leaves (see
+    # the membership note above).
+    assert len(routed) == 81
+    assert len(set(routed)) == 81
 
     # Every member of the ceiling bucket is ceiling-DOMINATED, and the margin
     # to the routing boundary is enormous in both directions: the smallest
@@ -3247,7 +3108,9 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             "wage_board_act": 25,
             "substantive_act": 63,
         },
-        "would_be_candidates": 60,
+        # 60 -> 64 at W-100, the same four laws the inventory's would-be
+        # ceiling pin names.
+        "would_be_candidates": 64,
         "substantive_unexplained": 13,
     }
 
