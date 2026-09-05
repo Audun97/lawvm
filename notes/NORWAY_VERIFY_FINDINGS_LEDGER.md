@@ -7317,6 +7317,139 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    two-pages-cached; full-act OCR is a later item for whichever target
    law needs them next.
 
+100. **W-100 (the seven contingent acts in kringkastingsloven's chain, and
+   the section-scoped commencement lane they needed):** after W-99 every
+   one of the 43 sections still diverging on the full chain was
+   POST2001, and the replay was skipping seven acts as `contingent`
+   (`2005-06-17-98`, `2009-06-19-92`, `2013-01-11-3`, `2015-02-06-7`,
+   `2020-05-20-42`, `2025-02-28-2`, `2025-04-25-12`) — the 2013, 2020
+   and 2025 acts alone insert § 1-1's sponsing, produktplassering and
+   videodelingsplattform items. The archive held a commencement forskrift
+   for each of the seven, and every one was refused on the same missing
+   proof, whole-act scope: an instrument that commences LESS than a whole
+   act had no route at all. Census over the 884 blocked instruments
+   citing an offered act: 224 section-scoped with no parts, 187 part
+   lists carrying section labels, 86 + 67 + 28 carve-outs
+   (`med unntak av …`), 18 principal acts cited by date and number, 3
+   whole-act blocks followed by a forskrift-only block, 270 other.
+   **Lane A — two whole-act reader widenings** (`commencement_instruments.py`):
+   the W-73 title-cited subject now also accepts the act cited by date
+   and number before its title (`Lov 11. januar 2013 nr. 3 om Statens
+   innkrevingssentral trer i kraft 1. juni 2013`, `no/forskrift/2013-05-24-533`),
+   spelled as a second pattern because the lint refuses a quantified
+   citation inside an optional group, with a FIFTH conjunct for that
+   form only — nothing but a date after the verb, which is what refuses
+   `… trer i kraft for Bouvetøya 1. april 2005`
+   (`no/forskrift/2005-02-25-173`, a territorial commencement the first
+   cut had taken whole); and the widened route's single-block reader sets
+   aside a forskrift-only consequential block (`Fra samme tidspunkt
+   oppheves § 2-5 og § 2-6 i forskrift …`, `no/forskrift/2015-06-12-633`),
+   the first block never dropped, the count on the candidate, W-47's
+   raw-block reader untouched. **Lane B — the section-scoped lane.** A
+   new reader module (`src/lawvm/norway/commencement_scope.py`) reads an
+   instrument's operative text into typed scope statements —
+   `subject commences on date, less excluded` where a term is the act, a
+   romertall part (optionally narrowed to a section list), a section
+   list under the act's law or under a cited law, or a cited law whole —
+   from a closed grammar: title echoes are benign, `Følgende trer i kraft
+   <date>:` headers date the bare items after them, section lists are a
+   scanner (label, qualifier run, conjunction, repeat) whose unknown token
+   CLOSES the list, part lists expand ranges, carve-outs read as items
+   with an optional relative clause that dates them, `straks` resolves to
+   the instrument's own date, and EVERY prose date must be in
+   `dateInForce`. Totality is the safety property: one sentence the
+   grammar cannot read refuses the whole text (`gradvis til anvendelse`,
+   `gis virkning fra … når det gjelder`, a transitional provision), so
+   nothing is read past. Ledd-level qualifiers (`§ 2-3 andre ledd`) are
+   recorded, never resolved: a qualified label is never GRANTED a date
+   and, in a carve-out, excludes the whole section. The gate's sixth
+   route (`_section_scoped_authorization_scope`) resolves each term to
+   exactly one law — parts through the act's part map (refusing a law
+   spanning two parts), citations against the bound laws, short names
+   and bare lists only on a single-law act, principal laws cited as the
+   forskrift part's hjemmel not counted as a second act — and refuses
+   otherwise with the reason on a receipt; proposals are conflict-checked
+   per key across every instrument of the act (two binding dates, two
+   whole-section dates, a section dated against a binding it was not
+   carved out of — while two LEDD-level dates for one section, the staged
+   pattern itself, do not conflict), and the whole binding is dropped on
+   any contradiction. It yields to every older route per act and per
+   binding. **The landing** is new: four sorted tuples on the index entry
+   (`section_scoped_binding_dates`, `section_scoped_effective_dates`,
+   `section_scoped_exclusions` restricted to sections the act's ops
+   target, `section_scoped_complete_laws`), two binding statuses
+   (`section_instrument_authorized` when every targeted op resolves to a
+   date, `section_instrument_partial` otherwise — the base law stays
+   `blocked_contingent`), `effective_date_for_op(base, section)` beside
+   `effective_date_for_base`, and replay resolving each op of such an
+   entry on its own: dated ops apply, carved-out or undated ops are
+   skipped with a per-op blocking receipt
+   (`no_replay_section_commencement_contingent_skipped`), future ones with
+   a non-blocking one, heading groups on the binding date or skipped with
+   a receipt. **Corpus, by the before/after index snapshot:** 261
+   bindings of 110 acts on 160 laws dated below binding level (204
+   complete, 223 with a binding date, 38 sections-only, 70 ledd-qualified
+   labels refused), one conflict (`no/lovtid/2004-03-05-11`, two whole-act
+   instruments a year apart — genuine), 131 read-but-unresolved pairs
+   (51 section lists under a short name on a multi-law act, 28 keys whose
+   every dated label was ledd-qualified, 13 act-level carve-outs naming a
+   section without a law, 9 two-act instruments, …); lane A moves 29 acts
+   `contingent → instrument_authorized` (widened 440 → 469; contingent
+   540 → 511; the Bouvetøya act stays contingent), and the generic
+   refusals fall 882 → 728. The reader is total on 294 of the 884. **The
+   seven:** `2013-01-11-3` dated 2013-06-01 whole (lane A);
+   `2015-02-06-7` both bindings 2015-07-01 complete; `2009-06-19-92`
+   § 2-13, § 4-2, § 6-1a, § 8-5 at 2009-07-01 and § 6-4 at 2010-01-01,
+   its two ledd-qualified labels refused; `2005-06-17-98` binding
+   2005-07-01 with § 4-4 carved out (§ 10-3 and § 4-6 unbound: the act's
+   seven unmatched leads never yielded ops on them); `2020-05-20-42`
+   twelve bindings complete at 2020-07-01, kringkastingsloven's part V at
+   2023-09-01 from the `straks` instrument, part I's § 44 still carved
+   out; `2025-02-28-2` kringkastingsloven at 2025-05-01 less §§ 2-22 and
+   2-23; `2025-04-25-12` refused by the reader (`kommer gradvis til
+   anvendelse`) and by design. **Witness (kringkastingsloven, glm
+   proposal variant, full chain to 2026-08-25):** applied acts 27 → 33,
+   ops accepted 136 → 186, divergence rows 122 → 68 (MISMATCH 50 → 17,
+   OPS_MISSING 58 → 23, CONSOLIDATED_MISSING 14 → 28), zero-divergence
+   sections **32/75 → 52/75** (POST2001 21 → 41); five ops skipped per
+   section (§ 4-4's renumber under the 2005 carve-out, the 2009 act's two
+   ledd-qualified sections, the 2025 act's §§ 2-22/2-23 inserts) and one
+   act still whole-contingent (`2025-04-25-12`). As-of 2000-12-31 is
+   unchanged at 14/75, as it must be. The 23 still diverging: chapter
+   5 A's nine sections (`Nytt kapittel 5 A` inserted by `2025-02-28-2`,
+   a grafter gap, not a commencement one), § 2-1's ledd relabels, and the
+   POST2001 remainder recorded before. **Tests:** a new module
+   (`tests/test_norway_commencement_scope.py`, 21 — every positive a
+   corpus sentence quoted verbatim, seven whole-text refusals, the
+   forskrift-block filter, the abbreviation-aware split, serialization);
+   twelve gate tests (`tests/test_norway_commencement_instruments.py`:
+   sections-only, carve-outs restricted to targeted sections, parts
+   through the part map, act-level part carve-outs, six typed refusals,
+   reader-refused pairs, the hjemmel-cited principal law, conflicts, the
+   two-ledd non-conflict, carve-out-then-date, precedence to the widened
+   and part routes, lane A's citation subject and the Bouvetøya negative,
+   the forskrift-tail parse with candidate round trip) and two corpus
+   pins (the seven acts' landings; the lane's totals); two end-to-end
+   index tests (`tests/test_norway_index.py`: a carve-out landing with
+   `effective_date_for_op` and serialization; a sections-only complete
+   binding); two replay tests (`tests/test_norway_replay.py`: per-op
+   skip with the base law's § 1 surviving its carved-out repeal, and a
+   per-op future skip). Five rule ids catalogued. **Verification:** ruff
+   clean; `ty` clean on every touched module; the regex gate green after
+   nine patterns were respelled for its no-nested-quantifier rule (the
+   lesson is in memory); the catalog test was ALREADY RED at HEAD on
+   eleven W-98 grafter ids (`no_chapter_heading`, `no_chapter_reenactment`,
+   `no_parse_section_range_unexpandable`, …) — recorded as a follow-up,
+   not touched; the canonical gate's project-wide `ty` step stays red on
+   the W-99-recorded diagnostics. The W-72 occupied-destination sweep baseline regenerated: **firings 9 → 9, zero new**; the known-incomplete-base census moves because founding acts became dated — hazard laws 165 → 156 (incomplete bases 202 → 190; eight leave, `no/lov/2017-06-16-56` and `no/lov/2020-04-24-31` enter), destructive writes 3,953 → 4,036, content-removing 219 → 238 over 76 laws; the three mid-apply blind-spot laws are the same three as before. **Pins moved, each with its note:** the widened whole-act route 440 → 469 in four places (the W-53 zero-early pin — the property holds over the grown set — the W-51 five-route census, the W-5 staged-population and W-7 landscape pins in the index shard, instrument-authorized 986 → 1,015, non-staged 973 → 1,002, the status histogram 540/986 → 511/1,015, fully replayable laws 74 → 83, and the W-51 generic-refusal pin 882 → 728 — the mechanism backwards by design, since both new lanes withdraw the generic refusal for every pair they grant); the W-73 title-cited candidate count 30 → 204 and the two scope proofs' nesting 1,115 → 1,189 / `widened − reader` 8 → 82, with the `2010-06-25-942` one-way witness closing (its forskrift-only second block is now set aside, so the block count and the title-cited proof agree); the W-7 synthetic partial-instrument index test, whose premise — a partial instrument authorizes nothing — is exactly what this item changes, rewritten to assert the section receipt and the unchanged act-level verdict; the W-45 no-consolidation would-be ceiling 60/30 → 64/26 `fully_replayable`/`blocked_contingent` (sum and `None` unmoved); the W-23 verify partition 74 → 81 candidates, seven ENTER and none leave (`2018-06-15-32` consistent; `2001-12-14-95`, `2003-12-19-130`, `2009-06-19-103`, `2018-03-23-3` replay_defect; `2010-06-04-21` and `2011-06-24-39` untouched_drift — the two W-66c recorded as leaving when `2013-01-11-3` became their first contingent binding, returning now that it is dated), summary 29/45 → 30/51, divergence totals 1,454/1,011/443 → 1,476/1,011/465 (22 unexplained rows from the entrants, the ceiling untouched), would-be candidates 60 → 64; the W-72 hazard census (above) and its membership digest; the W-66c destruction set 34/30 → 50/36, eighteen entrants and two leavers, every one a commencement movement and each entrant adjudicated by its lead (the `article.defaultP` text names the section, ledd and ordinals of exactly the addresses minted; `2013-01-11-3` alone lands nine over four laws), the two leavers being the same two addresses re-entering with different text (`2006-06-16-20` § 7 andre ledd andre punktum, `2008-05-15-35` § 76 annet ledd annet punktum — an act newly dated EARLIER than the repealing one now rewrites the ledd first, so the ordinal counts to a different sentence), and NEITHER previously removed sentence stands in the final replay (probed by text: absent from both laws at 2026-07-10), so no provision this system had removed is standing again.  **Recorded follow-ups:**
+   ledd-precise grants (70 refused labels need op subsection paths in the
+   act evidence); short-name law resolution on multi-law acts (51
+   refusals); two-act instruments attributed per part (9; `2021-09-17-2767`
+   would date the 2020 act's part VI); a later section-scoped sibling
+   currently REFUTES an earlier whole-act grant instead of refining it
+   (the W-51 ordering); the `Nytt kapittel 5 A` insert; the eleven
+   uncatalogued W-98 ids.
+
 ## 5. Demo / Inspection Tooling
 
 Browser views of any replayable law across its own amendment dates, plus an
@@ -7334,6 +7467,22 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
 
+- **2026-09-05 (W-100 — the section-scoped commencement lane; seven
+  contingent acts in kringkastingsloven's chain dated below binding level;
+  product `964c2186`)** — a new reader (`commencement_scope.py`) turns an
+  instrument's operative text into typed scope statements (act / part /
+  section list / cited law, less carve-outs), total or refused; a sixth
+  gate route resolves them against the act's part map and bound laws and
+  lands per-binding dates, per-section dates and carve-outs on the index
+  entry; replay dates each op on its own and skips the rest with per-op
+  receipts. Two whole-act reader widenings ride along (the act cited by
+  date and number before its title; forskrift-only blocks set aside).
+  Corpus: 261 bindings of 110 acts on 160 laws dated (204 complete), 29
+  acts act-dated, contingent 540 → 511, generic refusals 882 → 728, one
+  conflict, 131 reasoned refusals. Witness full chain to 2026: 32/75 →
+  **52/75**, divergence rows 122 → 68; as-of 2000 unchanged at 14/75.
+  Sweep firings 9 → 9; hazard laws 165 → 156; W-66c destruction set
+  34/30 → 50/36, all commencement movements; partition candidates 74 → 81.
 - **2026-09-05 (W-99 — omnibus hosts carved; period-less citations,
   address-after-citation leads, deep `skal § … lyde` detection; product
   `33d71634`)** — the two 1999-commencing omnibus acts land as
