@@ -892,7 +892,7 @@ _NO_OCCUPIED_DESTINATION_LAWS: dict[str, tuple[int, int]] = {
     "no/lov/2005-06-17-90": (0, 0),  # W-56: repaired at the lowering; see above.
     "no/lov/2007-06-29-75": (1, 0),  # W-67: verdipapirhandelloven § 4-3 -> § 4-2.
     "no/lov/2009-06-19-58": (1, 0),  # W-67: merverdiavgiftsloven § 7-9 -> § 7-8.
-    "no/lov/2021-06-18-97": (1, 0),
+    "no/lov/2021-06-18-97": (0, 0),  # W-102: refused at the apply seam; see the table note.
 }
 
 #: W-54's per-firing verdict table, pinned (W-56).
@@ -1008,14 +1008,19 @@ _NO_OCCUPIED_DESTINATION_VERDICTS: dict[str, tuple[str, str, str, str, str, tupl
     ),
     # ``no/lovtid/2024-12-20-87:2`` stood here, pinned ``removal_wrong``, until
     # W-61 removed the firing at the lowering. See the note above the table.
-    "no/lovtid/2026-06-19-35:18": (
-        "no/lov/2021-06-18-97",
-        "chapter:10/section:10-17/subsection:4",
-        "chapter:10/section:10-17/subsection:5",
-        "removal_correct",
-        "avgjørelser om godkjenning kan påklages til sentralt nivå i",
-        (),
-    ),
+    # ``no/lovtid/2026-06-19-35:18`` (barnevernsloven § 10-17 fjerde -> femte
+    # ledd, entered ``removal_correct``) stood here until W-102 removed the
+    # firing at the APPLY seam. Re-read on W-102's evidence it was a double
+    # application: the 2025 act that renumbers § 10-15 to § 10-17 is contingent
+    # in the replay, so the 2026 act's ``Nåværende fjerde ledd blir nytt femte
+    # ledd`` landed on the OLD § 10-17 ("Godkjenning av
+    # barnevernsinstitusjoner"), and the ledd it cleared — "Avgjørelser om
+    # godkjenning kan påklages til sentralt nivå …" — stands in the published
+    # consolidation today. Every ledd-depth (RENUMBER, dest_occupied) leg now
+    # refuses instead of clearing (``no_replay_ledd_renumber_occupied_
+    # destination_refused``); the positive fact is pinned by
+    # ``test_no_barnevernsloven_10_17_klage_ledd_survives`` below. Section
+    # depth keeps the recovery and this table.
     # W-67's two new firings, both adjudicated on their own evidence rather than
     # entered because they are convenient. Both are ``removal_correct``, and they
     # are correct for DIFFERENT reasons, which is why the survival tuple differs.
@@ -1308,6 +1313,68 @@ def test_no_skattebetalingsloven_8_2_regulation_power_survives(
     not _REAL_ARCHIVE.exists(),
     reason="requires the local Lovdata archive (data/norway.farchive)",
 )
+def test_no_barnevernsloven_10_17_klage_ledd_survives() -> None:
+    """W-102's payoff on the row it removed from the table: the old § 10-17's
+    fifth ledd survives the 2026 act's shift, at its own address, and the leg is
+    REFUSED rather than cleared. See the table note on ``2026-06-19-35:18``."""
+    from lawvm.norway.index import build_no_amendment_index
+
+    index = build_no_amendment_index(_REAL_ARCHIVE)
+    replay = replay_no_to_pit(
+        "no/lov/2021-06-18-97", as_of="2026-07-10", data_dir=_REAL_ARCHIVE, index=index
+    )
+    assert replay.error is None
+    assert replay.replayed is not None
+    assert _no_probe_hits(
+        replay.replayed, "avgjørelser om godkjenning kan påklages til sentralt nivå i"
+    ) == ("chapter:10/section:10-17/subsection:5",)
+    assert [
+        a.op_id
+        for a in replay.adjudications
+        if a.kind == "no_replay_ledd_renumber_occupied_destination_refused"
+    ] == ["no/lovtid/2026-06-19-35:18"]
+    assert not [
+        a for a in replay.adjudications if a.kind == _OCCUPIED_DESTINATION_ADJUDICATION_KIND
+    ]
+
+
+@pytest.mark.skipif(
+    not _REAL_ARCHIVE.exists(),
+    reason="requires the local Lovdata archive (data/norway.farchive)",
+)
+def test_no_konsesjonsloven_4_reguleringsplan_ledd_survives() -> None:
+    """W-102: the firing its ledd-precise grant exposed, repaired at the apply
+    seam. ``no/lovtid/2025-06-06-27``'s § 4 shift (``nåværende andre og tredje
+    ledd blir tredje og nytt fjerde ledd``) is dated 2026-01-01 by
+    ``no/forskrift/2025-06-06-942``, and konsesjonsloven's archived base LTI
+    edition ALREADY carries the amendment (§ 4 has the 2026 text with zero acts
+    applied). Both legs refuse; the fourth ledd in force survives at its
+    address; no recovery fires on this law, so it has no row to pin."""
+    from lawvm.norway.index import build_no_amendment_index
+
+    index = build_no_amendment_index(_REAL_ARCHIVE)
+    replay = replay_no_to_pit(
+        "no/lov/2003-11-28-98", as_of="2026-07-10", data_dir=_REAL_ARCHIVE, index=index
+    )
+    assert replay.error is None
+    assert replay.replayed is not None
+    assert _no_probe_hits(
+        replay.replayed, "i områder som er regulert i reguleringsplan er konsesjonsfriheten"
+    ) == ("chapter:3/section:4/subsection:4",)
+    assert [
+        a.op_id
+        for a in replay.adjudications
+        if a.kind == "no_replay_ledd_renumber_occupied_destination_refused"
+    ] == ["no/lovtid/2025-06-06-27:3", "no/lovtid/2025-06-06-27:4"]
+    assert not [
+        a for a in replay.adjudications if a.kind == _OCCUPIED_DESTINATION_ADJUDICATION_KIND
+    ]
+
+
+@pytest.mark.skipif(
+    not _REAL_ARCHIVE.exists(),
+    reason="requires the local Lovdata archive (data/norway.farchive)",
+)
 def test_no_husbankloven_13_commencement_provision_survives() -> None:
     """W-74's payoff, pinned at the corpus: husbankloven § 13 "Ikraftsetjing o.a"
     survives the replay, at the addresses the consolidation puts it, and NO
@@ -1400,7 +1467,12 @@ def test_no_corpus_occupied_renumber_destinations_are_all_declared(
     # "Kapittel 2 skal lyde:" now lands as a whole-chapter re-enactment, so the
     # 2024 shift finds its destination free and the recovery has nothing to
     # fire on. The collateral count is unmoved at 3 (that row was ``(1, 0)``).
-    assert sum(f for f, _ in observed.values()) == 9
+    # W-102 lowers it 9 -> 8: barnevernsloven's firing
+    # (``no/lovtid/2026-06-19-35:18``) is refused at the APPLY seam by the
+    # ledd-depth occupied-destination guard, and the firing W-102's own dating
+    # exposed (konsesjonsloven § 4, ``no/lovtid/2025-06-06-27:3``) never enters
+    # for the same reason. Collateral unmoved at 3 (that row was ``(1, 0)``).
+    assert sum(f for f, _ in observed.values()) == 8
     assert sum(c for _, c in observed.values()) == 3
     # The two tables must agree on the firing population, so neither can drift
     # alone: one row per firing, keyed by op_id.
@@ -1796,7 +1868,15 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # chapter — ``no/lov/2001-05-18-21`` [63, 4] -> [64, 4],
     # ``no/lov/2018-04-20-8`` [16 -> 17], ``no/lov/2023-06-09-30`` [19 -> 20].
     # The content-removing column is flat (238 over 76 laws): nothing repeals.
-    "hazard_destructive_writes": 4039,
+    # 4,039 -> 4,078 at W-102: seven known-incomplete bases take 39 more writes
+    # because ops dated below section level by the ledd-precise grants now apply
+    # at the sweep's as-of — utlendingsloven ``no/lov/2008-05-15-35`` [297 -> 321]
+    # (the § 62 ``annet til syvende ledd`` shifts and its 2016 lists),
+    # ``no/lov/2007-12-21-119`` [47 -> 51], konsesjonsloven ``no/lov/2003-11-28-98``
+    # [7 -> 12] (its two refused § 4 legs are not writes), ``no/lov/2005-06-17-102``
+    # [3 -> 6], and one each on ``2003-07-04-80``, ``2005-06-17-64``,
+    # ``2009-01-09-2``. The content-removing column is flat (238 over 76 laws).
+    "hazard_destructive_writes": 4078,
     # 167 -> 168, and the +1 is NOT a relabel op. ``no/lov/2016-05-27-14`` gains
     # ``no/lovtid/2021-12-22-158:1``, a REPEAL of § 7-6 annet ledd that could not
     # bind before because that law's ledd sequence was one slot out of step; with
@@ -1911,7 +1991,11 @@ _NO_INCOMPLETE_BASE_HAZARD_LAWS_DIGEST = (
     # W-101: MEMBERSHIP UNCHANGED (156 laws, same set). THREE rows move, each
     # +1 in the destructive column only (the chapter-heading REPLACEs named in
     # the count note above); every removing column is byte-identical.
-    "8ad2557c6523a12bdf467295962f731d71796395f33304cfe78f843057f27d72"
+    # W-102: MEMBERSHIP UNCHANGED (156 laws, same set, both set differences
+    # empty). SEVEN rows move, all upward and only in the destructive column —
+    # the ops the ledd-precise grants date below section level (see the count
+    # note above); every removing column is byte-identical.
+    "20cbd762fe8b6bd296ec4ccaacca4bcc3d6b27dd1497c68a19be9b404de02d49"
 )
 
 _REGENERATE = (

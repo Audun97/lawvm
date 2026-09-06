@@ -2,7 +2,7 @@
  "_doc": "Corpus-wide (RENUMBER, dest_occupied) firing sweep + the known-incomplete-base destructive-write census, over EVERY Norway base law. Cached because the sweep is ~10 CPU-minutes and the norway shard is not. `corpus` and `code` are the staleness receipt: tests/test_no_renumber_migration.py recomputes both and FAILS when either moved, rather than passing on a stale measurement. Regenerate with `uv run python scripts/inventory_no_occupied_destination_sweep.py --update-baseline`. NOTE: this file is a RECEIPT of what the corpus does, never a statement of what it should do -- a new firing row here is an unadjudicated firing, and it must be adjudicated W-54 style before the verdict table in the test is extended.",
  "as_of": "2026-07-10",
  "code": {
-  "digest": "372e355fc2f84310c313d55e73a5659fde552c233caa18ac5806354f20ed3daa",
+  "digest": "ac62b330c1236cce8a98b11a1e09d5b654fbae1a2ba287819c4cfa36cec7a493",
   "files": [
    {
     "digest": "e3c727b378ae497fa2fc65a174f837dff2a8417dd458378ac22af35d4bf339fb",
@@ -265,19 +265,19 @@
     "module": "lawvm.norway.commencement"
    },
    {
-    "digest": "360d3037c3810fa92b514f139f1c82939808e9050aff4b43a30934024164b680",
+    "digest": "befcd2c3fd8e7ed157edce9161bd358702cf50a768e65bb15e81863dd82b8144",
     "module": "lawvm.norway.commencement_instruments"
    },
    {
-    "digest": "8fe3c55a22abb5e33c69c6b0688fcc9626a0a24a0c4ee39c207358274e357d16",
+    "digest": "cde54dbbfc1e98d39439c31edaca4e306a5fce7c3fc46907890219ed80c1c5e1",
     "module": "lawvm.norway.commencement_scope"
    },
    {
-    "digest": "2bd067f41f7a5e2a8fac446f5a383415871198761864183e233d576b07613144",
+    "digest": "d7f10297e9df1d4a1e298f28b8509657380edee03acbcf222e7af8284aac01f2",
     "module": "lawvm.norway.grafter"
    },
    {
-    "digest": "78a1a211b55b6c9bcf68d276d83e6fcbe140282b8cdb29f9259b5de255b77219",
+    "digest": "be7c2ad8dd25838be598e0e5c5fad8778f9383f6c0066b48d7ac8cffa55a73ef",
     "module": "lawvm.norway.index"
    },
    {
@@ -289,7 +289,7 @@
     "module": "lawvm.norway.mutation_boundary_per_op_probe"
    },
    {
-    "digest": "e112bbd87861c027b0d1be220bfbffffdb2d7473acd89a823901eaafe69d7d5c",
+    "digest": "a72159178e9dcefecf7fa73414dbd2fe06c25a52a89331596139cb63934d2db7",
     "module": "lawvm.norway.replay"
    },
    {
@@ -377,10 +377,6 @@
   "no/lov/2009-06-19-58": [
    1,
    0
-  ],
-  "no/lov/2021-06-18-97": [
-   1,
-   0
   ]
  },
  "firings": [
@@ -431,12 +427,6 @@
    "destination_path": "chapter:7/section:7-8",
    "op_id": "no/lovtid/2022-03-11-8:29",
    "source_path": "chapter:7/section:7-9"
-  },
-  {
-   "base_id": "no/lov/2021-06-18-97",
-   "destination_path": "chapter:10/section:10-17/subsection:5",
-   "op_id": "no/lovtid/2026-06-19-35:18",
-   "source_path": "chapter:10/section:10-17/subsection:4"
   }
  ],
  "incomplete_base_hazard": {
@@ -450,7 +440,7 @@
    "unknown_effective": 1
   },
   "hazard_content_removing_writes": 238,
-  "hazard_destructive_writes": 4039,
+  "hazard_destructive_writes": 4078,
   "incomplete_bases": 190,
   "laws": {
    "no/lov/2001-04-20-13": [
@@ -558,7 +548,7 @@
     1
    ],
    "no/lov/2003-07-04-80": [
-    37,
+    38,
     1
    ],
    "no/lov/2003-07-04-83": [
@@ -570,7 +560,7 @@
     2
    ],
    "no/lov/2003-11-28-98": [
-    7,
+    12,
     0
    ],
    "no/lov/2003-12-05-100": [
@@ -662,11 +652,11 @@
     2
    ],
    "no/lov/2005-06-17-102": [
-    3,
+    6,
     0
    ],
    "no/lov/2005-06-17-64": [
-    42,
+    43,
     1
    ],
    "no/lov/2005-06-17-67": [
@@ -734,11 +724,11 @@
     0
    ],
    "no/lov/2007-12-21-119": [
-    47,
+    51,
     6
    ],
    "no/lov/2008-05-15-35": [
-    297,
+    321,
     16
    ],
    "no/lov/2008-06-06-37": [
@@ -758,7 +748,7 @@
     3
    ],
    "no/lov/2009-01-09-2": [
-    70,
+    71,
     7
    ],
    "no/lov/2009-04-17-19": [
@@ -1078,7 +1068,7 @@
     0
    ]
   },
-  "laws_digest": "8ad2557c6523a12bdf467295962f731d71796395f33304cfe78f843057f27d72"
+  "laws_digest": "20cbd762fe8b6bd296ec4ccaacca4bcc3d6b27dd1497c68a19be9b404de02d49"
  },
  "rule_id": "no_replay_renumber_occupied_destination_removed",
  "runtime": {
@@ -1900,12 +1890,12 @@
    {
     "base_id": "no/lov/2005-06-17-62",
     "error": "Failed to apply ops: Norway replay invariant violation after repeal (('section', '14-2'), ('subsection', '9')) from no/lovtid/2005-12-21-121: body/chapter:8: section out of order: 8-20 > 8-3",
-    "n_ops": 293
+    "n_ops": 295
    },
    {
     "base_id": "no/lov/2015-04-10-17",
     "error": "Failed to apply ops: Norway replay invariant violation after replace (('section', '21-7'),) from no/lovtid/2018-03-23-2: body/chapter:2/chapter:II: section out of order: 21-7 > 2-18",
-    "n_ops": 157
+    "n_ops": 167
    }
   ],
   "fatals": []

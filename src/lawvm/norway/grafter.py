@@ -1626,6 +1626,18 @@ NO_LEDD_SET_RELABEL_PROVENANCE_TAG = "no_ledd_set_relabel"
 NO_REPLAY_LEDD_SET_RELABEL_OCCUPIED_DESTINATION_REFUSED = (
     "no_replay_ledd_set_relabel_occupied_destination_refused"
 )
+#: W-102. The same refusal for EVERY ledd-depth RENUMBER, whatever production
+#: minted it. Measured over the corpus, no subsection-level (RENUMBER,
+#: dest_occupied) clearing has ever preserved law: the slot is occupied either
+#: because the base edition already carries the amendment (konsesjonsloven § 4
+#: under ``no/lovtid/2025-06-06-27``, dated 2026-01-01 by W-102's ledd-precise
+#: grant, whose base LTI edition already has the 2026 text; barnevernsloven
+#: § 10-17 under ``no/lovtid/2026-06-19-35``, applied to the OLD § 10-17 because
+#: the 2025 renumbering act is contingent) or because the cascade is partial
+#: (W-56's tvisteloven § 24-8). See the W-66 block comment at the apply seam.
+NO_REPLAY_LEDD_RENUMBER_OCCUPIED_DESTINATION_REFUSED = (
+    "no_replay_ledd_renumber_occupied_destination_refused"
+)
 #: W-77, the item-depth PAYLOAD production's three parse-plane refusals. The
 #: address and ledd members are kinds of their own rather than reuses of W-66's
 #: and W-76's: this production resolves the SAME two helpers but it is a
@@ -13350,23 +13362,43 @@ def _apply_no_ops_fold(
                 # The shipped θ cell is UNTOUCHED for every op that is not this
                 # production's, which is why the corpus-wide firing census does not
                 # move and the pinned verdict table gains no row.
+                #
+                # W-102 widens the refusal from "an op W-66's production minted"
+                # to "any RENUMBER whose destination is a LEDD", keeping W-66's
+                # receipt for its own ops and a kind of its own for the rest.
+                # The licence is the corpus: every subsection-depth firing the
+                # sweep ever found was a double application (the base edition
+                # already carried the amendment, or the act was applied to a
+                # stale section) or W-56's partial cascade — each destroying a
+                # ledd in force — and none was a legitimate overwrite. Section
+                # depth is untouched: there the adjudicated table holds ten
+                # correct removals.
+                is_ledd_set_relabel = NO_LEDD_SET_RELABEL_PROVENANCE_TAG in (op.provenance_tags or ())
                 if (
                     destination_path is not None
                     and destination_path != resolved_path
-                    and NO_LEDD_SET_RELABEL_PROVENANCE_TAG in (op.provenance_tags or ())
+                    and (is_ledd_set_relabel or _no_kind_value(destination_path[-1][0]) == "subsection")
                 ):
                     standing = tree_ops.resolve(body, destination_path)
                     if standing is not None:
+                        refusal_kind = (
+                            NO_REPLAY_LEDD_SET_RELABEL_OCCUPIED_DESTINATION_REFUSED
+                            if is_ledd_set_relabel
+                            else NO_REPLAY_LEDD_RENUMBER_OCCUPIED_DESTINATION_REFUSED
+                        )
                         _append_no_replay_adjudication(
                             adjudications_out,
-                            kind=NO_REPLAY_LEDD_SET_RELABEL_OCCUPIED_DESTINATION_REFUSED,
+                            kind=refusal_kind,
                             message=(
                                 "Norway replay refused a sibling-set ledd relabel leg whose "
                                 "destination is still occupied when the leg runs."
+                                if is_ledd_set_relabel
+                                else "Norway replay refused a ledd renumber whose destination is "
+                                "still occupied when the leg runs and was not vacated by its own group."
                             ),
                             op=op,
                             detail={
-                                "rule_id": NO_REPLAY_LEDD_SET_RELABEL_OCCUPIED_DESTINATION_REFUSED,
+                                "rule_id": refusal_kind,
                                 "family": "unsupported_or_unresolved_action",
                                 "source_path": _no_path_label(resolved_path),
                                 "destination_path": _no_path_label(destination_path),
@@ -13834,6 +13866,8 @@ _NO_SKIP_ADJUDICATION_KINDS = frozenset(
         # per-op state is discarded, and the conserved partition must see it as
         # rejected rather than as a recovery that applied.
         NO_REPLAY_LEDD_SET_RELABEL_OCCUPIED_DESTINATION_REFUSED,
+        # W-102: the same refusal for every ledd-depth renumber; the same SKIP.
+        NO_REPLAY_LEDD_RENUMBER_OCCUPIED_DESTINATION_REFUSED,
         # W-69a: an addressed word substitution whose announced term is not
         # uniquely present in the addressed provision. Same shape: a REFUSAL, no
         # write, so the conserved partition must see it as rejected.

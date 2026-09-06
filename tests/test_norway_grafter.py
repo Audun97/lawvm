@@ -4406,6 +4406,97 @@ def test_apply_no_ops_renumber_can_clear_occupied_destination_not_moved_elsewher
     assert adjudications[1].detail["removed_label"] == "20"
 
 
+def test_w102_ledd_renumber_onto_an_occupied_slot_refuses_and_cascades() -> None:
+    """W-102. konsesjonsloven § 4 under no/lovtid/2025-06-06-27 on a base that
+    already carries the amendment: ``nåværende andre og tredje ledd blir tredje
+    og nytt fjerde ledd`` runs 3 -> 4 onto an occupied fourth ledd. The leg
+    refuses (no clearing), and 2 -> 3 then finds slot 3 still occupied and
+    refuses too: the shift drops whole and the standing text survives."""
+    statute = IRStatute(
+        statute_id="no/lov/2003-11-28-98",
+        title="Ledd renumber refusal test",
+        body=IRNode(
+            kind=IRNodeKind.BODY,
+            children=(
+                IRNode(
+                    kind=IRNodeKind.SECTION,
+                    label="4",
+                    children=(
+                        IRNode(kind=IRNodeKind.SUBSECTION, label="1", text="ledd 1"),
+                        IRNode(kind=IRNodeKind.SUBSECTION, label="2", text="new ledd 2, already in the base"),
+                        IRNode(kind=IRNodeKind.SUBSECTION, label="3", text="old ledd 2"),
+                        IRNode(kind=IRNodeKind.SUBSECTION, label="4", text="old ledd 3, in force"),
+                    ),
+                ),
+            ),
+        ),
+    )
+    source = OperationSource(statute_id="no/lovtid/2025-06-06-27")
+    ops = [
+        LegalOperation(
+            op_id="renumber-3-4",
+            sequence=1,
+            action=StructuralAction.RENUMBER,
+            target=LegalAddress(path=(("section", "4"), ("subsection", "3"))),
+            destination=LegalAddress(path=(("section", "4"), ("subsection", "4"))),
+            source=source,
+        ),
+        LegalOperation(
+            op_id="renumber-2-3",
+            sequence=2,
+            action=StructuralAction.RENUMBER,
+            target=LegalAddress(path=(("section", "4"), ("subsection", "2"))),
+            destination=LegalAddress(path=(("section", "4"), ("subsection", "3"))),
+            source=source,
+        ),
+    ]
+    adjudications: list[CompileAdjudication] = []
+    updated = apply_no_ops(statute, ops, adjudications_out=adjudications)
+    section = updated.body.children[0]
+    assert [child.text for child in section.children] == [
+        "ledd 1", "new ledd 2, already in the base", "old ledd 2", "old ledd 3, in force",
+    ]
+    refusals = [a for a in adjudications if a.kind == "no_replay_ledd_renumber_occupied_destination_refused"]
+    assert [a.op_id for a in refusals] == ["renumber-3-4", "renumber-2-3"]
+    assert all(a.blocking for a in refusals)
+    assert [(a.detail or {}).get("destination_path") for a in refusals] == [
+        "section:4/subsection:4",
+        "section:4/subsection:3",
+    ]
+    assert [(a.detail or {}).get("destination_was_renumber_source") for a in refusals] == [False, True]
+    assert (refusals[0].detail or {}).get("rule_id") == "no_replay_ledd_renumber_occupied_destination_refused"
+    assert not [a for a in adjudications if a.kind == "no_replay_renumber_occupied_destination_removed"]
+    assert not [a for a in adjudications if a.kind == "no_replay_ledd_set_relabel_occupied_destination_refused"]
+
+    # A free slot is untouched by the guard: on a base WITHOUT the amendment the
+    # same two legs shift 3 -> 4 and 2 -> 3 as before.
+    fresh = IRStatute(
+        statute_id="no/lov/2003-11-28-98",
+        title="Ledd renumber on a fresh base",
+        body=IRNode(
+            kind=IRNodeKind.BODY,
+            children=(
+                IRNode(
+                    kind=IRNodeKind.SECTION,
+                    label="4",
+                    children=(
+                        IRNode(kind=IRNodeKind.SUBSECTION, label="1", text="ledd 1"),
+                        IRNode(kind=IRNodeKind.SUBSECTION, label="2", text="old ledd 2"),
+                        IRNode(kind=IRNodeKind.SUBSECTION, label="3", text="old ledd 3, in force"),
+                    ),
+                ),
+            ),
+        ),
+    )
+    adjudications = []
+    updated = apply_no_ops(fresh, ops, adjudications_out=adjudications)
+    section = updated.body.children[0]
+    assert [(child.label, child.text) for child in section.children] == [
+        ("1", "ledd 1"), ("3", "old ledd 2"), ("4", "old ledd 3, in force"),
+    ]
+    assert not [a for a in adjudications if "occupied" in a.kind]
+
+
 def test_apply_no_ops_strict_recovery_rejects_occupied_renumber_destination_removal() -> None:
     statute = IRStatute(
         statute_id="no/lov/2004-12-17-99",

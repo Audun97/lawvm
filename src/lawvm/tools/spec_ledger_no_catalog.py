@@ -853,6 +853,19 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "refusal CASCADES down the relabel's vacate-before-occupy chain so the set "
         "drops whole rather than in halves. W-66."
     ),
+    "no_replay_ledd_renumber_occupied_destination_refused": (
+        "A ledd-depth RENUMBER (any production, not only W-66's sibling-set "
+        "relabel) found its destination still OCCUPIED when it ran and not vacated "
+        "by its own group. Measured over the corpus no such clearing ever preserved "
+        "law: the slot is taken because the base edition already carries the "
+        "amendment (konsesjonsloven § 4 under no/lovtid/2025-06-06-27, dated by "
+        "W-102's ledd-precise grant), because the act landed on a stale section "
+        "(barnevernsloven § 10-17 under no/lovtid/2026-06-19-35) or because the "
+        "cascade is partial (W-56). The op refuses with a typed blocking receipt, "
+        "no write lands, the occupant survives and the refusal cascades down the "
+        "vacate-before-occupy chain; section-depth renumbers keep the adjudicated "
+        "θ recovery. W-102."
+    ),
     "no_replay_new_chapter_section_relocated_from_occupied_label": (
         "A section a W-101 ``Nytt kapittel`` block inserts under its new chapter "
         "found its LABEL already standing elsewhere in the law (klimakvoteloven's "
