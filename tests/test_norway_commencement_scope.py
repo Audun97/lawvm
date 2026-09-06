@@ -36,15 +36,35 @@ def _read(
     )
 
 
-def _sections(*labels: str, qualified: tuple[str, ...] = (), law_ref: str = "") -> NOCommencementScopeItem:
+def _sections(
+    *labels: str,
+    qualified: tuple[str, ...] = (),
+    law_ref: str = "",
+    subpaths: tuple[tuple[str, tuple[str, ...]], ...] = (),
+) -> NOCommencementScopeItem:
     return NOCommencementScopeItem(
-        kind="sections", law_ref=law_ref, section_labels=labels, qualified_section_labels=qualified
+        kind="sections",
+        law_ref=law_ref,
+        section_labels=labels,
+        qualified_section_labels=qualified,
+        qualified_section_subpaths=subpaths,
     )
 
 
-def _part(label: str, *labels: str, qualified: tuple[str, ...] = (), law_ref: str = "") -> NOCommencementScopeItem:
+def _part(
+    label: str,
+    *labels: str,
+    qualified: tuple[str, ...] = (),
+    law_ref: str = "",
+    subpaths: tuple[tuple[str, tuple[str, ...]], ...] = (),
+) -> NOCommencementScopeItem:
     return NOCommencementScopeItem(
-        kind="part", part_label=label, law_ref=law_ref, section_labels=labels, qualified_section_labels=qualified
+        kind="part",
+        part_label=label,
+        law_ref=law_ref,
+        section_labels=labels,
+        qualified_section_labels=qualified,
+        qualified_section_subpaths=subpaths,
     )
 
 
@@ -63,7 +83,11 @@ def test_section_list_under_lovens_with_two_dates_no_forskrift_2009_06_19_702() 
     assert reading.total, reading.refused_sentence
     assert reading.statements == (
         NOCommencementScopeStatement(
-            subject=_sections("2-3", "2-13", "4-2", "6-1a", "8-5", "10-4", qualified=("2-3", "10-4")),
+            subject=_sections(
+                "2-3", "2-13", "4-2", "6-1a", "8-5", "10-4",
+                qualified=("2-3", "10-4"),
+                subpaths=(("10-4", ("subsection:1",)), ("2-3", ("subsection:2",))),
+            ),
             date="2009-07-01",
         ),
         NOCommencementScopeStatement(subject=_sections("6-4"), date="2010-01-01"),
@@ -87,8 +111,8 @@ def test_whole_act_with_section_carve_outs_no_forskrift_2005_06_17_631() -> None
             subject=_ACT,
             date="2005-07-01",
             excluded=(
-                _sections("4-4", qualified=("4-4",)),
-                _sections("10-3", qualified=("10-3",)),
+                _sections("4-4", qualified=("4-4",), subpaths=(("4-4", ("subsection:3",)),)),
+                _sections("10-3", qualified=("10-3",), subpaths=(("10-3", ("subsection:1", "subsection:2")),)),
                 _sections("4-6"),
             ),
         ),
@@ -106,7 +130,10 @@ def test_title_echo_then_bare_section_clause_no_forskrift_2008_05_30_524() -> No
     )
     assert reading.total, reading.refused_sentence
     assert reading.statements == (
-        NOCommencementScopeStatement(subject=_sections("10-3", qualified=("10-3",)), date="2008-07-01"),
+        NOCommencementScopeStatement(
+            subject=_sections("10-3", qualified=("10-3",), subpaths=(("10-3", ("subsection:1", "subsection:2")),)),
+            date="2008-07-01",
+        ),
     )
 
 
@@ -147,7 +174,10 @@ def test_straks_resolves_to_the_instrument_date_and_part_section_lists_no_forskr
     )
     assert reading.total, reading.refused_sentence
     assert reading.statements == (
-        NOCommencementScopeStatement(subject=_part("I", "44", "47", qualified=("44",)), date="2023-09-01"),
+        NOCommencementScopeStatement(
+            subject=_part("I", "44", "47", qualified=("44",), subpaths=(("44", ("subsection:3",)),)),
+            date="2023-09-01",
+        ),
         NOCommencementScopeStatement(subject=_part("V"), date="2023-09-01"),
     )
 
@@ -170,7 +200,12 @@ def test_act_with_part_carve_outs_qualified_by_law_citations_no_forskrift_2020_0
             subject=_ACT,
             date="2020-07-01",
             excluded=(
-                _part("I", "44", "47", qualified=("44",), law_ref="no/lov/2009-01-09-2"),
+                _part(
+                    "I", "44", "47",
+                    qualified=("44",),
+                    law_ref="no/lov/2009-01-09-2",
+                    subpaths=(("44", ("subsection:3",)),),
+                ),
                 _part("V", law_ref=_KK),
                 _part("VI", "28a", law_ref="no/lov/1992-12-04-132"),
             ),
@@ -343,3 +378,149 @@ def test_reading_round_trips_through_serialization() -> None:
     )
     assert NOCommencementScopeReading.from_dict(reading.to_dict()) == reading
     assert NOCommencementScopeReading.from_dict({}) == NOCommencementScopeReading()
+
+
+# --------------------------------------------------------------------------
+# W-102: the qualifier run spelled as paths below the section.
+# --------------------------------------------------------------------------
+
+
+def test_w102_ledd_range_spells_every_ledd_no_forskrift_2016_09_30_1136() -> None:
+    reading = _read(
+        "Delt ikraftsetting av lov 17. juni 2016 nr. 58 om endringer i utlendingsloven mv. "
+        "(innstramninger II). Endringene i lov 15. mai 2008 nr. 35 om utlendingers adgang til "
+        "riket og deres opphold her § 62 annet til syvende ledd, § 90, § 100 og § 100 a trer i "
+        "kraft 1. oktober 2016.",
+        instrument_date="2016-09-30",
+        declared=("2016-10-01",),
+        own=("no/lov/2016-06-17-58",),
+    )
+    assert reading.total, reading.refused_sentence
+    assert reading.statements == (
+        NOCommencementScopeStatement(
+            subject=_sections(
+                "62", "90", "100", "100a",
+                qualified=("62",),
+                law_ref="no/lov/2008-05-15-35",
+                subpaths=(("62", tuple(f"subsection:{n}" for n in range(2, 8))),),
+            ),
+            date="2016-10-01",
+        ),
+    )
+
+
+def test_w102_ledd_bokstav_and_punktum_spell_two_step_paths_no_forskrift_2026_06_19_1151() -> None:
+    reading = _read(
+        "Følgende trer i kraft 1. juli 2026: Endringsloven del I (finansforetaksloven) § 2-1 "
+        "tredje ledd, § 5-1 annet ledd, § 5-2 første ledd bokstav d og e, § 5-9, § 7-5, § 8-5 "
+        "fjerde ledd, § 16-2, § 19-11 sjette ledd, og § 20-51 sjette ledd.",
+        instrument_date="2026-06-19",
+        declared=("2026-07-01",),
+        own=("no/lov/2026-06-19-40",),
+    )
+    assert reading.total, reading.refused_sentence
+    item = reading.statements[0].subject
+    assert item.kind == "part" and item.part_label == "I"
+    assert item.qualified_section_labels == ("2-1", "5-1", "5-2", "8-5", "19-11", "20-51")
+    assert item.qualified_section_subpaths == (
+        ("19-11", ("subsection:6",)),
+        ("2-1", ("subsection:3",)),
+        ("20-51", ("subsection:6",)),
+        ("5-1", ("subsection:2",)),
+        ("5-2", ("subsection:1/item:d", "subsection:1/item:e")),
+        ("8-5", ("subsection:4",)),
+    )
+    assert item.subpaths_of("5-2") == ("subsection:1/item:d", "subsection:1/item:e")
+    assert item.subpaths_of("5-9") == ()
+
+    reading = _read(
+        "Følgende trer i kraft 1. januar 2027: Endringsloven del I § 9 andre og tredje ledd, § 11, "
+        "§ 13, § 13a fjerde og femte punktum, § 13b, § 21 fjerde ledd annet punktum, § 22 første "
+        "ledd og § 28 første ledd.",
+        instrument_date="2025-06-20",
+        declared=("2027-01-01",),
+        own=("no/lov/2025-06-20-38",),
+    )
+    assert reading.total, reading.refused_sentence
+    item = reading.statements[0].subject
+    # A bare ``punktum`` with no ledd above it spells no path: § 13a stays qualified without one.
+    assert item.qualified_section_labels == ("9", "13a", "21", "22", "28")
+    assert item.qualified_section_subpaths == (
+        ("21", ("subsection:4/sentence:2",)),
+        ("22", ("subsection:1",)),
+        ("28", ("subsection:1",)),
+        ("9", ("subsection:2", "subsection:3")),
+    )
+
+
+def test_w102_nr_after_a_ledd_and_transparent_nytt_no_forskrift_2025_06_06_942_and_2005_04_29_379() -> None:
+    reading = _read(
+        "Følgende trer i kraft 1. januar 2026: Endringsloven § 4 første ledd nr. 1 og 2 og § 4 "
+        "andre til fjerde ledd.",
+        instrument_date="2025-06-06",
+        declared=("2026-01-01",),
+        own=("no/lov/2025-06-06-27",),
+    )
+    assert reading.total, reading.refused_sentence
+    item = reading.statements[0].subject
+    assert item.section_labels == ("4", "4")
+    assert item.qualified_section_labels == ("4",)
+    assert item.qualified_section_subpaths == (
+        ("4", ("subsection:1/item:1", "subsection:1/item:2", "subsection:2", "subsection:3", "subsection:4")),
+    )
+
+    reading = _read(
+        "Lov 29. april 2005 nr. 25 om endringer i lov 7. juni 1996 nr. 31 om Den norske kirke "
+        "gjelder fra 1. juni 2005, med unntak for kirkeloven § 23 første ledd ny bokstav f som "
+        "gjelder fra 1. juni 2006.",
+        instrument_date="2005-04-29",
+        declared=("2005-06-01", "2006-06-01"),
+        own=("no/lov/2005-04-29-25",),
+    )
+    assert reading.total, reading.refused_sentence
+    carved = _sections(
+        "23", qualified=("23",), law_ref="kirkeloven", subpaths=(("23", ("subsection:1/item:f",)),)
+    )
+    assert reading.statements == (
+        NOCommencementScopeStatement(subject=_ACT, date="2005-06-01", excluded=(carved,)),
+        NOCommencementScopeStatement(subject=carved, date="2006-06-01"),
+    )
+
+
+@pytest.mark.parametrize(
+    "qualifier",
+    [
+        "siste ledd",
+        "nr. 8 første og fjerde ledd",
+        "første ledd nr. 1 andre punktum",
+        "fjerde og femte punktum",
+        "ledd",
+        "første ledd bokstav a til c",
+        "tredje til andre ledd",
+    ],
+)
+def test_w102_qualifiers_the_path_grammar_cannot_place_leave_the_label_pathless(qualifier: str) -> None:
+    reading = _read(
+        f"Loven § 5 {qualifier} og § 6 trer i kraft 1. juli 2025.",
+        instrument_date="2025-06-01",
+        declared=("2025-07-01",),
+    )
+    assert reading.total, reading.refused_sentence
+    item = reading.statements[0].subject
+    assert item.section_labels == ("5", "6")
+    assert item.qualified_section_labels == ("5",)
+    assert item.qualified_section_subpaths == ()
+
+
+def test_w102_subpaths_round_trip_through_serialization() -> None:
+    reading = _read(
+        "Lovens § 2-3 andre ledd, § 2-13 og § 10-4 første ledd skal gjelde fra 1. juli 2009.",
+        instrument_date="2009-06-19",
+        declared=("2009-07-01",),
+    )
+    assert reading.total
+    assert reading.to_dict()["statements"][0]["subject"]["qualified_section_subpaths"] == [
+        ["10-4", ["subsection:1"]],
+        ["2-3", ["subsection:2"]],
+    ]
+    assert NOCommencementScopeReading.from_dict(reading.to_dict()) == reading

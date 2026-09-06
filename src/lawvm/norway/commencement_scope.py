@@ -48,12 +48,19 @@ once here:
   the instrument's own ``dateInForce`` field (``straks`` resolves to the
   instrument's own date, which must appear there too). A prose date the
   metadata does not carry refuses the reading.
-* **Ledd-level qualifiers are recorded, never resolved.** ``§ 2-3 andre ledd``
-  names a section and a subdivision of it. The reader keeps the section label
-  and marks it qualified; the gate refuses to GRANT a qualified label (it cannot
-  prove the act's ops on that section stay inside the named ledd) and, in a
-  carve-out, excludes the whole section (which under-claims). Either way the
-  ledd is never read as more than it is.
+* **Ledd-level qualifiers are recorded, and resolved to a path when they can
+  be.** ``§ 2-3 andre ledd`` names a section and a subdivision of it. The reader
+  keeps the section label, marks it qualified and — W-102 — spells the
+  subdivision as a path below the section in the grafter's own step vocabulary
+  (``subsection:2``; ``§ 21 fjerde ledd annet punktum`` is
+  ``subsection:4/sentence:2``; ``§ 5-2 første ledd bokstav d og e`` is two paths
+  ``subsection:1/item:d`` and ``subsection:1/item:e``). A qualifier the closed
+  path grammar cannot spell (``siste ledd``, a ``nr.`` before the ledd, a bare
+  ``punktum`` with no ledd above it) leaves the label qualified with NO path.
+  The reader resolves nothing further: whether the act's ops on that section
+  actually sit inside the named paths is the gate's business, decided against
+  the op evidence, and a label without a path is never granted a date and, in a
+  carve-out, excludes the whole section (which under-claims).
 """
 
 from __future__ import annotations
@@ -160,6 +167,23 @@ _QUAL_KEYWORD_RE = re.compile(
     r"(?:ledd|leddet|ledda|punktum|punkta|punktumet|nr\.?|bokstav(?:ene|ane|en)?)(?![\w-])",
     re.IGNORECASE,
 )
+# W-102. The ordinal vocabulary the path grammar can number; ``siste`` is an
+# ordinal the scanner accepts but the grammar cannot place, and ``nytt``/``ny``/
+# ``nye`` are transparent (``nytt tredje ledd`` names the third ledd).
+_ORDINAL_NUMBERS = {
+    "første": 1, "fyrste": 1, "andre": 2, "annet": 2, "annen": 2, "tredje": 3, "fjerde": 4,
+    "femte": 5, "sjette": 6, "sjuende": 7, "syvende": 7, "åttende": 8, "niende": 9,
+    "tiende": 10, "ellevte": 11, "tolvte": 12,
+}
+_TRANSPARENT_ORDINALS = frozenset({"nytt", "ny", "nye"})
+# Qualifier keyword -> the grafter's step kind. ``ledd`` and ``punktum`` take the
+# ordinals BEFORE them (``andre ledd``); ``nr.`` and ``bokstav`` take the values
+# AFTER them (``bokstav a``), exactly as ``grafter.lovdata_path_to_address``
+# spells the same steps from Lovdata's ``ledd2``/``bokstav/a`` tokens.
+_PRE_KEYWORD_KINDS = {"ledd": "subsection", "leddet": "subsection", "ledda": "subsection",
+                      "punktum": "sentence", "punkta": "sentence", "punktumet": "sentence"}
+_POST_KEYWORD_KINDS = {"nr": "item", "bokstav": "item", "bokstaven": "item",
+                       "bokstavene": "item", "bokstavane": "item"}
 _QUAL_VALUE_RE = re.compile(r"(?:\d+|[a-zæøå])(?![\w-])", re.IGNORECASE)
 _CONJ_RE = re.compile(
     r"(?:,\s*og\s+|,\s*samt\s+|,\s*eller\s+|,\s*|\bog\s+med\s+|\bog\s+|\bsamt\s+|\beller\s+|\btil\s+)",
@@ -203,7 +227,12 @@ class NOCommencementScopeItem:
     Section labels are normalized to the grafter's own spelling (``§`` dropped,
     inner spaces removed, lower-cased). ``qualified_section_labels`` is the subset
     the text narrowed below section level (``andre ledd``, ``nr. 1``,
-    ``bokstav c``, ``første punktum``).
+    ``bokstav c``, ``første punktum``). W-102: ``qualified_section_subpaths`` is
+    ``(label, paths)`` for the qualified labels whose qualifier the path grammar
+    could spell — each path in the grafter's step vocabulary below the section
+    (``subsection:2``, ``subsection:4/sentence:2``, ``subsection:1/item:d``),
+    sorted; a qualified label absent from it carries a qualifier the grammar
+    could not place.
     """
 
     kind: str
@@ -211,6 +240,14 @@ class NOCommencementScopeItem:
     law_ref: str = ""
     section_labels: tuple[str, ...] = ()
     qualified_section_labels: tuple[str, ...] = ()
+    qualified_section_subpaths: tuple[tuple[str, tuple[str, ...]], ...] = ()
+
+    def subpaths_of(self, label: str) -> tuple[str, ...]:
+        """The paths ``label``'s qualifier spelled, or ``()``. W-102."""
+        for qualified_label, subpaths in self.qualified_section_subpaths:
+            if qualified_label == label:
+                return subpaths
+        return ()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -219,6 +256,9 @@ class NOCommencementScopeItem:
             "law_ref": self.law_ref,
             "section_labels": list(self.section_labels),
             "qualified_section_labels": list(self.qualified_section_labels),
+            "qualified_section_subpaths": [
+                [label, list(subpaths)] for label, subpaths in self.qualified_section_subpaths
+            ],
         }
 
     @classmethod
@@ -230,6 +270,11 @@ class NOCommencementScopeItem:
             section_labels=tuple(str(x) for x in data.get("section_labels", []) or []),
             qualified_section_labels=tuple(
                 str(x) for x in data.get("qualified_section_labels", []) or []
+            ),
+            qualified_section_subpaths=tuple(
+                (str(row[0]), tuple(str(x) for x in row[1]))
+                for row in data.get("qualified_section_subpaths", []) or []
+                if isinstance(row, (list, tuple)) and len(row) == 2
             ),
         )
 
@@ -411,14 +456,115 @@ def _read_date(cursor: _Cursor, reading: _Reading) -> str | None:
     raise _Refuse("no date after the commencement verb")
 
 
-def _read_section_list(cursor: _Cursor) -> tuple[tuple[str, ...], tuple[str, ...]]:
-    """``§ a[ quals][, § b …][ og § c]`` → (labels, qualified labels).
+@dataclass(frozen=True, slots=True)
+class _SectionList:
+    """What the section-list scanner read. W-102 adds ``subpaths``."""
+
+    labels: tuple[str, ...]
+    qualified: tuple[str, ...]
+    subpaths: tuple[tuple[str, tuple[str, ...]], ...]
+
+
+def _qualifier_subpaths(tokens: Sequence[tuple[str, str]]) -> tuple[str, ...]:
+    """The paths a qualifier run spells, or ``()`` when the grammar cannot. W-102.
+
+    ``tokens`` is the run as the scanner saw it: ``("ordinal", word)``,
+    ``("keyword", word)``, ``("value", text)``, ``("range", "til")``. The grammar
+    is: one ``ledd`` group (ordinals BEFORE the keyword, a ``til`` between two
+    ordinals a range), optionally followed by exactly one of a ``punktum`` group
+    (ordinals before) or a ``nr.``/``bokstav`` group (values after). Every label
+    list must be non-empty, ranges must be numeric and ascending, an ordinal the
+    table cannot number (``siste``) or any other shape returns ``()``: the label
+    stays qualified with no path, which the gate never grants.
+    """
+    groups: list[tuple[str, list[str]]] = []
+    pre: list[str] = []
+    post: tuple[str, list[str]] | None = None
+    for kind, word in tokens:
+        lowered = word.lower().rstrip(".")
+        if kind == "ordinal":
+            if lowered in _TRANSPARENT_ORDINALS:
+                continue
+            number = _ORDINAL_NUMBERS.get(lowered)
+            if number is None:
+                return ()
+            if post is not None:
+                groups.append(post)
+                post = None
+            pre.append(str(number))
+        elif kind == "range":
+            if post is not None:
+                post[1].append("..")
+            else:
+                pre.append("..")
+        elif kind == "keyword":
+            if lowered in _PRE_KEYWORD_KINDS:
+                if post is not None:
+                    groups.append(post)
+                    post = None
+                if not pre:
+                    return ()
+                groups.append((_PRE_KEYWORD_KINDS[lowered], pre))
+                pre = []
+            elif lowered in _POST_KEYWORD_KINDS:
+                if pre:
+                    return ()
+                if post is not None:
+                    groups.append(post)
+                post = (_POST_KEYWORD_KINDS[lowered], [])
+            else:
+                return ()
+        elif kind == "value":
+            if post is None:
+                return ()
+            post[1].append(word.lower())
+    if pre:
+        return ()
+    if post is not None:
+        groups.append(post)
+    if not groups or groups[0][0] != "subsection" or len(groups) > 2:
+        return ()
+    expanded: list[tuple[str, tuple[str, ...]]] = []
+    for step_kind, raw_labels in groups:
+        labels: list[str] = []
+        index = 0
+        while index < len(raw_labels):
+            token = raw_labels[index]
+            if token == "..":
+                if not labels or index + 1 >= len(raw_labels):
+                    return ()
+                low, high = labels[-1], raw_labels[index + 1]
+                if not (low.isdigit() and high.isdigit()) or int(low) >= int(high):
+                    return ()
+                labels.extend(str(value) for value in range(int(low) + 1, int(high) + 1))
+                index += 2
+                continue
+            labels.append(token)
+            index += 1
+        if not labels:
+            return ()
+        expanded.append((step_kind, tuple(labels)))
+    paths: list[str] = []
+    for first in expanded[0][1]:
+        head = f"{expanded[0][0]}:{first}"
+        if len(expanded) == 1:
+            paths.append(head)
+            continue
+        for second in expanded[1][1]:
+            paths.append(f"{head}/{expanded[1][0]}:{second}")
+    return tuple(sorted(set(paths)))
+
+
+def _read_section_list(cursor: _Cursor) -> _SectionList:
+    """``§ a[ quals][, § b …][ og § c]`` → labels, qualified labels, subpaths.
 
     The scanner accepts a label, then any run of qualifier tokens, then either a
     conjunction followed by another label (with or without a repeated ``§``) or
     the end of the list. Under a single ``§`` a number after a conjunction
     continues a ``nr.``/``bokstav`` qualifier rather than opening a new label;
-    under ``§§`` it is a new label. Anything else closes the list.
+    under ``§§`` it is a new label. Anything else closes the list. The qualifier
+    run of each label is handed to :func:`_qualifier_subpaths` (W-102); a label
+    that recurs in one list merges its paths.
     """
     opener = cursor.take(_SECTION_OPEN_RE)
     if opener is None:
@@ -426,6 +572,7 @@ def _read_section_list(cursor: _Cursor) -> tuple[tuple[str, ...], tuple[str, ...
     plural = opener.group(0).startswith("§§")
     labels: list[str] = []
     qualified: list[str] = []
+    subpaths: dict[str, set[str]] = {}
     while True:
         label_match = cursor.take(_LABEL_RE)
         if label_match is None:
@@ -436,27 +583,36 @@ def _read_section_list(cursor: _Cursor) -> tuple[tuple[str, ...], tuple[str, ...
         labels.append(label)
         last_keyword = ""
         is_qualified = False
+        tokens: list[tuple[str, str]] = []
         # Qualifier run.
         while True:
-            if cursor.take(_ORDINAL_RE) is not None:
+            ordinal = cursor.take(_ORDINAL_RE)
+            if ordinal is not None:
                 is_qualified = True
+                tokens.append(("ordinal", ordinal.group(0)))
                 continue
             keyword = cursor.take(_QUAL_KEYWORD_RE)
             if keyword is not None:
                 is_qualified = True
                 last_keyword = keyword.group(0).lower().rstrip(".")
+                tokens.append(("keyword", keyword.group(0)))
                 continue
             if last_keyword in {"nr", "bokstav", "bokstaven", "bokstavene", "bokstavane"}:
                 value = cursor.peek(_QUAL_VALUE_RE)
                 if value is not None:
                     cursor.take(_QUAL_VALUE_RE)
+                    tokens.append(("value", value.group(0)))
                     continue
             # A conjunction inside the qualifier run: ``første og fjerde ledd``,
             # ``nr. 1 og 3``, ``annet til fjerde punktum``.
             saved = cursor.pos
-            if cursor.take(_CONJ_RE) is not None:
+            conjunction = cursor.take(_CONJ_RE)
+            if conjunction is not None:
+                is_range = conjunction.group(0).strip().lower() == "til"
                 if cursor.peek(_ORDINAL_RE) is not None:
                     is_qualified = True
+                    if is_range:
+                        tokens.append(("range", "til"))
                     continue
                 if (
                     not plural
@@ -464,12 +620,20 @@ def _read_section_list(cursor: _Cursor) -> tuple[tuple[str, ...], tuple[str, ...
                     and cursor.peek(_QUAL_VALUE_RE) is not None
                     and cursor.peek(_SECTION_OPEN_RE) is None
                 ):
-                    cursor.take(_QUAL_VALUE_RE)
+                    value = cursor.take(_QUAL_VALUE_RE)
+                    assert value is not None
+                    if is_range:
+                        tokens.append(("range", "til"))
+                    tokens.append(("value", value.group(0)))
                     continue
                 cursor.pos = saved
             break
         if is_qualified:
-            qualified.append(label)
+            if label not in qualified:
+                qualified.append(label)
+            paths = _qualifier_subpaths(tokens)
+            if paths:
+                subpaths.setdefault(label, set()).update(paths)
         # Continuation?
         saved = cursor.pos
         if cursor.take(_CONJ_RE) is None:
@@ -480,7 +644,11 @@ def _read_section_list(cursor: _Cursor) -> tuple[tuple[str, ...], tuple[str, ...
             continue
         cursor.pos = saved
         break
-    return tuple(labels), tuple(qualified)
+    return _SectionList(
+        labels=tuple(labels),
+        qualified=tuple(qualified),
+        subpaths=tuple(sorted((label, tuple(sorted(paths))) for label, paths in subpaths.items())),
+    )
 
 
 def _law_ref_from_cite(match: re.Match[str]) -> str:
@@ -625,14 +793,15 @@ def _read_scope_items(cursor: _Cursor, *, own_act_refs: frozenset[str]) -> list[
         if cursor.peek(_SECTION_OPEN_RE) is not None:
             if len(part_labels) != 1:
                 raise _Refuse("section list after a part list")
-            labels, qualified = _read_section_list(cursor)
+            section_list = _read_section_list(cursor)
             return [
                 NOCommencementScopeItem(
                     kind="part",
                     part_label=part_labels[0],
                     law_ref=law_ref,
-                    section_labels=labels,
-                    qualified_section_labels=qualified,
+                    section_labels=section_list.labels,
+                    qualified_section_labels=section_list.qualified,
+                    qualified_section_subpaths=section_list.subpaths,
                 )
             ]
         return [
@@ -645,45 +814,53 @@ def _read_scope_items(cursor: _Cursor, *, own_act_refs: frozenset[str]) -> list[
         _skip_title_tail(cursor)
         cursor.take(_NEW_PREFIX_RE)
         if cursor.peek(_SECTION_OPEN_RE) is not None:
-            labels, qualified = _read_section_list(cursor)
+            section_list = _read_section_list(cursor)
             return [
                 NOCommencementScopeItem(
                     kind="sections",
                     law_ref="" if law_ref in own_act_refs else law_ref,
-                    section_labels=labels,
-                    qualified_section_labels=qualified,
+                    section_labels=section_list.labels,
+                    qualified_section_labels=section_list.qualified,
+                    qualified_section_subpaths=section_list.subpaths,
                 )
             ]
         if law_ref in own_act_refs:
             return [NOCommencementScopeItem(kind="act")]
         return [NOCommencementScopeItem(kind="law", law_ref=law_ref)]
     if cursor.peek(_SECTION_OPEN_RE) is not None:
-        labels, qualified = _read_section_list(cursor)
+        section_list = _read_section_list(cursor)
         return [
             NOCommencementScopeItem(
-                kind="sections", section_labels=labels, qualified_section_labels=qualified
+                kind="sections",
+                section_labels=section_list.labels,
+                qualified_section_labels=section_list.qualified,
+                qualified_section_subpaths=section_list.subpaths,
             )
         ]
     saved = cursor.pos
     if cursor.take(_LAW_WORD_RE) is not None:
         cursor.take(_NEW_PREFIX_RE)
         if cursor.peek(_SECTION_OPEN_RE) is not None:
-            labels, qualified = _read_section_list(cursor)
+            section_list = _read_section_list(cursor)
             return [
                 NOCommencementScopeItem(
-                    kind="sections", section_labels=labels, qualified_section_labels=qualified
+                    kind="sections",
+                    section_labels=section_list.labels,
+                    qualified_section_labels=section_list.qualified,
+                    qualified_section_subpaths=section_list.subpaths,
                 )
             ]
         cursor.pos = saved
     short = cursor.take(_SHORT_NAME_RE)
     if short is not None:
-        labels, qualified = _read_section_list(cursor)
+        section_list = _read_section_list(cursor)
         return [
             NOCommencementScopeItem(
                 kind="sections",
                 law_ref=short.group(1).lower(),
-                section_labels=labels,
-                qualified_section_labels=qualified,
+                section_labels=section_list.labels,
+                qualified_section_labels=section_list.qualified,
+                qualified_section_subpaths=section_list.subpaths,
             )
         ]
     if cursor.take(_ACT_WORD_RE) is not None:
