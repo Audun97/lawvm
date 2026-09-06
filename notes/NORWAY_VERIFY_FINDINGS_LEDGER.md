@@ -7443,7 +7443,8 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    not touched; the canonical gate's project-wide `ty` step stays red on
    the W-99-recorded diagnostics. The W-72 occupied-destination sweep baseline regenerated: **firings 9 → 9, zero new**; the known-incomplete-base census moves because founding acts became dated — hazard laws 165 → 156 (incomplete bases 202 → 190; eight leave, `no/lov/2017-06-16-56` and `no/lov/2020-04-24-31` enter), destructive writes 3,953 → 4,036, content-removing 219 → 238 over 76 laws; the three mid-apply blind-spot laws are the same three as before. **Pins moved, each with its note:** the widened whole-act route 440 → 469 in four places (the W-53 zero-early pin — the property holds over the grown set — the W-51 five-route census, the W-5 staged-population and W-7 landscape pins in the index shard, instrument-authorized 986 → 1,015, non-staged 973 → 1,002, the status histogram 540/986 → 511/1,015, fully replayable laws 74 → 83, and the W-51 generic-refusal pin 882 → 728 — the mechanism backwards by design, since both new lanes withdraw the generic refusal for every pair they grant); the W-73 title-cited candidate count 30 → 204 and the two scope proofs' nesting 1,115 → 1,189 / `widened − reader` 8 → 82, with the `2010-06-25-942` one-way witness closing (its forskrift-only second block is now set aside, so the block count and the title-cited proof agree); the W-7 synthetic partial-instrument index test, whose premise — a partial instrument authorizes nothing — is exactly what this item changes, rewritten to assert the section receipt and the unchanged act-level verdict; the W-45 no-consolidation would-be ceiling 60/30 → 64/26 `fully_replayable`/`blocked_contingent` (sum and `None` unmoved); the W-23 verify partition 74 → 81 candidates, seven ENTER and none leave (`2018-06-15-32` consistent; `2001-12-14-95`, `2003-12-19-130`, `2009-06-19-103`, `2018-03-23-3` replay_defect; `2010-06-04-21` and `2011-06-24-39` untouched_drift — the two W-66c recorded as leaving when `2013-01-11-3` became their first contingent binding, returning now that it is dated), summary 29/45 → 30/51, divergence totals 1,454/1,011/443 → 1,476/1,011/465 (22 unexplained rows from the entrants, the ceiling untouched), would-be candidates 60 → 64; the W-72 hazard census (above) and its membership digest; the W-66c destruction set 34/30 → 50/36, eighteen entrants and two leavers, every one a commencement movement and each entrant adjudicated by its lead (the `article.defaultP` text names the section, ledd and ordinals of exactly the addresses minted; `2013-01-11-3` alone lands nine over four laws), the two leavers being the same two addresses re-entering with different text (`2006-06-16-20` § 7 andre ledd andre punktum, `2008-05-15-35` § 76 annet ledd annet punktum — an act newly dated EARLIER than the repealing one now rewrites the ledd first, so the ordinal counts to a different sentence), and NEITHER previously removed sentence stands in the final replay (probed by text: absent from both laws at 2026-07-10), so no provision this system had removed is standing again.  **Recorded follow-ups:**
    ledd-precise grants (70 refused labels need op subsection paths in the
-   act evidence); short-name law resolution on multi-law acts (51
+   act evidence — CLOSED 2026-09-06 as W-102, item 102: 70 → 17 refused,
+   138 dates landed by path); short-name law resolution on multi-law acts (51
    refusals); two-act instruments attributed per part (9; `2021-09-17-2767`
    would date the 2020 act's part VI); a later section-scoped sibling
    currently REFUTES an earlier whole-act grant instead of refining it
@@ -7580,6 +7581,193 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    addresses; folkehøgskoleloven's § 24 (its original-act ledd 1 is
    missing from the replay, a source question, not a W-101 one).
 
+102. **W-102 (ledd-precise section grants: the qualifier as a path below the
+   section, admitted against the act's op addresses):** after W-101 four of
+   kringkastingsloven's 14 remaining divergent sections (§§ 2-3, 4-4, 10-3,
+   10-4) stayed contingent only because the commencement instruments name a
+   ledd (`Lovens § 2-3 andre ledd, … og § 10-4 første ledd skal gjelde fra
+   1. juli 2009`; `… med unntak av nytt § 4-4 tredje ledd, endring i § 10-3
+   første og annet ledd`) and W-100 refused to grant below section level.
+   Census first, over the W-100 index: **70 qualified labels refused in a
+   granting position over 30 bindings, 58 more on the 28 keys whose every
+   dated label was qualified, 24 qualified carve-outs** (excluding the whole
+   section each). By qualifier shape and the act's op shape on that section:
+   53 pure-ledd qualifiers whose ops ALL carry a subsection step (`replace
+   section:2-3/subsection:2`), ~20 ledd + punktum / bokstav / nr qualifiers
+   over `subsection/sentence` and `subsection/item` op paths, 18 whole-section
+   ops under a ledd qualifier (`§ 3 skal lyde:` dated `annet ledd` — never
+   splittable), 32 labels with no ops at all (unmatched leads), 4 renumber
+   shapes. So the reading is not "ledd" but "a path below the section", and
+   the safety question is whether the act's ops sit cleanly on one side of
+   it. **(i) Reader** (`commencement_scope.py`): the section-list scanner
+   keeps each label's qualifier run as tokens and a closed path grammar spells
+   it in the grafter's own step vocabulary — one `ledd` group (ordinals before
+   the keyword, `til` a numeric ascending range, `nytt`/`ny`/`nye`
+   transparent) optionally followed by exactly one `punktum` group (ordinals
+   before) or one `nr.`/`bokstav` group (values after): `andre ledd` →
+   `subsection:2`; `annet til syvende ledd` → `subsection:2` … `subsection:7`;
+   `fjerde ledd annet punktum` → `subsection:4/sentence:2`; `første ledd
+   bokstav d og e` → `subsection:1/item:d`, `subsection:1/item:e`; `første
+   ledd nr. 1 og 2` → `subsection:1/item:1`, `subsection:1/item:2`. Anything
+   the grammar cannot place (`siste ledd`, a `nr.` before the ledd, a bare
+   `punktum` with no ledd above it — § 13a's `fjerde og femte punktum` — an
+   empty or descending range) leaves the label qualified with NO path, which
+   is W-100's state. `NOCommencementScopeItem.qualified_section_subpaths`
+   carries `(label, paths)`, serialized. **(ii) Evidence:** the index hands
+   the gate one `NOCommencementOpAddress` per op (`law_op_addresses`: section
+   label, subpath below it, a renumber's destination) beside the section-level
+   facts, which are now DERIVED from the same addresses with the section step
+   looked up rather than assumed first — W-100's `path[:1]` had read every
+   W-101 new-chapter section (`chapter:5A/section:5A-1`) as unsectioned. A
+   caller supplying only section labels admits nothing below them. **(iii)
+   Gate** (`_section_scoped_authorization_scope` and the resolution loop):
+   proposals keep path-ful qualified grants by `(label, subpath)` and
+   qualified carve-outs by path beside the whole-section sets; a qualified
+   label's two dates in ONE instrument no longer refuse the pair (the staged
+   pattern; only a repeated PATH does). Per key, the ADMISSIBILITY rule
+   (`_subpath_admissibility`) decides per section whether the paths named on
+   it can be read at all: every op on the section must sit cleanly inside or
+   outside every named path (a whole-section op, or a whole-ledd op when a
+   punktum of it is named, refuses with `stands above the named …`); a
+   renumber must stay in the section, must not move something from outside
+   every named path INTO one (the repeal of ledd 2 carved out while old ledd
+   3 is renumbered to 2 would land on an occupied slot), and must not span
+   two named paths on two different dates; a renumber moving OUT of the
+   named paths — `nytt tredje ledd` inserting 3 and shifting old 3 to 4 — or
+   between paths on one date — the five shifts under `§ 62 annet til syvende
+   ledd` — is admitted, dated by its target. An inadmissible label falls back
+   to W-100 exactly: the grant refused, the carve-out excluding the whole
+   section, and the reason on the receipt (`qualified_fallback_reasons`).
+   Conflicts: two dated paths of one section that overlap (equal, or one
+   above the other) on two dates contradict; disjoint ones stage. Landing:
+   `subpath_dates` and `excluded_subpaths` on the receipt, two new sorted
+   tuples on the index entry (`section_scoped_subpath_dates` (law, section,
+   subpath, date); `section_scoped_subpath_exclusions`), and
+   `effective_date_for_op(base, section, subpath)` walking the ladder path
+   date → section date → path carve-out → section carve-out → binding date →
+   contingent, with the op's subpath at or below the landed one. `complete`
+   is now computed per op by the same ladder (`_section_scope_op_dated`),
+   over the addresses when supplied and over one whole-section address per
+   label otherwise (W-100's formula). Replay passes each op's subpath
+   (`no_commencement_section_and_subpath`) and receipts it on the per-op
+   skips. **Corpus (before/after index):** bindings 261 → **280** (124 acts,
+   165 laws; complete 204 → **224**; binding-dated 223 unmoved), **138 dates
+   landed below section level over 91 labels of 42 bindings**, 4 carve-outs by
+   path, whole-section carve-outs 32 → 18, refused qualified labels **70 →
+   17** (13 whole-section ops above a ledd, 4 path-less qualifiers, zero
+   renumber straddles after the union rule — the first cut checked the
+   straddle per named path and refused the § 62 shifts), refusals 131 → 108
+   (the 28 all-qualified keys → 8, the 3 one-instrument staged keys land),
+   the one conflict unchanged, contingent 511 and widened 469 unmoved (this
+   lane never dates an act). **The witness's four:** `2009-06-19-92` dates
+   § 2-3 `subsection:2` and § 10-4 `subsection:1` at 2009-07-01 and the
+   binding is complete; `2005-06-17-98` excludes § 4-4 `subsection:3` alone
+   (its RENUMBER of old ledd 3 to 4 sits inside; the `nytt tredje ledd`
+   insert itself is one of the act's seven unmatched leads) and lands § 10-3
+   `subsection:1`/`:2` at 2008-07-01 on a section the act never yielded ops
+   for; `2020-05-20-42`'s § 44 tredje ledd, carved out in 2020 and dated
+   `straks` in 2023, lands by path and markedsføringsloven's binding
+   completes. **Witness (kringkastingsloven, glm proposal variant, full chain
+   to 2026-08-25):** ops accepted 187 → **189**, contingent acts 4 → 3 (the
+   2009 act applies whole), per-op skips 5 → 3, divergence rows **29 → 28**
+   (MISMATCH 18 → 17), zero-divergence sections **61/75 → 62/75** (POST2001
+   50 → 51): **§ 2-3 closes.** § 10-4 is dated and its 2009 op lands, but
+   the section still diverges on ledd 4/5 (a later act's text, not a
+   commencement matter); § 4-4's two rows are the pre-2001 OCR straddle
+   (`§ 4—3.` inside ledd 2) and § 10-3's the missing 2005 op — both lead
+   gaps, recorded as such. As-of 2000-12-31 is untouched at 14/75. The 13
+   still diverging: § 2-1's ledd relabels, §§ 4-4, 10-3, 10-4 as above, and
+   the POST2001 remainder (§§ 4-6, 6-1a, 7-1, 8-4, 9-2, 9-3, 10-1, 10-5,
+   10-6). **Tests:** reader — five W-102 tests (`test_norway_commencement_scope.py`:
+   the § 62 range, the finansforetaksloven and trygderettsloven lists with
+   bokstav and punktum and the path-less § 13a, `nr.` after a ledd and the
+   transparent `ny bokstav f` carve-out, seven path-less qualifiers
+   parametrized, serialization), five W-100 pins carrying their paths; gate —
+   eleven W-102 tests (`test_norway_commencement_instruments.py`: the address
+   reader, the 2009 shape landing by path with `complete`, ops outside the
+   path left undated, the whole-section op refused with its reason, a ledd
+   op above a named punktum, path-less and address-less fallbacks, the 2005
+   carve-out by path with its coarse-evidence control, the reverse straddle
+   and the cross-section move, the § 62 shifts admitted and the same shifts
+   under two dates refused, staged vs overlapping vs repeated paths, the
+   carve-out-then-date pair on § 44) and the two W-100 corpus pins moved with
+   W-102 assertions added; index — three end-to-end tests (a ledd carve-out
+   by path with `effective_date_for_op` at every rung and serialization, a
+   ledd grant by path complete without a binding date, a whole-section act
+   keeping the grant refused); replay — the per-op skip with its subpath
+   under a carve-out and the same act under a grant. **Verification:** ruff
+   clean; `ty` clean on the touched modules (index.py's four
+   `possibly-unresolved-reference` diagnostics are W-99's, identical at
+   HEAD); catalog green and regex gate green (no new pattern). **The firing
+   the dating exposed, and the apply-plane guard it forced.** The W-72
+   occupied-destination sweep, regenerated after the corpus rebuild, found
+   ONE new `(RENUMBER, dest_occupied)` firing: `no/lovtid/2025-06-06-27:3`,
+   konsesjonsloven § 4 `subsection:3 → subsection:4` — the `nåværende andre
+   og tredje ledd blir tredje og nytt fjerde ledd` shift, correctly dated
+   2026-01-01 by `no/forskrift/2025-06-06-942` (`§ 4 første ledd nr. 1 og 2
+   og § 4 andre til fjerde ledd`), which the ledd-precise grant is the first
+   route to date. Adjudicated W-54 style: the archived base LTI edition of
+   konsesjonsloven ALREADY carries the amendment (at as-of 2003-12-31, zero
+   acts applied, § 4 has four ledd with the 2026 text), so the shift lands a
+   second time and the θ recovery clears "I områder som er regulert i
+   reguleringsplan, er konsesjonsfriheten etter første ledd nr. 4 …" — in
+   force today as § 4 fjerde ledd, absent from the replay after the firing:
+   `removal_wrong`, W-66's straffeloven/verdipapirhandelloven posture on a
+   production W-66's tag does not reach (the structured `data-move-part`
+   lowering). The tripwire (`wrong == []`, flipped by W-61) forbids pinning
+   it, so it is repaired at the apply seam: the W-66 refusal now covers
+   EVERY ledd-depth RENUMBER whose destination is occupied and not vacated by
+   its own group (`no_replay_ledd_renumber_occupied_destination_refused`,
+   W-66's own kind kept for its tagged ops; typed blocking receipt, no write,
+   the cascade down the vacate-before-occupy chain, section depth untouched).
+   The licence is the corpus: the ONLY other subsection-depth row in the
+   verdict table, `no/lovtid/2026-06-19-35:18` (barnevernsloven § 10-17
+   fjerde → femte ledd, entered `removal_correct`), re-read on the same
+   evidence is a double application too — the 2025 act renumbering § 10-15 to
+   § 10-17 is contingent in the replay, so the 2026 act's shift landed on the
+   OLD § 10-17 and cleared "Avgjørelser om godkjenning kan påklages til
+   sentralt nivå …", which stands in the published consolidation — and W-56's
+   tvisteloven § 24-8 was the third. No ledd-depth clearing ever preserved
+   law. The § 10-17 row leaves the table with its note (the W-61/W-98 shape),
+   its law drops to `(0, 0)`, and two positive survival pins hold the facts
+   (`test_no_konsesjonsloven_4_reguleringsplan_ledd_survives`,
+   `test_no_barnevernsloven_10_17_klage_ledd_survives`), beside a grafter
+   unit test of the refusal, its cascade and the free-slot control. Rule id
+   catalogued. **Shards run here with the corpus:** commencement instruments
+   187, index 58, replay 32, verify 94, inventory 21, grafter 501,
+   renumber-migration green after the pins below moved; the canonical gate's
+   project-wide `ty` step stays red on the W-99-recorded diagnostics. **Pins
+   moved, each with its note:** the two W-100 corpus pins (the seven acts'
+   landings — the 2009 act's two paths and its `complete`, the 2005 act's path
+   carve-out and § 10-3's paths, § 44 tredje ledd's path date and
+   markedsføringsloven's completion — and the lane's totals, with W-102's
+   subpath, exclusion, fallback and no-straddle assertions added); the W-51
+   generic-refusal pin 728 → 710 (the same withdrawal one step down: every
+   pair granted by path sheds its generic refusal); the W-72 sweep baseline
+   regenerated — **firings 9 → 8** (konsesjonsloven's new firing never
+   enters, barnevernsloven's is withdrawn, both by the guard), hazard
+   membership unchanged at 156 laws, destructive writes 4,039 → 4,078 over
+   seven known-incomplete bases whose ops the ledd-precise grants now date
+   (utlendingsloven 297 → 321 alone; the content-removing column flat at 238
+   over 76 laws), the three mid-apply blind-spot laws the same three; the
+   firing total 9 → 8 and the laws table row for `2021-06-18-97` at `(0, 0)`;
+   the membership digest (156 laws, same set; seven rows up, destructive
+   column only);
+   the W-23 verify partition byte-identical — 82 candidates, 30/52, totals
+   1,478/1,011/467, zero laws moving bucket (konsesjonsloven and
+   barnevernsloven are outside the candidate set). **Recorded follow-ups:**
+   the double-application class itself — a base edition (or a stale section)
+   that already carries the amendment being replayed is a fact the apply seam
+   now refuses at ledd depth but cannot yet PROVE; the general guard is the
+   base edition's date against the op's effective date, its own item with a
+   spike (the W-72 hazard census is 4,078 writes of exactly this posture);
+   the 13 whole-section ops above a ledd qualifier (unsplittable by design,
+   recorded); the 4 path-less qualifiers (`siste ledd`, a bare `punktum`); §
+   10-4's ledd 4/5 rows and the § 4-4 / § 10-3 lead gaps on the witness; the
+   § 10-17 stale-section shape (an act applied to a section a contingent
+   renumbering act has not yet moved), which the refusal contains but does
+   not resolve.
+
 ## 5. Demo / Inspection Tooling
 
 Browser views of any replayable law across its own amendment dates, plus an
@@ -7597,6 +7785,23 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
 
+- **2026-09-06 (W-102 — ledd-precise section grants; the qualifier as a
+  path below the section, admitted against the act's op addresses)** — the
+  scope reader spells `andre ledd`, `annet til syvende ledd`, `fjerde ledd
+  annet punktum`, `første ledd bokstav d og e` as paths in the grafter's
+  step vocabulary; the index hands the gate one address per op; the gate
+  admits a path only where every op on the section sits cleanly inside or
+  outside it (whole-section ops, reverse renumber straddles and two-date
+  spans fall back to W-100's refusal with the reason receipted) and lands
+  path dates and path carve-outs on the entry; replay resolves each op by
+  its subpath. Corpus: bindings 261 → 280 (complete 204 → 224), 138 dates
+  landed below section level over 91 labels, refused qualified labels 70 →
+  17, refusals 131 → 108, generic refusals 728 → 710. Witness full chain:
+  62/75 (§ 2-3 closes), rows 29 → 28; the 2009 act applies whole. The
+  dating exposed one occupied-destination firing (konsesjonsloven § 4, a
+  base edition already carrying the amendment); repaired at the apply seam
+  by widening W-66's refusal to every ledd-depth renumber, which also
+  re-reads and retires the barnevernsloven § 10-17 row.
 - **2026-09-06 (W-101 — the structured chapter address; kringkastingsloven's
   chapter 5 A; product `1055588c`)** — Lovdata's ``kap<label>`` attribute
   token lowers to a chapter step (77 blocks / 45 instruments were refused
