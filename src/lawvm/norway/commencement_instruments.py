@@ -1430,9 +1430,17 @@ class NOCommencementSectionScopeAuthorizationReceipt:
     ``section_dates`` are the per-section dates; ``excluded_section_labels`` the
     sections carved out and still undated (restricted to sections the act's
     ops actually target); ``qualified_refused_labels`` the sections the text
-    named with a ledd-level qualifier in a granting position, which this route
-    refuses to date. ``complete`` says whether every targeted op of the binding
-    now resolves to a date.
+    named with a ledd-level qualifier in a granting position that this route
+    could not date below section level. ``complete`` says whether every
+    targeted op of the binding now resolves to a date.
+
+    W-102: ``subpath_dates`` are the dates granted BELOW section level,
+    ``(section label, subpath, date)``, and ``excluded_subpaths`` the carve-outs
+    below section level, ``(section label, subpath)`` — each landed only where
+    the act's op addresses admit the reading (:func:`_subpath_admissibility`);
+    ``qualified_fallback_reasons`` says, per qualified label the route could not
+    read below section level, why (no path spelled, no op addresses, or the
+    admissibility reason).
     """
 
     act_source_id: str
@@ -1445,6 +1453,9 @@ class NOCommencementSectionScopeAuthorizationReceipt:
     unbound_section_labels: tuple[str, ...]
     complete: bool
     passed_conjuncts: tuple[NOCommencementSectionScopeAuthorizationConjunct, ...]
+    subpath_dates: tuple[tuple[str, str, str], ...] = ()
+    excluded_subpaths: tuple[tuple[str, str], ...] = ()
+    qualified_fallback_reasons: tuple[tuple[str, str], ...] = ()
 
     def to_diagnostic_detail(self) -> dict[str, Any]:
         return diagnostic_detail(
@@ -1469,6 +1480,11 @@ class NOCommencementSectionScopeAuthorizationReceipt:
             unbound_section_labels=list(self.unbound_section_labels),
             complete=self.complete,
             passed_conjuncts=[str(conjunct) for conjunct in self.passed_conjuncts],
+            subpath_dates=[[label, subpath, date] for label, subpath, date in self.subpath_dates],
+            excluded_subpaths=[[label, subpath] for label, subpath in self.excluded_subpaths],
+            qualified_fallback_reasons=[
+                [label, reason] for label, reason in self.qualified_fallback_reasons
+            ],
         )
 
 
@@ -1551,6 +1567,133 @@ class NOCommencementActPartEvidence:
     section (a chapter heading, a whole-part directive). Such an op can only
     take a BINDING-level date, so a law here is never section-complete without
     one."""
+
+    law_op_addresses: Mapping[str, tuple["NOCommencementOpAddress", ...]] = field(
+        default_factory=dict
+    )
+    """W-102. law -> one address per op the act lowers on that law, in op order.
+    This is what lets a ledd-qualified statement (``§ 2-3 andre ledd``) be
+    granted or carved out below section level: the route admits the reading for
+    a section only when every op on it sits cleanly inside or outside the named
+    paths. A law absent from here has no op addresses, and every qualified label
+    on it is refused as under W-100. ``law_section_labels`` and
+    ``unsectioned_op_laws`` are the same facts at section granularity and stay
+    for the callers that supply only them."""
+
+
+@dataclass(frozen=True, slots=True)
+class NOCommencementOpAddress:
+    """Where ONE lowered op acts, as the section-scoped lane reads it. W-102.
+
+    ``section_label`` is the op's section step wherever it stands (after a
+    chapter step too, W-101), ``None`` for an op that targets no section.
+    ``subpath`` is the op's steps below that section in the grafter's own
+    spelling (``subsection:2``, ``subsection:2/sentence:5``, ``item:a``), ``""``
+    for a whole-section op. ``destination`` is ``(section_label, subpath)`` of a
+    renumber's destination, ``None`` for an op that moves nothing.
+    """
+
+    section_label: str | None
+    subpath: str = ""
+    destination: tuple[str | None, str] | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "section_label": self.section_label,
+            "subpath": self.subpath,
+            "destination": None if self.destination is None else list(self.destination),
+        }
+
+
+def no_commencement_section_and_subpath(
+    path: Sequence[tuple[str, str]],
+) -> tuple[str | None, str]:
+    """``(section label, subpath)`` of an op address path. W-102.
+
+    The section step is looked up, not assumed first (``chapter:5A/section:5A-1``,
+    W-101); the subpath is everything after it, ``kind:label`` joined by ``/``.
+    A path with no section step is ``(None, "")``.
+    """
+    for index, (kind, label) in enumerate(path):
+        if kind == "section":
+            return label, "/".join(f"{step_kind}:{step_label}" for step_kind, step_label in path[index + 1 :])
+    return None, ""
+
+
+def no_commencement_op_address(op: Any) -> NOCommencementOpAddress:
+    """The :class:`NOCommencementOpAddress` of one lowered grafter op. W-102."""
+    target_path = tuple(op.target.path) if op.target is not None else ()
+    section_label, subpath = no_commencement_section_and_subpath(target_path)
+    destination_address = getattr(op, "destination", None)
+    destination = (
+        no_commencement_section_and_subpath(tuple(destination_address.path))
+        if destination_address is not None
+        else None
+    )
+    return NOCommencementOpAddress(section_label=section_label, subpath=subpath, destination=destination)
+
+
+def _subpath_inside(subpath: str, named: str) -> bool:
+    """Is the op subpath ``subpath`` at or below the named path ``named``?"""
+    return subpath == named or subpath.startswith(named + "/")
+
+
+def _subpath_above(subpath: str, named: str) -> bool:
+    """Is the op subpath strictly above the named path (a whole ledd when a
+    punktum of it is named; a whole section when anything is named)?"""
+    return subpath == "" or named.startswith(subpath + "/")
+
+
+def _subpath_admissibility(
+    addresses: Sequence[NOCommencementOpAddress], named: Mapping[str, str | None]
+) -> str:
+    """Why the named paths of one section cannot be dated below section level,
+    or ``""`` when they can. W-102.
+
+    ``named`` is path -> its date (``None`` for a carve-out with no date). Every
+    op on the section must sit cleanly inside or outside every named path: an
+    op on the whole section, or on a ledd when a punktum of that ledd is named,
+    cannot be split at the named boundary. A renumber must stay in the section,
+    must not move something from outside every named path into one (the repeal
+    of ledd 2 carved out while old ledd 3 is renumbered to 2 would land on an
+    occupied slot), and must not span two named paths on two different dates.
+    A renumber moving OUT of the named paths, or between two named paths on one
+    date, is fine: ``nytt tredje ledd`` inserts ledd 3 and shifts old 3 to 4,
+    and the shift belongs with the insert, which is what dating it by its
+    target says; ``annet til syvende ledd`` names every ledd its five shifts
+    touch.
+    """
+    for address in addresses:
+        for path in named:
+            if _subpath_above(address.subpath, path):
+                return (
+                    f"op on § {address.section_label}"
+                    + (f" {address.subpath}" if address.subpath else "")
+                    + f" stands above the named {path}"
+                )
+        if address.destination is None:
+            continue
+        destination_section, destination_subpath = address.destination
+        if destination_section != address.section_label:
+            return f"op on § {address.section_label} moves across sections"
+        for path in named:
+            if _subpath_above(destination_subpath, path):
+                return f"op destination on § {address.section_label} stands above the named {path}"
+        target_dates = {date for path, date in named.items() if _subpath_inside(address.subpath, path)}
+        destination_dates = {
+            date for path, date in named.items() if _subpath_inside(destination_subpath, path)
+        }
+        if destination_dates and not target_dates:
+            return (
+                f"op on § {address.section_label} {address.subpath} moves into the named "
+                f"{destination_subpath} from outside every named path"
+            )
+        if target_dates and destination_dates and target_dates != destination_dates:
+            return (
+                f"op on § {address.section_label} {address.subpath} moves to {destination_subpath} "
+                "across two named paths on different dates"
+            )
+    return ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -2220,13 +2363,26 @@ def authorize_no_commencement_instruments(
             conflict = ("", tuple(binding_dates))
         section_dates: dict[str, set[str]] = {}
         qualified_dates: dict[str, set[str]] = {}
-        excluded: set[str] = set()
+        excluded_whole: set[str] = set()
+        excluded_qualified: set[str] = set()
+        subpath_dates: dict[tuple[str, str], set[str]] = {}
+        pathless_qualified: set[str] = set()
+        excluded_subpaths: set[tuple[str, str]] = set()
         for _source_id, proposal in claims:
             for label, date in proposal.section_dates.items():
                 section_dates.setdefault(label, set()).add(date)
-            for label, date in proposal.qualified_dates.items():
-                qualified_dates.setdefault(label, set()).add(date)
-            excluded.update(proposal.excluded)
+            for label, dates_of_label in proposal.qualified_dates.items():
+                qualified_dates.setdefault(label, set()).update(dates_of_label)
+            excluded_whole.update(proposal.excluded)
+            excluded_qualified.update(proposal.excluded_qualified)
+            for key, date in proposal.subpath_dates.items():
+                subpath_dates.setdefault(key, set()).add(date)
+            pathless_qualified.update(proposal.pathless_qualified)
+            excluded_subpaths.update(proposal.excluded_subpaths)
+        # ``excluded`` is every carved-out label at section granularity, which is
+        # what the consistency checks below need: a date that differs from the
+        # binding's is a refinement of a carve-out, whatever its granularity.
+        excluded = excluded_whole | excluded_qualified
         binding_date = binding_dates[0] if len(binding_dates) == 1 else None
         if conflict is None:
             # A whole-section date conflicts with any other date for that
@@ -2258,6 +2414,23 @@ def authorize_no_commencement_instruments(
                 ):
                     conflict = (label, tuple(sorted(dates | {binding_date})))
                     break
+        if conflict is None:
+            # W-102. Two dated paths of one section that overlap — the same
+            # path, or one above the other — on two dates contradict; two
+            # disjoint paths on two dates are the staged pattern.
+            dated_paths = sorted(subpath_dates.items())
+            for index, ((label, subpath), dates) in enumerate(dated_paths):
+                if len(dates) > 1:
+                    conflict = (label, tuple(sorted(dates)))
+                    break
+                for (other_label, other_subpath), other_dates in dated_paths[index + 1 :]:
+                    if other_label != label or dates == other_dates:
+                        continue
+                    if _subpath_inside(subpath, other_subpath) or _subpath_inside(other_subpath, subpath):
+                        conflict = (label, tuple(sorted(dates | other_dates)))
+                        break
+                if conflict is not None:
+                    break
         if conflict is not None:
             section_label, dates = conflict
             section_scoped_conflicts.append(
@@ -2270,10 +2443,47 @@ def authorize_no_commencement_instruments(
                 )
             )
             continue
-        # A key whose every dated label was ledd-qualified dates nothing; it is
-        # refused with that reason rather than landed as an empty grant, so the
-        # binding keeps its whole-entry contingent skip instead of a per-op one.
-        if binding_date is None and not section_dates:
+        evidence = part_evidence.get(act_id)
+        targeted = set(evidence.law_section_labels.get(law_id, frozenset())) if evidence else set()
+        has_unsectioned_ops = bool(evidence and law_id in evidence.unsectioned_op_laws)
+        # W-102. The act's op addresses on this law, by section; ``None`` when
+        # the caller supplied none, in which case nothing is read below section
+        # level. A caller that supplies only section labels gets one
+        # whole-section address per label, which is what W-100 assumed.
+        op_addresses: tuple[NOCommencementOpAddress, ...] | None = None
+        if evidence is not None and law_id in evidence.law_op_addresses:
+            op_addresses = tuple(evidence.law_op_addresses[law_id])
+        addresses_by_section: dict[str, list[NOCommencementOpAddress]] = {}
+        for address in op_addresses or ():
+            if address.section_label is not None:
+                addresses_by_section.setdefault(address.section_label, []).append(address)
+        named_subpaths: dict[str, dict[str, str | None]] = {}
+        for label, subpath in sorted(excluded_subpaths):
+            named_subpaths.setdefault(label, {})[subpath] = None
+        for (label, subpath), dates in sorted(subpath_dates.items()):
+            named_subpaths.setdefault(label, {})[subpath] = next(iter(dates))
+        fallback_reasons: dict[str, str] = {}
+        for label, paths in sorted(named_subpaths.items()):
+            if op_addresses is None:
+                fallback_reasons[label] = "the act evidence carries no op addresses"
+                continue
+            reason = _subpath_admissibility(addresses_by_section.get(label, ()), paths)
+            if reason:
+                fallback_reasons[label] = reason
+        for label in sorted(pathless_qualified | (excluded_qualified - {l for l, _ in excluded_subpaths})):
+            fallback_reasons.setdefault(label, "the qualifier spells no path")
+        precise_labels = set(named_subpaths) - set(fallback_reasons)
+        landed_sections = {label: next(iter(dates)) for label, dates in section_dates.items()}
+        landed_subpaths = {
+            (label, subpath): next(iter(dates))
+            for (label, subpath), dates in subpath_dates.items()
+            if label in precise_labels and label not in landed_sections
+        }
+        # A key that dates nothing — no binding date, no whole section, no path
+        # — is refused with that reason rather than landed as an empty grant, so
+        # the binding keeps its whole-entry contingent skip instead of a per-op
+        # one.
+        if binding_date is None and not section_dates and not landed_subpaths:
             for instrument_source_id in instrument_ids:
                 section_scope_refusals.append(
                     NOCommencementSectionScopeRefusalReceipt(
@@ -2283,26 +2493,41 @@ def authorize_no_commencement_instruments(
                     )
                 )
             continue
-        evidence = part_evidence.get(act_id)
-        targeted = set(evidence.law_section_labels.get(law_id, frozenset())) if evidence else set()
-        has_unsectioned_ops = bool(evidence and law_id in evidence.unsectioned_op_laws)
-        landed_sections = {label: next(iter(dates)) for label, dates in section_dates.items()}
-        landed_excluded = sorted((excluded - set(landed_sections)) & targeted)
-        qualified_refused = sorted(set(qualified_dates) - set(landed_sections))
-        unbound = sorted((set(section_dates) | excluded) - targeted)
-        # A targeted section is dated by its own entry, or by the binding date
-        # when it was not carved out. A qualified-refused label that was not
-        # carved out takes the binding date like any other (the consistency
-        # check above has already established the two dates agree).
-        dated_targets = {
-            label
-            for label in targeted
-            if label in landed_sections or (binding_date is not None and label not in excluded)
+        # A qualified carve-out excludes its paths where the reading is admitted
+        # and the whole section otherwise (W-100's under-claim).
+        excluded_final = excluded_whole | {
+            label for label in excluded_qualified if label not in precise_labels
         }
-        complete = (
-            bool(targeted or binding_date is not None)
-            and not (targeted - dated_targets)
-            and (binding_date is not None or not has_unsectioned_ops)
+        landed_excluded = sorted((excluded_final - set(landed_sections)) & targeted)
+        landed_excluded_subpaths = sorted(
+            (label, subpath)
+            for label, subpath in excluded_subpaths
+            if label in precise_labels
+            and label not in landed_sections
+            and label in targeted
+            and (label, subpath) not in landed_subpaths
+        )
+        qualified_refused = sorted(
+            label
+            for label in qualified_dates
+            if label not in landed_sections and (label not in precise_labels or label in pathless_qualified)
+        )
+        unbound = sorted((set(section_dates) | excluded | {l for l, _ in landed_subpaths}) - targeted)
+
+        if op_addresses is None:
+            op_addresses = tuple(NOCommencementOpAddress(section_label=label) for label in sorted(targeted)) + (
+                (NOCommencementOpAddress(section_label=None),) if has_unsectioned_ops else ()
+            )
+        complete = bool(targeted or binding_date is not None) and all(
+            _section_scope_op_dated(
+                address,
+                binding_date=binding_date,
+                landed_sections=landed_sections,
+                landed_subpaths=landed_subpaths,
+                excluded_sections=excluded_final,
+                excluded_subpaths=landed_excluded_subpaths,
+            )
+            for address in op_addresses
         )
         section_scoped_authorizations.append(
             NOCommencementSectionScopeAuthorizationReceipt(
@@ -2316,6 +2541,11 @@ def authorize_no_commencement_instruments(
                 unbound_section_labels=tuple(unbound),
                 complete=complete,
                 passed_conjuncts=tuple(NOCommencementSectionScopeAuthorizationConjunct),
+                subpath_dates=tuple(
+                    sorted((label, subpath, date) for (label, subpath), date in landed_subpaths.items())
+                ),
+                excluded_subpaths=tuple(landed_excluded_subpaths),
+                qualified_fallback_reasons=tuple(sorted(fallback_reasons.items())),
             )
         )
         authorized_instrument_ids.update(instrument_ids)
@@ -2682,14 +2912,56 @@ class _SectionScopeRefusal(Exception):
     """Raised inside the section-scoped route on the first unresolvable term."""
 
 
+def _section_scope_op_dated(
+    address: NOCommencementOpAddress,
+    *,
+    binding_date: str | None,
+    landed_sections: Mapping[str, str],
+    landed_subpaths: Mapping[tuple[str, str], str],
+    excluded_sections: Collection[str],
+    excluded_subpaths: Collection[tuple[str, str]],
+) -> bool:
+    """Does ONE op of a section-scoped binding resolve to a date? W-100/W-102.
+
+    The same ladder the index entry's ``effective_date_for_op`` walks: the
+    date of a landed path the op sits at or below; else its section's; else
+    not a carve-out (by path or whole section); else the binding's date.
+    """
+    label = address.section_label
+    if label is None:
+        return binding_date is not None
+    if any(l == label and _subpath_inside(address.subpath, p) for (l, p) in landed_subpaths):
+        return True
+    if label in landed_sections:
+        return True
+    if any(l == label and _subpath_inside(address.subpath, p) for (l, p) in excluded_subpaths):
+        return False
+    if label in excluded_sections:
+        return False
+    return binding_date is not None
+
+
 @dataclass(slots=True)
 class _SectionScopeProposal:
-    """One instrument's claims about one (act, law) binding. W-100."""
+    """One instrument's claims about one (act, law) binding. W-100.
+
+    ``section_dates`` are whole-section grants; ``qualified_dates`` every date a
+    ledd-qualified label was granted (with or without a path — the consistency
+    checks read them all); ``subpath_dates`` (W-102) the path-ful ones by
+    ``(label, subpath)`` and ``pathless_qualified`` the labels granted with a
+    qualifier the reader could not spell. ``excluded`` are whole-section
+    carve-outs, ``excluded_qualified`` the qualified ones (all of them) and
+    ``excluded_subpaths`` the path-ful subset.
+    """
 
     binding_date: str | None = None
     section_dates: dict[str, str] = field(default_factory=dict)
     excluded: set[str] = field(default_factory=set)
-    qualified_dates: dict[str, str] = field(default_factory=dict)
+    qualified_dates: dict[str, set[str]] = field(default_factory=dict)
+    subpath_dates: dict[tuple[str, str], str] = field(default_factory=dict)
+    pathless_qualified: set[str] = field(default_factory=set)
+    excluded_qualified: set[str] = field(default_factory=set)
+    excluded_subpaths: set[tuple[str, str]] = field(default_factory=set)
 
 
 def _section_scoped_authorization_scope(
@@ -2797,13 +3069,35 @@ def _section_scoped_authorization_scope(
         current = proposal(law_id)
         qualified = set(item.qualified_section_labels)
         for label in item.section_labels:
-            target = current.qualified_dates if label in qualified else current.section_dates
-            if label in target and target[label] != date:
-                raise _SectionScopeRefusal(f"two dates for § {label} of {law_id}")
-            target[label] = date
+            if label not in qualified:
+                if label in current.section_dates and current.section_dates[label] != date:
+                    raise _SectionScopeRefusal(f"two dates for § {label} of {law_id}")
+                current.section_dates[label] = date
+                continue
+            # W-102. A qualified label's date is kept by path when the reader
+            # spelled one; two paths of one section on two dates is the staged
+            # pattern, not a contradiction, so only a repeated PATH can refuse.
+            current.qualified_dates.setdefault(label, set()).add(date)
+            subpaths = item.subpaths_of(label)
+            if not subpaths:
+                current.pathless_qualified.add(label)
+                continue
+            for subpath in subpaths:
+                key = (label, subpath)
+                if key in current.subpath_dates and current.subpath_dates[key] != date:
+                    raise _SectionScopeRefusal(f"two dates for § {label} {subpath} of {law_id}")
+                current.subpath_dates[key] = date
 
     def exclude(law_id: str, item: NOCommencementScopeItem) -> None:
-        proposal(law_id).excluded.update(item.section_labels)
+        current = proposal(law_id)
+        qualified = set(item.qualified_section_labels)
+        for label in item.section_labels:
+            if label not in qualified:
+                current.excluded.add(label)
+                continue
+            current.excluded_qualified.add(label)
+            for subpath in item.subpaths_of(label):
+                current.excluded_subpaths.add((label, subpath))
 
     try:
         for statement in reading.statements:

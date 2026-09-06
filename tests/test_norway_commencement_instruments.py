@@ -2979,7 +2979,11 @@ def test_w51_corpus_totals_and_the_untouched_part_routes() -> None:
     # every pair they GRANT (154 of them), exactly as W-53 withdrew it for the
     # widened route's; a pair the reader read but the gate refused keeps the
     # generic receipt and gains a reasoned one beside it.
-    assert len(refused_pairs) == 728
+    # 728 -> 710 at W-102, the same withdrawal one step further down: a pair
+    # whose every dated label was ledd-qualified is now GRANTED by path where
+    # the act's ops admit it (28 all-qualified keys -> 8; 3 one-instrument
+    # staged keys land), and each granted pair sheds its generic refusal.
+    assert len(refused_pairs) == 710
 
     # The inert part-grant population, 31 -> 4 at W-53 with the absorption.
     inert = [
@@ -3982,7 +3986,10 @@ from lawvm.norway.commencement_instruments import (  # noqa: E402
     NO_COMMENCEMENT_SECTION_SCOPE_EXECUTION_DATE_CONFLICT,
     NO_COMMENCEMENT_SECTION_SCOPE_EXECUTION_REFUSED,
     NOCommencementSectionScopeAuthorizationConjunct,
+    NOCommencementOpAddress,
     _title_cited_whole_act_subject,
+    no_commencement_op_address,
+    no_commencement_section_and_subpath,
 )
 from lawvm.norway.commencement_scope import (  # noqa: E402
     NOCommencementScopeItem,
@@ -3996,9 +4003,21 @@ _W100_LAW_A = "no/lov/2001-01-05-1"
 _W100_LAW_B = "no/lov/2002-02-06-2"
 
 
-def _w100_item(kind: str, *labels: str, part: str = "", law_ref: str = "", qualified: tuple[str, ...] = ()) -> NOCommencementScopeItem:
+def _w100_item(
+    kind: str,
+    *labels: str,
+    part: str = "",
+    law_ref: str = "",
+    qualified: tuple[str, ...] = (),
+    subpaths: tuple[tuple[str, tuple[str, ...]], ...] = (),
+) -> NOCommencementScopeItem:
     return NOCommencementScopeItem(
-        kind=kind, part_label=part, law_ref=law_ref, section_labels=labels, qualified_section_labels=qualified
+        kind=kind,
+        part_label=part,
+        law_ref=law_ref,
+        section_labels=labels,
+        qualified_section_labels=qualified,
+        qualified_section_subpaths=subpaths,
     )
 
 
@@ -4037,12 +4056,34 @@ def _w100_evidence(
     bound_law_ids: tuple[str, ...] = (_W100_LAW_A,),
     law_section_labels: dict[str, frozenset[str]] | None = None,
     unsectioned_op_laws: tuple[str, ...] = (),
+    law_op_addresses: dict[str, tuple[NOCommencementOpAddress, ...]] | None = None,
 ) -> NOCommencementActPartEvidence:
     return NOCommencementActPartEvidence(
         part_law_ids=part_law_ids or {},
         bound_law_ids=bound_law_ids,
         law_section_labels=law_section_labels or {},
         unsectioned_op_laws=unsectioned_op_laws,
+        law_op_addresses=law_op_addresses or {},
+    )
+
+
+def _w102_evidence(*addresses: tuple[str, str] | tuple[str, str, tuple[str, str]]) -> NOCommencementActPartEvidence:
+    """W-102. Evidence with op addresses on law A: ``(section, subpath[, destination])``.
+
+    ``law_section_labels`` is derived from the same addresses, as ``index.py``
+    derives it, so the two granularities agree.
+    """
+    ops = tuple(
+        NOCommencementOpAddress(
+            section_label=address[0],
+            subpath=address[1],
+            destination=address[2] if len(address) == 3 else None,
+        )
+        for address in addresses
+    )
+    return _w100_evidence(
+        law_section_labels={_W100_LAW_A: frozenset(op.section_label for op in ops if op.section_label)},
+        law_op_addresses={_W100_LAW_A: ops},
     )
 
 
@@ -4418,6 +4459,436 @@ def test_section_scope_yields_to_an_act_level_grant_and_to_a_part_grant() -> Non
     assert authorization.section_scoped_conflicts == ()
 
 
+# --------------------------------------------------------------------------
+# W-102: ledd-precise grants and carve-outs, admitted against the op addresses.
+# --------------------------------------------------------------------------
+
+
+def test_w102_op_address_reads_the_section_step_wherever_it_stands() -> None:
+    """The subpath is everything below the section step, in the grafter's spelling."""
+    assert no_commencement_section_and_subpath((("section", "2-3"), ("subsection", "2"))) == ("2-3", "subsection:2")
+    assert no_commencement_section_and_subpath(
+        (("chapter", "5A"), ("section", "5A-1"), ("subsection", "1"), ("sentence", "2"))
+    ) == ("5A-1", "subsection:1/sentence:2")
+    assert no_commencement_section_and_subpath((("section", "4-4"),)) == ("4-4", "")
+    assert no_commencement_section_and_subpath((("chapter", "5A"),)) == (None, "")
+    assert no_commencement_section_and_subpath(()) == (None, "")
+
+    class _Address:
+        def __init__(self, path):
+            self.path = path
+
+    class _Op:
+        def __init__(self, target, destination=None):
+            self.target = target
+            self.destination = destination
+
+    renumber = no_commencement_op_address(
+        _Op(_Address((("section", "4-4"), ("subsection", "3"))), _Address((("section", "4-4"), ("subsection", "4"))))
+    )
+    assert renumber == NOCommencementOpAddress(section_label="4-4", subpath="subsection:3", destination=("4-4", "subsection:4"))
+    assert no_commencement_op_address(_Op(None)) == NOCommencementOpAddress(section_label=None)
+    assert renumber.to_dict() == {"section_label": "4-4", "subpath": "subsection:3", "destination": ["4-4", "subsection:4"]}
+
+
+def test_w102_ledd_grant_lands_by_path_when_every_op_sits_inside_it() -> None:
+    """The 2009-06-19-702 shape against the 2009 act's real op shapes: § 2-3
+    andre ledd (one REPLACE on subsection 2) and § 10-4 første ledd (one on
+    subsection 1) are dated by path; the binding becomes complete."""
+    authorization = _w100_authorize(
+        [
+            _w100_instrument(
+                "no/forskrift/2025-03-01-720",
+                (
+                    NOCommencementScopeStatement(
+                        subject=_w100_item(
+                            "sections", "2-3", "2-13", "10-4",
+                            qualified=("2-3", "10-4"),
+                            subpaths=(("10-4", ("subsection:1",)), ("2-3", ("subsection:2",))),
+                        ),
+                        date="2025-04-01",
+                    ),
+                ),
+            )
+        ],
+        _w102_evidence(("2-3", "subsection:2"), ("2-13", ""), ("10-4", "subsection:1")),
+    )
+    assert authorization.section_scoped_refusals == ()
+    assert authorization.section_scoped_conflicts == ()
+    receipt = authorization.section_scoped_authorizations[0]
+    assert receipt.binding_date is None
+    assert receipt.section_dates == (("2-13", "2025-04-01"),)
+    assert receipt.subpath_dates == (("10-4", "subsection:1", "2025-04-01"), ("2-3", "subsection:2", "2025-04-01"))
+    assert receipt.qualified_refused_labels == ()
+    assert receipt.qualified_fallback_reasons == ()
+    assert receipt.excluded_subpaths == ()
+    assert receipt.complete is True
+    detail = receipt.to_diagnostic_detail()
+    assert detail["subpath_dates"] == [["10-4", "subsection:1", "2025-04-01"], ["2-3", "subsection:2", "2025-04-01"]]
+    assert detail["excluded_subpaths"] == []
+    assert detail["qualified_fallback_reasons"] == []
+
+
+def test_w102_ledd_grant_leaves_the_ops_outside_the_path_undated() -> None:
+    """An op on § 2-3 ledd 3 under a grant of ledd 2 alone is not dated (no
+    binding date to fall back on): the path lands, the binding is partial."""
+    authorization = _w100_authorize(
+        [
+            _w100_instrument(
+                "no/forskrift/2025-03-01-721",
+                (
+                    NOCommencementScopeStatement(
+                        subject=_w100_item("sections", "2-3", qualified=("2-3",), subpaths=(("2-3", ("subsection:2",)),)),
+                        date="2025-04-01",
+                    ),
+                ),
+            )
+        ],
+        _w102_evidence(("2-3", "subsection:2"), ("2-3", "subsection:3/sentence:1")),
+    )
+    receipt = authorization.section_scoped_authorizations[0]
+    assert receipt.subpath_dates == (("2-3", "subsection:2", "2025-04-01"),)
+    assert receipt.qualified_refused_labels == ()
+    assert receipt.complete is False
+
+
+def test_w102_whole_section_op_keeps_the_qualified_label_refused() -> None:
+    """``§ 3 skal lyde:`` cannot be split at ``annet ledd``: W-100's refusal stands, with the reason."""
+    authorization = _w100_authorize(
+        [
+            _w100_instrument(
+                "no/forskrift/2025-03-01-722",
+                (
+                    NOCommencementScopeStatement(
+                        subject=_w100_item("sections", "3", "4", qualified=("3",), subpaths=(("3", ("subsection:2",)),)),
+                        date="2025-04-01",
+                    ),
+                ),
+            )
+        ],
+        _w102_evidence(("3", ""), ("4", "")),
+    )
+    receipt = authorization.section_scoped_authorizations[0]
+    assert receipt.section_dates == (("4", "2025-04-01"),)
+    assert receipt.subpath_dates == ()
+    assert receipt.qualified_refused_labels == ("3",)
+    assert receipt.qualified_fallback_reasons == (("3", "op on § 3 stands above the named subsection:2"),)
+    assert receipt.complete is False
+
+
+def test_w102_ledd_op_above_a_named_punktum_keeps_the_label_refused() -> None:
+    """A REPLACE of the whole ledd 1 cannot be split at ``første ledd fjerde punktum``."""
+    authorization = _w100_authorize(
+        [
+            _w100_instrument(
+                "no/forskrift/2025-03-01-723",
+                (
+                    NOCommencementScopeStatement(
+                        subject=_w100_item("sections", "6", qualified=("6",), subpaths=(("6", ("subsection:1/sentence:4",)),)),
+                        date="2025-04-01",
+                    ),
+                ),
+            )
+        ],
+        _w102_evidence(("6", "subsection:1"), ("6", "subsection:1/sentence:4")),
+    )
+    assert authorization.section_scoped_authorizations == ()
+    assert [r.reason for r in authorization.section_scoped_refusals] == [f"every dated label of {_W100_LAW_A} is ledd-qualified"]
+
+
+def test_w102_qualifier_without_a_path_and_evidence_without_addresses_fall_back() -> None:
+    """``siste ledd`` spells no path; a caller supplying only section labels admits nothing below them."""
+    pathless = _w100_authorize(
+        [
+            _w100_instrument(
+                "no/forskrift/2025-03-01-724",
+                (
+                    NOCommencementScopeStatement(
+                        subject=_w100_item("sections", "3", "4", qualified=("3",)), date="2025-04-01"
+                    ),
+                ),
+            )
+        ],
+        _w102_evidence(("3", "subsection:2"), ("4", "")),
+    )
+    receipt = pathless.section_scoped_authorizations[0]
+    assert receipt.qualified_refused_labels == ("3",)
+    assert receipt.qualified_fallback_reasons == (("3", "the qualifier spells no path"),)
+
+    no_addresses = _w100_authorize(
+        [
+            _w100_instrument(
+                "no/forskrift/2025-03-01-725",
+                (
+                    NOCommencementScopeStatement(
+                        subject=_w100_item("sections", "3", "4", qualified=("3",), subpaths=(("3", ("subsection:2",)),)),
+                        date="2025-04-01",
+                    ),
+                ),
+            )
+        ],
+        _w100_evidence(law_section_labels={_W100_LAW_A: frozenset({"3", "4"})}),
+    )
+    receipt = no_addresses.section_scoped_authorizations[0]
+    assert receipt.qualified_refused_labels == ("3",)
+    assert receipt.qualified_fallback_reasons == (("3", "the act evidence carries no op addresses"),)
+    assert receipt.subpath_dates == ()
+
+
+def test_w102_ledd_carve_out_excludes_the_path_and_dates_the_rest_of_the_section() -> None:
+    """The 2005-06-17-631 shape against the 2005 act's op: ``med unntak av nytt
+    § 4-4 tredje ledd`` with the act's RENUMBER of old ledd 3 to 4 (target
+    inside the named path, destination outside — the shift belongs with the
+    insert). Only ``subsection:3`` is excluded; an op on ledd 1 takes the
+    binding date."""
+    statement = NOCommencementScopeStatement(
+        subject=_w100_item("act"),
+        date="2025-04-01",
+        excluded=(
+            _w100_item("sections", "4-4", qualified=("4-4",), subpaths=(("4-4", ("subsection:3",)),)),
+            _w100_item("sections", "4-6"),
+        ),
+    )
+    authorization = _w100_authorize(
+        [_w100_instrument("no/forskrift/2025-03-01-726", (statement,))],
+        _w102_evidence(("4-4", "subsection:3", ("4-4", "subsection:4")), ("4-4", "subsection:1"), ("4-6", "")),
+    )
+    receipt = authorization.section_scoped_authorizations[0]
+    assert receipt.binding_date == "2025-04-01"
+    assert receipt.excluded_section_labels == ("4-6",)
+    assert receipt.excluded_subpaths == (("4-4", "subsection:3"),)
+    assert receipt.qualified_fallback_reasons == ()
+    assert receipt.complete is False
+    assert receipt.to_diagnostic_detail()["excluded_subpaths"] == [["4-4", "subsection:3"]]
+
+    # The same carve-out with the evidence at section granularity only: the
+    # whole section is excluded, as under W-100.
+    coarse = _w100_authorize(
+        [_w100_instrument("no/forskrift/2025-03-01-727", (statement,))],
+        _w100_evidence(law_section_labels={_W100_LAW_A: frozenset({"4-4", "4-6"})}),
+    )
+    assert coarse.section_scoped_authorizations[0].excluded_section_labels == ("4-4", "4-6")
+    assert coarse.section_scoped_authorizations[0].excluded_subpaths == ()
+
+
+def test_w102_renumber_into_a_named_path_from_outside_falls_back_to_the_whole_section() -> None:
+    """The repeal of ledd 2 carved out while old ledd 3 is renumbered to 2:
+    dating the shift by the binding would land it on an occupied slot, so the
+    whole section stays carved out."""
+    statement = NOCommencementScopeStatement(
+        subject=_w100_item("act"),
+        date="2025-04-01",
+        excluded=(_w100_item("sections", "5", qualified=("5",), subpaths=(("5", ("subsection:2",)),)),),
+    )
+    authorization = _w100_authorize(
+        [_w100_instrument("no/forskrift/2025-03-01-728", (statement,))],
+        _w102_evidence(("5", "subsection:2"), ("5", "subsection:3", ("5", "subsection:2")), ("7", "")),
+    )
+    receipt = authorization.section_scoped_authorizations[0]
+    assert receipt.excluded_section_labels == ("5",)
+    assert receipt.excluded_subpaths == ()
+    assert receipt.qualified_fallback_reasons == (
+        ("5", "op on § 5 subsection:3 moves into the named subsection:2 from outside every named path"),
+    )
+
+    across = _w100_authorize(
+        [_w100_instrument("no/forskrift/2025-03-01-729", (statement,))],
+        _w102_evidence(("5", "subsection:2", ("6", "subsection:1")), ("7", "")),
+    )
+    assert across.section_scoped_authorizations[0].qualified_fallback_reasons == (
+        ("5", "op on § 5 moves across sections"),
+    )
+
+
+def test_w102_shifts_inside_a_ledd_range_are_admitted_and_across_two_dates_refused() -> None:
+    """``§ 62 annet til syvende ledd`` (no/forskrift/2016-09-30-1136) names
+    every ledd its five shifts touch, so the insert and the shifts all take
+    the date; the same shifts under two differently dated paths are refused."""
+    ops = (
+        ("62", "subsection:2"),
+        ("62", "subsection:6", ("62", "subsection:7")),
+        ("62", "subsection:5", ("62", "subsection:6")),
+        ("62", "subsection:4", ("62", "subsection:5")),
+        ("62", "subsection:3", ("62", "subsection:4")),
+        ("62", "subsection:2", ("62", "subsection:3")),
+    )
+    paths = tuple(f"subsection:{n}" for n in range(2, 8))
+    authorization = _w100_authorize(
+        [
+            _w100_instrument(
+                "no/forskrift/2025-03-01-730",
+                (
+                    NOCommencementScopeStatement(
+                        subject=_w100_item("sections", "62", qualified=("62",), subpaths=(("62", paths),)),
+                        date="2025-04-01",
+                    ),
+                ),
+            )
+        ],
+        _w102_evidence(*ops),
+    )
+    receipt = authorization.section_scoped_authorizations[0]
+    assert receipt.qualified_fallback_reasons == ()
+    assert receipt.subpath_dates == tuple(("62", path, "2025-04-01") for path in paths)
+    assert receipt.complete is True
+
+    staged = _w100_authorize(
+        [
+            _w100_instrument(
+                "no/forskrift/2025-03-01-731",
+                (
+                    NOCommencementScopeStatement(
+                        subject=_w100_item("sections", "62", qualified=("62",), subpaths=(("62", paths[:3]),)),
+                        date="2025-04-01",
+                    ),
+                    NOCommencementScopeStatement(
+                        subject=_w100_item("sections", "62", qualified=("62",), subpaths=(("62", paths[3:]),)),
+                        date="2025-07-01",
+                    ),
+                ),
+                effective_dates=("2025-04-01", "2025-07-01"),
+            )
+        ],
+        _w102_evidence(*ops),
+    )
+    assert staged.section_scoped_authorizations == ()
+    assert [r.reason for r in staged.section_scoped_refusals] == [f"every dated label of {_W100_LAW_A} is ledd-qualified"]
+
+
+def test_w102_two_paths_of_one_section_on_two_dates_stage_and_overlapping_ones_conflict() -> None:
+    """The staged pattern lands both paths; a path dated against a path above it does not."""
+    disjoint = _w100_authorize(
+        [
+            _w100_instrument(
+                "no/forskrift/2025-03-01-732",
+                (
+                    NOCommencementScopeStatement(
+                        subject=_w100_item("sections", "4-5", qualified=("4-5",), subpaths=(("4-5", ("subsection:2",)),)),
+                        date="2025-04-01",
+                    ),
+                    NOCommencementScopeStatement(
+                        subject=_w100_item(
+                            "sections", "4-5", qualified=("4-5",), subpaths=(("4-5", ("subsection:1", "subsection:3")),)
+                        ),
+                        date="2025-07-01",
+                    ),
+                ),
+                effective_dates=("2025-04-01", "2025-07-01"),
+            )
+        ],
+        _w102_evidence(("4-5", "subsection:1"), ("4-5", "subsection:2"), ("4-5", "subsection:3/sentence:2")),
+    )
+    assert disjoint.section_scoped_conflicts == ()
+    receipt = disjoint.section_scoped_authorizations[0]
+    assert receipt.subpath_dates == (
+        ("4-5", "subsection:1", "2025-07-01"),
+        ("4-5", "subsection:2", "2025-04-01"),
+        ("4-5", "subsection:3", "2025-07-01"),
+    )
+    assert receipt.complete is True
+
+    overlapping = _w100_authorize(
+        [
+            _w100_instrument(
+                "no/forskrift/2025-03-01-733",
+                (
+                    NOCommencementScopeStatement(
+                        subject=_w100_item("sections", "4-5", qualified=("4-5",), subpaths=(("4-5", ("subsection:2",)),)),
+                        date="2025-04-01",
+                    ),
+                ),
+            ),
+            _w100_instrument(
+                "no/forskrift/2025-03-01-734",
+                (
+                    NOCommencementScopeStatement(
+                        subject=_w100_item(
+                            "sections", "4-5", qualified=("4-5",), subpaths=(("4-5", ("subsection:2/sentence:1",)),)
+                        ),
+                        date="2025-07-01",
+                    ),
+                ),
+                effective_dates=("2025-07-01",),
+            ),
+        ],
+        _w102_evidence(("4-5", "subsection:2/sentence:1"), ("4-5", "subsection:2/sentence:2")),
+    )
+    assert overlapping.section_scoped_authorizations == ()
+    conflict = overlapping.section_scoped_conflicts[0]
+    assert conflict.section_label == "4-5"
+    assert conflict.effective_dates == ("2025-04-01", "2025-07-01")
+
+    # The same path on two dates in ONE instrument refuses at the proposal.
+    repeated = _w100_authorize(
+        [
+            _w100_instrument(
+                "no/forskrift/2025-03-01-735",
+                (
+                    NOCommencementScopeStatement(
+                        subject=_w100_item("sections", "4-5", qualified=("4-5",), subpaths=(("4-5", ("subsection:2",)),)),
+                        date="2025-04-01",
+                    ),
+                    NOCommencementScopeStatement(
+                        subject=_w100_item("sections", "4-5", qualified=("4-5",), subpaths=(("4-5", ("subsection:2",)),)),
+                        date="2025-07-01",
+                    ),
+                ),
+                effective_dates=("2025-04-01", "2025-07-01"),
+            )
+        ],
+        _w102_evidence(("4-5", "subsection:2")),
+    )
+    assert repeated.section_scoped_authorizations == ()
+    assert [r.reason for r in repeated.section_scoped_refusals] == [
+        f"two dates for § 4-5 subsection:2 of {_W100_LAW_A}"
+    ]
+
+
+def test_w102_carved_out_path_dated_by_a_later_instrument_drops_the_exclusion() -> None:
+    """The 2020-05-20-1032 / 2023-09-01-1380 pair on § 44 tredje ledd: carved
+    out of the 2020 binding, dated straks by the 2023 instrument; the binding
+    completes and § 44's other ops keep the binding date."""
+    first = _w100_instrument(
+        "no/forskrift/2025-03-01-736",
+        (
+            NOCommencementScopeStatement(
+                subject=_w100_item("act"),
+                date="2025-04-01",
+                excluded=(
+                    _w100_item("sections", "44", "47", qualified=("44",), subpaths=(("44", ("subsection:3",)),)),
+                ),
+            ),
+        ),
+    )
+    second = _w100_instrument(
+        "no/forskrift/2025-03-01-737",
+        (
+            NOCommencementScopeStatement(
+                subject=_w100_item("sections", "44", "47", qualified=("44",), subpaths=(("44", ("subsection:3",)),)),
+                date="2025-07-01",
+            ),
+        ),
+        effective_dates=("2025-07-01",),
+    )
+    evidence = _w102_evidence(("44", "subsection:3"), ("44", "subsection:1/sentence:2"), ("47", ""))
+    authorization = _w100_authorize([first, second], evidence)
+    assert authorization.section_scoped_conflicts == ()
+    receipt = authorization.section_scoped_authorizations[0]
+    assert receipt.binding_date == "2025-04-01"
+    assert receipt.section_dates == (("47", "2025-07-01"),)
+    assert receipt.subpath_dates == (("44", "subsection:3", "2025-07-01"),)
+    assert receipt.excluded_subpaths == ()
+    assert receipt.excluded_section_labels == ()
+    assert receipt.complete is True
+
+    # The carve-out alone: § 44 excluded by path, § 47 whole, the binding partial.
+    alone = _w100_authorize([first], evidence)
+    receipt = alone.section_scoped_authorizations[0]
+    assert receipt.excluded_subpaths == (("44", "subsection:3"),)
+    assert receipt.excluded_section_labels == ("47",)
+    assert receipt.complete is False
+
+
 def test_w100_title_cited_subject_accepts_the_act_cited_by_date_and_number() -> None:
     """no/forskrift/2013-05-24-533, and the Bouvetøya instrument it must not take with it."""
     assert _title_cited_whole_act_subject(
@@ -4474,7 +4945,7 @@ def test_w100_parse_sets_aside_a_forskrift_only_block_for_the_widened_route() ->
     # And the section-scoped reader read the act block as one act statement.
     assert candidate.scope_reading.total is True
     assert [s.to_dict() for s in candidate.scope_reading.statements] == [
-        {"subject": {"kind": "act", "part_label": "", "law_ref": "", "section_labels": [], "qualified_section_labels": []}, "date": "2025-04-01", "excluded": []}
+        {"subject": {"kind": "act", "part_label": "", "law_ref": "", "section_labels": [], "qualified_section_labels": [], "qualified_section_subpaths": []}, "date": "2025-04-01", "excluded": []}
     ]
     reloaded = NOCommencementInstrumentCandidate.from_dict(candidate.to_dict())
     assert reloaded == candidate
@@ -4492,7 +4963,9 @@ def test_w100_corpus_the_seven_kringkasting_chain_acts() -> None:
     assert entries["no/lovtid/2013-01-11-3"].effective_status == "instrument_authorized"
     assert entries["no/lovtid/2013-01-11-3"].effective_date == "2013-06-01"
 
-    # Sections only, two dates, the two ledd-qualified labels refused.
+    # Sections only, two dates; W-102: the two ledd-qualified labels (§ 2-3
+    # andre ledd, § 10-4 første ledd) are dated by path, since the act's one op
+    # on each sits inside the named ledd, and the binding is complete.
     e = entries["no/lovtid/2009-06-19-92"]
     assert e.effective_status == "contingent"
     assert e.section_scoped_binding_dates == ((kk, ""),)
@@ -4500,16 +4973,32 @@ def test_w100_corpus_the_seven_kringkasting_chain_acts() -> None:
         (kk, "2-13", "2009-07-01"), (kk, "4-2", "2009-07-01"), (kk, "6-1a", "2009-07-01"),
         (kk, "6-4", "2010-01-01"), (kk, "8-5", "2009-07-01"),
     )
-    assert e.effective_date_for_base(kk) == (None, "section_instrument_partial")
+    assert e.section_scoped_subpath_dates == (
+        (kk, "10-4", "subsection:1", "2009-07-01"), (kk, "2-3", "subsection:2", "2009-07-01"),
+    )
+    assert e.section_scoped_complete_laws == (kk,)
+    assert e.effective_date_for_base(kk) == (None, "section_instrument_authorized")
     assert e.effective_date_for_op(kk, "6-4") == ("2010-01-01", "section_instrument_authorized")
+    assert e.effective_date_for_op(kk, "2-3", "subsection:2") == ("2009-07-01", "section_instrument_authorized")
+    assert e.effective_date_for_op(kk, "2-3", "subsection:3") == (None, "contingent")
     assert e.effective_date_for_op(kk, "2-3") == (None, "contingent")
 
-    # A binding date with one targeted carve-out (§ 4-4's renumber), the others unbound.
+    # A binding date with one targeted carve-out — W-102: ``nytt § 4-4 tredje
+    # ledd`` excludes the path alone (the act's RENUMBER of old ledd 3 to 4 sits
+    # inside it); § 10-3 første og annet ledd, dated 2008 by
+    # no/forskrift/2008-05-30-524, lands by path on a section the act never
+    # yielded ops for (unbound, as before).
     e = entries["no/lovtid/2005-06-17-98"]
     assert e.section_scoped_binding_dates == ((kk, "2005-07-01"),)
-    assert e.section_scoped_exclusions == ((kk, "4-4"),)
+    assert e.section_scoped_exclusions == ()
+    assert e.section_scoped_subpath_exclusions == ((kk, "4-4", "subsection:3"),)
+    assert e.section_scoped_subpath_dates == (
+        (kk, "10-3", "subsection:1", "2008-07-01"), (kk, "10-3", "subsection:2", "2008-07-01"),
+    )
     assert e.effective_date_for_op(kk, None) == ("2005-07-01", "section_instrument_authorized")
-    assert e.effective_date_for_op(kk, "4-4") == (None, "contingent")
+    assert e.effective_date_for_op(kk, "4-4", "subsection:3") == (None, "contingent")
+    assert e.effective_date_for_op(kk, "4-4", "subsection:1") == ("2005-07-01", "section_instrument_authorized")
+    assert e.effective_date_for_op(kk, "4-4") == ("2005-07-01", "section_instrument_authorized")
 
     # A forskrift-tail instrument citing kringkastingsloven as hjemmel: both bindings complete.
     e = entries["no/lovtid/2015-02-06-7"]
@@ -4517,12 +5006,16 @@ def test_w100_corpus_the_seven_kringkasting_chain_acts() -> None:
     assert e.section_scoped_complete_laws == ("no/lov/1987-05-15-21", kk)
     assert e.effective_date_for_base(kk) == ("2015-07-01", "section_instrument_authorized")
 
-    # Part V of the 2020 act, dated by the 2023 ``straks`` instrument; part I's § 44 stays carved out.
+    # Part V of the 2020 act, dated by the 2023 ``straks`` instrument; part I's
+    # § 44 tredje ledd, carved out in 2020 and dated straks in 2023, lands by
+    # path (W-102) and markedsføringsloven's binding completes.
     e = entries["no/lovtid/2020-05-20-42"]
     assert (kk, "2023-09-01") in e.section_scoped_binding_dates
     assert kk in e.section_scoped_complete_laws
-    assert ("no/lov/2009-01-09-2", "44") in e.section_scoped_exclusions
+    assert ("no/lov/2009-01-09-2", "44") not in e.section_scoped_exclusions
+    assert ("no/lov/2009-01-09-2", "44", "subsection:3", "2023-09-01") in e.section_scoped_subpath_dates
     assert ("no/lov/2009-01-09-2", "47", "2023-09-01") in e.section_scoped_effective_dates
+    assert "no/lov/2009-01-09-2" in e.section_scoped_complete_laws
 
     # Part I of the 2025 act with §§ 2-22 and 2-23 carved out.
     e = entries["no/lovtid/2025-02-28-2"]
@@ -4559,13 +5052,34 @@ def test_w100_corpus_totals() -> None:
     # act-level carve-outs naming a section without a law, …). Lane A moved 29
     # acts to instrument_authorized (widened 440 -> 469) and the generic
     # refusals fell 882 -> 728.
-    assert len(grants) == 261
-    assert sum(1 for g in grants if g["complete"]) == 204
+    # W-102 (2026-09-06): ledd-precise grants. 261 -> 280 bindings (124 acts,
+    # 165 laws; complete 204 -> 224; binding-dated 223 unmoved), 138 dates
+    # landed below section level over 91 labels of 42 bindings, 4 carve-outs
+    # by path, whole-section carve-outs 32 -> 18, refused qualified labels
+    # 70 -> 17 (reasons on the receipts), refusals 131 -> 108 (the 28
+    # all-ledd-qualified keys -> 8; the 3 one-instrument staged keys land).
+    assert len(grants) == 280
+    assert sum(1 for g in grants if g["complete"]) == 224
     assert sum(1 for g in grants if g["binding_date"]) == 223
-    assert len({g["source_id"] for g in grants}) == 110
-    assert len({g["law_id"] for g in grants}) == 160
+    assert len({g["source_id"] for g in grants}) == 124
+    assert len({g["law_id"] for g in grants}) == 165
     assert [(c["source_id"], c["law_id"]) for c in conflicts] == [("no/lovtid/2004-03-05-11", "no/lov/1995-05-26-25")]
-    assert len(refusals) == 131
+    assert len(refusals) == 108
+    assert sum(1 for r in refusals if "ledd-qualified" in r["refusal"]) == 8
+    assert sum(len(g["subpath_dates"]) for g in grants) == 138
+    assert len({(g["source_id"], g["law_id"], label) for g in grants for label, _p, _d in g["subpath_dates"]}) == 91
+    assert sum(1 for g in grants if g["subpath_dates"]) == 42
+    assert sum(len(g["excluded_subpaths"]) for g in grants) == 4
+    assert sum(len(g["excluded_section_labels"]) for g in grants) == 18
+    assert sum(len(g["qualified_refused_labels"]) for g in grants) == 17
+    # Every refused qualified label carries its reason, and none of the
+    # reasons is a renumber straddle: the two shapes the corpus has (a shift
+    # inside ``annet til syvende ledd``; ``nytt tredje ledd`` shifting old 3
+    # to 4) are admitted by the union rule.
+    reasons = [reason for g in grants for _label, reason in g["qualified_fallback_reasons"]]
+    assert len(reasons) == 17
+    assert not [r for r in reasons if "moves" in r]
+    assert sum(1 for r in reasons if r == "the qualifier spells no path") == 4
     widened = [d for d in index.diagnostics if d.get("rule_id") == NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED]
     assert len(widened) == 469
     # No act-level grant of this lane, ever: the histogram's contingent column

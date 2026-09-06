@@ -3497,6 +3497,133 @@ def test_build_no_amendment_index_lands_a_section_scoped_carve_out(tmp_path) -> 
     assert reloaded.commencement_instruments[0].scope_reading == index.commencement_instruments[0].scope_reading
 
 
+def _ledd_amendment_xml(date_in_force: str) -> bytes:
+    """W-102: one REPLACE below section level (§ 1 ledd 2) and one whole-section REPEAL (§ 2)."""
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="dateInForce">{date_in_force}</dd>
+    <article class="document-change" data-document="lov/2025-01-01-1">
+      <article class="change" data-change-part="lov/2025-01-01-1/§1/ledd2">
+        <article class="defaultP">§ 1 andre ledd skal lyde:</article>
+        <article class="legalP" id="ledd2">Nytt andre ledd.</article>
+      </article>
+      <article class="change" data-repeal-part="lov/2025-01-01-1/§2">
+        <article class="defaultP">§ 2 oppheves.</article>
+      </article>
+    </article>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def test_build_no_amendment_index_lands_a_ledd_carve_out_by_path(tmp_path) -> None:
+    """W-102. ``Loven trer i kraft … med unntak av § 1 andre ledd``: the act's
+    only op on § 1 sits inside the named ledd, so the carve-out lands as a path
+    exclusion and § 2's repeal takes the binding date."""
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [
+            ("lti/2025/nl-20250202-005.xml", _ledd_amendment_xml("Kongen bestemmer")),
+            (
+                "lti/2025/sf-20250301-0100.xml",
+                _section_scoped_instrument_xml(
+                    "lov/2025-02-02-5",
+                    "Loven trer i kraft 1. april 2025 med unntak av § 1 andre ledd.",
+                    "2025-04-01",
+                ),
+            ),
+        ],
+    )
+    index = build_no_amendment_index(tmp_path)
+    entry = index.entries[0]
+    base = "no/lov/2025-01-01-1"
+    assert entry.section_scoped_binding_dates == ((base, "2025-04-01"),)
+    assert entry.section_scoped_effective_dates == ()
+    assert entry.section_scoped_exclusions == ()
+    assert entry.section_scoped_subpath_dates == ()
+    assert entry.section_scoped_subpath_exclusions == ((base, "1", "subsection:2"),)
+    assert entry.section_scoped_complete_laws == ()
+    assert entry.effective_date_for_op(base, "1", "subsection:2") == (None, "contingent")
+    assert entry.effective_date_for_op(base, "1", "subsection:2/sentence:1") == (None, "contingent")
+    assert entry.effective_date_for_op(base, "1", "subsection:1") == ("2025-04-01", "section_instrument_authorized")
+    assert entry.effective_date_for_op(base, "2") == ("2025-04-01", "section_instrument_authorized")
+    receipt = next(
+        d for d in index.diagnostics
+        if d["rule_id"] == "no_lovtidend_commencement_section_scope_execution_authorized"
+    )
+    assert receipt["excluded_subpaths"] == [["1", "subsection:2"]]
+    assert receipt["excluded_section_labels"] == []
+    assert receipt["qualified_fallback_reasons"] == []
+    assert receipt["complete"] is False
+    reloaded = NOAmendmentIndex.from_dict(index.to_dict())
+    assert reloaded.entries[0] == entry
+
+
+def test_build_no_amendment_index_lands_a_ledd_grant_by_path(tmp_path) -> None:
+    """W-102. ``Lovens § 1 andre ledd og § 2 trer i kraft …``: the ledd is dated
+    by path, § 2 whole, and the binding is complete with no binding date."""
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [
+            ("lti/2025/nl-20250202-005.xml", _ledd_amendment_xml("Kongen bestemmer")),
+            (
+                "lti/2025/sf-20250301-0100.xml",
+                _section_scoped_instrument_xml(
+                    "lov/2025-02-02-5",
+                    "Lovens § 1 andre ledd og § 2 trer i kraft 1. april 2025.",
+                    "2025-04-01",
+                ),
+            ),
+        ],
+    )
+    index = build_no_amendment_index(tmp_path)
+    entry = index.entries[0]
+    base = "no/lov/2025-01-01-1"
+    assert entry.section_scoped_binding_dates == ((base, ""),)
+    assert entry.section_scoped_effective_dates == ((base, "2", "2025-04-01"),)
+    assert entry.section_scoped_subpath_dates == ((base, "1", "subsection:2", "2025-04-01"),)
+    assert entry.section_scoped_complete_laws == (base,)
+    assert entry.has_section_scope(base)
+    assert entry.effective_date_for_base(base) == (None, "section_instrument_authorized")
+    assert entry.effective_date_for_op(base, "1", "subsection:2") == ("2025-04-01", "section_instrument_authorized")
+    assert entry.effective_date_for_op(base, "1", "subsection:1") == (None, "contingent")
+    assert entry.effective_date_for_op(base, "1") == (None, "contingent")
+    assert entry.effective_date_for_op(base, "2") == ("2025-04-01", "section_instrument_authorized")
+    receipt = next(
+        d for d in index.diagnostics
+        if d["rule_id"] == "no_lovtidend_commencement_section_scope_execution_authorized"
+    )
+    assert receipt["subpath_dates"] == [["1", "subsection:2", "2025-04-01"]]
+    assert receipt["qualified_refused_labels"] == []
+    assert receipt["complete"] is True
+
+
+def test_build_no_amendment_index_keeps_a_whole_section_op_above_a_ledd_grant_refused(tmp_path) -> None:
+    """W-102. The same instrument against an act that rewrites § 1 whole: the
+    ledd grant is refused with the admissibility reason, as under W-100."""
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [
+            ("lti/2025/nl-20250202-005.xml", _amendment_xml("Kongen bestemmer")),
+            (
+                "lti/2025/sf-20250301-0100.xml",
+                _section_scoped_instrument_xml(
+                    "lov/2025-02-02-5", "Lovens § 1 andre ledd trer i kraft 1. april 2025.", "2025-04-01"
+                ),
+            ),
+        ],
+    )
+    index = build_no_amendment_index(tmp_path)
+    entry = index.entries[0]
+    assert not entry.has_section_scope("no/lov/2025-01-01-1")
+    refusal = next(
+        d for d in index.diagnostics
+        if d["rule_id"] == "no_lovtidend_commencement_section_scope_execution_refused"
+    )
+    assert refusal["refusal"] == "every dated label of no/lov/2025-01-01-1 is ledd-qualified"
+
+
 def test_build_no_amendment_index_lands_a_sections_only_complete_binding(tmp_path) -> None:
     """``Lovens § 1 trer i kraft …`` covers every targeted section: authorized with no binding date."""
     _write_archive(

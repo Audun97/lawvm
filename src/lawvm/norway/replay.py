@@ -44,6 +44,7 @@ from lawvm.norway.grafter import (
     parse_no_heading_groups,
     parse_no_statute,
 )
+from lawvm.norway.commencement_instruments import no_commencement_section_and_subpath
 from lawvm.norway.index import NOAmendmentIndex, build_no_amendment_index, load_no_amendment_index
 from lawvm.norway.sources import (
     effective_date_from_amendment,
@@ -498,17 +499,13 @@ def replay_no_to_pit(
                 if section_scoped:
                     # W-101: the section step may follow a chapter step
                     # (``chapter:5A/section:5A-1``), so it is looked up, not
-                    # assumed first.
-                    section_label = next(
-                        (
-                            step_label
-                            for step_kind, step_label in (op.target.path if op.target is not None else ())
-                            if step_kind == "section"
-                        ),
-                        None,
+                    # assumed first. W-102: the steps below it are the op's
+                    # subpath, which a ledd-level grant or carve-out resolves.
+                    section_label, subpath = no_commencement_section_and_subpath(
+                        tuple(op.target.path) if op.target is not None else ()
                     )
                     op_effective_date, op_status = entry.effective_date_for_op(
-                        norm_base_id, section_label
+                        norm_base_id, section_label, subpath
                     )
                     if op_effective_date is None or op_status == "contingent":
                         skipped_contingent_any = True
@@ -528,6 +525,7 @@ def replay_no_to_pit(
                                     "effective_status": str(entry_status),
                                     "op_id": op.op_id,
                                     "section_label": section_label or "",
+                                    "subpath": subpath,
                                     "target": str(op.target) if op.target is not None else "",
                                 },
                             )
@@ -550,6 +548,7 @@ def replay_no_to_pit(
                                     "effective_status": str(entry_status),
                                     "op_id": op.op_id,
                                     "section_label": section_label or "",
+                                    "subpath": subpath,
                                     "target": str(op.target) if op.target is not None else "",
                                 },
                             )

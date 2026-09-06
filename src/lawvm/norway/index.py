@@ -16,6 +16,7 @@ from lawvm.norway.commencement_instruments import (
     NOCommencementInstrumentCoverage,
     NOCommencementParseStatus,
     authorize_no_commencement_instruments,
+    no_commencement_op_address,
     parse_no_commencement_instrument,
 )
 from lawvm.norway.grafter import (
@@ -124,6 +125,12 @@ class NOAmendmentIndexEntry:
     #       still undated, restricted to sections the act's ops target;
     #   ``section_scoped_complete_laws``   (law, …) — the bindings where every
     #       targeted op resolves to a date.
+    # W-102 adds two below section level, in the grafter's own step spelling:
+    #   ``section_scoped_subpath_dates``   (law, section label, subpath, date) —
+    #       ``§ 2-3 andre ledd skal gjelde fra …`` lands as
+    #       ``(law, "2-3", "subsection:2", date)``;
+    #   ``section_scoped_subpath_exclusions`` (law, section label, subpath) —
+    #       ``… med unntak av nytt § 4-4 tredje ledd`` as ``(law, "4-4", "subsection:3")``.
     # Orthogonal to ``part_scoped_effective_dates`` as that is to the act-level
     # fields: a law here was dated by no older route (the gate yields to them),
     # and consumers resolve an op's date as "``effective_date_for_op`` first".
@@ -131,11 +138,17 @@ class NOAmendmentIndexEntry:
     section_scoped_effective_dates: tuple[tuple[str, str, str], ...] = ()
     section_scoped_exclusions: tuple[tuple[str, str], ...] = ()
     section_scoped_complete_laws: tuple[str, ...] = ()
+    section_scoped_subpath_dates: tuple[tuple[str, str, str, str], ...] = ()
+    section_scoped_subpath_exclusions: tuple[tuple[str, str, str], ...] = ()
 
     def has_section_scope(self, base_id: str) -> bool:
         """Did the section-scoped lane land anything for ``base_id``? W-100."""
-        return any(law_id == base_id for law_id, _date in self.section_scoped_binding_dates) or any(
-            law_id == base_id for law_id, _label, _date in self.section_scoped_effective_dates
+        return (
+            any(law_id == base_id for law_id, _date in self.section_scoped_binding_dates)
+            or any(law_id == base_id for law_id, _label, _date in self.section_scoped_effective_dates)
+            or any(
+                law_id == base_id for law_id, _label, _subpath, _date in self.section_scoped_subpath_dates
+            )
         )
 
     def effective_date_for_base(self, base_id: str) -> tuple[str | None, str]:
@@ -164,23 +177,35 @@ class NOAmendmentIndexEntry:
         return self.effective_date, self.effective_status
 
     def effective_date_for_op(
-        self, base_id: str, section_label: str | None
+        self, base_id: str, section_label: str | None, subpath: str = ""
     ) -> tuple[str | None, str]:
         """``(date, status)`` for ONE op of this entry on ``base_id``. W-100.
 
-        ``section_label`` is the op's leading section label in the grafter's
-        spelling, or ``None`` for an op that targets no section (a chapter
-        heading). Resolution: the section's own date; else a carve-out, which is
-        ``contingent``; else the binding's date; else the binding-level answer.
-        A binding the lane landed without a binding date leaves every op it did
-        not date explicitly ``contingent``.
+        ``section_label`` is the op's section label in the grafter's spelling,
+        or ``None`` for an op that targets no section (a chapter heading);
+        ``subpath`` (W-102) the op's steps below that section in the same
+        spelling (``subsection:2``, ``subsection:2/sentence:5``), ``""`` for a
+        whole-section op. Resolution: the date of a landed path the op sits at
+        or below; else the section's own date; else a carve-out — by path or
+        whole section — which is ``contingent``; else the binding's date; else
+        the binding-level answer. A binding the lane landed without a binding
+        date leaves every op it did not date explicitly ``contingent``. The
+        gate admits a path only where every op on the section sits cleanly
+        inside or outside it, so a whole-section op never reaches a path entry
+        of its own section.
         """
         if not self.has_section_scope(base_id):
             return self.effective_date_for_base(base_id)
         if section_label:
+            for law_id, label, landed_subpath, date in self.section_scoped_subpath_dates:
+                if law_id == base_id and label == section_label and _subpath_at_or_below(subpath, landed_subpath):
+                    return date, NOEffectiveStatus.SECTION_INSTRUMENT_AUTHORIZED
             for law_id, label, date in self.section_scoped_effective_dates:
                 if law_id == base_id and label == section_label:
                     return date, NOEffectiveStatus.SECTION_INSTRUMENT_AUTHORIZED
+            for law_id, label, excluded_subpath in self.section_scoped_subpath_exclusions:
+                if law_id == base_id and label == section_label and _subpath_at_or_below(subpath, excluded_subpath):
+                    return None, NOEffectiveStatus.CONTINGENT
             if (base_id, section_label) in self.section_scoped_exclusions:
                 return None, NOEffectiveStatus.CONTINGENT
         binding_date = next(
@@ -190,6 +215,13 @@ class NOAmendmentIndexEntry:
         if binding_date:
             return binding_date, NOEffectiveStatus.SECTION_INSTRUMENT_AUTHORIZED
         return None, NOEffectiveStatus.CONTINGENT
+
+
+def _subpath_at_or_below(subpath: str, landed: str) -> bool:
+    """Is an op's ``subpath`` at or below a landed path? W-102. The same
+    relation the gate's ``_subpath_inside`` reads, spelled here so the entry
+    stays a plain record that imports nothing from the gate."""
+    return subpath == landed or subpath.startswith(landed + "/")
 
 
 @dataclass
@@ -265,6 +297,16 @@ class NOAmendmentIndex:
                     str(law_id)
                     for law_id in entry.get("section_scoped_complete_laws", []) or []
                     if isinstance(law_id, str)
+                ),
+                section_scoped_subpath_dates=tuple(
+                    (str(row[0]), str(row[1]), str(row[2]), str(row[3]))
+                    for row in entry.get("section_scoped_subpath_dates", []) or []
+                    if isinstance(row, (list, tuple)) and len(row) == 4
+                ),
+                section_scoped_subpath_exclusions=tuple(
+                    (str(row[0]), str(row[1]), str(row[2]))
+                    for row in entry.get("section_scoped_subpath_exclusions", []) or []
+                    if isinstance(row, (list, tuple)) and len(row) == 3
                 ),
             )
             for entry in raw_entries
@@ -878,28 +920,34 @@ def build_no_amendment_index(data_dir: Optional[Path] = None) -> NOAmendmentInde
         # changes nothing they grant.
         part_law_ids = no_part_law_ids(artifact.payload)
         if part_law_ids or base_ids:
+            # W-102. One address per op, and the section-level facts derived
+            # from the same addresses. The section step is looked up rather
+            # than assumed first: a new chapter's sections carry the chapter as
+            # their first step (W-101), and W-100's ``path[:1]`` read them as
+            # unsectioned.
+            law_op_addresses = {
+                base_id: tuple(no_commencement_op_address(op) for op in ops)
+                for base_id, ops in grouped
+            }
             act_part_evidence[source_id] = NOCommencementActPartEvidence(
                 part_law_ids=part_law_ids,
                 bound_law_ids=base_ids,
                 law_section_labels={
                     base_id: frozenset(
-                        label
-                        for op in ops
-                        for kind, label in op.target.path[:1]
-                        if kind == "section"
+                        address.section_label
+                        for address in addresses
+                        if address.section_label is not None
                     )
-                    for base_id, ops in grouped
+                    for base_id, addresses in law_op_addresses.items()
                 },
                 unsectioned_op_laws=tuple(
                     sorted(
                         base_id
-                        for base_id, ops in grouped
-                        if any(
-                            not op.target.path or op.target.path[0][0] != "section"
-                            for op in ops
-                        )
+                        for base_id, addresses in law_op_addresses.items()
+                        if any(address.section_label is None for address in addresses)
                     )
                 ),
+                law_op_addresses=law_op_addresses,
             )
         # W-84. A swapped entry points ``archive``/``member_name`` at the rectified
         # document, which is what makes replay load the corrected bytes: replay
@@ -1119,6 +1167,20 @@ def _authorize_no_commencement_instruments_into_index(
             ),
             section_scoped_complete_laws=tuple(
                 sorted(receipt.law_id for receipt in receipts if receipt.complete)
+            ),
+            section_scoped_subpath_dates=tuple(
+                sorted(
+                    (receipt.law_id, label, subpath, date)
+                    for receipt in receipts
+                    for label, subpath, date in receipt.subpath_dates
+                )
+            ),
+            section_scoped_subpath_exclusions=tuple(
+                sorted(
+                    (receipt.law_id, label, subpath)
+                    for receipt in receipts
+                    for label, subpath in receipt.excluded_subpaths
+                )
             ),
         )
 

@@ -1379,6 +1379,111 @@ def test_replay_no_to_pit_skips_a_section_dated_after_as_of_per_op(tmp_path) -> 
     assert [section.label for section in sections] == ["1", "2"]
 
 
+_TWO_LEDD_BASE_XML = """<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <head>
+    <title>Testlov om data</title>
+  </head>
+  <body>
+    <main class="documentBody" data-lovdata-URL="LTI/lov/2025-01-01-1">
+      <section class="section" data-name="kap1" data-lovdata-URL="LTI/lov/2025-01-01-1/KAPITTEL_1">
+        <h2>Kapittel 1. Innledning</h2>
+        <article class="legalArticle" data-name="§1" data-lovdata-URL="LTI/lov/2025-01-01-1/§1">
+          <h3 class="legalArticleHeader">§ 1. Formaal</h3>
+          <article class="legalP" id="ledd1">Loven gjelder testdata.</article>
+          <article class="legalP" id="ledd2">Gammelt andre ledd.</article>
+        </article>
+        <article class="legalArticle" data-name="§2" data-lovdata-URL="LTI/lov/2025-01-01-1/§2">
+          <h3 class="legalArticleHeader">§ 2. Krav</h3>
+          <article class="legalP" id="ledd1">Kravene gjelder.</article>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def _ledd_amendment_xml(date_in_force: str) -> bytes:
+    """W-102: a REPLACE of § 1 ledd 2 and a REPEAL of § 2."""
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="dateInForce">{date_in_force}</dd>
+    <article class="document-change" data-document="lov/2025-01-01-1">
+      <article class="change" data-change-part="lov/2025-01-01-1/§1/ledd2">
+        <article class="defaultP">§ 1 andre ledd skal lyde:</article>
+        <article class="legalP" id="ledd2">Nytt andre ledd.</article>
+      </article>
+      <article class="change" data-repeal-part="lov/2025-01-01-1/§2">
+        <article class="defaultP">§ 2 oppheves.</article>
+      </article>
+    </article>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def _ledd_texts(section) -> list[str]:
+    return [child.text for child in section.children if child.kind is IRNodeKind.SUBSECTION]
+
+
+def test_replay_no_to_pit_skips_a_carved_out_ledd_per_op_and_applies_the_rest(tmp_path) -> None:
+    """W-102. A binding date with § 1 andre ledd carved out by path: § 2's repeal
+    applies, § 1's ledd-2 replace is skipped per op with its subpath receipted."""
+    archive_path = tmp_path / "lovtidend-avd1-2001-2025.tar.bz2"
+    _write_archive(
+        archive_path,
+        [
+            ("lti/2025/nl-20250101-001.xml", _TWO_LEDD_BASE_XML),
+            ("lti/2025/nl-20250202-005.xml", _ledd_amendment_xml("Kongen bestemmer")),
+        ],
+    )
+    base = "no/lov/2025-01-01-1"
+    index = NOAmendmentIndex(
+        data_dir=str(tmp_path),
+        entries=[
+            _section_scoped_entry(
+                section_scoped_binding_dates=((base, "2025-03-01"),),
+                section_scoped_subpath_exclusions=((base, "1", "subsection:2"),),
+            )
+        ],
+    )
+
+    result = replay_no_to_pit(base, as_of="2025-12-31", data_dir=tmp_path, index=index)
+
+    assert result.error is None
+    assert result.amendments_applied == ["no/lovtid/2025-02-02-5"]
+    assert result.amendments_skipped_contingent == ["no/lovtid/2025-02-02-5"]
+    skips = [a for a in result.adjudications if a.kind == "no_replay_section_commencement_contingent_skipped"]
+    assert len(skips) == 1
+    assert skips[0].detail["section_label"] == "1"
+    assert skips[0].detail["subpath"] == "subsection:2"
+    _chapter, sections = _chapter_sections(result)
+    assert [section.label for section in sections] == ["1"]
+    assert _ledd_texts(sections[0]) == ["Loven gjelder testdata.", "Gammelt andre ledd."]
+
+    # The same act under a ledd GRANT: the replace applies, § 2 (undated) is skipped.
+    granted = NOAmendmentIndex(
+        data_dir=str(tmp_path),
+        entries=[
+            _section_scoped_entry(
+                section_scoped_binding_dates=((base, ""),),
+                section_scoped_subpath_dates=((base, "1", "subsection:2", "2025-03-01"),),
+            )
+        ],
+    )
+    result = replay_no_to_pit(base, as_of="2025-12-31", data_dir=tmp_path, index=granted)
+    assert result.error is None
+    skips = [a for a in result.adjudications if a.kind == "no_replay_section_commencement_contingent_skipped"]
+    assert [(a.detail["section_label"], a.detail["subpath"]) for a in skips] == [("2", "")]
+    _chapter, sections = _chapter_sections(result)
+    assert [section.label for section in sections] == ["1", "2"]
+    assert _ledd_texts(sections[0]) == ["Loven gjelder testdata.", "Nytt andre ledd."]
+    applied = [op for op in result.apply_filter_result.accepted_items] if result.apply_filter_result else []
+    assert {op.source.effective for op in applied} == {"2025-03-01"}
+
+
 def _new_chapter_amendment_xml(date_in_force: str) -> bytes:
     """W-101: a ``Nytt kapittel 2`` block whose section insert carries the chapter step."""
     return f"""<?xml version="1.0" encoding="utf-8"?>
