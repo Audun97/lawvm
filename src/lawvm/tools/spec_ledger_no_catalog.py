@@ -1225,6 +1225,41 @@ _NO_RULE_SPECS: Dict[str, str] = {
     # --- Per-op mutation-boundary escape observation (§1.0 in-fold twin) -----------------
     # Mirrors EE's ``ee_replay_mutation_boundary_per_op_violation_observed`` and
     # UK's ``uk_replay_mutation_boundary_per_op_violation_observed``.
+    # --- W-103 print-era (pre-2001) witness lane: evidence-ladder lines -> LTI XML ----
+    # Emission receipts of ``print_era.py``. The lane is a witness lane (the emitted
+    # acts are OCR reconstructions, not archived Lovtidend bytes); each id names one
+    # thing the emission did to the print text, so a divergence downstream can be
+    # attributed to it instead of to the parser or the replay.
+    "no_print_era_lead_refused": (
+        "An instruction lead of a print-era amending act built from a line on which "
+        "no two OCR channels agreed (ladder class R) is landed as a proposal and "
+        "marked on the article, never as certified text; a section the lead addresses "
+        "may therefore diverge on the lead's reading alone."
+    ),
+    "no_print_era_proposal_text_landed": (
+        "A print line of ladder class R lands with the proposal channel's reading "
+        "(GLM-OCR) under the PROPOSAL variant or the ALTO spine's under STRICT, marked "
+        "on the article; the landed text is a candidate, and a divergence on such a "
+        "line is attributable to the channel, not to the replay."
+    ),
+    "no_print_era_address_dash_folded": (
+        "The print's wide dash inside a ``§ N-N`` address token folds to ``-`` in "
+        "instruction leads and section headers only, so the grafter's address grammar "
+        "reads the label the consolidation prints; body-text dashes keep their bytes "
+        "and are compared as typed dash-class divergences."
+    ),
+    "no_print_era_omnibus_carve": (
+        "Of an omnibus act that amends many laws, only the consequential item naming "
+        "the base law is emitted; the act's other targets are neither landed nor "
+        "repealed, and the emission says so on the section, so the act replays as a "
+        "partial instrument by declaration rather than by omission."
+    ),
+    "no_print_era_date_from_consolidation_chain": (
+        "A print-era act's ``dateInForce`` is the ``ikr.`` date the consolidation's "
+        "changesToParent chain prints for that act (the act's own date where the chain "
+        "names none), because the print-era commencement lane is not built; the "
+        "receipt names the source so the date is evidence, not authority."
+    ),
     "no_replay_mutation_boundary_per_op_violation_observed": (
         "A per-op Norway write whose changed paths escape the op's declared "
         "section region is recorded as a boundary-escape observation (the in-fold "

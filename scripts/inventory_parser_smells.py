@@ -104,6 +104,11 @@ PRECLEAR_CATEGORIES: frozenset[str] = frozenset(
 
 CATEGORY_MAP: dict[str, str] = {
     # --- source plane (A): locators / paths / XML / byte-origin parsing ---
+    # W-103: the print-era (pre-2001) witness-lane segmenter/emitter turns NB ALTO
+    # page lines (geometry + evidence-ladder class) into the LTI XML the grafter
+    # parses; every regex is a page-layout/lexical predicate on a single print line,
+    # applied BEFORE the owning parser and with no replay authority.
+    "src/lawvm/norway/print_era.py": "source_plane",
     "src/lawvm/finland/corpus.py": "source_plane",
     "src/lawvm/finland/transparent_store.py": "source_plane",
     "src/lawvm/finland/finlex_api.py": "source_plane",

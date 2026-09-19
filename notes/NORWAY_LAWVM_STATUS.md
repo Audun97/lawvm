@@ -116,6 +116,15 @@ or corroborate a reconstruction. They may not silently become the original legal
 text or replay authority. Reconstructed-source benchmarks must remain separate
 from deterministic source-only replay.
 
+The one print-era slice that exists — kringkastingsloven's founding act and its
+13 print-era amending acts, reconstructed from Nasjonalbiblioteket facsimiles
+through the four-channel evidence ladder — is committed as a *witness fixture*
+(`tests/data/norway_print_era/kringkastingsloven/`, emitted by
+`lawvm.norway.print_era`, every article carrying the ladder class of each print
+line it was built from). It is replayed by tests, not admitted as a source of
+record; its `dateInForce` values are the consolidation chain's `ikr.` dates,
+receipted as such, because no print-era commencement lane exists.
+
 Acquisition research for this lane is kept in `NORWAY_PRE2001_SOURCES.md`
 (2026-08-18 memo): no released pre-2001 Lovdata dataset exists, so the
 born-digital corroboration channel is a negotiated agreement, never scraping

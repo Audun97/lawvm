@@ -7768,6 +7768,94 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    renumbering act has not yet moved), which the refusal contains but does
    not resolve.
 
+103. **W-103 (the print-era witness lane promoted from scratch to product):**
+   DONE (2026-09-06; no replay semantics touched). After W-102 the whole
+   pre-2001 lane — the ladder over the NB ALTO lines, the print-era segmenter,
+   the two emitters and the 14 emitted acts the witness replays — lived only
+   under `.tmp/w97` and `.tmp/w87`: a clean checkout could not reproduce the
+   62/75 the ledger quotes, and nothing pinned it. **What moved.**
+   `src/lawvm/norway/print_era.py` is the probe's `segment.py` + `emit.py` +
+   `emit_amend.py` rewritten on typed carriers (`PrintEraLadder` / `PrintEraLine`
+   / `LandedLine`; `SegmentedAct` … `SegmentedItem`; `PrintEraEmission` with a
+   `PrintEraEmissionReceipt`), every regex through `compile_classifier_regex`
+   (the chapter-header and loose-section-header patterns rewritten for the
+   gate: the title is sliced after the match instead of a trailing `.*`, and
+   the loose header requires a non-empty title — the probe's `(\S.*)$`, which
+   the first cut dropped and which then read `… forbudt etter § 9-1.` at the
+   end of § 9-3 as a section header), and the landing policy explicit:
+   `PrintEraLandingVariant.STRICT` lands an `R` line's ALTO spine reading,
+   `PROPOSAL` its GLM-OCR reading; `emit_print_era_slice` defaults to the
+   policy W-91 (v) measured — founding act STRICT (its six `R` lines are
+   headers the loose reader accepts, and GLM straddles one of them), amending
+   acts PROPOSAL. **Provenance on the emission, receipted:** every article
+   carries `data-lawvm-ladder` (the class of each print line it was built
+   from, items after `|`), `data-lawvm-proposal="glm"` where an `R` line
+   landed from the proposal channel (leads, headers and payload alike — the
+   probe marked payload only), `data-lawvm-refused="1"` on a lead built from
+   an `R` line, `data-lawvm-carve` on the omnibus item; five receipt kinds
+   catalogued (`no_print_era_lead_refused`,
+   `no_print_era_proposal_text_landed`, `no_print_era_address_dash_folded`,
+   `no_print_era_omnibus_carve`,
+   `no_print_era_date_from_consolidation_chain`) — the last names the honest
+   limit that `dateInForce` is the consolidation chain's `ikr.` date (the
+   print-era commencement lane is not built). Receipt `proposal_lines`
+   counts lines that REACH the emission (the probe counted the whole page
+   region, title lines included). **The fixture**
+   (`tests/data/norway_print_era/kringkastingsloven/`, 368 KB, README with
+   sources and licences): `manifest.json` (14 acts: NB issue id, URN,
+   canvases, printed pages, ladder totals, the two carve canvases),
+   `ladder_lines.json` (1,571 spine lines: geometry, class, certified text;
+   for the 40 `R` lines the spine reading, the proposal and all candidates),
+   `chains.json`, today's consolidation (`current/`, capture 2026-08-14), the
+   14 emitted acts (`lti/`) and `receipts.json`. The promoted emitter's
+   output was diffed against the probe's `xml_glm/` + `nl-19921204-127.xml`
+   with only the attribute renames normalised: **0 diffs on 14 files**. **The
+   tests** (`tests/test_norway_print_era.py`, norway shard; the fixture
+   prefix mapped in `test_shard.py`): (1) the emitter reproduces the 14
+   committed files byte for byte and the receipts; (2) ladder totals match
+   the manifest (A 1,139 · B 246 · C 146 · R 40); (3) receipts name what the
+   emission did (carves, refused leads marked, proposal marked and absent
+   under STRICT, 31 address folds); (4) dates from the chain, the no-`ikr.`
+   fallback receipted; (5) the segmenter reads 10 chapters / 41 sections /
+   132 ledd / 13 items and the real `parse_no_statute` reads the emission;
+   (6) the hyphen join; (7) every amending act parses to ops through the real
+   grafter; (8) **source-absent replay** — the two fixture archives in a
+   temp dir, `verify_no_against_current(as_of=2000-12-31)`: `replayed`, all
+   13 print-era acts applied, the 13 OCR-only sections pinned (11 byte-equal,
+   §§ 9-2/9-3 dash-class-only, zero text divergence), 14/75 clean; (9)
+   **the full-chain witness**, corpus-gated (`data/norway/public` archives
+   symlinked in) and `@pytest.mark.slow` (about 6 minutes): as-of
+   2026-08-25 → `blocked_contingent`, contingent
+   {`2005-06-17-98`, `2025-02-28-2`, `2025-04-25-12`}, the last skipped
+   whole, ops **189 / 11**, divergent sections exactly the 13 the W-102
+   record lists, **62/75**, 28 rows. Verified here before commit (see
+   changelog). **Gate:** ruff + `ty` clean on every touched file; shards
+   norway 1,227 passed (34 min), tools_audit_release 372 passed,
+   tools_cli_debug 154 passed + the three recorded Finland corpus-absence
+   failures, boundary 47 passed; release hygiene green (with
+   `UV_CACHE_DIR` outside the tree); regex perf gate, catalog guard,
+   sweep-baseline guard, module-role, naming-hygiene ratchets green after
+   three accountings — `certified*` identifiers renamed `agreed*` (RN1),
+   `print_era.py` pre-cleared `source_plane` in the parser-smells
+   CATEGORY_MAP (page-line predicates before the owning parser), and the
+   module DEAD_ALLOWLISTed as a frontier module consumed only by its test
+   until CLI wiring. Still red and NOT this item's: the project-wide `ty`
+   step (the W-99 index.py four, ingest optional deps) and the regex /
+   classifier-wrap ratchets over `commencement_scope.py`,
+   `commencement_instruments.py` and `grafter.py` (W-100..W-102 left the
+   baselines stale) — reproduced identically at HEAD in a clean worktree.
+   **Not done / honest limits:** the ladder itself (`ladder.py`,
+   the four OCR channels over the ALTO pages) stays a probe under
+   `.tmp/w87`/`.tmp/w97` — its inputs are 41 MB of page scans and engine
+   outputs; what is committed is its OUTPUT with every candidate, so the
+   emission is reproducible but the ladder classes are not re-derivable
+   from the repo. The lane is still a witness lane (status doc §2.5
+   unchanged in substance): nothing here admits an OCR reconstruction as a
+   source of record. Follow-ups: a second law through
+   `emit_print_era_slice` will show which of the segmenter's constants
+   (the 22 px ledd indent, the 400 px part marker, the 700 px old-style
+   header width) are kringkastingsloven's and which are the print's.
+
 ## 5. Demo / Inspection Tooling
 
 Browser views of any replayable law across its own amendment dates, plus an
@@ -7785,6 +7873,18 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
 
+- **2026-09-06 (W-103 — the print-era witness lane promoted to product;
+  fixture + tests)** — `src/lawvm/norway/print_era.py` replaces the
+  `.tmp/w97` segmenter/emitters on typed carriers with explicit landing
+  policy and five catalogued receipt kinds; the kringkastingsloven slice
+  (14 emitted acts, reduced ladder with every candidate, chains, today's
+  consolidation, receipts) is committed under
+  `tests/data/norway_print_era/`; `tests/test_norway_print_era.py` pins the
+  emitter byte for byte, the source-absent pre-2001 replay (13 acts applied,
+  11 + 2 OCR-only sections, 14/75) and — corpus-gated, slow — the W-102
+  full-chain witness (62/75, 189/11, three contingent acts). Emitter output
+  diffed 0/14 against the probe's; no replay semantics touched; regex gate,
+  catalog guard and sweep-baseline guard green.
 - **2026-09-06 (W-102 — ledd-precise section grants; the qualifier as a
   path below the section, admitted against the act's op addresses)** — the
   scope reader spells `andre ledd`, `annet til syvende ledd`, `fjerde ledd

@@ -1464,6 +1464,9 @@ SOURCE_SHARD_PREFIXES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("src/lawvm/ingest/", ("finland", "core", "tools_runtime_io")),
     ("src/lawvm/new_zealand/", ("new_zealand",)),
     ("src/lawvm/norway/", ("norway",)),
+    # W-103: the kringkastingsloven print-era witness slice (emitted acts, ladder,
+    # consolidation oracle) is read only by tests/test_norway_print_era.py.
+    ("tests/data/norway_print_era/", ("norway",)),
     ("src/lawvm/open_law/", ("starter",)),
     ("src/lawvm/sweden/", ("sweden",)),
     ("src/lawvm/uk_legislation/", ("uk",)),
