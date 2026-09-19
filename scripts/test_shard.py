@@ -1497,6 +1497,10 @@ TOOLING_SHARD_PATHS: dict[str, tuple[str, ...]] = {
     # binds this module BY PATH and recomputes the digests it defines, so an
     # edit here changes what the occupied-destination pin measures.
     "scripts/inventory_no_occupied_destination_sweep.py": ("norway",),
+    # W-103's Norway progress dashboard generator: reads the ledger, git log and
+    # the .tmp witness artifacts, imports nothing from lawvm; a projection with
+    # no bounded pytest shard impact (like a documentation path).
+    "scripts/norway_progress_site.py": (),
 }
 TOOL_SOURCE_SHARD_GROUPS: dict[tuple[str, ...], tuple[str, ...]] = {
     ("estonia", "tools_cli_debug"): (
