@@ -7856,6 +7856,206 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    (the 22 px ledd indent, the 400 px part marker, the 700 px old-style
    header width) are kringkastingsloven's and which are the print's.
 
+104. **W-104 (the inline addressed word substitution in the unstructured lane —
+   family 2 of the witness's divergent sections):** DONE (2026-09-11). After
+   W-103 the 13 divergent witness sections were grouped by amending act; the
+   second family was the Medietilsynet act `no/lovtid/2004-07-02-68`, which
+   Lovdata's chain names on §§ 2-1, 4-6, 10-3, 10-5 and the index scanned
+   and applied for ZERO ops. The act has no change markup; its part III is
+   two `legalP` sentences — "«Statens medieforvaltning» skal endrast til
+   «Medietilsynet» i § 2-1 fjerde ledd første punktum og sjette ledd, § 4-3
+   første ledd, § 4-5 første ledd, § 4-6 første og andre ledd, § 10-2, § 10-3
+   første og andre ledd og § 10-4 første og andre ledd." and its genitive
+   twin on § 2-1 fjerde ledd andre punktum — and both were
+   `no_parse_unstructured_lead_unmatched`. W-69a lowers the same instruction
+   only in its announcement-plus-`data-change-part` rendering. **Census
+   (text, over the 2001–2026 archives):** 45 acts carry a term-first
+   substitution sentence with a quoted pair (3 nynorsk `endrast til`, 23
+   bokmål with an `i §` tail; most are forskrifter). At law level the
+   inline shapes are two: TERM FIRST with the addresses after `i` (2004
+   nr. 68 ×4 parts, `2003-09-05-91` "Uttrykket «X» skal erstattes med «Y» i
+   § 7-1 annet ledd", `2015-12-18-121` "Benevnelsen «X» endres til «Y» i §§
+   18 første ledd, 19 første og andre ledd og 20", `2022-06-17-45` "Ordet
+   «X» skal endres til «Y» i § …"), optionally under a law switch of the
+   sentence's own (parts I and II of the 2004 act: "I lov 15. mai 1987 nr.
+   21 om film og videogram skal «Statens filmtilsyn» endrast til
+   «Medietilsynet» i § 2 tredje ledd, …"); and ADDRESS FIRST ("I §§ 22, 24
+   og 27 skal uttrykket «anbod» endrast til «konkurranse»",
+   `2009-06-19-108`; "I § 15 andre ledd skal tilvisingane til «§ 9» endrast
+   til «§ 9 første ledd»", `2007-06-29-94`; `2018-04-20-12`,
+   `2005-06-17-57`). A third shape — the W-69a announcement with its list
+   in PROSE, "I følgjande føresegner skal uttrykket «X» endrast til «Y»: § 7
+   andre ledd, …" (`2023-06-09-27`, `2003-09-05-91` ×6, `2015-12-18-121` ×3,
+   and F-04's 97-law statsforvalter act `2021-05-07-34`) — is NOT this item's
+   and stays unmatched, recorded below. **A silent drop found on the way:**
+   under a law switch, W-99's address-after-citation pattern read "… skal
+   «X» endrast til «Y» i § 2 tredje ledd, …" as a citation followed by a `§`
+   address and rebuilt the lead as "§ 2 tredje ledd, § 4 …", which looked
+   inert — part II of the 2004 act produced neither op nor receipt. **What
+   moved.** (i) `commencement_scope.py`: the W-102 section-list scanner is
+   exposed as `read_section_list_text(text) → (SectionList | None,
+   remainder)` — the list and whatever it could not read, so a caller can
+   tell a list that closed on its own end from one that stopped at "§ 4-4
+   overskriften"; the qualifier grammar is widened from ONE ledd group plus
+   one sub-group to a SEQUENCE of ledd groups each with at most one group
+   below it ("fjerde ledd første punktum og sjette ledd" →
+   `subsection:4/sentence:1`, `subsection:6`; two sub-groups in a row still
+   spell nothing, and every W-102 pin holds); the nynorsk ordinals
+   `sjuande`/`åttande`/`niande`/`tiande` join the table. (ii) `grafter.py`:
+   `_no_addressed_substitution_lead` reads the sentence — the pair with
+   W-69a's grammar (`_NO_SUBSTITUTION_PAIR_VERB_RE` gains the nynorsk
+   verbs), the noun between `skal` and the term closed on the corpus
+   spellings (`ordet`, `uttrykket`, `benevnelsen`, `tilvisingane til`, `båe
+   uttrykka` …), a law-switch prefix resolved through the citation reader
+   and made the lead's base, the address list through the scanner — and the
+   walk asks it BEFORE the embedded rewrite (the guard for the silent
+   drop) and ranks it above the global text-replace production (so an
+   `erstattes med … i §` sentence can never become `scope:global`). It
+   mints W-69a's addressed `TEXT_PATCH` per (address × pair), tagged
+   `fallback:unstructured` + `scope:addressed` + the W-69a provenance tag,
+   one group per lead, and consumes NO payload (the 2004 act's two
+   sentences are sibling `legalP` nodes; the payload cursor would have
+   swallowed the second). The apply seam is untouched: S6/S7 still prove
+   the FROM term uniquely present. Three receipts, catalogued:
+   `no_parse_addressed_substitution_pair_unresolved` (an unquoted TO term —
+   "endrast til Aetat", the whole lead refused),
+   `…_address_list_unresolved` (the scanner stopped short — "§ 4-4
+   overskriften"; the whole lead refused, the remainder on the receipt),
+   `…_path_unresolved` (a qualified label the path grammar cannot place — "§
+   6 første punktum", a bare punktum under W-102's rule; that label refused,
+   the others lowered, as W-69a refuses per address). **Corpus (parse plane,
+   before/after over 3,089 artifacts):** ops 29,752 → **29,925**; **217 addressed
+   substitution ops minted by 39 acts over 41 base acts** (the 2004 act's
+   34 on the film act, kringkastingsloven and the media-ownership act among
+   them); `no_parse_unstructured_lead_unmatched` 7,423 → **7,338** (−85);
+   the three new receipts 18 + 6 + 20 = 44 (`address_list`: headings —
+   "§ 20 overskriften", `2014-06-20-24`, `2023-06-09-32` — "innledningen",
+   "strekpunkt", "Gruppe 2", "(tre steder)", a "som endret ved lov …"
+   aside and the `28-A1` label; `pair`: two sentences in one lead, "«A» …
+   «B» og uttrykket «C» med «D»" without `henholdsvis` (`2005-12-16-118`,
+   `2019-03-08-5`, `2020-06-12-67`), the verb-first four-term set
+   (`2003-06-20-40`), the unquoted "Aetat"; `path`: `nr.`/`bokstav` or
+   `punktum` directly under the section with no ledd — "§ 42 nr. 2", "§ 37
+   bokstav i", "§ 7-2 tredje punktum" — which W-102's grammar places
+   nothing for). **And a hazard withdrawn on the way:** the global
+   text-replace production (`_QUOTED_NO_TEXT_REPLACE_RE`, "«X» erstattes
+   med «Y»") had been firing on ADDRESSED sentences whose address stood
+   before the pair — "I § 3-4 tredje ledd skal tallet «150» erstattes med
+   «160»" (`2003-06-20-54`), "I § 11 første ledd erstattes «legemsdel» med
+   «kroppsdel»" (`2009-06-19-74`), "I § 7 bokstav i erstattes «§ 26 sjette
+   ledd» med …" (`2014-05-09-16`) — as `scope:global` ops: an unguarded
+   `str.replace` of every "150" in the whole law. Ranked below the
+   addressed production they now land at their address under S6/S7, or
+   refuse typed: **global text patches 112 → 68**, 41 acts moved, none
+   lost an addressed op it had. **Corpus (commencement
+   index):** the 2004 act enters (2,597 → 2,598
+   entries; `instrument_authorized` 1,015 → 1,016, dated 2005-01-01 by
+   `no/forskrift/2004-07-02-1099` — the nynorsk "gjeld frå" reader W-100
+   already had); contingent 511 unmoved. The widened qualifier grammar
+   reaches the commencement lane exactly where it should: utlendingsloven's
+   2022 binding (`no/forskrift/2022-04-08-549` + `2022-05-20-886`) had
+   refused § 62 "annet ledd annet punktum og femte ledd første punktum" as
+   "the qualifier spells no path"; it now lands `subsection:2/sentence:2`
+   and `subsection:5/sentence:1` at 2022-05-01 and the binding is
+   **complete**; `no/forskrift/2024-06-14-982` on `no/lov/2018-06-01-24`
+   gains a section binding (§ 11-4 fjerde og femte ledd); and the 2016
+   utlendingsloven instruments' unbound § 108 binds, because
+   `2016-06-17-58`'s "I § 108 annet ledd bokstav a erstattes «§ 90 femte
+   ledd» av …" is now an op on § 108. Section-scope authorized 280 → 281,
+   section-scope refused 108 → 107, generic refused 710 → 709, widened
+   whole-act 469 → 470; 41 entries change `n_ops`. **Witness (kringkastingsloven, glm proposal variant,
+   full chain to 2026-08-25):** the 2004 act is now scanned and APPLIES
+   (`instrument_authorized`, dated 2005-01-01 by `no/forskrift/2004-07-02-1099`,
+   "gjeld frå 1. januar 2005"), ops 200 → 212, accepted 189 → **198**,
+   rejected 11 → 14, rows 28 → **26**, zero-divergence sections **62/75 →
+   63/75** (POST2001 51 → 52): **§ 4-6 closes** (both ledd, "Statens
+   medieforvaltning" → "Medietilsynet"). The three new rejections are the
+   act's ops on § 2-1 (fjerde ledd første og andre punktum, sjette ledd),
+   refused at apply as `no_replay_substitution_term_not_uniquely_present`
+   `absent`: the replay's § 2-1 still carries the pre-2001 ledd order (the
+   25 `punktum_set_relabel_ledd_unresolved` relabels, family 4), so the
+   addressed ledd is the wrong text — the refusal is the honest reading and
+   § 2-1 stays open on family 4, not on this lane. Contingent set unchanged
+   ({`2005-06-17-98`, `2025-02-28-2`, `2025-04-25-12`}), status
+   `blocked_contingent`. As-of 2000-12-31 untouched by construction (the act
+   is post-2001): 14/75. The 12 still diverging: §§ 2-1, 4-4 (family 4),
+   10-1, 10-3, 10-4, 10-5, 10-6 (family 1 + the 2025 acts), 6-1a, 7-1
+   (family 3), 8-4 (the 2025 act alone), 9-2, 9-3 (dash class), plus the two
+   chapter-header rows. **Partition (W-23, as-of
+   2026-07-10, limit 200):** 82 candidates, 30 consistent / 52 divergent
+   unmoved; totals 1,478/1,011/467 → **1,479/1,011/468**, two laws move.
+   `no/lov/2010-06-25-28` (AFP-loven): applied acts 8 → 7, ops 44 → 43, rows
+   24 unmoved — `2014-06-20-24`'s "I § 20 overskriften, § 20 tredje ledd
+   første punktum, § 21 tredje ledd og § 22 nr. 1 første ledd skal ordet
+   «uførepensjon» erstattes med ordet «uføretrygd»" had fired the global
+   production and now refuses typed on the heading. `no/lov/2014-08-15-59`
+   (naturskadeerstatningsloven): untouched drift → replay defect, rows 5 → 6,
+   ops 1 → 8 — `2019-05-24-18`'s "I §§ 11, 12, 13, 14, 17, 18, 20 og 24
+   erstattes «Statens landbruksforvaltning» med «Landbruksdirektoratet»" was
+   ONE global `str.replace` over the whole law, right by accident because the
+   drafter's list happened to cover every occurrence; it is now eight
+   whole-section ops, and §§ 17 and 20 carry the term twice and three times,
+   so S7 refuses them `multiple` (whole_word 2 and 3, every occurrence a whole
+   word) and three section rows open where two chapter-title rows stood. That
+   is the honest reading of the W-69a envelope, and it names the envelope's
+   limit precisely: a WHOLE-SECTION address ("i § 17") means every occurrence
+   in the section, and S7's exactly-once rule — written for the
+   announcement-plus-list rendering, where under-application was chosen as
+   the safe direction — reads it as ambiguous. The relaxation (replace all
+   when `substring == whole_word`, i.e. no occurrence sits inside a longer
+   word) is a one-conjunct change to the apply seam that would also move
+   W-69a's structured lane; it is the first follow-up below, not taken here.
+   The verify totals pin moves with its note. **Tests:** grafter — nine W-104
+   tests (`test_norway_grafter.py`: part III verbatim → twelve addressed
+   ops with the two-path § 2-1 qualifier and two groups; part II under its
+   own law switch binding to the film act with the embedded reader shown
+   still mangling the sentence on its own; the address-first shape with
+   whole sections, a `37 h` sentence path and a quoted `§ 9` term; the
+   bokmål `endres til`/`erstattes med` spellings never global; the three
+   refusals; a sentence with no address list declining to the generic
+   receipt; and end to end through `apply_no_ops` — § 4-6's two ledd
+   rewritten, § 2-1 fjerde ledd's FIRST sentence rewritten by path, § 10-2
+   refusing S7 `multiple`); scope — the Medietilsynet list read to its end
+   with its paths, the remainder semantics on a heading and on an
+   address-first verb phrase, four widened-grammar shapes parametrized.
+   **Verification:** ruff clean; `ty` clean on every touched module and test
+   file (the grafter test module's one pre-existing diagnostic aside);
+   regex perf gate 54/54 (no nested quantifier — the two new classifiers are
+   closed word lists); catalog guard 6/6 with the three kinds catalogued;
+   module-role, naming-hygiene and parser-smells ratchets green; the regex
+   and classifier-wrap ratchets red exactly as at HEAD (grafter +2 / +4,
+   commencement_scope +7 / 33, commencement_instruments +3 — none added
+   here, every new use-site waived as the owning parser); hygiene files 392
+   passed + those 5; sweep baseline regenerated (firings 8 → 8, hazard bases
+   156 → 157 with `no/lov/2018-06-01-24` entering on its newly dated § 11-4
+   paths, destructive writes 4,078 → 4,096, content-removing flat at 238 over
+   76 laws); shards: tools_cli_debug 154 passed + the three recorded Finland
+   corpus-absence failures; norway 529 passed, 2 failed on the full run — the
+   straffeloven-2005 witness pin (`2009-06-19-74`: 24 → 23 ops, its four
+   addressed text-replaces now at their address and "§ 37 bokstav i" refused
+   typed) and the sweep census pin, both moved with their notes after the
+   run and green alone; the project-wide `ty` step stays red on the W-99
+   diagnostics. **Pins moved, each with its note:** the print-era witness
+   (62/75, 189/11, 28 rows → 63/75, 198/14, 26 rows; § 4-6 leaves the
+   divergent set); `test_w100_corpus_totals` (281 / 225 / 125 acts / 166
+   laws / 107 / 7 / 142 / 93 / 43 / 16 / 3 / 470); the W-51 generic-refusal
+   pin 710 → 709 and the W-51 totals (widened 470); index entries 2,597 →
+   2,598, bindings 6,629 → 6,634 (seven gained, two withdrawn), ops 29,697 →
+   29,870, widened/authorized 469 → 470 / 1,015 → 1,016; the verify partition
+   totals; the W-20 global-fallback test re-read as the addressed op it now
+   is; the sweep census (269 / 157 / 4,096, digest, contingent 157). **Recorded follow-ups:** the announcement
+   shape in the unstructured lane (the F-04 statsforvalter act is its
+   largest member); heading references in an address list ("§ 4-4
+   overskriften" — `2022-06-17-45` refuses whole on them; a heading is a
+   node the grafter can address, the scanner cannot); the bare-punktum
+   qualifier under a single-ledd section (W-102's rule, kept; part IV of the
+   2004 act loses § 6 to it); S7's exactly-once rule read against a
+   WHOLE-SECTION address ("i § 10-2" means every occurrence in the section,
+   and a section carrying the term twice refuses `multiple`); § 2-1 on the
+   witness, where the 2004 substitution is addressed to fjerde ledd but the
+   replay's ledd 4 is the pre-2001 relabel gap (family 4), so the op refuses
+   `absent` there until that lane lands.
+
 ## 5. Demo / Inspection Tooling
 
 Browser views of any replayable law across its own amendment dates, plus an
@@ -7873,6 +8073,38 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
 
+- **2026-09-11 (W-104 — the inline addressed word substitution in the
+  unstructured lane; family 2 of the witness's divergent sections)** — the
+  2004 Medietilsynet act (`no/lovtid/2004-07-02-68`) yielded zero ops: its
+  "«Statens medieforvaltning» skal endrast til «Medietilsynet» i § 2-1
+  fjerde ledd første punktum og sjette ledd, § 4-3 første ledd, …" carries
+  no change markup. The grafter now reads that sentence in both word orders
+  (term first with the `i §` tail, address first with `skal`/the verb
+  before the terms), with the W-69a pair grammar (nynorsk verbs added), the
+  W-102 section-list scanner exposed as `read_section_list_text` and its
+  qualifier grammar widened to a sequence of ledd groups, and mints W-69a's
+  addressed `TEXT_PATCH` per address behind the unchanged S6/S7 apply
+  guard; three typed refusals catalogued. Asked before W-99's embedded
+  rewrite (which had silently swallowed the sentence under a law switch)
+  and ranked above the global text-replace production (which had fired
+  whole-law `str.replace` ops on addressed sentences: global patches 112 →
+  68). Corpus: ops 29,752 → 29,925, 217 addressed substitutions over 41
+  laws, unmatched leads −85, 44 typed refusals. Witness full chain: the act
+  applies (dated 2005-01-01 by its resolution), ops 189/11 → 198/14, rows
+  28 → 26, **62/75 → 63/75 — § 4-6 closes**; § 2-1's three ops refuse
+  `absent` on the family-4 ledd order. Index: the act enters `instrument_authorized`
+  (1,015 → 1,016), and the widened grammar completes utlendingsloven's 2022
+  binding (§ 62 by two paths) and adds one section binding (280 → 281,
+  refusals 108 → 107, generic 710 → 709). Partition: 82 candidates, 30/52
+  unmoved, totals 1,478/1,011/467 → 1,479/1,011/468 — naturskade-
+  erstatningsloven's whole-law global replace becomes eight whole-section ops
+  and §§ 17/20 refuse S7 `multiple` (the exactly-once rule against a
+  whole-section address, recorded as the first follow-up). Sweep firings
+  8 → 8 (hazard bases 156 → 157).
+  Gate: ruff, ty (touched), regex gate, catalog, sweep baseline (firings
+  8 → 8) green; ratchets red only where HEAD already is; norway shard 529
+  passed with the two moved pins green alone; twelve corpus pins moved
+  with notes.
 - **2026-09-06 (W-103 — the print-era witness lane promoted to product;
   fixture + tests)** — `src/lawvm/norway/print_era.py` replaces the
   `.tmp/w97` segmenter/emitters on typed carriers with explicit landing

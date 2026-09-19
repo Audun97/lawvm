@@ -494,6 +494,25 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "substitute in is unknown; that address refuses rather than being guessed "
         "from its neighbours in the list."
     ),
+    "no_parse_addressed_substitution_pair_unresolved": (
+        "A Norway unstructured lead is an inline addressed word substitution "
+        "(\"«X» skal endrast til «Y» i § …\" or \"I § … skal «X» endrast til «Y»\") "
+        "whose (from, to) pair grammar did not parse — an unquoted TO term, or "
+        "an unpaired term count — so nothing was lowered rather than guessing "
+        "which term replaces which (W-104)."
+    ),
+    "no_parse_addressed_substitution_address_list_unresolved": (
+        "A Norway inline addressed word substitution's section list could not be "
+        "read to its end by the section-list scanner (a heading reference such as "
+        "\"§ 4-4 overskriften\", or a qualifier outside the grammar), so the whole "
+        "lead was refused rather than substituting in a partial list (W-104)."
+    ),
+    "no_parse_addressed_substitution_path_unresolved": (
+        "A Norway inline addressed word substitution qualifies one section with a "
+        "phrase the W-102 path grammar cannot place (a bare punktum with no ledd "
+        "above it, \"siste ledd\"); that section is refused and the other listed "
+        "sections lower, per label as W-69a refuses per address (W-104)."
+    ),
     "no_parse_replace_promoted_to_insert_for_same_target_renumber": (
         "A Norway REPLACE targeting the same address as a RENUMBER in the same "
         "group is compiled as an INSERT at the newly-renumbered label; the "

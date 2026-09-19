@@ -1584,7 +1584,9 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # its first (and only) write, the ``kap4`` chapter-heading REPLACE of
     # ``no/lovtid/2026-06-19-59`` that lowers now — a heading merge, nothing
     # removed. The base-law population is 789 -> 790 for the same reason.
-    "bases_with_destructive_writes": 268,
+    # 268 -> 269 at W-104: ``no/lov/2018-06-01-24`` takes its first write (see
+    # the hazard note below).
+    "bases_with_destructive_writes": 269,
     # 162 -> 164 at W-66c: the two laws named in the ``incomplete_bases`` note
     # above ENTER the intersection. Both already took destructive writes (6 and
     # 12 of them), so they arrive with a full row rather than a zero one; nothing
@@ -1595,7 +1597,11 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # 165 -> 156 at W-100: nine of the twelve bases that stopped being
     # known-incomplete (note above) were in the intersection; the two entrants
     # arrive with rows. See the sweep note in ledger item 100.
-    "hazard_bases": 156,
+    # 156 -> 157 at W-104: ``no/lov/2018-06-01-24`` enters — its 2024
+    # commencement instrument's "§ 11-4 fjerde og femte ledd" now spells two
+    # paths under the widened qualifier grammar, so one op is dated and
+    # applies at the sweep's as-of on a known-incomplete base.
+    "hazard_bases": 157,
     # 3,713 -> 3,706 at W-75, and exactly one law moves: ``no/lov/2008-06-27-71``
     # [73, 2] -> [66, 2]. Refusing the word-substitution address lists stops seven
     # REPLACEs that had been writing the amendment's own prose into plan- og
@@ -1876,7 +1882,13 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # [7 -> 12] (its two refused § 4 legs are not writes), ``no/lov/2005-06-17-102``
     # [3 -> 6], and one each on ``2003-07-04-80``, ``2005-06-17-64``,
     # ``2009-01-09-2``. The content-removing column is flat (238 over 76 laws).
-    "hazard_destructive_writes": 4078,
+    # 4,078 -> 4,096 at W-104: the addressed word-substitution production's
+    # TEXT_PATCH ops (217 corpus-wide) land on known-incomplete bases where
+    # their acts are dated — utlendingsloven [321 -> 325], ``2007-12-21-119``
+    # and the folketrygdloven-adjacent pension acts among them — plus the
+    # ``2018-06-01-24`` entrant's one. Firings 8 -> 8; the content-removing
+    # column is flat (238 over 76 laws): a substitution never removes a node.
+    "hazard_destructive_writes": 4096,
     # 167 -> 168, and the +1 is NOT a relabel op. ``no/lov/2016-05-27-14`` gains
     # ``no/lovtid/2021-12-22-158:1``, a REPEAL of § 7-6 annet ledd that could not
     # bind before because that law's ledd sequence was one slot out of step; with
@@ -1995,7 +2007,12 @@ _NO_INCOMPLETE_BASE_HAZARD_LAWS_DIGEST = (
     # empty). SEVEN rows move, all upward and only in the destructive column —
     # the ops the ledd-precise grants date below section level (see the count
     # note above); every removing column is byte-identical.
-    "20cbd762fe8b6bd296ec4ccaacca4bcc3d6b27dd1497c68a19be9b404de02d49"
+    # W-104: ONE law enters (``no/lov/2018-06-01-24`` [1, 0], the widened
+    # qualifier grammar dating its 2024 instrument's § 11-4 paths) and the
+    # addressed word-substitution ops move the per-law counts of the bases
+    # whose acts they are dated on (utlendingsloven [321, 16] -> [325, 16]
+    # among them); husbankloven holds [9, 4].
+    "8c2c4d6e0e7c9f5998aa74f020fdf8addcc3fef37a396dc223a99fdf6d083aa5"
 )
 
 _REGENERATE = (
@@ -2457,7 +2474,8 @@ def test_no_incomplete_base_destructive_write_census_is_pinned(
     # 165 -> 156 at W-100: nine contingent-skip laws leave (their acts are now
     # dated) and the two entrants are contingent-skip laws (per-op), so the
     # dominance argument stays exact.
-    assert hazard["hazard_by_skip_kind"]["contingent"] == 156
+    # 156 -> 157 at W-104: the ``2018-06-01-24`` entrant is a contingent base.
+    assert hazard["hazard_by_skip_kind"]["contingent"] == 157
     assert hazard["hazard_by_skip_kind"]["missing_source"] == 0
     # Husbankloven is the witness this census exists for, and it is STILL IN THE
     # SET — 8 destructive writes, 3 of them content-removing. W-73 repaired the

@@ -1210,7 +1210,11 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
     # 438 -> 440 at W-98: two more first-entry acts take the widened route,
     # ``no/lovtid/2002-08-30-68`` (``bokstav f)``) and ``2016-09-16-81``
     # ("Kapittel 12 skal lyde:"). Both ``plain``.
-    assert len(widened_ids) == 469
+    # 469 -> 470 at W-104: ``no/lovtid/2004-07-02-68`` (the Medietilsynet act)
+    # gains its first index entry from the addressed word-substitution
+    # production and is dated 2005-01-01 by ``no/forskrift/2004-07-02-1099``
+    # ("gjeld frå 1. januar 2005") through the widened route. ``plain``.
+    assert len(widened_ids) == 470
     assert not (widened_ids & authorized_ids)
     # FIVE of the 430 are staged acts, so the staged re-dating population grows
     # 8 -> 13 — the same offer gate, the same "an official instrument outranks a
@@ -1629,7 +1633,9 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     # act, ``no/lovtid/2017-06-16-51``, gains its first index entry from the
     # address-after-citation lead grammar and is dated by its own forskrift
     # through the shipped whole-act route. ``plain``.
-    assert len(authorized) == 1015
+    # 1,015 -> 1,016 (and 1,002 -> 1,003 non-staged) at W-104: the
+    # ``2004-07-02-68`` entrant above, via the widened route.
+    assert len(authorized) == 1016
     assert (
         len([
             entry
@@ -1638,7 +1644,7 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
         ])
         # 973 -> 1,002 at W-100: the 29 acts the title-cited citation form
         # dates are all ``plain`` principal acts (staged unmoved at 13).
-        == 1002
+        == 1003
     )
     assert all(entry.effective_date for entry in authorized)
     authorization_receipts = [
@@ -1685,7 +1691,8 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     # first-entry acts named above, one receipt each.
     # 545 -> 546 at W-99: the ``2017-06-16-51`` entrant above.
     assert len(authorization_receipts) == 546
-    assert len(widened_receipts) == 469
+    # 469 -> 470 at W-104: the ``2004-07-02-68`` entrant, one widened receipt.
+    assert len(widened_receipts) == 470
     assert {d["source_id"] for d in authorization_receipts + widened_receipts} == {
         entry.source_id for entry in authorized
     }
@@ -2178,7 +2185,11 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # 2,592 -> 2,597 at W-99: five acts gain their first entry (``2002-05-03-13``,
     # ``2004-03-26-17``, ``2005-12-21-123``, ``2017-06-16-51``, ``2020-12-18-144``),
     # each from a lead of the address-after-citation shape.
-    assert len(index.entries) == 2597
+    # 2,597 -> 2,598 at W-104: ``no/lovtid/2004-07-02-68`` (the Medietilsynet
+    # act) gains its first entry from the addressed word-substitution
+    # production — its four parts are inline "«X» skal endrast til «Y» i § …"
+    # sentences with no change markup.
+    assert len(index.entries) == 2598
     bindings = {
         (entry.source_id, base_id) for entry in index.entries for base_id in entry.base_ids
     }
@@ -2284,7 +2295,17 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # folkehøgskoleloven, the declared target the receipt note above records
     # (2,370 -> 2,369). ZERO rebound, ZERO newly unbound; the 36 acts whose
     # op counts move gain chapter ops on bindings they already had.
-    assert len(bindings) == 6629
+    # 6,629 -> 6,634 at W-104: 7 new (act, law) pairs, 2 withdrawn.
+    # Gained: the Medietilsynet act's three declared targets (the film act,
+    # kringkastingsloven, the media-ownership act; straffeloven stays unbound
+    # on its "I Almindelig borgerlig straffelov …" lead) and the law-switch
+    # prefixed or address-first substitution sentences that now bind where
+    # before they were unmatched or mis-cited. Withdrawn: bindings whose ONLY
+    # op was a global text-replace on an addressed sentence, now refused typed
+    # (a heading in the list, an aside inside it).
+    # gained=[('no/lovtid/2003-06-27-57', 'no/lov/1976-12-17-91'), ('no/lovtid/2004-07-02-68', 'no/lov/1987-05-15-21'), ('no/lovtid/2004-07-02-68', 'no/lov/1992-12-04-127'), ('no/lovtid/2004-07-02-68', 'no/lov/1997-06-13-53'), ('no/lovtid/2018-12-20-98', 'no/lov/1953-07-17-2'), ('no/lovtid/2019-05-24-18', 'no/lov/1992-06-19-59'), ('no/lovtid/2019-12-20-105', 'no/lov/1997-02-28-19')]
+    # lost=[('no/lovtid/2014-06-20-24', 'no/lov/2010-06-25-28'), ('no/lovtid/2014-06-20-47', 'no/lov/2012-01-20-6')]
+    assert len(bindings) == 6634
     # 26,218 at W-30; +2 at W-24, both reconciled to a named erratum and neither
     # touching this test's own subject. W-24 lowered two Del-scoped Rettelser
     # corrections into the law each part amends — ``2019-12-20-110`` Del I into
@@ -2563,7 +2584,12 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # structured chapter ops Lovdata's ``kap…`` token now lowers — 35
     # heading-only REPLACE, 16 INSERT (W-98's tag), 4 REPEAL — beside W-82's
     # eight ``KAPITTEL_`` chapter ops that were already here (5/2/1). 0 strays.
-    assert sum(entry.n_ops for entry in index.entries) == 29697
+    # 29,697 -> 29,870 at W-104 (+173): the addressed word-substitution
+    # production mints 217 addressed TEXT_PATCH ops over 41 laws (the 2004
+    # Medietilsynet act's 34 among them) and 44 global text-replace ops on
+    # addressed sentences are withdrawn — most re-emitted at their address,
+    # the rest refused typed. 0 strays, 0 dropped.
+    assert sum(entry.n_ops for entry in index.entries) == 29870
 
 
 def test_no_amendment_index_staleness_report_detects_archive_change(tmp_path) -> None:

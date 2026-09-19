@@ -160,7 +160,7 @@ _SECTION_OPEN_RE = re.compile(r"§§?\s*")
 _LABEL_RE = re.compile(r"(\d+-\d+|\d+)(?:([a-hj-zæøå])\b|\s([a-hj-zæøå])\b)?", re.IGNORECASE)
 _ORDINAL_RE = re.compile(
     r"(?:første|fyrste|andre|annet|annen|tredje|fjerde|femte|sjette|sjuende|syvende|åttende|niende"
-    r"|tiende|ellevte|tolvte|siste|nytt|ny|nye)\b",
+    r"|tiende|ellevte|tolvte|sjuande|åttande|niande|tiande|siste|nytt|ny|nye)\b",
     re.IGNORECASE,
 )
 _QUAL_KEYWORD_RE = re.compile(
@@ -174,6 +174,9 @@ _ORDINAL_NUMBERS = {
     "første": 1, "fyrste": 1, "andre": 2, "annet": 2, "annen": 2, "tredje": 3, "fjerde": 4,
     "femte": 5, "sjette": 6, "sjuende": 7, "syvende": 7, "åttende": 8, "niende": 9,
     "tiende": 10, "ellevte": 11, "tolvte": 12,
+    # W-104: the nynorsk spellings the 2004–2005 consequential acts use
+    # ("§ 4-20 sjuande ledd", no/lovtid/2005-06-17-57).
+    "sjuande": 7, "åttande": 8, "niande": 9, "tiande": 10,
 }
 _TRANSPARENT_ORDINALS = frozenset({"nytt", "ny", "nye"})
 # Qualifier keyword -> the grafter's step kind. ``ledd`` and ``punktum`` take the
@@ -457,7 +460,7 @@ def _read_date(cursor: _Cursor, reading: _Reading) -> str | None:
 
 
 @dataclass(frozen=True, slots=True)
-class _SectionList:
+class SectionList:
     """What the section-list scanner read. W-102 adds ``subpaths``."""
 
     labels: tuple[str, ...]
@@ -522,8 +525,42 @@ def _qualifier_subpaths(tokens: Sequence[tuple[str, str]]) -> tuple[str, ...]:
         return ()
     if post is not None:
         groups.append(post)
-    if not groups or groups[0][0] != "subsection" or len(groups) > 2:
+    # W-104: the run may name SEVERAL ledd groups, each with at most one group
+    # below it — "fjerde ledd første punktum og sjette ledd" (no/lovtid/2004-07-02-68
+    # on kringkastingsloven § 2-1) is ``subsection:4/sentence:1`` and
+    # ``subsection:6``. W-102 admitted one ledd group and one sub-group; the
+    # sequence generalises it without changing what any W-102 shape spells. Two
+    # sub-groups in a row (``første ledd nr. 1 andre punktum``) still spell no
+    # path: the second would need a ledd of its own.
+    if not groups or groups[0][0] != "subsection":
         return ()
+    runs: list[tuple[tuple[str, list[str]], tuple[str, list[str]] | None]] = []
+    for group in groups:
+        if group[0] == "subsection":
+            runs.append((group, None))
+        elif runs[-1][1] is not None:
+            return ()
+        else:
+            runs[-1] = (runs[-1][0], group)
+    paths: list[str] = []
+    for head_group, sub_group in runs:
+        expanded = _expand_qualifier_groups([head_group] + ([sub_group] if sub_group is not None else []))
+        if expanded is None:
+            return ()
+        for first in expanded[0][1]:
+            head = f"{expanded[0][0]}:{first}"
+            if len(expanded) == 1:
+                paths.append(head)
+                continue
+            for second in expanded[1][1]:
+                paths.append(f"{head}/{expanded[1][0]}:{second}")
+    return tuple(sorted(set(paths)))
+
+
+def _expand_qualifier_groups(
+    groups: Sequence[tuple[str, list[str]]],
+) -> list[tuple[str, tuple[str, ...]]] | None:
+    """Expand ``til`` ranges inside each group; ``None`` when a range is not numeric and ascending."""
     expanded: list[tuple[str, tuple[str, ...]]] = []
     for step_kind, raw_labels in groups:
         labels: list[str] = []
@@ -532,30 +569,43 @@ def _qualifier_subpaths(tokens: Sequence[tuple[str, str]]) -> tuple[str, ...]:
             token = raw_labels[index]
             if token == "..":
                 if not labels or index + 1 >= len(raw_labels):
-                    return ()
+                    return None
                 low, high = labels[-1], raw_labels[index + 1]
                 if not (low.isdigit() and high.isdigit()) or int(low) >= int(high):
-                    return ()
+                    return None
                 labels.extend(str(value) for value in range(int(low) + 1, int(high) + 1))
                 index += 2
                 continue
             labels.append(token)
             index += 1
         if not labels:
-            return ()
+            return None
         expanded.append((step_kind, tuple(labels)))
-    paths: list[str] = []
-    for first in expanded[0][1]:
-        head = f"{expanded[0][0]}:{first}"
-        if len(expanded) == 1:
-            paths.append(head)
-            continue
-        for second in expanded[1][1]:
-            paths.append(f"{head}/{expanded[1][0]}:{second}")
-    return tuple(sorted(set(paths)))
+    return expanded
 
 
-def _read_section_list(cursor: _Cursor) -> _SectionList:
+def read_section_list_text(text: str) -> tuple[SectionList | None, str]:
+    """Read one section list from the START of ``text``; return it and what was left.
+
+    W-104: the grafter's addressed word-substitution production reads its
+    inline address list ("… i § 2-1 fjerde ledd første punktum og sjette ledd,
+    § 4-3 første ledd … og § 10-4 første og andre ledd") with this scanner
+    rather than a second grammar. The remainder is everything after the list
+    with trailing punctuation dropped, so a caller can tell a list that closed
+    on its own end from one the scanner could not finish (``§ 4-4
+    overskriften, …`` closes on ``overskriften``). ``None`` when ``text`` does
+    not open with a section list at all.
+    """
+    cursor = _Cursor(text)
+    try:
+        section_list = _read_section_list(cursor)
+    except _Refuse:
+        return None, text
+    remainder = _TRAILING_RE.sub("", cursor.rest()).strip()
+    return section_list, remainder
+
+
+def _read_section_list(cursor: _Cursor) -> SectionList:
     """``§ a[ quals][, § b …][ og § c]`` → labels, qualified labels, subpaths.
 
     The scanner accepts a label, then any run of qualifier tokens, then either a
@@ -644,7 +694,7 @@ def _read_section_list(cursor: _Cursor) -> _SectionList:
             continue
         cursor.pos = saved
         break
-    return _SectionList(
+    return SectionList(
         labels=tuple(labels),
         qualified=tuple(qualified),
         subpaths=tuple(sorted((label, tuple(sorted(paths))) for label, paths in subpaths.items())),

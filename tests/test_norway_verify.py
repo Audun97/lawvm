@@ -2908,7 +2908,19 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # unexplained; klimakvoteloven's one new row (a second § 16 under chapter 4
     # while the 2023 act's chapter 4 A re-enacts § 16) appeared and closed
     # inside the item, through the new-chapter relocation. No other row moves.
-    assert report["divergence_totals"] == {"total": 1478, "ceiling": 1011, "unexplained": 467}
+    # 1,478/1,011/467 -> 1,479/1,011/468 at W-104: the addressed word
+    # substitution replaces the global text-replace production on addressed
+    # sentences. naturskadeerstatningsloven (``no/lov/2014-08-15-59``) moves
+    # untouched drift -> replay defect, 5 -> 6 rows: "I §§ 11, 12, 13, 14, 17,
+    # 18, 20 og 24 erstattes «Statens landbruksforvaltning» med
+    # «Landbruksdirektoratet»" (``2019-05-24-18``) was ONE whole-law
+    # ``str.replace``, right by accident; as eight whole-section ops, §§ 17 and
+    # 20 carry the term two and three times and S7 refuses them ``multiple``,
+    # so three section rows open where two chapter-title rows stood. The
+    # exactly-once rule against a whole-section address is the recorded
+    # follow-up. AFP-loven (``2010-06-25-28``) loses one global op to a typed
+    # heading refusal, rows unmoved.
+    assert report["divergence_totals"] == {"total": 1479, "ceiling": 1011, "unexplained": 468}
     # 3 -> 2 at W-34: no/lov/2001-01-05-1 gains 4 bound ops from
     # no/lovtid/2015-06-19-65 item 178, so its indexed history is no longer
     # sparse. Its 83 divergences do not move; only the bucket does.

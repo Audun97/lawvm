@@ -2906,7 +2906,10 @@ def test_w51_corpus_totals_and_the_untouched_part_routes() -> None:
     # section-scoped receipts this item adds are censused in the W-100 block.
     assert counts == {
         NO_COMMENCEMENT_EXECUTION_AUTHORIZED: 546,
-        NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED: 469,
+        # 469 -> 470 at W-104: ``no/lovtid/2004-07-02-68`` (the Medietilsynet
+        # act) gains its first index entry from the addressed word-substitution
+        # production and is dated by its own resolution through this route.
+        NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED: 470,
         NO_COMMENCEMENT_PART_EXECUTION_AUTHORIZED: 33,
         NO_COMMENCEMENT_MULTI_PART_EXECUTION_AUTHORIZED: 4,
         NO_COMMENCEMENT_NAMED_PART_LIST_EXECUTION_AUTHORIZED: 33,
@@ -2983,7 +2986,11 @@ def test_w51_corpus_totals_and_the_untouched_part_routes() -> None:
     # whose every dated label was ledd-qualified is now GRANTED by path where
     # the act's ops admit it (28 all-qualified keys -> 8; 3 one-instrument
     # staged keys land), and each granted pair sheds its generic refusal.
-    assert len(refused_pairs) == 710
+    # 710 -> 709 at W-104: the widened qualifier grammar (several ledd groups,
+    # each with one group below) lands utlendingsloven § 62 "annet ledd annet
+    # punktum og femte ledd første punktum" by path, so the 2022 pair sheds its
+    # generic refusal.
+    assert len(refused_pairs) == 709
 
     # The inert part-grant population, 31 -> 4 at W-53 with the absorption.
     inert = [
@@ -3640,7 +3647,10 @@ def test_w53_corpus_zero_early_over_every_widened_grant() -> None:
     # zero-early property below holds over the grown set, and the Bouvetøya
     # instrument (``no/forskrift/2005-02-25-173``) is refused by the form's
     # bare-date-tail conjunct rather than dating ``no/lovtid/2003-06-27-57``.
-    assert len(grants) == 469
+    # 469 -> 470 at W-104: ``no/lovtid/2004-07-02-68`` (the Medietilsynet act),
+    # first lowered ops from the addressed word-substitution production, dated
+    # 2005-01-01 by ``no/forskrift/2004-07-02-1099`` ("gjeld frå").
+    assert len(grants) == 470
     early = [
         (d["source_id"], d["effective_date"], sibling_id, sibling_date)
         for d in grants
@@ -5058,30 +5068,40 @@ def test_w100_corpus_totals() -> None:
     # by path, whole-section carve-outs 32 -> 18, refused qualified labels
     # 70 -> 17 (reasons on the receipts), refusals 131 -> 108 (the 28
     # all-ledd-qualified keys -> 8; the 3 one-instrument staged keys land).
-    assert len(grants) == 280
-    assert sum(1 for g in grants if g["complete"]) == 224
+    # W-104 (2026-09-11): the qualifier grammar reads a SEQUENCE of ledd
+    # groups, each with at most one group below ("fjerde ledd første punktum
+    # og sjette ledd"). 280 -> 281 bindings (complete 224 -> 225; 125 acts,
+    # 166 laws): ``no/forskrift/2024-06-14-982`` on ``no/lov/2018-06-01-24``
+    # lands § 11-4 fjerde og femte ledd; utlendingsloven's 2022 binding, which
+    # had refused § 62 as "the qualifier spells no path", lands
+    # ``subsection:2/sentence:2`` and ``subsection:5/sentence:1`` and completes
+    # (refused qualified labels 17 -> 16, no-path reasons 4 -> 3, refusals 108
+    # -> 107, all-ledd-qualified 8 -> 7); subpath dates 138 -> 142 over 93
+    # labels of 43 bindings.
+    assert len(grants) == 281
+    assert sum(1 for g in grants if g["complete"]) == 225
     assert sum(1 for g in grants if g["binding_date"]) == 223
-    assert len({g["source_id"] for g in grants}) == 124
-    assert len({g["law_id"] for g in grants}) == 165
+    assert len({g["source_id"] for g in grants}) == 125
+    assert len({g["law_id"] for g in grants}) == 166
     assert [(c["source_id"], c["law_id"]) for c in conflicts] == [("no/lovtid/2004-03-05-11", "no/lov/1995-05-26-25")]
-    assert len(refusals) == 108
-    assert sum(1 for r in refusals if "ledd-qualified" in r["refusal"]) == 8
-    assert sum(len(g["subpath_dates"]) for g in grants) == 138
-    assert len({(g["source_id"], g["law_id"], label) for g in grants for label, _p, _d in g["subpath_dates"]}) == 91
-    assert sum(1 for g in grants if g["subpath_dates"]) == 42
+    assert len(refusals) == 107
+    assert sum(1 for r in refusals if "ledd-qualified" in r["refusal"]) == 7
+    assert sum(len(g["subpath_dates"]) for g in grants) == 142
+    assert len({(g["source_id"], g["law_id"], label) for g in grants for label, _p, _d in g["subpath_dates"]}) == 93
+    assert sum(1 for g in grants if g["subpath_dates"]) == 43
     assert sum(len(g["excluded_subpaths"]) for g in grants) == 4
     assert sum(len(g["excluded_section_labels"]) for g in grants) == 18
-    assert sum(len(g["qualified_refused_labels"]) for g in grants) == 17
+    assert sum(len(g["qualified_refused_labels"]) for g in grants) == 16
     # Every refused qualified label carries its reason, and none of the
     # reasons is a renumber straddle: the two shapes the corpus has (a shift
     # inside ``annet til syvende ledd``; ``nytt tredje ledd`` shifting old 3
     # to 4) are admitted by the union rule.
     reasons = [reason for g in grants for _label, reason in g["qualified_fallback_reasons"]]
-    assert len(reasons) == 17
+    assert len(reasons) == 16
     assert not [r for r in reasons if "moves" in r]
-    assert sum(1 for r in reasons if r == "the qualifier spells no path") == 4
+    assert sum(1 for r in reasons if r == "the qualifier spells no path") == 3
     widened = [d for d in index.diagnostics if d.get("rule_id") == NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED]
-    assert len(widened) == 469
+    assert len(widened) == 470
     # No act-level grant of this lane, ever: the histogram's contingent column
     # only moves through lane A.
     assert index.status_counts()[NOEffectiveStatus.CONTINGENT] == 511

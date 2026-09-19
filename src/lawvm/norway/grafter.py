@@ -36,6 +36,7 @@ from lawvm.core.invariant_profiles import CORE_REPLAY_DELTA_MINIMAL_FAMILIES
 from lawvm.core.op_ordering import OrderingProfile, order_ops
 from lawvm.core.provenance import compute_source_anchor
 from lawvm.core.regex_safety import compile_classifier_regex
+from lawvm.norway.commencement_scope import read_section_list_text
 from lawvm.core.apply_seam import (
     ApplyProfile,
     AppliedOp,
@@ -5977,7 +5978,12 @@ def _iter_unstructured_no_change_groups(
         if explicit_section_base_id is not None:
             active_base_id = explicit_section_base_id
         lead_base_id = default_base_id or explicit_section_base_id or active_base_id or section_base_id
-        embedded = _extract_no_embedded_multi_act_lead(lead)
+        # W-104: asked before the embedded rewrite, because W-99's
+        # address-after-citation pattern reads "I lov … skal «X» endrast til
+        # «Y» i § 2 tredje ledd, …" as a citation plus a ``§`` address and
+        # rebuilds the lead without its substitution sentence.
+        addressed_substitution = _no_addressed_substitution_lead(lead)
+        embedded = None if addressed_substitution is not None else _extract_no_embedded_multi_act_lead(lead)
         if embedded is not None:
             lead_base_id, lead = embedded
             active_base_id = lead_base_id
@@ -6031,6 +6037,122 @@ def _iter_unstructured_no_change_groups(
             for node in payload_nodes
             if _local_name(node) == "article" and {"legalP", "numberedLegalP"} & _classes(node)
         ]
+
+        # W-104: the inline addressed word substitution. Ranked above the
+        # global text-replace production so an address tail is never dropped
+        # into a ``scope:global`` op, and consuming NO payload: the sentence is
+        # complete in itself, and the ``legalP`` that follows it is the next
+        # lead (the 2004 act writes its two substitutions as two sibling
+        # ``legalP`` nodes, and the payload cursor above would have swallowed
+        # the second as the first's payload).
+        if addressed_substitution is not None:
+            substitution_base_id = addressed_substitution.cited_base_id or lead_base_id
+            substitution_detail: dict[str, object] = dict(
+                shape=addressed_substitution.shape,
+                pair_shape=addressed_substitution.pair_shape,
+                pairs=[list(pair) for pair in addressed_substitution.pairs],
+                labels=list(addressed_substitution.labels),
+                qualified_labels=list(addressed_substitution.qualified),
+                unread=addressed_substitution.unread,
+            )
+            if substitution_base_id is None:
+                _append_no_unstructured_parse_adjudication(
+                    adjudications_out,
+                    kind="no_parse_unstructured_lead_base_unresolved",
+                    message="Norway unstructured amendment lead looked operative, but no base act could be resolved.",
+                    source_id=source_id,
+                    lead=lead,
+                    base_id="",
+                    detail=substitution_detail,
+                )
+                idx += 1
+                continue
+            if addressed_substitution.cited_base_id is not None:
+                active_base_id = addressed_substitution.cited_base_id
+            if not addressed_substitution.pairs:
+                _append_no_unstructured_parse_adjudication(
+                    adjudications_out,
+                    kind=NO_PARSE_ADDRESSED_SUBSTITUTION_PAIR_UNRESOLVED,
+                    message=(
+                        "Norway addressed word-substitution lead names its provisions, but the "
+                        "(from, to) pair grammar did not parse; nothing was lowered."
+                    ),
+                    source_id=source_id,
+                    lead=lead,
+                    base_id=substitution_base_id,
+                    detail=substitution_detail,
+                )
+                idx += 1
+                continue
+            if addressed_substitution.unread:
+                _append_no_unstructured_parse_adjudication(
+                    adjudications_out,
+                    kind=NO_PARSE_ADDRESSED_SUBSTITUTION_ADDRESS_LIST_UNRESOLVED,
+                    message=(
+                        "Norway addressed word-substitution lead's address list could not be read "
+                        "to its end; nothing was lowered rather than substituting in a partial list."
+                    ),
+                    source_id=source_id,
+                    lead=lead,
+                    base_id=substitution_base_id,
+                    detail=substitution_detail,
+                )
+                idx += 1
+                continue
+            subpaths_by_label = dict(addressed_substitution.subpaths)
+            substitution_ops = doc_ops_by_base.setdefault(substitution_base_id, [])
+            substitution_group = sequence
+            for label in addressed_substitution.labels:
+                if label in addressed_substitution.qualified:
+                    paths = subpaths_by_label.get(label, ())
+                    if not paths:
+                        _append_no_unstructured_parse_adjudication(
+                            adjudications_out,
+                            kind=NO_PARSE_ADDRESSED_SUBSTITUTION_PATH_UNRESOLVED,
+                            message=(
+                                "Norway addressed word-substitution lead qualifies a section with a "
+                                "phrase the path grammar cannot place; that section was refused, the "
+                                "others lowered."
+                            ),
+                            source_id=source_id,
+                            lead=lead,
+                            base_id=substitution_base_id,
+                            detail=dict(substitution_detail, label=label),
+                        )
+                        continue
+                    targets = [_no_addressed_substitution_address(label, path) for path in paths]
+                else:
+                    targets = [_no_addressed_substitution_address(label, None)]
+                for target in targets:
+                    for from_term, to_term in addressed_substitution.pairs:
+                        substitution_ops.append(
+                            LegalOperation(
+                                op_id=f"{source_id}:{sequence}",
+                                sequence=sequence,
+                                action=StructuralAction.TEXT_PATCH,
+                                target=target,
+                                text_patch=TextPatchSpec(
+                                    kind=TextPatchKindEnum.REPLACE,
+                                    selector=TextSelector(match_text=from_term, occurrence=0),
+                                    replacement=to_term,
+                                ),
+                                source=OperationSource(
+                                    statute_id=source_id, raw_text=lead, title=substitution_base_id
+                                ),
+                                provenance_tags=(
+                                    f"base_act:{substitution_base_id}",
+                                    "fallback:unstructured",
+                                    "scope:addressed",
+                                    NO_SUBSTITUTION_PROVENANCE_TAG,
+                                ),
+                                # One group per lead: the apply plane reads it with
+                                # the target path to recover the FROM-term set (S6).
+                                group_id=f"{source_id}:{substitution_base_id}:{substitution_group}",
+                            )
+                        )
+                        sequence += 1
+            idx += 1
+            continue
 
         text_replace_pairs = _extract_no_global_text_replace_pairs(lead)
         if text_replace_pairs:
@@ -9702,8 +9824,12 @@ _NO_SUBSTITUTION_ANNOUNCEMENT_OPENER_SCAN_RE = compile_classifier_regex(
 #   * ``skal ordene «A» og «B» endres til henholdsvis «C» og «D»`` — N before,
 #     N after.
 # Anything else refuses under S3 with the W-75 receipt.
+# W-104 adds the nynorsk verbs (``endrast til``, ``erstattast med``): the
+# unstructured-lane production below reads the same pair grammar, and the 2004
+# Medietilsynet act (no/lovtid/2004-07-02-68) is written in nynorsk.
 _NO_SUBSTITUTION_PAIR_VERB_RE = compile_classifier_regex(
-    r"\b(?:endres\s+til|erstattes\s+med|erstattes\s+av|erstattes|endres)\b",
+    r"\b(?:endres\s+til|erstattes\s+med|erstattes\s+av|endrast\s+til|erstattast\s+med"
+    r"|erstattast\s+av|erstattes|erstattast|endres|endrast)\b",
     re.IGNORECASE,
     classifier_id="norway.grafter.substitution_pair_verb",
 )
@@ -9811,6 +9937,184 @@ def _extract_no_substitution_pairs(announcement: str) -> tuple[tuple[tuple[str, 
             "positional_pairs_verb_first_henholdsvis",
         )
     return (), f"unpaired_{len(before)}_{len(after)}"
+
+
+# W-104: the addressed word substitution written as ONE SENTENCE, in the
+# unstructured lane. W-69a lowers the announcement-plus-list rendering ("I
+# følgende bestemmelser skal ordet «X» endres til «Y»: <data-change-part
+# list>"), where the addresses come from markup. The older acts write the same
+# instruction inline, with no markup at all, in two word orders:
+#
+#   * TERM FIRST, address tail — "«Statens medieforvaltning» skal endrast til
+#     «Medietilsynet» i § 2-1 fjerde ledd første punktum og sjette ledd, § 4-3
+#     første ledd, … og § 10-4 første og andre ledd." (no/lovtid/2004-07-02-68,
+#     the Medietilsynet act, on kringkastingsloven; also "Ordet «X» skal endres
+#     til «Y» i § …", `2022-06-17-45`; "Benevnelsen «X» endres til «Y» i §§ 18
+#     første ledd, 19 første og andre ledd og 20.", `2015-12-18-121`;
+#     "Uttrykket «X» skal erstattes med «Y» i § 7-1 annet ledd.",
+#     `2003-09-05-91`), optionally under a law switch of its own ("I lov 15.
+#     mai 1987 nr. 21 om film og videogram skal «X» endrast til «Y» i § 2
+#     tredje ledd, …" — the same act's part II);
+#   * ADDRESS FIRST — "I §§ 22, 24 og 27 skal uttrykket «anbod» endrast til
+#     «konkurranse»." (`2009-06-19-108`); "I § 15 andre ledd skal tilvisingane
+#     til «§ 9» endrast til «§ 9 første ledd»." (`2007-06-29-94`).
+#
+# Before this production every one of them was ``no_parse_unstructured_lead_
+# unmatched`` — or worse: under a law switch, W-99's address-after-citation
+# pattern read "… skal «X» endrast til «Y» i § 2 tredje ledd, …" as a citation
+# followed by a ``§`` address, rebuilt the lead as "§ 2 tredje ledd, § 4 …",
+# and that residue looked inert, so part II of the 2004 act produced neither
+# op nor receipt. The walk therefore asks this production FIRST and skips the
+# embedded rewrite when it answers.
+#
+# The address list is read by the commencement scope reader's section-list
+# scanner (``read_section_list_text``), which already spells "fjerde ledd
+# første punktum og sjette ledd" in the grafter's own step vocabulary; the
+# pair grammar is W-69a's; the op shape is W-69a's addressed ``TEXT_PATCH``,
+# tagged ``NO_SUBSTITUTION_PROVENANCE_TAG`` so the apply seam proves the FROM
+# term uniquely present before writing (S6/S7). What refuses, refuses typed:
+# a pair the grammar cannot read (an unquoted TO term — "endrast til Aetat",
+# `2005-06-17-57`), a list the scanner could not finish ("§ 4-4 overskriften"
+# names a heading, not a provision), and a qualified label whose qualifier
+# spells no path (per label; the other labels land, as W-69a does per address).
+NO_PARSE_ADDRESSED_SUBSTITUTION_PAIR_UNRESOLVED = "no_parse_addressed_substitution_pair_unresolved"
+NO_PARSE_ADDRESSED_SUBSTITUTION_ADDRESS_LIST_UNRESOLVED = (
+    "no_parse_addressed_substitution_address_list_unresolved"
+)
+NO_PARSE_ADDRESSED_SUBSTITUTION_PATH_UNRESOLVED = "no_parse_addressed_substitution_path_unresolved"
+# The noun that may stand between ``skal`` (or the sentence start) and the
+# quoted FROM term. Closed on the corpus spellings; anything else means the
+# sentence is not this construct.
+_NO_ADDRESSED_SUBSTITUTION_NOUN_RE = compile_classifier_regex(
+    r"^(?:ordet|orda|ordene|omgrepet|omgrepa|uttrykket|uttrykka|uttrykkene|benevnelsen|benevnelsene"
+    r"|betegnelsen|betegnelsene|lovbetegnelsen|begrepet|begrepene|navnet|tallet|punktmarkøren"
+    r"|nemninga|nemningane|formuleringa|formuleringen|formuleringene"
+    r"|tilvisinga\stil|tilvisingane\stil|henvisningen\stil|henvisningene\stil"
+    r"|båe\suttrykka|begge\suttrykkene)$",
+    re.IGNORECASE,
+    classifier_id="norway.grafter.addressed_substitution_noun",
+)
+# The address-first sentence puts either ``skal`` or the verb itself between
+# the list and the first term: "I § 42 nr. 2 endres «X» til «Y»", "I § 11
+# første ledd erstattes «X» med «Y»", "I § 9-2 første og andre ledd erstattes
+# ordet «X» med ordet «Y»". The pair grammar reads the verb-first pair; this
+# only has to let the word through.
+_NO_ADDRESSED_SUBSTITUTION_LINK_RE = compile_classifier_regex(
+    r"^(?:skal|endres|endrast|erstattes|erstattast)$",
+    re.IGNORECASE,
+    classifier_id="norway.grafter.addressed_substitution_link",
+)
+
+
+@dataclass(frozen=True)
+class _NOAddressedSubstitutionLead:
+    """What :func:`_no_addressed_substitution_lead` read out of one sentence."""
+
+    shape: str
+    pairs: tuple[tuple[str, str], ...]
+    pair_shape: str
+    labels: tuple[str, ...]
+    qualified: tuple[str, ...]
+    subpaths: tuple[tuple[str, tuple[str, ...]], ...]
+    unread: str
+    cited_base_id: Optional[str]
+
+
+def _no_addressed_substitution_noun_ok(residue: str) -> bool:
+    residue = residue.strip()
+    if not residue:
+        return True
+    # lawvm-regex: owning_parser this IS the addressed-substitution lead parser
+    return _NO_ADDRESSED_SUBSTITUTION_NOUN_RE.match(residue) is not None
+
+
+def _no_addressed_substitution_lead(lead: str) -> Optional[_NOAddressedSubstitutionLead]:
+    """Read an inline addressed word substitution, or ``None`` if the sentence is not one.
+
+    ``None`` means "not this construct" and the walk goes on to the other
+    productions. A returned reading may still refuse — an empty ``pairs``, a
+    non-empty ``unread`` or a qualified label without a path — and the walk
+    receipts each of those; the shape itself was recognised.
+    """
+    text = _normalize_space(lead)
+    if text.endswith("."):
+        text = text[:-1].rstrip()
+    # lawvm-regex: owning_parser this IS the addressed-substitution lead parser
+    if _NO_SUBSTITUTION_PAIR_VERB_RE.search(text) is None:
+        return None
+    first = text.find("«")
+    last = text.rfind("»")
+    if first < 0 or last < first:
+        return None
+    head = text[:first].strip()
+    tail = text[last + 1 :].strip()
+    cited_base_id: Optional[str] = None
+    if tail.lower().startswith("i §"):
+        shape = "term_first"
+        tokens = head.split()
+        lowered = [token.lower() for token in tokens]
+        if "skal" in lowered:
+            cut = len(lowered) - 1 - lowered[::-1].index("skal")
+            prefix = " ".join(tokens[:cut])
+            residue = " ".join(tokens[cut + 1 :])
+        else:
+            prefix, residue = "", head
+        if not _no_addressed_substitution_noun_ok(residue):
+            return None
+        if prefix:
+            # A law switch of the lead's own: "I lov 15. mai 1987 nr. 21 om film
+            # og videogram skal …". Anything else in front of the term is prose
+            # this production does not read.
+            if not prefix.lower().startswith("i "):
+                return None
+            cited = _extract_no_law_citation_base_ids(prefix)
+            if len(cited) != 1:
+                return None
+            cited_base_id = cited[0]
+        section_list, unread = read_section_list_text(tail[1:].strip())
+        if section_list is None:
+            return None
+    elif head.lower().startswith("i §"):
+        shape = "address_first"
+        # After the last quoted term only a verb phrase may follow — and only
+        # when the TO term is NOT quoted ("… skal «arbeidskontoret» og
+        # «arbeidsformidlingen» endrast til Aetat", `2005-06-17-57`), which is
+        # the pair grammar's refusal to make, not this shape test's.
+        # lawvm-regex: owning_parser this IS the addressed-substitution lead parser
+        if tail and _NO_SUBSTITUTION_PAIR_VERB_RE.match(tail) is None:
+            return None
+        section_list, unread = read_section_list_text(head[1:].strip())
+        if section_list is None:
+            return None
+        rest = unread.split()
+        # lawvm-regex: owning_parser this IS the addressed-substitution lead parser
+        if rest and _NO_ADDRESSED_SUBSTITUTION_LINK_RE.match(rest[0]) is not None:
+            rest = rest[1:]
+        if _no_addressed_substitution_noun_ok(" ".join(rest)):
+            unread = ""
+    else:
+        return None
+    pairs, pair_shape = _extract_no_substitution_pairs(text)
+    return _NOAddressedSubstitutionLead(
+        shape=shape,
+        pairs=pairs,
+        pair_shape=pair_shape,
+        labels=tuple(dict.fromkeys(section_list.labels)),
+        qualified=section_list.qualified,
+        subpaths=section_list.subpaths,
+        unread=unread,
+        cited_base_id=cited_base_id,
+    )
+
+
+def _no_addressed_substitution_address(label: str, subpath: Optional[str]) -> LegalAddress:
+    """``("2-1", "subsection:4/sentence:1")`` → the grafter's own address steps."""
+    steps: list[tuple[str, str]] = [("section", label)]
+    if subpath:
+        for step in subpath.split("/"):
+            kind, _, value = step.partition(":")
+            steps.append((kind, value))
+    return LegalAddress(path=tuple(steps))
 
 
 def _no_substitution_term_counts(node: IRNode, term: str) -> tuple[int, int, int]:

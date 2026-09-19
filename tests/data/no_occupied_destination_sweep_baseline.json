@@ -2,7 +2,7 @@
  "_doc": "Corpus-wide (RENUMBER, dest_occupied) firing sweep + the known-incomplete-base destructive-write census, over EVERY Norway base law. Cached because the sweep is ~10 CPU-minutes and the norway shard is not. `corpus` and `code` are the staleness receipt: tests/test_no_renumber_migration.py recomputes both and FAILS when either moved, rather than passing on a stale measurement. Regenerate with `uv run python scripts/inventory_no_occupied_destination_sweep.py --update-baseline`. NOTE: this file is a RECEIPT of what the corpus does, never a statement of what it should do -- a new firing row here is an unadjudicated firing, and it must be adjudicated W-54 style before the verdict table in the test is extended.",
  "as_of": "2026-07-10",
  "code": {
-  "digest": "ac62b330c1236cce8a98b11a1e09d5b654fbae1a2ba287819c4cfa36cec7a493",
+  "digest": "89253271ce1e42b8b300a40624b341bb854b67f9376a02c8806f251d161b2b15",
   "files": [
    {
     "digest": "e3c727b378ae497fa2fc65a174f837dff2a8417dd458378ac22af35d4bf339fb",
@@ -269,11 +269,11 @@
     "module": "lawvm.norway.commencement_instruments"
    },
    {
-    "digest": "cde54dbbfc1e98d39439c31edaca4e306a5fce7c3fc46907890219ed80c1c5e1",
+    "digest": "0d83a75c554e7b82a32cb718b3532283a881706a65d1c13edf915d812b736c73",
     "module": "lawvm.norway.commencement_scope"
    },
    {
-    "digest": "d7f10297e9df1d4a1e298f28b8509657380edee03acbcf222e7af8284aac01f2",
+    "digest": "304ad195b603c1c0c9c4c7b60b8f61a1484a866126e9c8da5a46c620ad26fe1b",
     "module": "lawvm.norway.grafter"
    },
    {
@@ -431,16 +431,16 @@
  ],
  "incomplete_base_hazard": {
   "_doc": "W-73's rider, re-measured every sweep. A base is known-incomplete when its replay receipted a SKIPPED amendment; a write is destructive when it removes, replaces or renumbers existing content. The intersection is the posture that destroyed husbankloven \u00a7 13. Pinned so the number cannot drift silently -- NOT because the hazard is acceptable.",
-  "bases_with_destructive_writes": 268,
-  "hazard_bases": 156,
+  "bases_with_destructive_writes": 269,
+  "hazard_bases": 157,
   "hazard_bases_removing_content": 76,
   "hazard_by_skip_kind": {
-   "contingent": 156,
+   "contingent": 157,
    "missing_source": 0,
    "unknown_effective": 1
   },
   "hazard_content_removing_writes": 238,
-  "hazard_destructive_writes": 4078,
+  "hazard_destructive_writes": 4096,
   "incomplete_bases": 190,
   "laws": {
    "no/lov/2001-04-20-13": [
@@ -480,7 +480,7 @@
     0
    ],
    "no/lov/2002-03-08-4": [
-    16,
+    18,
     0
    ],
    "no/lov/2002-04-26-12": [
@@ -500,7 +500,7 @@
     2
    ],
    "no/lov/2002-06-21-45": [
-    72,
+    75,
     4
    ],
    "no/lov/2002-06-28-61": [
@@ -616,15 +616,15 @@
     7
    ],
    "no/lov/2005-04-29-20": [
-    19,
+    20,
     2
    ],
    "no/lov/2005-04-29-21": [
-    35,
+    37,
     0
    ],
    "no/lov/2005-05-20-28": [
-    136,
+    134,
     3
    ],
    "no/lov/2005-05-27-31": [
@@ -696,7 +696,7 @@
     3
    ],
    "no/lov/2007-06-15-40": [
-    53,
+    55,
     5
    ],
    "no/lov/2007-06-29-44": [
@@ -728,7 +728,7 @@
     6
    ],
    "no/lov/2008-05-15-35": [
-    321,
+    325,
     16
    ],
    "no/lov/2008-06-06-37": [
@@ -792,7 +792,7 @@
     0
    ],
    "no/lov/2010-02-19-5": [
-    13,
+    15,
     1
    ],
    "no/lov/2010-03-26-8": [
@@ -824,7 +824,7 @@
     5
    ],
    "no/lov/2011-12-16-60": [
-    21,
+    22,
     1
    ],
    "no/lov/2011-12-16-65": [
@@ -963,6 +963,10 @@
     19,
     0
    ],
+   "no/lov/2018-06-01-24": [
+    1,
+    0
+   ],
    "no/lov/2018-06-08-28": [
     19,
     1
@@ -1012,7 +1016,7 @@
     0
    ],
    "no/lov/2020-11-06-127": [
-    28,
+    30,
     1
    ],
    "no/lov/2020-11-20-128": [
@@ -1068,7 +1072,7 @@
     0
    ]
   },
-  "laws_digest": "20cbd762fe8b6bd296ec4ccaacca4bcc3d6b27dd1497c68a19be9b404de02d49"
+  "laws_digest": "8c2c4d6e0e7c9f5998aa74f020fdf8addcc3fef37a396dc223a99fdf6d083aa5"
  },
  "rule_id": "no_replay_renumber_occupied_destination_removed",
  "runtime": {

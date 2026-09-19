@@ -18,6 +18,7 @@ from lawvm.norway.commencement_scope import (
     act_scoped_operative_blocks,
     is_forskrift_only_block,
     read_no_commencement_scope_statements,
+    read_section_list_text,
     split_sentences,
 )
 
@@ -524,3 +525,66 @@ def test_w102_subpaths_round_trip_through_serialization() -> None:
         ["2-3", ["subsection:2"]],
     ]
     assert NOCommencementScopeReading.from_dict(reading.to_dict()) == reading
+
+
+# --- W-104: the section-list scanner as a public reader, and the widened qualifier grammar ---
+
+
+def test_w104_read_section_list_text_spells_the_medietilsynet_list_and_reports_the_remainder() -> None:
+    """The grafter reads the inline address list of no/lovtid/2004-07-02-68 with this scanner.
+
+    "fjerde ledd første punktum og sjette ledd" is TWO ledd groups; W-102's
+    grammar took one ledd group plus one sub-group and refused the run. The
+    sequence generalises it: each ledd group may carry one group below it.
+    """
+    section_list, remainder = read_section_list_text(
+        "§ 2-1 fjerde ledd første punktum og sjette ledd, § 4-3 første ledd, § 4-5 første ledd, "
+        "§ 4-6 første og andre ledd, § 10-2, § 10-3 første og andre ledd og § 10-4 første og andre ledd."
+    )
+    assert section_list is not None
+    assert section_list.labels == ("2-1", "4-3", "4-5", "4-6", "10-2", "10-3", "10-4")
+    assert section_list.qualified == ("2-1", "4-3", "4-5", "4-6", "10-3", "10-4")
+    assert dict(section_list.subpaths) == {
+        "2-1": ("subsection:4/sentence:1", "subsection:6"),
+        "4-3": ("subsection:1",),
+        "4-5": ("subsection:1",),
+        "4-6": ("subsection:1", "subsection:2"),
+        "10-3": ("subsection:1", "subsection:2"),
+        "10-4": ("subsection:1", "subsection:2"),
+    }
+    assert remainder == ""
+
+
+def test_w104_read_section_list_text_stops_at_a_heading_and_hands_back_the_rest() -> None:
+    section_list, remainder = read_section_list_text(
+        "§ 1-2 tredje og fjerde ledd, § 4-4 overskriften, § 8-4 første ledd."
+    )
+    assert section_list is not None
+    assert section_list.labels == ("1-2", "4-4")
+    assert remainder == "overskriften, § 8-4 første ledd"
+    # An address-first sentence leaves its verb phrase behind the list.
+    section_list, remainder = read_section_list_text("§§ 22, 24 og 27 skal uttrykket")
+    assert section_list is not None and section_list.labels == ("22", "24", "27")
+    assert remainder == "skal uttrykket"
+    assert read_section_list_text("skal uttrykket") == (None, "skal uttrykket")
+
+
+@pytest.mark.parametrize(
+    ("qualifier", "paths"),
+    [
+        ("fjerde ledd første punktum og sjette ledd", ("subsection:4/sentence:1", "subsection:6")),
+        ("første ledd bokstav a og tredje ledd annet punktum", ("subsection:1/item:a", "subsection:3/sentence:2")),
+        ("første, annet og fjerde ledd", ("subsection:1", "subsection:2", "subsection:4")),
+        ("sjuande ledd", ("subsection:7",)),
+    ],
+)
+def test_w104_several_ledd_groups_each_with_at_most_one_group_below(qualifier: str, paths: tuple[str, ...]) -> None:
+    reading = _read(
+        f"Loven § 5 {qualifier} og § 6 trer i kraft 1. juli 2025.",
+        instrument_date="2025-06-01",
+        declared=("2025-07-01",),
+    )
+    assert reading.total, reading.refused_sentence
+    item = reading.statements[0].subject
+    assert item.subpaths_of("5") == paths
+    assert item.subpaths_of("6") == ()

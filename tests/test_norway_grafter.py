@@ -52,6 +52,9 @@ from lawvm.norway.grafter import (
     _no_mixed_punktum_ledd_member_specs,
     _no_nynorsk_ledd_repeal_targets,
     _no_repeated_ledd_noun_subsection_specs,
+    NO_PARSE_ADDRESSED_SUBSTITUTION_ADDRESS_LIST_UNRESOLVED,
+    NO_PARSE_ADDRESSED_SUBSTITUTION_PAIR_UNRESOLVED,
+    NO_PARSE_ADDRESSED_SUBSTITUTION_PATH_UNRESOLVED,
     NO_REPLAY_SUBSTITUTION_TERM_NOT_UNIQUELY_PRESENT,
     NO_SUBSTITUTION_PROVENANCE_TAG,
     NOHeadingGroup,
@@ -2107,11 +2110,15 @@ def test_split_no_sentences_still_splits_after_sentence_final_month() -> None:
 
 
 def test_iter_no_document_change_ops_global_text_replace_falls_back_to_lead_base_id() -> None:
-    """W-20: a citation-less global text-replace lead binds to its part's own law.
+    """W-20: a citation-less text-replace lead binds to its part's own law.
 
     The part announces its law once; the replace lead names only a section, so
     no citation can be harvested from lead or payload. Before the fallback the
-    op was dropped outright.
+    op was dropped outright. W-104: the lead names its provision ("I § 6
+    første ledd skal ordet «X» erstattes med «Y»"), so it is now the ADDRESSED
+    substitution — one ``TEXT_PATCH`` at § 6 første ledd behind the S6/S7
+    guard — rather than a whole-law ``scope:global`` replace; the W-20
+    property under test, binding to the part's law, holds unchanged.
     """
     amendment_xml = """<?xml version="1.0" encoding="utf-8"?>
 <html lang="nb">
@@ -2138,7 +2145,9 @@ def test_iter_no_document_change_ops_global_text_replace_falls_back_to_lead_base
     assert op.text_patch.selector.match_text == "kompensasjon"
     assert op.text_patch.replacement == "refusjon"
     assert "base_act:no/lov/2003-12-12-108" in op.provenance_tags
-    assert "scope:global" in op.provenance_tags
+    assert op.target.path == (("section", "6"), ("subsection", "1"))
+    assert "scope:addressed" in op.provenance_tags
+    assert "scope:global" not in op.provenance_tags
 
 
 def test_iter_no_document_change_ops_global_text_replace_prefers_cited_law_over_lead_base() -> None:
@@ -5117,32 +5126,43 @@ def test_no_law_announcement_witness_stays_pinned() -> None:
     html_bytes = load_no_amendment_bytes("no/lovtid/2009-06-19-74", _NO_FARCHIVE_PATH)
     assert html_bytes is not None
 
-    grouped = dict(iter_no_document_change_ops(html_bytes, "no/lovtid/2009-06-19-74"))
+    adjudications: list[CompileAdjudication] = []
+    grouped = dict(
+        iter_no_document_change_ops(html_bytes, "no/lovtid/2009-06-19-74", adjudications_out=adjudications)
+    )
 
     # 22 -> 24 at W-66: the act's item for straffeloven 2005 carries
     # "Nåværende femte til sjette ledd blir sjette til syvende ledd." (§ 5), a
     # two-leg sibling-set relabel that was refused whole. The W-21/W-26 property
     # this pin exists for — WHICH act each item binds to — is unchanged.
-    assert len(grouped["no/lov/2005-05-20-28"]) == 24
+    # 24 -> 23 at W-104: four of the six text-replaces name their provision
+    # ("I § 11 første ledd erstattes «legemsdel» med «kroppsdel»") and are now
+    # ADDRESSED substitutions rather than whole-law global replaces; the one
+    # on "§ 37 bokstav i" refuses typed (a bokstav directly under the section
+    # is a path the W-102 grammar does not place), so it is one op fewer. The
+    # binding property is unchanged.
+    assert len(grouped["no/lov/2005-05-20-28"]) == 23
     assert len(grouped["no/lov/1975-06-13-39"]) == 1
-    # The six ex-inert global text-replaces ride the corrected base act. Every
-    # one of their ``match_text`` values occurs in straffeloven 2005's original
-    # LTI text and none occurs anywhere in utleveringsloven's.
+    # The ex-inert text-replaces ride the corrected base act. Every one of
+    # their ``match_text`` values occurs in straffeloven 2005's original LTI
+    # text and none occurs anywhere in utleveringsloven's.
     text_patches = {
-        op.text_patch.selector.match_text: op.text_patch.replacement
+        op.text_patch.selector.match_text: (op.text_patch.replacement, op.target.path)
         for op in grouped["no/lov/2005-05-20-28"]
         if op.text_patch is not None
     }
     assert text_patches == {
-        "legeme": "kropp",
-        "legemsdel": "kroppsdel",
+        "legeme": ("kropp", ()),
+        "legemsdel": ("kroppsdel", (("section", "11"), ("subsection", "1"))),
         "og som foretar noe som er ment å lede direkte til utføringen": (
-            "og som foretar noe som leder direkte mot utføringen"
+            "og som foretar noe som leder direkte mot utføringen",
+            (("section", "16"), ("subsection", "1")),
         ),
-        "samtykket til": "samtykket i",
-        "er straffri": "ikke kan straffes",
-        "helbred": "helse",
+        "er straffri": ("ikke kan straffes", ()),
+        "helbred": ("helse", (("section", "158"),)),
     }
+    refused = [a for a in adjudications if a.kind == NO_PARSE_ADDRESSED_SUBSTITUTION_PATH_UNRESOLVED]
+    assert [(a.detail["label"], a.detail["pairs"]) for a in refused] == [("37", (("samtykket til", "samtykket i"),))]
     # Utleveringsloven keeps only what its own nested item introduced: § 9.
     assert {op.target.path[0] for op in grouped["no/lov/1975-06-13-39"]} == {("section", "9")}
     assert [
@@ -14487,3 +14507,387 @@ def test_no_w101_new_chapter_section_relocates_a_label_standing_elsewhere() -> N
     assert not [
         item for item in adjudications if item.kind == NO_REPLAY_NEW_CHAPTER_SECTION_RELOCATED_FROM_OCCUPIED_LABEL
     ]
+
+
+# --------------------------------------------------------------------------
+# W-104: the inline addressed word substitution in the unstructured lane —
+# "«X» skal endrast til «Y» i § …" and "I § … skal «X» endrast til «Y»".
+# --------------------------------------------------------------------------
+
+
+def _w104_unstructured_html(*parts: tuple[str, list[str]]) -> bytes:
+    """Older Lovtidend markup: ``<section>`` parts holding ``legalP`` leads, no change markup."""
+    sections = []
+    for index, (heading, leads) in enumerate(parts, start=1):
+        body = "".join(f'<article class="legalP">{lead}</article>' for lead in leads)
+        sections.append(f'<section class="section" data-name="kap{heading}"><h2>{heading}</h2>{body}</section>')
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<html lang="nn">
+  <body>
+    <main>
+{"".join(sections)}
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+_W104_KK_PART = (
+    "III",
+    [
+        "I lov 4. desember 1992 nr. 127 om kringkasting blir det gjort følgjande endringar:",
+        "«Statens medieforvaltning» skal endrast til «Medietilsynet» i § 2-1 fjerde ledd første "
+        "punktum og sjette ledd, § 4-3 første ledd, § 4-5 første ledd, § 4-6 første og andre ledd, "
+        "§ 10-2, § 10-3 første og andre ledd og § 10-4 første og andre ledd.",
+        "«Statens medieforvaltnings» skal endrast til «Medietilsynets» i § 2-1 fjerde ledd andre punktum.",
+    ],
+)
+
+
+def _w104_ops(source_id: str, *parts: tuple[str, list[str]]) -> tuple[list, list[CompileAdjudication]]:
+    adjudications: list[CompileAdjudication] = []
+    grouped = iter_no_document_change_ops(_w104_unstructured_html(*parts), source_id, adjudications_out=adjudications)
+    return grouped, adjudications
+
+
+def test_no_w104_term_first_substitution_with_address_tail_lowers_one_text_patch_per_address() -> None:
+    """The Medietilsynet act on kringkastingsloven (no/lovtid/2004-07-02-68, part III).
+
+    Two sibling ``legalP`` leads, each one sentence: a quoted pair, the nynorsk
+    verb, and the provisions after ``i``. Each lowers to W-69a's addressed
+    ``TEXT_PATCH`` — one per listed address — with the section-list scanner
+    spelling "fjerde ledd første punktum og sjette ledd" as two paths. Before
+    W-104 both were ``no_parse_unstructured_lead_unmatched``.
+    """
+    grouped, adjudications = _w104_ops("no/lovtid/2004-07-02-68", _W104_KK_PART)
+    ops = _no_substitution_ops(grouped)
+    assert [base for base, _ in grouped] == ["no/lov/1992-12-04-127"]
+    assert [op.target.path for op in ops] == [
+        (("section", "2-1"), ("subsection", "4"), ("sentence", "1")),
+        (("section", "2-1"), ("subsection", "6")),
+        (("section", "4-3"), ("subsection", "1")),
+        (("section", "4-5"), ("subsection", "1")),
+        (("section", "4-6"), ("subsection", "1")),
+        (("section", "4-6"), ("subsection", "2")),
+        (("section", "10-2"),),
+        (("section", "10-3"), ("subsection", "1")),
+        (("section", "10-3"), ("subsection", "2")),
+        (("section", "10-4"), ("subsection", "1")),
+        (("section", "10-4"), ("subsection", "2")),
+        (("section", "2-1"), ("subsection", "4"), ("sentence", "2")),
+    ]
+    for op in ops[:-1]:
+        assert op.action is StructuralAction.TEXT_PATCH
+        assert op.payload is None
+        assert op.text_patch is not None
+        assert op.text_patch.kind is TextPatchKindEnum.REPLACE
+        assert (op.text_patch.selector.match_text, op.text_patch.replacement) == (
+            "Statens medieforvaltning",
+            "Medietilsynet",
+        )
+        assert {"fallback:unstructured", "scope:addressed", NO_SUBSTITUTION_PROVENANCE_TAG} <= set(
+            op.provenance_tags
+        )
+        assert "scope:global" not in op.provenance_tags
+    assert (ops[-1].text_patch.selector.match_text, ops[-1].text_patch.replacement) == (
+        "Statens medieforvaltnings",
+        "Medietilsynets",
+    )
+    # One group per lead, never one per address: the apply plane recovers the
+    # announced FROM-term set from (group, target path).
+    assert len({op.group_id for op in ops}) == 2
+    assert not [a for a in adjudications if a.kind.startswith("no_parse_addressed_substitution")]
+    # The whole document is these twelve ops: nothing fell into the global
+    # text-replace production and no listed provision was overwritten.
+    assert [op.action for _, doc_ops in grouped for op in doc_ops] == [StructuralAction.TEXT_PATCH] * 12
+
+
+def test_no_w104_law_switch_prefix_binds_the_cited_act_and_is_not_rewritten_as_an_embedded_lead() -> None:
+    """Part II of the same act: the substitution sentence carries its own law switch.
+
+    "I lov 15. mai 1987 nr. 21 om film og videogram skal «Statens filmtilsyn»
+    endrast til «Medietilsynet» i § 2 tredje ledd, …". W-99's address-after-
+    citation pattern used to read this as a citation plus a ``§`` address and
+    rebuild the lead as "§ 2 tredje ledd, § 4 …" — which looked inert, so the
+    part produced neither an op nor a receipt. The production is asked first,
+    and the ops bind to the act the sentence cites.
+    """
+    grouped, adjudications = _w104_ops(
+        "no/lovtid/2004-07-02-68",
+        (
+            "II",
+            [
+                "I lov 15. mai 1987 nr. 21 om film og videogram skal «Statens filmtilsyn» endrast til "
+                "«Medietilsynet» i § 2 tredje ledd, § 4 første, andre og tredje ledd, § 5 tredje ledd, "
+                "§ 6 første ledd, § 7 første, andre og tredje ledd og § 12."
+            ],
+        ),
+    )
+    assert [base for base, _ in grouped] == ["no/lov/1987-05-15-21"]
+    ops = _no_substitution_ops(grouped)
+    assert [op.target.path for op in ops] == [
+        (("section", "2"), ("subsection", "3")),
+        (("section", "4"), ("subsection", "1")),
+        (("section", "4"), ("subsection", "2")),
+        (("section", "4"), ("subsection", "3")),
+        (("section", "5"), ("subsection", "3")),
+        (("section", "6"), ("subsection", "1")),
+        (("section", "7"), ("subsection", "1")),
+        (("section", "7"), ("subsection", "2")),
+        (("section", "7"), ("subsection", "3")),
+        (("section", "12"),),
+    ]
+    assert adjudications == []
+    # The embedded-lead reader still mangles the sentence on its own; the walk
+    # simply does not ask it when the production has answered.
+    embedded = _extract_no_embedded_multi_act_lead(
+        "I lov 15. mai 1987 nr. 21 om film og videogram skal «Statens filmtilsyn» endrast til "
+        "«Medietilsynet» i § 2 tredje ledd og § 12."
+    )
+    assert embedded is not None and embedded[1].startswith("§ 2 tredje ledd")
+
+
+def test_no_w104_address_first_shape_lowers_whole_sections_and_a_sentence_path() -> None:
+    """"I §§ 22, 24 og 27 skal uttrykket «anbod» endrast til «konkurranse»." (no/lovtid/2009-06-19-108)."""
+    grouped, adjudications = _w104_ops(
+        "no/lovtid/2009-06-19-108",
+        (
+            "I",
+            [
+                "Lov 21. juni 2002 nr. 45 om yrkestransport med motorvogn og fartøy (yrkestransportlova) blir endra slik:",
+                "I §§ 22, 24 og 27 skal uttrykket «anbod» endrast til «konkurranse».",
+                "I § 37 h første ledd andre punktum skal «Statens helsetilsyn» endrast til «Helsedirektoratet».",
+                "I § 15 andre ledd skal tilvisingane til «§ 9» endrast til «§ 9 første ledd».",
+                # The verb before the terms, with and without a noun; the noun
+                # repeated on the TO side; ``skal tallet``. Corpus:
+                # no/lovtid/2009-06-19-74, 2005-04-29-20, 2003-06-20-54.
+                "I § 11 første ledd erstattes «legemsdel» med «kroppsdel».",
+                "I § 9-2 første og andre ledd erstattes ordet «oppfostringsbidrag» med ordet «underholdsbidrag».",
+                "I § 3-4 tredje ledd skal tallet «150» erstattes med «160».",
+            ],
+        ),
+    )
+    ops = _no_substitution_ops(grouped)
+    assert [base for base, _ in grouped] == ["no/lov/2002-06-21-45"]
+    assert [(op.target.path, op.text_patch.selector.match_text, op.text_patch.replacement) for op in ops] == [
+        ((("section", "22"),), "anbod", "konkurranse"),
+        ((("section", "24"),), "anbod", "konkurranse"),
+        ((("section", "27"),), "anbod", "konkurranse"),
+        ((("section", "37h"), ("subsection", "1"), ("sentence", "2")), "Statens helsetilsyn", "Helsedirektoratet"),
+        ((("section", "15"), ("subsection", "2")), "§ 9", "§ 9 første ledd"),
+        ((("section", "11"), ("subsection", "1")), "legemsdel", "kroppsdel"),
+        ((("section", "9-2"), ("subsection", "1")), "oppfostringsbidrag", "underholdsbidrag"),
+        ((("section", "9-2"), ("subsection", "2")), "oppfostringsbidrag", "underholdsbidrag"),
+        ((("section", "3-4"), ("subsection", "3")), "150", "160"),
+    ]
+    assert len({op.group_id for op in ops}) == 6
+    # Before W-104 "«150» erstattes med «160»" fired the GLOBAL text-replace
+    # production: an unguarded ``str.replace`` of every "150" in the whole law.
+    assert all("scope:global" not in op.provenance_tags for _, doc_ops in grouped for op in doc_ops)
+    assert not [a for a in adjudications if a.kind.startswith("no_parse_addressed_substitution")]
+
+
+def test_no_w104_bokmal_spellings_term_first() -> None:
+    """The bokmål forms: ``Benevnelsen «X» endres til «Y» i §§ …`` and ``Uttrykket «X» skal erstattes med «Y» i § …``."""
+    grouped, adjudications = _w104_ops(
+        "no/lovtid/2015-12-18-121",
+        (
+            "IV",
+            [
+                "I lov 12. mai 2000 nr. 36 om strålevern og bruk av stråling gjøres følgende endringer:",
+                "Benevnelsen «Statens strålevern» endres til «Helsedirektoratet» i §§ 18 første ledd, "
+                "19 første og andre ledd og 20.",
+                "Uttrykket «firmainnehaveren» skal erstattes med «innehaveren av et foretaksnavn» i § 7-1 annet ledd.",
+            ],
+        ),
+    )
+    ops = _no_substitution_ops(grouped)
+    assert [op.target.path for op in ops] == [
+        (("section", "18"), ("subsection", "1")),
+        (("section", "19"), ("subsection", "1")),
+        (("section", "19"), ("subsection", "2")),
+        (("section", "20"),),
+        (("section", "7-1"), ("subsection", "2")),
+    ]
+    assert ops[-1].text_patch.replacement == "innehaveren av et foretaksnavn"
+    assert not [a for a in adjudications if a.kind.startswith("no_parse_addressed_substitution")]
+    # Every op is addressed; the ``erstattes med`` spelling must not ALSO fire
+    # the global text-replace production.
+    assert all("scope:global" not in op.provenance_tags for _, doc_ops in grouped for op in doc_ops)
+
+
+def test_no_w104_unquoted_to_term_refuses_the_pair_typed() -> None:
+    """no/lovtid/2005-06-17-57: "… skal «arbeidskontoret» og «arbeidsformidlingen» endrast til Aetat."
+
+    Two quoted FROM terms, no quoted TO term: the pair grammar has nothing to
+    pair them with. The shape is recognised (address first, quoted terms, the
+    verb), so the refusal is this production's, not the generic unmatched one.
+    """
+    grouped, adjudications = _w104_ops(
+        "no/lovtid/2005-06-17-57",
+        (
+            "I",
+            [
+                "I lov 28. februar 1997 nr. 19 om folketrygd blir følgjande endringar gjort:",
+                "I § 4-8 første ledd, annet ledd annet punktum og tredje ledd, § 4-10 femte ledd og "
+                "§ 4-20 sjuande ledd skal «arbeidskontoret» og «arbeidsformidlingen» endrast til Aetat.",
+            ],
+        ),
+    )
+    assert _no_substitution_ops(grouped) == []
+    refusals = [a for a in adjudications if a.kind == NO_PARSE_ADDRESSED_SUBSTITUTION_PAIR_UNRESOLVED]
+    assert len(refusals) == 1
+    assert refusals[0].detail["pair_shape"] == "unpaired_2_0"
+    assert refusals[0].detail["labels"] == ("4-8", "4-10", "4-20")
+    assert refusals[0].detail["unread"] == ""
+    # The generic receipt is the part announcement's ("blir følgjande endringar
+    # gjort:", a pre-existing gap), never the substitution sentence's.
+    assert not [
+        a for a in adjudications
+        if a.kind == "no_parse_unstructured_lead_unmatched" and "arbeidskontoret" in str(a.detail)
+    ]
+
+
+def test_no_w104_a_heading_in_the_list_refuses_the_whole_lead_typed() -> None:
+    """no/lovtid/2022-06-17-45: "… i § 1-2 tredje og fjerde ledd, § 4-4 overskriften, …".
+
+    ``overskriften`` is not a provision the scanner can address; the list stops
+    there and the lead refuses WHOLE rather than substituting in the two ledd
+    it did read. The unread remainder is on the receipt.
+    """
+    grouped, adjudications = _w104_ops(
+        "no/lovtid/2022-06-17-45",
+        (
+            "I",
+            [
+                "I lov 17. juli 1992 nr. 100 om barneverntjenester gjøres følgende endringer:",
+                "Ordet «atferdsinstitusjon» skal endres til «barnevernsinstitusjon» i § 1-2 tredje og "
+                "fjerde ledd, § 4-4 overskriften, § 8-4 første ledd.",
+            ],
+        ),
+    )
+    assert _no_substitution_ops(grouped) == []
+    refusals = [a for a in adjudications if a.kind == NO_PARSE_ADDRESSED_SUBSTITUTION_ADDRESS_LIST_UNRESOLVED]
+    assert len(refusals) == 1
+    assert refusals[0].detail["unread"].startswith("overskriften")
+    assert refusals[0].detail["pairs"] == (("atferdsinstitusjon", "barnevernsinstitusjon"),)
+
+
+def test_no_w104_a_qualifier_without_a_path_refuses_that_section_and_lowers_the_rest() -> None:
+    """Part IV of the 2004 act: "… i § 5, § 6 første punktum, § 7, …".
+
+    A bare ``punktum`` with no ledd above it spells no path in the W-102
+    grammar (the same rule that keeps § 13a's "fjerde og femte punktum"
+    path-less for the commencement gate). § 6 refuses on its own receipt; the
+    other listed sections lower.
+    """
+    grouped, adjudications = _w104_ops(
+        "no/lovtid/2004-07-02-68",
+        (
+            "IV",
+            [
+                "I lov 13. juni 1997 nr. 53 om tilsyn med erverv i dagspresse og kringkasting blir det gjort "
+                "følgjande endringar:",
+                "«Eierskapstilsynet» skal endrast til «Medietilsynet» i § 5, § 6 første punktum, § 7 og § 8 femte ledd.",
+            ],
+        ),
+    )
+    ops = _no_substitution_ops(grouped)
+    assert [op.target.path for op in ops] == [
+        (("section", "5"),),
+        (("section", "7"),),
+        (("section", "8"), ("subsection", "5")),
+    ]
+    refusals = [a for a in adjudications if a.kind == NO_PARSE_ADDRESSED_SUBSTITUTION_PATH_UNRESOLVED]
+    assert [a.detail["label"] for a in refusals] == ["6"]
+
+
+def test_no_w104_a_sentence_without_an_address_list_is_not_this_construct() -> None:
+    """"Omgrepet «nærkringkasting» endrast til «lokalkringkasting»." names no provision.
+
+    No ``i §`` tail, no ``I §`` head: the production declines and the lead
+    takes the path it always took (here: the generic unmatched receipt), so a
+    law-wide substitution is never silently narrowed to nothing.
+    """
+    grouped, adjudications = _w104_ops(
+        "no/lovtid/2005-06-17-98",
+        (
+            "I",
+            [
+                "I lov 4. desember 1992 nr. 127 om kringkasting blir det gjort følgjande endringar:",
+                "Omgrepet «nærkringkasting» endrast til «lokalkringkasting».",
+            ],
+        ),
+    )
+    assert _no_substitution_ops(grouped) == []
+    assert not [a for a in adjudications if a.kind.startswith("no_parse_addressed_substitution")]
+    assert [a.kind for a in adjudications if "nærkringkasting" in str(a.detail)] == [
+        "no_parse_unstructured_lead_unmatched"
+    ]
+
+
+def test_no_w104_ops_apply_through_the_w69a_seam_including_a_sentence_path() -> None:
+    """End to end: the part III ops land on a kringkastingsloven-shaped statute.
+
+    § 4-6's two ledd each carry the term once and are rewritten; § 2-1 fjerde
+    ledd is addressed by SENTENCE, so the apply plane materializes the ledd's
+    sentences (W-69b) and rewrites only the first; and § 10-2, addressed whole,
+    carries the term in two ledd and refuses typed (S7) — the W-69a envelope,
+    unchanged, applied to ops the unstructured lane minted.
+    """
+    grouped, _ = _w104_ops("no/lovtid/2004-07-02-68", _W104_KK_PART)
+    ops = [op for _, doc_ops in grouped for op in doc_ops]
+
+    def section(label: str, *ledd: str) -> IRNode:
+        return IRNode(
+            kind=IRNodeKind.SECTION,
+            label=label,
+            children=tuple(IRNode(kind=IRNodeKind.SUBSECTION, label=str(i), text=t) for i, t in enumerate(ledd, 1)),
+        )
+
+    before = IRStatute(
+        statute_id="no/lov/1992-12-04-127",
+        title="Lov om kringkasting.",
+        body=IRNode(
+            kind=IRNodeKind.BODY,
+            children=(
+                section(
+                    "2-1",
+                    "Kongen gir konsesjon.",
+                    "Andre ledd.",
+                    "Tredje ledd.",
+                    "Statens medieforvaltning gir konsesjon til drift av lokalkringkasting. "
+                    "Statens medieforvaltnings vedtak kan påklages.",
+                    "Femte ledd.",
+                    "Vedtak truffet av Statens medieforvaltning kan påklages til departementet.",
+                ),
+                section(
+                    "4-6",
+                    "Abonnenter kan påklage vedtak til Statens medieforvaltning.",
+                    "Partene skal rette seg etter pålegg og vedtak fra Statens medieforvaltning.",
+                ),
+                section("10-2", "Statens medieforvaltning kan gi pålegg.", "Statens medieforvaltning kan ilegge gebyr."),
+            ),
+        ),
+    )
+    adjudications: list[CompileAdjudication] = []
+    result = apply_no_ops(before, ops, adjudications_out=adjudications)
+    by_label = {node.label: node for node in result.body.children}
+    assert [child.text for child in by_label["4-6"].children] == [
+        "Abonnenter kan påklage vedtak til Medietilsynet.",
+        "Partene skal rette seg etter pålegg og vedtak fra Medietilsynet.",
+    ]
+    ledd_4 = by_label["2-1"].children[3]
+    assert " ".join(child.text for child in ledd_4.children) == (
+        "Medietilsynet gir konsesjon til drift av lokalkringkasting. Medietilsynets vedtak kan påklages."
+    )
+    assert by_label["2-1"].children[5].text == "Vedtak truffet av Medietilsynet kan påklages til departementet."
+    assert [child.text for child in by_label["10-2"].children] == [
+        "Statens medieforvaltning kan gi pålegg.",
+        "Statens medieforvaltning kan ilegge gebyr.",
+    ]
+    refusals = [a for a in adjudications if a.kind == NO_REPLAY_SUBSTITUTION_TERM_NOT_UNIQUELY_PRESENT]
+    assert [(a.detail["target"], a.detail["reason"]) for a in refusals] == [("section:10-2", "multiple")]
+    # The six addresses this statute does not carry (§§ 4-3, 4-5, 10-3, 10-4)
+    # take the ordinary unresolved-target receipt, as any addressed op would.
+    assert len([a for a in adjudications if a.kind == "replay_unresolved_target"]) == 6
