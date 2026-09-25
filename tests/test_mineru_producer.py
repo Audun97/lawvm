@@ -289,7 +289,7 @@ def test_store_roundtrip_and_pin_rekeying(tmp_path) -> None:
         assert store.get("digestA", 0, fp) is None  # cold
         store.put("digestA", 0, fp, cl)
         got = store.get("digestA", 0, fp)
-        assert got is not None and got[1]["type"] == "table"
+        assert got is not None and got[1]["type"] == "table"  # ty: ignore[not-subscriptable]
         # A pin change (different transformers version) re-keys → the old read is not served.
         fp2 = MineruPins(transformers_version="9.9.9").fingerprint()
         assert fp2 != fp
@@ -312,7 +312,7 @@ def test_propose_page_cold_offline_returns_none_no_subprocess(tmp_path) -> None:
     def _boom(_pdf: bytes) -> list[object]:  # pragma: no cover - must not run
         raise AssertionError("subprocess must not be called on a cold offline propose")
 
-    producer._run_subprocess = _boom  # type: ignore[method-assign]
+    producer._run_subprocess = _boom  # type: ignore[method-assign]  # ty: ignore[invalid-assignment]
     try:
         assert producer.propose_page(b"%PDF-1.4", 0, "digestZ", live=False) is None
     finally:
@@ -328,10 +328,10 @@ def test_propose_page_warm_store_replays_without_subprocess(tmp_path) -> None:
     def _boom(_pdf: bytes) -> list[object]:  # pragma: no cover - must not run
         raise AssertionError("warm replay must not call the subprocess")
 
-    producer._run_subprocess = _boom  # type: ignore[method-assign]
+    producer._run_subprocess = _boom  # type: ignore[method-assign]  # ty: ignore[invalid-assignment]
     try:
         got = producer.propose_page(b"%PDF", 2, "digestW", live=True)
-        assert got is not None and got[1]["type"] == "table"
+        assert got is not None and got[1]["type"] == "table"  # ty: ignore[not-subscriptable]
     finally:
         store.close()
 
