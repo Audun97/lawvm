@@ -2,7 +2,7 @@
  "_doc": "Corpus-wide (RENUMBER, dest_occupied) firing sweep + the known-incomplete-base destructive-write census, over EVERY Norway base law. Cached because the sweep is ~10 CPU-minutes and the norway shard is not. `corpus` and `code` are the staleness receipt: tests/test_no_renumber_migration.py recomputes both and FAILS when either moved, rather than passing on a stale measurement. Regenerate with `uv run python scripts/inventory_no_occupied_destination_sweep.py --update-baseline`. NOTE: this file is a RECEIPT of what the corpus does, never a statement of what it should do -- a new firing row here is an unadjudicated firing, and it must be adjudicated W-54 style before the verdict table in the test is extended.",
  "as_of": "2026-07-10",
  "code": {
-  "digest": "89253271ce1e42b8b300a40624b341bb854b67f9376a02c8806f251d161b2b15",
+  "digest": "4a155e771d4256e9c0d6565602b0dfe261e8b6e90c7c33577a2bdab4e422238a",
   "files": [
    {
     "digest": "e3c727b378ae497fa2fc65a174f837dff2a8417dd458378ac22af35d4bf339fb",
@@ -189,7 +189,7 @@
     "module": "lawvm.core.statute_facets"
    },
    {
-    "digest": "3e5e7c1f2a12a657a81ace533a54d78c70f9a94f0e15017840bef223f9e397cc",
+    "digest": "c72dc23afebd8ad15bee89d4a9976ee0f850cde041ea7db95ce322c58dd327cd",
     "module": "lawvm.core.statute_validity"
    },
    {
@@ -265,7 +265,7 @@
     "module": "lawvm.norway.commencement"
    },
    {
-    "digest": "befcd2c3fd8e7ed157edce9161bd358702cf50a768e65bb15e81863dd82b8144",
+    "digest": "e24d00deebe3190d636414e3f5eee8cc470857798bbb16ecbeb1c341f8126cf1",
     "module": "lawvm.norway.commencement_instruments"
    },
    {
@@ -273,11 +273,11 @@
     "module": "lawvm.norway.commencement_scope"
    },
    {
-    "digest": "304ad195b603c1c0c9c4c7b60b8f61a1484a866126e9c8da5a46c620ad26fe1b",
+    "digest": "7a0f962ec30d43973a6594c7982763c16533326b2e965b8e689d70b98a11d7e6",
     "module": "lawvm.norway.grafter"
    },
    {
-    "digest": "be7c2ad8dd25838be598e0e5c5fad8778f9383f6c0066b48d7ac8cffa55a73ef",
+    "digest": "ad10ff22fcbbb56bc35a4a33b5bb399097246c93780ec0ec7f4189be6d48c6e0",
     "module": "lawvm.norway.index"
    },
    {
