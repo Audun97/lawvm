@@ -3303,18 +3303,20 @@ def _title_cited_whole_act_subject(
         return False
     # lawvm-regex: owning_parser this reader's unambiguity witness; a counter, refusing only
     subject_count = len(_INDEFINITE_ACT_TITLE_SUBJECT_RE.findall(text)) + len(
-        _INDEFINITE_ACT_TITLE_CITATION_SUBJECT_RE.findall(text)
+        _INDEFINITE_ACT_TITLE_CITATION_SUBJECT_RE.findall(text)  # lawvm-regex: owning_parser the same counter
     )
     if subject_count != 1:
         return False
     # lawvm-regex: owning_parser this IS the title-cited subject reader; anchored at the block start
     match = _TITLE_CITED_ACT_SUBJECT_RE.match(text)
     if match is None:
+        # lawvm-regex: owning_parser this IS the title-cited subject reader's citation form
         match = _TITLE_CITED_ACT_CITATION_SUBJECT_RE.match(text)
-        # lawvm-regex: owning_parser the citation form's fifth conjunct: nothing
-        # but a date after the verb. ``… trer i kraft for Bouvetøya 1. april
-        # 2005`` (``no/forskrift/2005-02-25-173``) commences the act for one
-        # territory, and a territorial or any other qualifier refuses.
+        # The citation form's fifth conjunct: nothing but a date after the verb.
+        # ``… trer i kraft for Bouvetøya 1. april 2005``
+        # (``no/forskrift/2005-02-25-173``) commences the act for one territory,
+        # and a territorial or any other qualifier refuses.
+        # lawvm-regex: owning_parser the citation form's fifth conjunct, refusing only
         if match is None or _BARE_DATE_TAIL_RE.match(text, match.end()) is None:
             return False
     phrase = _WS_RE.sub(" ", match.group("title_phrase")).strip().casefold()

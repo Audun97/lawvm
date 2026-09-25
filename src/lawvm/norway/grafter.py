@@ -4618,9 +4618,11 @@ def _no_lead_announces_subdivision(lead_text: str) -> bool:
 _NO_CHAPTER_LEAD_KEYWORDS = frozenset({"kapittel", "kapitlet", "kapitlene", "kapitla", "kap"})
 #: One chapter label token: a number or an UPPERCASE roman, optionally carrying
 #: its letter suffix inline (``5A``, ``17d``, ``VIIA``).
-_NO_CHAPTER_LEAD_LABEL_RE = re.compile(r"^(?:[0-9]+|[IVXL]+)[A-Za-zæøå]?$")
+_NO_CHAPTER_LEAD_LABEL_RE = compile_classifier_regex(
+    r"^(?:[0-9]+|[IVXL]+)[A-Za-zæøå]?$", classifier_id="norway.grafter.chapter_lead_label"
+)
 #: A detached single-letter suffix (``5 A``, ``17 d``, ``VII A``).
-_NO_CHAPTER_LEAD_SUFFIX_RE = re.compile(r"^[A-Za-zæøå]$")
+_NO_CHAPTER_LEAD_SUFFIX_RE = compile_classifier_regex(r"^[A-Za-zæøå]$", classifier_id="norway.grafter.chapter_lead_suffix")
 
 
 def _no_lead_names_chapter(lead_text: str, label: str) -> bool:
@@ -4656,6 +4658,7 @@ def _no_lead_names_chapter(lead_text: str, label: str) -> bool:
                     found.append(current)
                 current = ""
                 suffixed = False
+            # lawvm-regex: owning_parser token-shape lexer of the chapter-lead label scanner; one token, not prose
             elif _NO_CHAPTER_LEAD_LABEL_RE.match(bare):
                 if current:
                     found.append(current)
@@ -4666,7 +4669,7 @@ def _no_lead_names_chapter(lead_text: str, label: str) -> bool:
             elif (
                 current
                 and not suffixed
-                and _NO_CHAPTER_LEAD_SUFFIX_RE.match(bare)
+                and _NO_CHAPTER_LEAD_SUFFIX_RE.match(bare)  # lawvm-regex: owning_parser the same scanner's detached-suffix token
                 and (current[-1].isdigit() or bare.isupper())
             ):
                 current += bare
@@ -9024,13 +9027,18 @@ _NO_RESANCTIONED_ACT_REF = (
     r"lov (\d{1,2})\.?\s+(januar|februar|mars|april|mai|juni|juli|august|"
     r"september|oktober|november|desember)\s+(\d{4}) nr\.?\s*(\d+)"
 )
+# The reader matches only ``_normalize_space``d prose, where every whitespace run
+# is one space, so a single ``\s`` around the optional ``og kunngjort`` reads the
+# same text as ``\s+`` and keeps the quantifier out of the optional group.
 # lawvm-regex: owning_parser this IS the re-sanctioning note parser
-_NO_RESANCTIONED_FORWARD_RE = re.compile(
-    r"sanksjonert(?:\s+og\s+kunngjort)?\s+på nytt som " + _NO_RESANCTIONED_ACT_REF
+_NO_RESANCTIONED_FORWARD_RE = compile_classifier_regex(
+    r"sanksjonert\s(?:og\skunngjort\s)?på nytt som " + _NO_RESANCTIONED_ACT_REF,
+    classifier_id="norway.grafter.resanctioned_forward",
 )
 # lawvm-regex: owning_parser this IS the re-sanctioning note parser
-_NO_RESANCTIONED_BACKWARD_RE = re.compile(
-    r"første gang sanksjonert som " + _NO_RESANCTIONED_ACT_REF
+_NO_RESANCTIONED_BACKWARD_RE = compile_classifier_regex(
+    r"første gang sanksjonert som " + _NO_RESANCTIONED_ACT_REF,
+    classifier_id="norway.grafter.resanctioned_backward",
 )
 # Byte prefilters, load-bearing for cost only: the reader below runs on every
 # amendment artifact the index pre-pass sweeps (3,089), and 3,085 of them contain

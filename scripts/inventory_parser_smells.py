@@ -109,6 +109,14 @@ CATEGORY_MAP: dict[str, str] = {
     # parses; every regex is a page-layout/lexical predicate on a single print line,
     # applied BEFORE the owning parser and with no replay authority.
     "src/lawvm/norway/print_era.py": "source_plane",
+    # --- owning parser: a single-pass grammar that owns one construction family ---
+    # W-100: the commencement-scope statement reader. A cursor-driven recursive
+    # descent over commencement instruments' operative sentences; its regexes are
+    # the token productions of that one grammar. It returns typed
+    # NOCommencementScopeStatement values or refuses the whole reading, and
+    # resolves no law, dates no act and authorizes nothing: the gate in
+    # commencement_instruments.py does that against the act's part map and ops.
+    "src/lawvm/norway/commencement_scope.py": "owning_parser",
     "src/lawvm/finland/corpus.py": "source_plane",
     "src/lawvm/finland/transparent_store.py": "source_plane",
     "src/lawvm/finland/finlex_api.py": "source_plane",
