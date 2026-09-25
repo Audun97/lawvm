@@ -7393,10 +7393,24 @@ def test_no_w35_w21_section_412_witness_is_byte_identical() -> None:
     # 2001-05-18-21), and one chapter heading ("Overskriften til kapittel 5 skal
     # lyde:" on 1998-03-20-10). Straffeloven 2005 and utleveringsloven are
     # untouched.
-    assert sum(len(ops) for _base_id, ops in grouped) == 534
+    # 534 -> 533 at W-104 (pinned 2026-09-25; the sibling pin in
+    # ``test_no_law_announcement_witness_stays_pinned`` moved with W-104,
+    # this one was missed). Measured W-103 -> W-104 over this act's whole
+    # stream: exactly four ops change and every other op is unmoved, in the
+    # same order. The four are straffeloven 2005's addressed text-replaces,
+    # which the global production had lowered as whole-law ``scope:global``
+    # ops. Three now land at their address ("I § 11 første ledd erstattes
+    # «legemsdel» med «kroppsdel»" -> § 11 første ledd; § 16 første ledd;
+    # § 158). The fourth, on "§ 37 bokstav i", refuses typed
+    # (``no_parse_addressed_substitution_path_unresolved``: a bokstav directly
+    # under the section is a path the W-102 grammar does not place), hence
+    # one op fewer. The group count and utleveringsloven's one op are
+    # unmoved.
+    assert sum(len(ops) for _base_id, ops in grouped) == 533
 
     by_base = dict(grouped)
-    assert len(by_base["no/lov/2005-05-20-28"]) == 24
+    # 24 -> 23 at W-104, the same refusal.
+    assert len(by_base["no/lov/2005-05-20-28"]) == 23
     assert len(by_base["no/lov/1975-06-13-39"]) == 1
     assert [op.target.path for op in by_base["no/lov/1751-10-02-0"]] == [
         (("section", "19"), ("sentence", "last"))
@@ -7427,7 +7441,10 @@ def test_no_w35_w21_section_412_witness_is_byte_identical() -> None:
     # the stream (one relabel with no payload, five single-article item payloads
     # and one heading-only chapter payload); every payload the digest already
     # held is byte-identical under it.
-    assert digest.hexdigest()[:32] == "ad4b7a2f6cb3d01f7d264b4318f6e9b6"
+    # W-104 re-digest: three text-replaces gain a target path and one leaves
+    # the stream (above). A text-replace carries no payload, so every payload
+    # the digest already held is byte-identical under it.
+    assert digest.hexdigest()[:32] == "838ad2fe0896e01651398ebf4f7ce9df"
 
 
 # ---------------------------------------------------------------------------
@@ -10252,8 +10269,9 @@ def test_no_w69b_karanteneloven_replay_lands_its_substitutions_and_refuses_two()
     assert "tilsettingsmyndighetens" in _ledd_text("20", "4")
 
 
-#: W-69b's population, membership-level: every substitution op the parse plane
-#: mints whose target leaf is a SENTENCE, keyed on content
+#: W-69b's population, membership-level: every substitution op the STRUCTURED
+#: lane (the announcement plus its ``data-change-part`` list) mints whose target
+#: leaf is a SENTENCE, keyed on content
 #: ``(instrument, base act, address, FROM, TO)``. It is exactly the 21 addresses
 #: W-69a refused with ``no_parse_substitution_sentence_address_out_of_scope`` —
 #: the frozen withdrawal set, matched element for element. Four instruments,
@@ -10284,6 +10302,86 @@ _NO_W69B_SENTENCE_ADDRESSED_SUBSTITUTIONS = (
     ("no/lovtid/2025-12-22-129", "no/lov/2020-04-17-29", "section:18/subsection:2/sentence:2", "Markedsrådet", "Konkurranseklagenemnda"),
 )
 
+#: W-104's population, the same key over the UNSTRUCTURED lane (the inline
+#: "I § … skal «X» endres til «Y»" sentence, tagged ``fallback:unstructured``):
+#: 51 sentence-leaf ops from 19 instruments over 25 base acts. Adjudicated
+#: 2026-09-25 (W-104 minted them on 2026-09-11 and never pinned them here), row
+#: by row, in two passes:
+#:
+#: * Address against source. Each row's lead, as the reader received it, names
+#:   exactly this ``section/ledd/punktum`` and this pair. Partial lists behave as
+#:   W-104 specifies: "§ 1 annet punktum og § 4 første ledd første punktum"
+#:   (``2006-06-16-20``) lands only § 4, because a bare punktum is refused per
+#:   label; a list the scanner cannot finish ("§ 7 nr. 1 annet ledd annet
+#:   punktum og nr. 2 …", ``2010-06-25-29``) mints nothing at all.
+#: * Base and address against Lovdata's current consolidation. For 37 rows the
+#:   consolidated sentence at that address carries the TO term. For 12 more the
+#:   address has no current counterpart to compare: the section was repealed or
+#:   restructured later (folketrygdloven §§ 3-25, 3-27, 16-12, for example), or
+#:   the sentence was re-worded again, and the change note names later acts
+#:   (supplerande stønad § 21, re-worded by ``2014-12-19-74``, for example).
+#:   Folketrygdloven § 17-14 is editorial: Lovdata prints "§ 16 eller § 16 a"
+#:   where the act says "§ 16 eller 16 a". One row is ORACLE-SUSPECT:
+#:   ``2018-12-20-98`` says "I § 25 første ledd andre punktum og § 30 første
+#:   ledd andre punktum skal ordet «forsikringsloven» endres til
+#:   «finansforetaksloven»". Lovdata applied it to § 25 and left § 30 unchanged
+#:   under an inkurie footnote. The row follows the source.
+#:
+#: No row was rejected.
+_NO_W104_SENTENCE_ADDRESSED_SUBSTITUTIONS = (
+    ("no/lovtid/2001-12-21-118", "no/lov/1997-02-28-19", "section:3-25/subsection:4/sentence:1", "30", "40"),
+    ("no/lovtid/2003-06-20-55", "no/lov/1997-02-28-19", "section:12-5/subsection:3/sentence:1", "uførepensjon", "ytelser etter dette kapitlet"),
+    ("no/lovtid/2003-06-20-55", "no/lov/1997-02-28-19", "section:3-27/subsection:1/sentence:1", "ytelser til livsopphold etter kapittel 12, 16, 17 eller 19", "uførepensjon eller ytelser til livsopphold etter kapittel 16, 17 eller 19"),
+    ("no/lovtid/2004-07-02-68", "no/lov/1992-12-04-127", "section:2-1/subsection:4/sentence:1", "Statens medieforvaltning", "Medietilsynet"),
+    ("no/lovtid/2004-07-02-68", "no/lov/1992-12-04-127", "section:2-1/subsection:4/sentence:2", "Statens medieforvaltnings", "Medietilsynets"),
+    ("no/lovtid/2005-12-16-118", "no/lov/2005-04-29-21", "section:21/subsection:2/sentence:1", "ein stønadstakar", "ein stønadstakar eller ektemaken"),
+    ("no/lovtid/2005-12-16-118", "no/lov/2005-04-29-21", "section:21/subsection:2/sentence:2", "ein stønadstakar", "ein stønadstakar og ektemaken"),
+    ("no/lovtid/2006-06-16-20", "no/lov/1981-04-08-7", "section:10/subsection:1/sentence:4", "fylkestrygdekontoret", "det organ i Arbeids- og velferdsetaten som Arbeids- og velferdsdirektoratet bestemmer"),
+    ("no/lovtid/2006-06-16-20", "no/lov/1998-06-26-41", "section:11/subsection:1/sentence:3", "trygdeetatens", "Arbeids- og velferdsetatens"),
+    ("no/lovtid/2006-06-16-20", "no/lov/2002-03-08-4", "section:13/subsection:1/sentence:3", "trygdeetatens", "Arbeids- og velferdsetatens"),
+    ("no/lovtid/2006-06-16-20", "no/lov/2005-04-29-20", "section:4/subsection:1/sentence:1", "Trygdeetatens innkrevingssentral", "Arbeids- og velferdsetatens innkrevingssentral"),
+    ("no/lovtid/2006-06-16-20", "no/lov/2005-04-29-21", "section:21/subsection:2/sentence:2", "trygdekontoret", "det felles lokale kontoret"),
+    ("no/lovtid/2009-06-19-108", "no/lov/2002-06-21-45", "section:37h/subsection:1/sentence:2", "Statens helsetilsyn", "Helsedirektoratet"),
+    ("no/lovtid/2010-06-25-29", "no/lov/1949-07-28-26", "section:27/subsection:2/sentence:3", "§ 24 tredje ledd", "§ 23 fjerde ledd"),
+    ("no/lovtid/2010-06-25-29", "no/lov/1949-07-28-26", "section:33/subsection:2/sentence:4", "§ 24 annet ledd", "§ 23 annet ledd"),
+    ("no/lovtid/2010-06-25-29", "no/lov/1949-07-28-26", "section:38/subsection:3/sentence:4", "§ 24 annet ledd", "§ 23 annet ledd"),
+    ("no/lovtid/2010-06-25-29", "no/lov/1953-06-26-11", "section:30/subsection:2/sentence:1", "Statens Pensjonskasse", "Statens pensjonskasse"),
+    ("no/lovtid/2010-06-25-29", "no/lov/1962-06-22-12", "section:21/subsection:3/sentence:1", "Statens Pensjonskasse", "Statens pensjonskasse"),
+    ("no/lovtid/2014-05-09-16", "no/lov/1981-05-22-25", "section:339/subsection:1/sentence:2", "formann", "leder"),
+    ("no/lovtid/2014-05-09-16", "no/lov/2001-05-18-21", "section:16/subsection:7/sentence:2", "§ 16 tredje ledd bokstav d) og e)", "fjerde ledd bokstav d og e"),
+    ("no/lovtid/2014-06-20-24", "no/lov/1997-02-28-19", "section:2-6/subsection:2/sentence:1", "uførepensjon", "uføretrygd"),
+    ("no/lovtid/2014-12-19-73", "no/lov/1949-07-28-26", "section:26/subsection:2/sentence:1", "uførepensjon", "midlertidig uførepensjon eller uførepensjon"),
+    ("no/lovtid/2014-12-19-73", "no/lov/2010-02-19-5", "section:17/subsection:1/sentence:1", "§ 8 tredje ledd", "§ 8 fjerde ledd"),
+    ("no/lovtid/2014-12-19-73", "no/lov/2010-02-19-5", "section:18/subsection:1/sentence:1", "§ 8 tredje ledd", "§ 8 fjerde ledd"),
+    ("no/lovtid/2014-12-19-73", "no/lov/2011-12-16-60", "section:2-2/subsection:3/sentence:2", "uførepensjonen", "uføreytelsen"),
+    ("no/lovtid/2015-01-23-4", "no/lov/1992-06-26-86", "section:7-20/subsection:7/sentence:1", "patentloven", "panteloven"),
+    ("no/lovtid/2018-12-20-113", "no/lov/1972-05-12-28", "section:10/subsection:1/sentence:2", "Strålevernet", "Direktoratet"),
+    ("no/lovtid/2018-12-20-113", "no/lov/1972-05-12-28", "section:10/subsection:1/sentence:3", "Strålevernet", "Direktoratet"),
+    ("no/lovtid/2018-12-20-113", "no/lov/1972-05-12-28", "section:10/subsection:1/sentence:4", "Strålevernet", "Direktoratet"),
+    ("no/lovtid/2018-12-20-113", "no/lov/1972-05-12-28", "section:16/subsection:1/sentence:2", "Statens strålevern", "direktoratet"),
+    ("no/lovtid/2018-12-20-113", "no/lov/2000-05-12-36", "section:19/subsection:2/sentence:2", "Statens strålevern", "Direktoratet"),
+    ("no/lovtid/2018-12-20-117", "no/lov/2008-05-15-35", "section:92/subsection:4/sentence:1", "fengsling", "internering"),
+    ("no/lovtid/2018-12-20-117", "no/lov/2008-05-15-35", "section:92/subsection:4/sentence:2", "fengsling", "internering"),
+    ("no/lovtid/2018-12-20-98", "no/lov/1953-07-17-2", "section:25/subsection:1/sentence:2", "forsikringsloven", "finansforetaksloven"),
+    ("no/lovtid/2018-12-20-98", "no/lov/1953-07-17-2", "section:30/subsection:1/sentence:2", "forsikringsloven", "finansforetaksloven"),
+    ("no/lovtid/2019-03-08-5", "no/lov/2005-06-17-101", "section:22/subsection:3/sentence:3", "uten", "utan"),
+    ("no/lovtid/2019-05-24-18", "no/lov/2007-06-15-40", "section:38/subsection:1/sentence:2", "Statens reindriftsforvaltning", "Landbruksdirektoratet"),
+    ("no/lovtid/2019-05-24-18", "no/lov/2007-06-15-40", "section:71/subsection:1/sentence:2", "Statens reindriftsforvaltning", "Landbruksdirektoratet"),
+    ("no/lovtid/2019-06-21-49", "no/lov/1967-12-15-9", "section:38/subsection:2/sentence:2", "søknadsavgift", "søknadsgebyr"),
+    ("no/lovtid/2019-06-21-49", "no/lov/1967-12-15-9", "section:50a/subsection:1/sentence:3", "avgift", "gebyr"),
+    ("no/lovtid/2019-06-21-49", "no/lov/1967-12-15-9", "section:66j/subsection:1/sentence:1", "avgift", "gebyr"),
+    ("no/lovtid/2019-06-21-49", "no/lov/2003-03-14-15", "section:17/subsection:2/sentence:2", "avgift", "gebyr"),
+    ("no/lovtid/2019-06-21-49", "no/lov/2003-03-14-15", "section:51/subsection:2/sentence:2", "avgift", "gebyr"),
+    ("no/lovtid/2019-06-21-49", "no/lov/2003-03-14-15", "section:56/subsection:3/sentence:2", "avgift", "gebyr"),
+    ("no/lovtid/2019-12-20-105", "no/lov/1997-02-28-19", "section:12-20/subsection:3/sentence:1", "straffegjennomføringsloven § 16", "straffegjennomføringsloven § 16 eller 16 a"),
+    ("no/lovtid/2019-12-20-105", "no/lov/1997-02-28-19", "section:16-12/subsection:3/sentence:1", "straffegjennomføringsloven § 16", "straffegjennomføringsloven § 16 eller 16 a"),
+    ("no/lovtid/2019-12-20-105", "no/lov/1997-02-28-19", "section:17-14/subsection:3/sentence:1", "straffegjennomføringsloven § 16", "straffegjennomføringsloven § 16 eller 16 a"),
+    ("no/lovtid/2019-12-20-105", "no/lov/1997-02-28-19", "section:18-9/subsection:3/sentence:1", "straffegjennomføringsloven § 16", "straffegjennomføringsloven § 16 eller 16 a"),
+    ("no/lovtid/2019-12-20-105", "no/lov/1997-02-28-19", "section:19-22/subsection:3/sentence:1", "straffegjennomføringsloven § 16", "straffegjennomføringsloven § 16 eller 16 a"),
+    ("no/lovtid/2019-12-20-105", "no/lov/1997-02-28-19", "section:20-23/subsection:3/sentence:1", "straffegjennomføringsloven § 16", "straffegjennomføringsloven § 16 eller 16 a"),
+    ("no/lovtid/2023-06-09-24", "no/lov/2020-11-06-127", "section:50/subsection:1/sentence:1", "deltakere", "deltagere"),
+)
+
 _W69B_POPULATION_INSTRUCTION = (
     "Re-derive with `.tmp/w69b/f4_pinlit.py` (or an equivalent corpus scan for "
     "substitution-tagged TEXT_PATCH ops whose target leaf is a sentence) and "
@@ -10311,12 +10409,19 @@ def test_no_w69b_sentence_addressed_substitution_population_is_pinned() -> None:
     the parse plane cannot see whether the address resolves, so the only thing
     standing between a new row and a wrong write at punktum depth is this pin
     plus the apply-plane term conjuncts.
+
+    W-104 opened a second lane that mints the same op shape: the inline
+    addressed sentence, tagged ``fallback:unstructured``. It brought 51 rows
+    that had not been adjudicated. Each lane is pinned to its own set, so a row
+    that moves between lanes is also a finding. The 21 above stay exactly the
+    structured lane's.
     """
     from lawvm.norway.grafter import parse_no_amendment_groups
     from lawvm.norway.sources import iter_no_amendment_artifacts
 
     artifacts = 0
     found: list[tuple[str, str, str, str, str]] = []
+    found_unstructured: list[tuple[str, str, str, str, str]] = []
     dead_kind: list[str] = []
     for artifact in iter_no_amendment_artifacts(cast(Path, _NO_FARCHIVE_PATH)):
         artifacts += 1
@@ -10336,7 +10441,8 @@ def test_no_w69b_sentence_addressed_substitution_population_is_pinned() -> None:
                 if not op.target.path or op.target.leaf_kind() != "sentence":
                     continue
                 assert op.text_patch is not None
-                found.append(
+                lane = found_unstructured if "fallback:unstructured" in (op.provenance_tags or ()) else found
+                lane.append(
                     (
                         artifact.logical_id,
                         base_id,
@@ -10355,8 +10461,12 @@ def test_no_w69b_sentence_addressed_substitution_population_is_pinned() -> None:
         "something is still emitting it. " + _W69B_POPULATION_INSTRUCTION
     )
     assert tuple(sorted(found)) == _NO_W69B_SENTENCE_ADDRESSED_SUBSTITUTIONS, (
-        "The sentence-addressed word substitutions are not the pinned set. "
+        "The structured lane's sentence-addressed word substitutions are not the pinned set. "
         + _W69B_POPULATION_INSTRUCTION
+    )
+    assert tuple(sorted(found_unstructured)) == _NO_W104_SENTENCE_ADDRESSED_SUBSTITUTIONS, (
+        "The unstructured (W-104 inline) lane's sentence-addressed word substitutions are "
+        "not the pinned set. " + _W69B_POPULATION_INSTRUCTION
     )
 
 

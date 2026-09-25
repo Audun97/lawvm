@@ -1456,7 +1456,15 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # ``no/lovtid/2023-12-20-104``, ``contingent`` above); ``dated``,
         # ``unknown`` and ``immediate`` all hold, and no PRE-EXISTING entry's
         # ``effective_status`` changes.
-        "instrument_authorized": 1015,
+        # 1,015 -> 1,016 at W-104 (pinned 2026-09-25; the entries and
+        # authorized-count pins moved with W-104, this histogram was missed):
+        # ``no/lovtid/2004-07-02-68`` (the Medietilsynet act) gains its FIRST
+        # index entry off the addressed word-substitution production and is
+        # dated 2005-01-01 by ``no/forskrift/2004-07-02-1099`` ("gjeld frå 1.
+        # januar 2005"), ``plain`` rather than staged. Measured W-103 -> W-104:
+        # it is the only entrant, nothing leaves, and no PRE-EXISTING entry's
+        # ``effective_status`` changes, so every other bucket holds.
+        "instrument_authorized": 1016,
         "unknown": 2,
     }
 
@@ -2078,9 +2086,25 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # instruction against that law, so the declared target was receipted as
     # unbound until the structured chapter address existed. Receipts 904 ->
     # 904 (the receipt shrinks by one id and does not close).
-    assert len(unbound) == 904
-    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2369
-    assert len({diagnostic["source_id"] for diagnostic in unbound}) == 904
+    # 904 -> 903 receipts and 2,369 -> 2,363 pairs at W-104 (pinned
+    # 2026-09-25; the bindings pin moved with W-104, this census was missed).
+    # Measured W-103 -> W-104, the seven gained bindings each retire a
+    # declared pair: the Medietilsynet act ``2004-07-02-68`` binds three of
+    # its four declared laws; ``2003-06-27-57``, ``2018-12-20-98`` and
+    # ``2019-05-24-18`` bind one more each; and ``2019-12-20-105`` binds its
+    # last, so its receipt closes (the -1). One pair is RE-declared, in the
+    # withdrawing direction: ``2014-06-20-24``'s only op on AFP-loven
+    # ``2010-06-25-28`` was a whole-law global replace, which now refuses typed
+    # on "§ 20 overskriften". So 7 - 1 = 6 pairs. The second withdrawn binding,
+    # ``2014-06-20-47`` -> ``2012-01-20-6``, re-declares nothing because it was
+    # never declared. It was a misbinding: "I § 40 nr. 2, som endret ved lov
+    # 20. januar 2012 nr. 6, erstattes i bokstav g «tvunget» med «tvungent»"
+    # had been lowered as a global replace on the law cited in the aside. It
+    # now refuses typed (``…_address_list_unresolved``) on its real base,
+    # politiregisterloven.
+    assert len(unbound) == 903
+    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2363
+    assert len({diagnostic["source_id"] for diagnostic in unbound}) == 903
 
     # 64 acts gain their FIRST index entry: they announced every one of their
     # parts with an unlisted tail, so they had bound no law at all.

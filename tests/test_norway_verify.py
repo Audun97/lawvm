@@ -2950,6 +2950,19 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # empty path is a prefix of everything. It now relates to the rows under
     # that chapter alone, which for these three is none of their rows. This is
     # the classifier over-reach W-98 recorded as a follow-up.
+    # W-104 (2026-09-11, pinned 2026-09-25): ``2014-08-15-59``
+    # (naturskadeerstatningsloven) moves back untouched_drift -> replay_defect,
+    # and this time rows move with it (5 -> 6; see the totals note above). Its
+    # five rows had all been chapter-title rows that no op related to. The
+    # 2019 act's "I §§ 11, 12, … 20 og 24 erstattes «Statens
+    # landbruksforvaltning» med «Landbruksdirektoratet»" now lowers as eight
+    # whole-section ops. S7 refuses §§ 17 and 20 ``multiple``, and the rows that
+    # open at § 17 andre ledd and § 20 andre and tredje ledd are that refusal:
+    # the old agency name is retained, the safe direction. The rows are related to
+    # the ops, so the bucket is the honest one. They close when the recorded
+    # follow-up relaxes S7's exactly-once rule for a whole-section address.
+    # The totals pin moved with W-104; this membership line was missed until
+    # the post-merge gate run.
     expected = {
         "replay_defect": [
             "no/lov/2001-06-15-65",
@@ -2961,6 +2974,7 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             "no/lov/2010-06-25-28",
             "no/lov/2012-01-27-9",
             "no/lov/2012-11-30-70",
+            "no/lov/2014-08-15-59",
             "no/lov/2015-02-13-9",
             "no/lov/2015-05-22-33",
             "no/lov/2015-06-19-70",
@@ -2984,7 +2998,6 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             "no/lov/2010-06-04-21",
             "no/lov/2011-06-24-39",
             "no/lov/2013-06-21-75",
-            "no/lov/2014-08-15-59",
             "no/lov/2015-05-12-27",
             "no/lov/2017-05-22-28",
             "no/lov/2017-05-22-29",

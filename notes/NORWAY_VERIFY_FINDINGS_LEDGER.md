@@ -8055,6 +8055,33 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    witness, where the 2004 substitution is addressed to fjerde ledd but the
    replay's ledd 4 is the pre-2001 relabel gap (family 4), so the op refuses
    `absent` there until that lane lands.
+   **Post-merge re-pin (2026-09-25).** The gate W-104 recorded was run
+   before the pin edits and was not re-run at commit, so five corpus pins
+   that restate a quantity W-104 moved stayed red. Each was adjudicated
+   W-103 → W-104 in a before worktree and moved with a note:
+   (i) the § 412 witness (`2009-06-19-74`) 534 → 533 ops, straffeloven
+   2005 24 → 23, re-digested. Exactly four ops change: three
+   text-replaces land at their address, and "§ 37 bokstav i" refuses
+   typed. (ii) The staged-population histogram: `instrument_authorized`
+   1,015 → 1,016, the Medietilsynet act alone. (iii) The declared-target
+   census 904 → 903 receipts, 2,369 → 2,363 pairs. Seven gained bindings
+   each retire a declared pair; AFP-loven's withdrawn global op
+   re-declares one; `2019-12-20-105` closes. The second withdrawn binding
+   (`2014-06-20-47` → `2012-01-20-6`) was a misbinding onto the law cited
+   in a "som endret ved lov …" aside; it now refuses typed on
+   politiregisterloven. (iv) The W-23 membership pin: naturskade-
+   erstatningsloven untouched_drift → replay_defect. The totals pin
+   already carried that move. (v) The W-69b sentence population: W-104
+   mints 51 sentence-leaf ops in its own lane. They are now pinned as a
+   second set, and each lane is asserted separately. All 51 were
+   adjudicated: the address matches the source sentence for every row,
+   and 37 carry the TO term at that address in the current consolidation.
+   12 have no current counterpart (later repeal or re-wording, named in
+   the change note), and one is editorial ("§ 16 eller § 16 a"). One is
+   **oracle-suspect**: `2018-12-20-98` changes «forsikringsloven» to
+   «finansforetaksloven» in `no/lov/1953-07-17-2` § 25 AND § 30 første
+   ledd andre punktum. Lovdata applied § 25 and left § 30 unchanged under
+   an inkurie footnote. The op follows the source. No row was rejected.
 
 ## 5. Demo / Inspection Tooling
 
@@ -8073,6 +8100,14 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
 
+- **2026-09-25 (W-104's five missed pins, found by the post-merge gate)** —
+  five corpus pins restated a quantity W-104 moved, and W-104 had not moved
+  them: the § 412 witness, the staged-population histogram, the
+  declared-target census, the W-23 membership list and the W-69b sentence
+  population. Each was measured W-103 → W-104 and moved with its note (item
+  104, "Post-merge re-pin"). No code changed. The 51 sentence-leaf rows W-104
+  mints were adjudicated one by one and pinned as their own lane. One is
+  oracle-suspect (`1953-07-17-2` § 30, where Lovdata skipped the 2018 change).
 - **2026-09-11 (W-104 — the inline addressed word substitution in the
   unstructured lane; family 2 of the witness's divergent sections)** — the
   2004 Medietilsynet act (`no/lovtid/2004-07-02-68`) yielded zero ops: its
