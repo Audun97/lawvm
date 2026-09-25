@@ -203,7 +203,7 @@ def test_wired_into_apply_no_ops() -> None:
     i.e. the call site exists, not dead code."""
     from lawvm.norway import grafter as mod
 
-    src = inspect.getsource(mod.apply_no_ops)
+    src = inspect.getsource(mod._apply_no_ops_fold)
     assert "_no_drain_seam_boundary_observations" in src
     grafter_src = inspect.getsource(mod)
     assert (

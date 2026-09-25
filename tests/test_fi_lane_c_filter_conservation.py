@@ -223,6 +223,9 @@ def test_select_applicable_surfaces_out_of_scope(monkeypatch) -> None:
         sel, "amendment_children_by_parent", lambda: {parent_id: [in_id, out_id]}
     )
     monkeypatch.setattr(
+        sel, "amendment_child_edges_by_parent", lambda: {parent_id: []}
+    )
+    monkeypatch.setattr(
         sel, "get_consolidated_meta", lambda *_a, **_k: (dt.date(2002, 1, 1), None)
     )
     monkeypatch.setattr(

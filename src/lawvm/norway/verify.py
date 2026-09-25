@@ -16,6 +16,7 @@ from lawvm.core.mutation_boundary import (
     path_is_strict_prefix,
     paths_related,
 )
+from lawvm.core.regex_safety import compile_classifier_regex
 from lawvm.core.semantic_types import IRNodeKind
 from lawvm.core import tree_ops
 from lawvm.core.timeline_consistency import ConsistencyDivergence, ingest_consolidated, verify_consistency
@@ -25,7 +26,11 @@ from lawvm.core.verification_contracts import (
 )
 from lawvm.norway.grafter import parse_no_statute
 from lawvm.norway.index import NOAmendmentIndex, build_no_amendment_index, load_no_amendment_index
-from lawvm.norway.inventory import build_no_inventory
+from lawvm.norway.inventory import (
+    build_no_inventory,
+    build_no_no_consolidation_rows,
+    summarize_no_no_consolidation_rows,
+)
 from lawvm.norway.replay import NOReplayResult, replay_no_to_pit
 from lawvm.norway.sources import (
     load_no_current_bytes,
@@ -37,16 +42,73 @@ from lawvm.core.quirks_disposition import QuirksDisposition
 _NO_VERIFY_WS_RE = re.compile(r"\s+")
 _NO_VERIFY_PUNCT_RE = re.compile(r"\s+([,.;:])")
 _NO_VERIFY_PAREN_OPEN_RE = re.compile(r"\(\s+")
+_NO_VERIFY_PAREN_CLOSE_RE = re.compile(r"\s+\)")
 _NO_VERIFY_REPEALED_RE = re.compile(r"^(?:§\s*[0-9A-Za-z-]+\.\s*)?\(Opphevet\)$", re.IGNORECASE)
 # Lovdata *Vedlegg* annex-token prefix on a section label (e.g. ``v22c`` for
 # EEA Agreement Annex XXII nr. 10c). Compiled module-scope per §2.4.
 _NO_ANNEX_TOKEN_RE = re.compile(r"v\d+[a-z]*", re.IGNORECASE)
+# An ORDINARY Norwegian legislative chapter label: decimal (``3``, ``10a``) or
+# roman (``IV``). A top-level chapter label of any other shape is Lovdata's
+# annex token for an incorporated instrument. Measured over every divergence
+# address in the 57-law scan at as-of 2026-07-10: exactly four labels fail this
+# match — ``gdpr``, ``rdk``, ``rdkn``, ``v22c`` — and all four are annexes.
+_NO_ANNEX_BODY_CHAPTER_RE = compile_classifier_regex(
+    r"\d+[a-z]*|[IVXLCDM]+",
+    re.IGNORECASE,
+    classifier_id="no_verify.annex_body_chapter_label",
+)
+# An annexed instrument's ARTICLE, as Lovdata addresses it: ``a1`` … ``a99``.
+# Norwegian section labels never take this form — they are ``11``, ``11a``,
+# ``3-3c`` — so the shape alone separates an instrument article from a section
+# of the enacting law. Measured: 1,129 of the 1,513 scan divergences carry an
+# article-form section label, in three laws; zero in the other 54.
+_NO_ANNEX_ARTICLE_LABEL_RE = compile_classifier_regex(
+    r"a\d+[a-z]*",
+    re.IGNORECASE,
+    classifier_id="no_verify.annex_article_label",
+)
+# The annex token when it prefixes an article label (``gdpr/a1``, ``v22c/a80``).
+# Split off with a one-shot ``partition`` rather than folded into the article
+# pattern: an optional prefix group around a quantifier is exactly the nested-
+# quantifier shape ``compile_classifier_regex`` refuses (§1.11 regex safety).
+_NO_ANNEX_SECTION_TOKEN_RE = compile_classifier_regex(
+    r"[a-z][a-z0-9]*",
+    re.IGNORECASE,
+    classifier_id="no_verify.annex_section_token",
+)
 _NO_VERIFY_OTHER_LAWS_PLACEHOLDER_RE = re.compile(
     r"((?:gjøres følgende endringer(?: i andre lover)?|gjerast i andre lover|skal desse endringane gjerast i andre lover):)\s*(?:[-–—]\s*){2,}$",
     re.IGNORECASE,
 )
 _NO_VERIFY_TRAILING_FOOTNOTE_RE = re.compile(r"([.!?])\s+\d+$")
 _NO_VERIFY_STANDALONE_FOOTNOTE_RE = re.compile(r"([.!?])\s+\d+\s+(?=[A-ZÆØÅ])")
+# Inline footnote marker: a superscript reference digit that the published-side
+# extraction leaves *inside* a sentence, next to the word it annotates — the
+# commencement formula "Loven gjelder fra den tid[1] Kongen bestemmer."
+#
+# W-16: this rule used to be written ``(?<=[a-zæøå])\s+\d+\s+(?=[A-ZÆØÅ])``,
+# which also ate STRUCTURAL numbering — "Kapittel 2 X" and "Kapittel 3 X"
+# normalized to the same string, so genuinely different headings compared
+# EQUAL. A compare-lane rule runs on both sides, so that MASKS divergences
+# instead of merely adding noise (findings-ledger F-05). The probe behind W-16
+# enumerated all 551 alterations this rule made over 25,742 compare-lane text
+# units of the 56 candidate laws: 49 genuine markers, 487 structural headings
+# ("Kapittel N …", "Avsnitt N …"), 15 other content digits (cross-references
+# "§§ 5 A-2 og 5 A-3", the quantity "minst 100 Mbit/s", English convention
+# dates "of 16 December 1992"). The three bounds below fire on exactly the 49
+# genuine markers and on none of the 502 false positives:
+#   * the annotated word must be a lowercase-initial whitespace-delimited token
+#     — a word inside a sentence, never a structural label ("Kapittel",
+#     "Avsnitt"), which is capitalized because it opens its heading;
+#   * the marker is a single digit — every genuine marker measured is "1", and
+#     multi-digit runs are content ("100 Mbit/s", "16 December");
+#   * what follows must be a capitalized WORD, not a label token — this rejects
+#     "§§ 5 A-2 og 5 A-3", "sjøloven kapittel 6 A." and "§§ 33 og 34 I …".
+# Under-firing here is recorded noise; over-firing is masking, so the bounds
+# are deliberately measured-tight.
+_NO_VERIFY_INLINE_FOOTNOTE_RE = re.compile(
+    r"(?<![^\s])([a-zæøå](?:\S*[a-zæøå])?)\s+\d\s+(?=[A-ZÆØÅ][a-zæøå])"
+)
 _NO_VERIFY_CONTINGENT_OTHER_LAWS_RE = re.compile(
     r"^(?:Fra|Frå|Med virkning fra den tid)\b.*?(?:Kongen fastsetter|Kongen bestemmer).*?(?:gjøres følgende endringer|gjerast i andre lover|skal desse endringane gjerast i andre lover)",
     re.IGNORECASE,
@@ -89,12 +151,24 @@ _NO_COMPARISON_NORMALIZATION_RULES = (
         replacement="(",
     ),
     ComparisonNormalizationRule(
+        name="no_compare_close_paren_spacing",
+        rule_class="presentation_cleanup",
+        kind="regex",
+        description="Remove spaces before closing parenthesis for Norway comparison text.",
+        pattern=_NO_VERIFY_PAREN_CLOSE_RE,
+        replacement=")",
+    ),
+    ComparisonNormalizationRule(
         name="no_compare_inline_footnote_marker",
         rule_class="presentation_cleanup",
         kind="regex",
-        description="Remove inline numeric footnote markers between sentences.",
-        pattern=re.compile(r"(?<=[a-zæøå])\s+\d+\s+(?=[A-ZÆØÅ])"),
-        replacement=" ",
+        description=(
+            "Remove a single-digit inline footnote marker attached to a "
+            "lowercase-initial word inside a sentence, leaving structural "
+            "numbering intact."
+        ),
+        pattern=_NO_VERIFY_INLINE_FOOTNOTE_RE,
+        replacement=r"\1 ",
     ),
     ComparisonNormalizationRule(
         name="no_compare_standalone_footnote_marker",
@@ -141,6 +215,68 @@ NO_VERIFY_COMPARE_DEFINITION_SUBSECTION_PAIRS_COLLAPSED = (
 )
 NO_VERIFY_COMPARE_OTHER_LAWS_CONTEXT_SUPPRESSED = "no_verify.compare_other_laws_context_suppressed"
 
+# --- Annexed-instrument representation ceiling (W-17) ------------------------
+#
+# Lovdata's consolidation of a law that incorporates an international
+# instrument prints that instrument in full as a top-level annex chapter. The
+# original-act lane never carried it, so replay can never produce it and the
+# compare surface reports one divergence per annex provision. This is a
+# REPRESENTATION difference between the two lanes, not a replay defect.
+#
+# These rows are TYPED, not suppressed: they stay in ``divergences`` and keep
+# their place in ``divergence_count``, so no verdict moves and the old total
+# stays re-derivable as ceiling + unexplained (finding F-05's cardinal rule —
+# the verify lane must never silently mask a divergence). The typing exists so
+# the scoreboard can report the three affected laws' annex and non-annex
+# divergences separately instead of drowning in them.
+NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_ADDRESS = "no_verify.ceiling_annexed_instrument_address"
+NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_COUNTERPART = "no_verify.ceiling_annexed_instrument_counterpart"
+# W-40: the same ceiling, reached through Lovdata's OTHER annex encoding — the
+# instrument addressed as a compound sub-chapter of an ordinary host chapter
+# instead of by a token chapter of its own. A separate rule_id rather than a
+# loosened criterion 1, so the scoreboard keeps the two encodings apart.
+NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_NESTED_ADDRESS = (
+    "no_verify.ceiling_annexed_instrument_nested_address"
+)
+# The counterpart rule only ever explains a provision that is PRESENT ON ONE
+# SIDE ONLY — that is the shape a two-address representation produces. A
+# MISMATCH at a canonical article address is a genuine wording difference
+# between the two copies and must stay unexplained.
+_NO_ANNEX_COUNTERPART_DIVERGENCE_TYPES = frozenset({"OPS_MISSING", "CONSOLIDATED_MISSING"})
+
+
+@dataclass(frozen=True)
+class NOCeilingDivergence:
+    """A primary divergence carrying a typed ceiling receipt.
+
+    Unlike :class:`NOFilteredDivergence` this record does NOT remove its
+    divergence from the primary lane — the divergence is still counted and
+    still reported. The record only names the measured criterion that
+    explains its shape, so the row can be counted separately.
+    """
+
+    divergence: Any
+    rule_id: str
+    reason: str
+    annex_token: str
+    article: str
+    witness_address: TreePath | None = None
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "rule_id": self.rule_id,
+            "family": "annexed_instrument_representation",
+            "phase": "oracle_compare",
+            "reason": self.reason,
+            "divergence_type": self.divergence.divergence_type,
+            "address": [list(step) for step in self.divergence.address.path],
+            "annex_token": self.annex_token,
+            "article": self.article,
+            "witness_address": (
+                None if self.witness_address is None else [list(step) for step in self.witness_address]
+            ),
+        }
+
 
 @dataclass(frozen=True)
 class NOCompareProjection:
@@ -186,6 +322,13 @@ class NOVerifyResult:
     filtered_divergence_count: int = 0
     filtered_divergence_rule_counts: dict[str, int] | None = None
     filtered_divergences: list[NOFilteredDivergence] | None = None
+    # Typed-ceiling view of the PRIMARY divergences (W-17). ``ceiling_
+    # divergence_count + unexplained_divergence_count == divergence_count``
+    # always: a typed row is still a divergence, just an explained one.
+    ceiling_divergence_count: int = 0
+    ceiling_divergence_rule_counts: dict[str, int] | None = None
+    ceiling_divergences: list[NOCeilingDivergence] | None = None
+    unexplained_divergence_count: int = 0
     compare_projection_count: int = 0
     compare_projection_rule_counts: dict[str, int] | None = None
     compare_projections: list[NOCompareProjection] | None = None
@@ -395,10 +538,23 @@ def normalize_no_relation_path(path: TreePath) -> TreePath:
     )
 
 
+def _no_container_only_path(path: TreePath) -> bool:
+    return bool(path) and all(kind in _NO_RELATION_CONTAINER_KINDS for kind, _label in path)
+
+
 def no_paths_related(
     left: TreePath,
     right: TreePath,
 ) -> bool:
+    # W-101. A path that is ONLY containers (an op on ``chapter:5A`` — a heading
+    # replace, a new chapter, a chapter repeal) relates to the rows UNDER that
+    # container and to nothing else. Stripping the containers, as the general
+    # rule below does, would leave it empty, and an empty path is a prefix of
+    # every row: one chapter op then "touched" the whole law and re-bucketed
+    # untouched drift as replay defect (W-98 recorded the shape).
+    for container_only, other in ((left, right), (right, left)):
+        if _no_container_only_path(container_only):
+            return tuple(other[: len(container_only)]) == tuple(container_only)
     return paths_related(
         left,
         right,
@@ -1056,6 +1212,260 @@ def _primary_divergences(divergences: list[ConsistencyDivergence]) -> list[Consi
     return list(_partition_primary_divergences(divergences).primary)
 
 
+def _no_annex_article_section(label: str | None) -> tuple[str | None, str] | None:
+    """``(annex_token_or_None, article_number)`` for an instrument-article section label.
+
+    ``a1`` → ``(None, "1")``; ``v22c/a80`` → ``("v22c", "80")``. The split is
+    one-shot, matching :func:`_strip_annex_section_prefix`: ``gdpr/x/a1`` has
+    ``x/a1`` left after the partition, which is not an article label, so the
+    whole label is rejected rather than coerced into a false article.
+    """
+    if not label:
+        return None
+    token, separator, rest = label.partition("/")
+    if not separator:
+        token, rest = "", label
+    elif not _NO_ANNEX_SECTION_TOKEN_RE.fullmatch(token):
+        return None
+    if not _NO_ANNEX_ARTICLE_LABEL_RE.fullmatch(rest):
+        return None
+    return (token or None, rest[1:])
+
+
+def _no_annexed_instrument_address(path: TreePath) -> tuple[str, str] | None:
+    """``(annex_token, article)`` when a divergence address sits INSIDE an annex chapter.
+
+    The Lovdata annex encoding has two halves and both are required:
+
+    1. the address's top step is a ``chapter`` whose label is not an ordinary
+       legislative chapter label (``3``, ``10a``, ``IV``) — it is the annex
+       token (``gdpr``, ``rdk``, ``rdkn``, ``v22c`` are the four in corpus);
+    2. the first ``section`` step below it is an instrument *article*
+       (``a1``) carrying that same token duplicated as a slash prefix.
+
+    Requirement 2's token agreement is deliberately a shared-prefix test, not
+    equality: Lovdata writes ``chapter:rdk`` / ``section:rdke/a1`` for the
+    bokmål convention (``rdk`` + ``e``) while the other three duplicate the
+    token exactly. Requiring the two spellings to agree up to a suffix keeps
+    the rule from firing on an unrelated slash-bearing section label.
+    """
+    if not path or path[0][0] != "chapter":
+        return None
+    chapter_label = path[0][1]
+    if chapter_label is None or _NO_ANNEX_BODY_CHAPTER_RE.fullmatch(chapter_label):
+        return None
+    for kind, label in path:
+        if kind != "section":
+            continue
+        parsed = _no_annex_article_section(label)
+        if parsed is None:
+            return None
+        token, article = parsed
+        if token is None:
+            return None
+        if not (token.startswith(chapter_label) or chapter_label.startswith(token)):
+            return None
+        return (chapter_label, article)
+    return None
+
+
+def _no_nested_annexed_instrument_address(path: TreePath) -> tuple[str, str] | None:
+    """``(annex_chapter_label, article)`` for the NESTED annex encoding (W-40).
+
+    A second Lovdata annex encoding, measured on ``no/lov/2012-12-14-81``
+    (EØS-arbeidstakarlova): the incorporated instrument is not addressed by a
+    token chapter of its own but as a COMPOUND SUB-CHAPTER of an ordinary host
+    chapter — ``chapter:1`` ("Forordning") holds ``chapter:1-1``
+    ("EØS-avtalen vedlegg V punkt 2 (forordning (EU) nr. 492/2011) …"), and
+    the regulation's own chapters, parts and articles hang below that. Because
+    the host chapter is ordinary and the article labels are unprefixed,
+    :func:`_no_annexed_instrument_address` misses every row of it.
+
+    Three requirements, all measured, all required:
+
+    1. the top step is a ``chapter`` with an ORDINARY legislative label — the
+       host chapter of the enacting law (``1`` here);
+    2. the step below it is a ``chapter`` whose label extends the host's with a
+       ``-`` separator (``1`` → ``1-1``) — Lovdata's compound address for a
+       subdivision of that host chapter, and never an ordinary chapter label;
+    3. the first ``section`` step below is an instrument *article* (``a1``)
+       with NO token prefix — this encoding has no token to duplicate.
+
+    Requirement 2 is what keeps this rule disjoint from
+    :func:`_no_canonical_instrument_article`: ``no/lov/2006-06-30-50``'s
+    canonical-body articles sit at ``chapter:1/chapter:I/section:a1``, whose
+    second chapter is an ordinary roman label, so they stay the counterpart
+    rule's rows. Measured over all 1,212 divergence addresses of the 58 scan
+    candidates at as-of 2026-07-10: 93 rows match, all in ``2012-12-14-81``,
+    all ``OPS_MISSING``, none of them already typed by either W-17 criterion,
+    and zero rows in the other 57 laws. (W-43 dropped the denominator to 1,208
+    by parsing that law's own §§ 1-4, which the top-level body walk had been
+    discarding; the 93 matching rows are unmoved.)
+    """
+    if len(path) < 2 or path[0][0] != "chapter" or path[1][0] != "chapter":
+        return None
+    host_label, annex_label = path[0][1], path[1][1]
+    if host_label is None or annex_label is None:
+        return None
+    if not _NO_ANNEX_BODY_CHAPTER_RE.fullmatch(host_label):
+        return None
+    if not annex_label.startswith(f"{host_label}-"):
+        return None
+    for kind, label in path:
+        if kind != "section":
+            continue
+        parsed = _no_annex_article_section(label)
+        if parsed is None or parsed[0] is not None:
+            return None
+        return (annex_label, parsed[1])
+    return None
+
+
+def _no_canonical_instrument_article(path: TreePath) -> str | None:
+    """Article number when an address is an instrument article at the law's CANONICAL address.
+
+    The mirror of :func:`_no_annexed_instrument_address`: an ordinary
+    legislative chapter at the top (``chapter:1``) with a bare, unprefixed
+    article section label below it (``section:a1``). This is the shape the
+    original-act lane produces when the enacting act printed the instrument
+    inside its own chapter body — ``no/lov/2006-06-30-50``, where the SCE
+    Regulation exists on BOTH sides at different addresses.
+    """
+    if not path or path[0][0] != "chapter":
+        return None
+    chapter_label = path[0][1]
+    if chapter_label is None or not _NO_ANNEX_BODY_CHAPTER_RE.fullmatch(chapter_label):
+        return None
+    for kind, label in path:
+        if kind != "section":
+            continue
+        parsed = _no_annex_article_section(label)
+        if parsed is None or parsed[0] is not None:
+            return None
+        return parsed[1]
+    return None
+
+
+def classify_no_annex_ceiling(
+    divergences: list[ConsistencyDivergence],
+) -> tuple[NOCeilingDivergence, ...]:
+    """Type the annexed-instrument representation ceiling over PRIMARY divergences.
+
+    Three criteria, all per-row and mechanical, applied in order:
+
+    * ``ceiling_annexed_instrument_address`` — the row's address is inside an
+      annex chapter (:func:`_no_annexed_instrument_address`). The published
+      consolidation carries the instrument; the original-act lane never did.
+    * ``ceiling_annexed_instrument_nested_address`` — the same ceiling under
+      Lovdata's other annex encoding, the instrument addressed as a compound
+      sub-chapter of an ordinary host chapter
+      (:func:`_no_nested_annexed_instrument_address`). Disjoint from the first
+      by construction: that one needs a NON-ordinary top chapter label, this
+      one needs an ordinary one.
+    * ``ceiling_annexed_instrument_counterpart`` — the row is a
+      present-on-one-side-only divergence at the *canonical* address of an
+      article that THIS law also carries at an annex address. Self-limiting:
+      with no criterion-1 row for that article number, nothing is typed, so
+      the rule can never reach a law that annexes nothing.
+
+    Nothing is removed and nothing is deleted from either side of the
+    compare; the caller keeps the full divergence list and subtracts.
+
+    Measured, as-of 2026-07-10 over the 57 scan candidates: 1,022 rows match
+    criterion 1 (``2018-06-15-38`` 714 GDPR, ``2017-06-16-51`` 204 = the same
+    CERD convention in bokmål (102) and nynorsk (102), ``2006-06-30-50`` 104
+    SCE Regulation) and 107 match criterion 2 (all in ``2006-06-30-50``:
+    104 pair 1:1 with a criterion-1 row at the same normalized address, plus
+    the 3 tail subsections of the Regulation's closing Article 80 signature
+    block, which the published annex truncates). Total 1,129 of 1,513 —
+    72% — and zero rows in the other 54 laws.
+
+    W-40 adds criterion 2 on top of that, measured over the 58 scan candidates
+    at the same as-of: 93 further rows, all in ``2012-12-14-81``, taking the
+    corpus ceiling to 1,011 of 1,212. W-43 then closed that law's remaining 4
+    rows in the parser rather than here (its §§ 1-4 were dropped by the
+    top-level body walk, not absent from the source), so the same 1,011 ceiling
+    rows now sit against a 1,208 total and the law is wholly ceiling.
+    """
+    records: dict[int, NOCeilingDivergence] = {}
+    # article number -> (annex token, the address that witnessed it)
+    witnessed: dict[str, tuple[str, TreePath]] = {}
+
+    for idx, divergence in enumerate(divergences):
+        path = tuple(divergence.address.path)
+        hit = _no_annexed_instrument_address(path)
+        if hit is None:
+            continue
+        token, article = hit
+        witnessed.setdefault(article, (token, path))
+        records[idx] = NOCeilingDivergence(
+            divergence=divergence,
+            rule_id=NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_ADDRESS,
+            reason=(
+                "Address sits inside a Lovdata annex chapter carrying an incorporated "
+                "instrument (chapter label is the annex token, section label is that "
+                "token plus an instrument article). The consolidation prints the "
+                "instrument in full; the original-act replay lane never had it."
+            ),
+            annex_token=token,
+            article=article,
+        )
+
+    # The nested encoding deliberately does NOT feed ``witnessed``. The
+    # counterpart criterion explains a two-address representation, which is a
+    # measured property of the token encoding (``2006-06-30-50`` carries the
+    # SCE Regulation on both sides); no law in corpus doubles a NESTED annex
+    # into its own body, so witnessing from here would be reach the
+    # measurement does not support.
+    for idx, divergence in enumerate(divergences):
+        if idx in records:
+            continue
+        hit = _no_nested_annexed_instrument_address(tuple(divergence.address.path))
+        if hit is None:
+            continue
+        annex_label, article = hit
+        records[idx] = NOCeilingDivergence(
+            divergence=divergence,
+            rule_id=NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_NESTED_ADDRESS,
+            reason=(
+                "Address sits inside a Lovdata annex addressed as a compound sub-chapter "
+                "of an ordinary host chapter (host chapter label, that label plus a "
+                "'-' suffix, then an unprefixed instrument article). The consolidation "
+                "prints the instrument in full; the original-act replay lane never had it."
+            ),
+            annex_token=annex_label,
+            article=article,
+        )
+
+    for idx, divergence in enumerate(divergences):
+        if idx in records:
+            continue
+        if divergence.divergence_type not in _NO_ANNEX_COUNTERPART_DIVERGENCE_TYPES:
+            continue
+        article = _no_canonical_instrument_article(tuple(divergence.address.path))
+        if article is None:
+            continue
+        witness = witnessed.get(article)
+        if witness is None:
+            continue
+        token, witness_address = witness
+        records[idx] = NOCeilingDivergence(
+            divergence=divergence,
+            rule_id=NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_COUNTERPART,
+            reason=(
+                "Address is the canonical-body address of an instrument article that "
+                "this same law also carries at an annex address, so the annexed "
+                "instrument is represented twice at two addresses and each copy reads "
+                "as missing from the other side."
+            ),
+            annex_token=token,
+            article=article,
+            witness_address=witness_address,
+        )
+
+    return tuple(records[idx] for idx in sorted(records))
+
+
 def load_no_current_statute(base_id: str, data_dir: Optional[Path] = None) -> IRStatute:
     data_dir = resolve_no_source_path(data_dir)
     current_bytes = load_no_current_bytes(base_id, data_dir)
@@ -1180,6 +1590,15 @@ def verify_no_against_current(
     result.filtered_divergence_count = len(partition.filtered)
     result.filtered_divergence_rule_counts = filtered_rule_counts
     result.filtered_divergences = list(partition.filtered)
+    # W-17: type the annexed-instrument ceiling over the primary rows. This is
+    # a REPORTING split only — ``result.consistent`` and
+    # ``result.divergence_count`` above are already final and untouched, so no
+    # verdict can move and the old total stays re-derivable.
+    ceiling = classify_no_annex_ceiling(primary)
+    result.ceiling_divergences = list(ceiling)
+    result.ceiling_divergence_count = len(ceiling)
+    result.ceiling_divergence_rule_counts = dict(Counter(record.rule_id for record in ceiling))
+    result.unexplained_divergence_count = result.divergence_count - len(ceiling)
     result.compare_projection_count = len(compare_projections)
     result.compare_projection_rule_counts = dict(Counter(projection.rule_id for projection in compare_projections))
     result.compare_projections = compare_projections
@@ -1239,6 +1658,11 @@ def build_no_verify_scan(
         "error": 0,
     }
     source_signal_counts: dict[str, int] = {}
+    ceiling_rule_counts: dict[str, int] = {}
+    # Scoreboard-level conservation receipt (W-17): ``ceiling + unexplained``
+    # reproduces the pre-W-17 corpus divergence total exactly, so the split is
+    # a view over the same rows rather than a suppression of any of them.
+    divergence_totals = {"total": 0, "ceiling": 0, "unexplained": 0}
     selected = candidates[:limit]
     for idx, base_id in enumerate(selected, start=1):
         if progress_callback is not None:
@@ -1257,6 +1681,11 @@ def build_no_verify_scan(
             "consistent": verify_result.consistent,
             "divergence_count": verify_result.divergence_count,
             "divergence_counts": dict(verify_result.divergence_counts or {}),
+            # W-17 ceiling split of ``divergence_count`` (never a subset of it
+            # that has been removed): ceiling + unexplained == divergence_count.
+            "ceiling_divergence_count": verify_result.ceiling_divergence_count,
+            "ceiling_divergence_rule_counts": dict(verify_result.ceiling_divergence_rule_counts or {}),
+            "unexplained_divergence_count": verify_result.unexplained_divergence_count,
             "amendment_count": len(inventory.base_to_sources.get(base_id, [])),
             "indexed_amendment_count": verify_result.indexed_amendment_count,
             "applied_amendment_count": verify_result.applied_amendment_count,
@@ -1274,6 +1703,11 @@ def build_no_verify_scan(
             source_signal_counts[verify_result.source_signal] = (
                 source_signal_counts.get(verify_result.source_signal, 0) + 1
             )
+        for rule_id, count in (verify_result.ceiling_divergence_rule_counts or {}).items():
+            ceiling_rule_counts[rule_id] = ceiling_rule_counts.get(rule_id, 0) + count
+        divergence_totals["total"] += verify_result.divergence_count
+        divergence_totals["ceiling"] += verify_result.ceiling_divergence_count
+        divergence_totals["unexplained"] += verify_result.unexplained_divergence_count
         results.append(entry)
 
     return {
@@ -1283,8 +1717,33 @@ def build_no_verify_scan(
         "scanned_count": len(results),
         "summary": summary,
         "source_signal_counts": source_signal_counts,
+        "divergence_totals": divergence_totals,
+        "ceiling_rule_counts": ceiling_rule_counts,
         "results": results,
     }
+
+
+def no_partition_is_annex_ceiling_dominated(item: dict[str, Any]) -> bool:
+    """Is this scan row's divergence total dominated by the W-17 annex ceiling?
+
+    The partition's routing predicate for the ``annex_ceiling`` bucket. Reads
+    only the two W-17 conservation fields (``ceiling + unexplained ==
+    divergence_count``), so "dominated" is literally "more of this law's
+    divergences are the representation ceiling than are not".
+
+    Why a majority test and not a tuned ratio: the corpus separation is total,
+    not marginal. As-of 2026-07-10 over the 57 scan candidates the three
+    annexing laws sit at 714/716 (99.7%), 204/210 (97.1%) and 211/212 (99.5%)
+    ceiling; every one of the other 54 laws sits at 0/N. There is no law
+    anywhere near the boundary, so the weakest predicate that makes the
+    bucket's story true of every member is the one to use — a 90%-style
+    constant would claim a precision the measurement does not support.
+    """
+    # Both fields default to 0, so a row that predates the W-17 split (or any
+    # caller-built row without it) is never routed here.
+    ceiling = int(item.get("ceiling_divergence_count", 0) or 0)
+    unexplained = int(item.get("unexplained_divergence_count", 0) or 0)
+    return ceiling > unexplained
 
 
 def build_no_verify_partition(
@@ -1312,14 +1771,39 @@ def build_no_verify_partition(
     replay_defects: list[dict[str, Any]] = []
     untouched_drift: list[dict[str, Any]] = []
     source_sparse: list[dict[str, Any]] = []
+    annex_ceiling: list[dict[str, Any]] = []
     consistent: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
 
+    # W-23: the annex-ceiling test runs BEFORE ``source_signal``, because the
+    # signal over-fires on exactly the laws the ceiling explains and the
+    # routing order decided which story a law got told about it.
+    #
+    # Measured at 2026-07-10 before this change: ``sparse_indexed_history``
+    # flagged 4 laws, and 2 of them were ceiling-dominated annexing laws
+    # (``2018-06-15-38`` 714/716, ``2006-06-30-50`` 211/212) that landed in
+    # ``source_sparse`` — a bucket whose story is "we never acquired the
+    # amending history" — while the third law of the same causal family
+    # (``2017-06-16-51`` 204/210, no signal) landed in ``replay_defect``. One
+    # cause, three laws, two buckets, and the ``source_sparse`` story false of
+    # two of its four members. The signal itself is left alone: it is a
+    # pre-W-17 heuristic over ``divergence_count``, it is consumed elsewhere
+    # (no_bench SOURCE_UNAVAILABLE, no_anchor_manifest oracle-suspect), and
+    # ``source_signal`` is a scan-row field this change must not move.
+    #
+    # Routing here short-circuits the coverage branch, so an annex-ceiling row
+    # carries no ``touched_divergence_count`` column — same as ``source_sparse``,
+    # which has never carried one. Only ``2017-06-16-51`` loses it in practice
+    # (it was 6 touched / 204 untouched, i.e. the residue is exactly the touched
+    # part); nothing in the tree reads that field off a partition row, and
+    # ``lawvm no-coverage`` recomputes it per law on demand.
     for item in scan["results"]:
         if item["error"]:
             errors.append(item)
         elif item["consistent"]:
             consistent.append(item)
+        elif no_partition_is_annex_ceiling_dominated(item):
+            annex_ceiling.append(item)
         elif item["source_signal"]:
             source_sparse.append(item)
         else:
@@ -1353,8 +1837,25 @@ def build_no_verify_partition(
     replay_defects.sort(key=_sort_key)
     untouched_drift.sort(key=_sort_key)
     source_sparse.sort(key=_sort_key)
+    annex_ceiling.sort(key=_sort_key)
     consistent.sort(key=_sort_key)
     errors.sort(key=lambda item: str(item.get("base_id", "")))
+
+    # W-45: the laws this run could never have reached. Every bucket above is a
+    # verdict on a law the scan SAW; this is the census of laws with a
+    # replayable original and no stored consolidation, which the scan cannot
+    # see at all because there is nothing to compare a replay against. It sits
+    # BESIDE ``partitions``, not inside it, on purpose: a never-scanned law
+    # carries none of the scan-row fields (``divergence_count``,
+    # ``source_signal``, ``consistent``, ``error``) that every partition
+    # consumer indexes off a row, so a sixth bucket would be a row shape that
+    # lies. The counts are a receipt, not a work queue —
+    # ``lawvm no-no-consolidation`` is where the per-law rows live.
+    unverifiable = {
+        "no_stored_consolidation": summarize_no_no_consolidation_rows(
+            build_no_no_consolidation_rows(data_dir, index=loaded_index)
+        ),
+    }
 
     return {
         "data_dir": scan["data_dir"],
@@ -1363,13 +1864,17 @@ def build_no_verify_partition(
         "scanned_count": scan["scanned_count"],
         "summary": dict(scan["summary"]),
         "source_signal_counts": dict(scan.get("source_signal_counts", {})),
+        "divergence_totals": dict(scan.get("divergence_totals", {})),
+        "ceiling_rule_counts": dict(scan.get("ceiling_rule_counts", {})),
         "partitions": {
             "replay_defect": replay_defects,
             "untouched_drift": untouched_drift,
             "source_sparse": source_sparse,
+            "annex_ceiling": annex_ceiling,
             "consistent": consistent,
             "error": errors,
         },
+        "unverifiable": unverifiable,
     }
 
 

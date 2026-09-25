@@ -16,6 +16,7 @@ Verifies that normalize_source_ir:
 from __future__ import annotations
 
 import lxml.etree as etree
+import pytest
 
 from lawvm.core.ir import IRNode
 from lawvm.core.ir_helpers import irnode_to_text
@@ -48,6 +49,19 @@ from lawvm.finland.source_normalization_kinds import (
     BASE_TAIL_PROSE_ABSORB,
     BASE_UNNUMBERED_SUBPARAGRAPH_MOMENT_SPLIT,
     TRAILING_CHAPTER_REPARENT,
+)
+
+
+def _finlex_corpus_available() -> bool:
+    from lawvm.corpus_store import _archive_is_populated, resolve_farchive_path
+
+    path, _rule = resolve_farchive_path("finlex.farchive")
+    return _archive_is_populated(path)
+
+
+_requires_finlex_corpus = pytest.mark.skipif(
+    not _finlex_corpus_available(),
+    reason="populated finlex.farchive not available",
 )
 
 
@@ -708,6 +722,7 @@ class TestTagReclassify:
         assert not any(fact.kind_value == BASE_TAIL_PROSE_ABSORB for fact in facts)
         assert check_invariants(normalized) == []
 
+    @_requires_finlex_corpus
     def test_real_2020_644_section_7_attaches_dash_bullets_to_numbered_items(self) -> None:
         """Regression: section 7 has dash-bullet item continuations, not peer momentit."""
         from lawvm.corpus_store import get_corpus_store
@@ -823,6 +838,7 @@ class TestTagReclassify:
         assert len(split_facts) == 1
         assert split_facts[0].basis_value == SourceNormalizationBasis.MONOTONIC_LOCAL_REPAIR.value
 
+    @_requires_finlex_corpus
     def test_real_1980_687_section_51_splits_glued_seka5_item(self) -> None:
         """Regression: 1980/687 section 51 glues item 5 into item 4 text."""
         from lawvm.corpus_store import get_corpus_store
@@ -875,6 +891,7 @@ class TestTagReclassify:
         assert [subsection.label for subsection in subsections] == ["1", "2", "3"]
         assert not any(fact.kind_value == BASE_SECTION_ITEM_SUBSECTION_FOLD for fact in facts)
 
+    @_requires_finlex_corpus
     def test_real_1978_380_section_2_folds_connector_split_item_tail(self) -> None:
         from lawvm.corpus_store import get_corpus_store
 
@@ -951,6 +968,7 @@ class TestTagReclassify:
         assert "subsection:2" in fold_facts[0].before
         assert "subsection:3" in fold_facts[0].before
 
+    @_requires_finlex_corpus
     def test_real_1994_1505_section_3_folds_definition_item_wrappers(self) -> None:
         from lawvm.corpus_store import get_corpus_store
 
@@ -976,6 +994,7 @@ class TestTagReclassify:
         assert check_invariants(normalized) == []
         assert any(fact.kind_value == BASE_SECTION_ITEM_SUBSECTION_FOLD for fact in facts)
 
+    @_requires_finlex_corpus
     def test_real_2000_345_section_3_folds_sparse_definition_item_payload(self) -> None:
         from lawvm.corpus_store import get_corpus_store
 
@@ -1062,6 +1081,7 @@ class TestTagReclassify:
         assert "intro-only subsection" in fold_facts[0].before
         assert "3->2" in fold_facts[0].after
 
+    @_requires_finlex_corpus
     def test_real_1974_1086_section_4_folds_intro_and_item_wrapper(self) -> None:
         from lawvm.corpus_store import get_corpus_store
 
@@ -1089,6 +1109,7 @@ class TestTagReclassify:
             for fact in facts
         )
 
+    @_requires_finlex_corpus
     def test_real_2001_189_section_3_folds_chaptered_intro_item_wrapper(self) -> None:
         """A chaptered section can still carry a transport-split moment item list.
 
@@ -1124,6 +1145,7 @@ class TestTagReclassify:
             for fact in facts
         )
 
+    @_requires_finlex_corpus
     def test_real_2005_1266_section_8_folds_duplicate_one_item_wrapper(self) -> None:
         from lawvm.corpus_store import get_corpus_store
 
@@ -1249,6 +1271,7 @@ class TestTagReclassify:
         assert len(subsections) == 2
         assert not any(fact.kind_value == BASE_SECTION_ITEM_SUBSECTION_FOLD for fact in facts)
 
+    @_requires_finlex_corpus
     def test_real_1981_68_section_2_folds_split_first_moment_item_list(self) -> None:
         from lawvm.corpus_store import get_corpus_store
 
@@ -1275,6 +1298,7 @@ class TestTagReclassify:
             for fact in facts
         )
 
+    @_requires_finlex_corpus
     def test_real_1995_361_section_4_preserves_nested_lettered_definition_order(self) -> None:
         from lawvm.corpus_store import get_corpus_store
 
@@ -1303,6 +1327,7 @@ class TestTagReclassify:
         assert not any(fact.kind_value == BASE_SECTION_ITEM_SUBSECTION_FOLD for fact in facts)
         assert not any(fact.kind_value == BASE_TAIL_PROSE_ABSORB for fact in facts)
 
+    @_requires_finlex_corpus
     def test_real_1998_711_dash_definition_list_preserves_all_items(self) -> None:
         """Regression: 1998/711 section 2 is a single definition-list moment."""
         from lawvm.corpus_store import get_corpus_store
@@ -1567,6 +1592,7 @@ class TestTagReclassify:
         assert "Tämän pykälän mukainen" in irnode_to_text(subsections[1])
         assert not any(fact.kind_value == BASE_TABLE_NOTE_SUBSECTION_FOLD for fact in facts)
 
+    @_requires_finlex_corpus
     def test_real_2006_953_table_notes_stay_with_replaced_first_moment(self) -> None:
         """Regression: 2006/953 section 3 publishes table notes inside 3 § 1 mom."""
         from lawvm.corpus_store import get_corpus_store
@@ -1597,6 +1623,7 @@ class TestTagReclassify:
         assert any(fact.kind_value == BASE_TABLE_NOTE_SUBSECTION_FOLD for fact in facts)
         assert not any(fact.kind_value == BASE_DUPLICATE_TAIL_SPLIT for fact in facts)
 
+    @_requires_finlex_corpus
     def test_real_2013_255_unmarked_table_following_moments_are_preserved(self) -> None:
         """Regression: 2013/255 section 6 has real prose moments after a table."""
         from lawvm.corpus_store import get_corpus_store
@@ -1798,6 +1825,7 @@ class TestUnnumberedSubparagraphMomentSplit:
         assert len([child for child in para.children if child.kind == IRNodeKind.SUBPARAGRAPH]) == 3
         assert not any(fact.kind_value == BASE_UNNUMBERED_SUBPARAGRAPH_MOMENT_SPLIT for fact in facts)
 
+    @_requires_finlex_corpus
     def test_real_2019_1567_section_1_restores_misnested_etuyhteys_moment(self) -> None:
         from lawvm.corpus_store import get_corpus_store
 
@@ -1823,6 +1851,7 @@ class TestUnnumberedSubparagraphMomentSplit:
         assert "Toinen henkilö on etuyhteydessä" in irnode_to_text(subsections[2])
         assert any(fact.kind_value == BASE_UNNUMBERED_SUBPARAGRAPH_MOMENT_SPLIT for fact in facts)
 
+    @_requires_finlex_corpus
     def test_real_2021_1177_section_8a_splits_tail_moment_from_item_3(self) -> None:
         from lawvm.corpus_store import get_corpus_store
 

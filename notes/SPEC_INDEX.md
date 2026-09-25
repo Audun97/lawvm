@@ -85,6 +85,7 @@ the architecture, keep it explanatory.
 - SWEDEN_LAWVM_STATUS.md — Sweden frontend status/limits/roadmap: official SFS PDF → clause surface → payload surface → elaboration → effects plan → lowering → replay with typed recovery ladder; unified bench comparator; typed conservation receipt (§1.8 FilterResult); observed-write-audit (§2.3 receipt contract, first step); structured replay outcome; ~1% genuine mismatch on 500-act sample, 0% error rate
 - NEW_ZEALAND_LAWVM_STATUS.md — New Zealand frontend status/limits/roadmap
 - NORWAY_LAWVM_STATUS.md — Norway frontend status/limits/roadmap
+- NORWAY_VERIFY_FINDINGS_LEDGER.md — living triage ledger from the replay-vs-consolidation scan of the replayable Norway corpus: per-finding defect families (lowering gaps, sunset reversal, index gaps, compare noise) + ordered burn-down queue
 - [OPEN_LAW_FRONTEND_SPEC.md](OPEN_LAW_FRONTEND_SPEC.md)
 - OPEN_LAW_REGIME.md
 

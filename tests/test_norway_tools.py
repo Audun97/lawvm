@@ -9,6 +9,8 @@ from argparse import Namespace
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from lawvm.tools.no_commencement_report import main as no_commencement_report_main
 from lawvm.tools.no_commencement_candidates import main as no_commencement_candidates_main
 from lawvm.tools.no_commencement_backfill import main as no_commencement_backfill_main
@@ -18,6 +20,7 @@ from lawvm.tools.no_frontier import main as no_frontier_main
 from lawvm.tools.no_ingest import main as no_ingest_main
 from lawvm.tools.no_law import main as no_law_main
 from lawvm.tools.no_missing_base import main as no_missing_base_main
+from lawvm.tools.no_no_consolidation import main as no_no_consolidation_main
 from lawvm.tools.no_progress import main as no_progress_main
 from lawvm.tools.no_source import main as no_source_main
 from lawvm.tools.no_statsrad import main as no_statsrad_main
@@ -354,6 +357,53 @@ def test_no_missing_base_tool_emits_json(tmp_path, capsys) -> None:
     assert data["laws"][0]["base_id"] == "no/lov/1946-12-13-21"
 
 
+def test_no_no_consolidation_tool_emits_json(tmp_path, capsys) -> None:
+    """W-45's converse of the missing-base tool, over a two-lane fixture corpus."""
+    lti = (
+        '<?xml version="1.0" encoding="utf-8"?>'
+        '<html lang="no"><body>'
+        '<header class="documentHeader"><dl>'
+        '<dt class="dateInForce">I kraft fra</dt><dd class="dateInForce">2025-01-02</dd>'
+        '<dt class="title">Tittel</dt>'
+        '<dd class="title">Lov om endringer i testloven</dd>'
+        "</dl></header>"
+        '<main class="documentBody" data-lovdata-URL="LTI/lov/2025-01-02-2">'
+        '<article class="legalArticle" data-name="§1">'
+        '<h3 class="legalArticleHeader">§ 1. Formaal</h3>'
+        '<article class="legalP">Loven gjelder testdata.</article>'
+        "</article></main></body></html>"
+    ).encode("utf-8")
+    # An original with no consolidation: present in the lovtidend lane only.
+    _write_archive(
+        tmp_path / "gjeldende-lover.tar.bz2",
+        [("nl/nl-19461213-021.xml", b"<html/>")],
+    )
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [("lti/2025/nl-20250102-002.xml", lti)],
+    )
+    args = Namespace(
+        data_dir=str(tmp_path),
+        index=None,
+        base_id=None,
+        family=None,
+        min_amendments=0,
+        limit=None,
+        json=True,
+    )
+
+    no_no_consolidation_main(args)
+    data = json.loads(capsys.readouterr().out)
+
+    assert data["without_consolidation_law_count"] == 1
+    assert data["laws"][0]["base_id"] == "no/lov/2025-01-02-2"
+    assert data["laws"][0]["family"] == "amending_act"
+    assert data["laws"][0]["would_be_status"] is None
+    assert data["laws"][0]["repealed_by"] == []
+    assert data["counts_by_family"]["amending_act"] == 1
+    assert data["substantive_unexplained"] == 0
+
+
 def test_no_ingest_tool_emits_json(tmp_path, capsys) -> None:
     _write_archive(
         tmp_path / "gjeldende-lover.tar.bz2",
@@ -379,6 +429,7 @@ def test_no_ingest_tool_emits_json(tmp_path, capsys) -> None:
     assert data["current_locators_stored"] == 1
     assert data["original_locators_stored"] == 1
     assert data["amendment_locators_stored"] == 1
+    assert data["forskrift_locators_stored"] == 0
 
 
 def test_no_ingest_tool_reports_skip_existing_entries(tmp_path, capsys) -> None:
@@ -686,8 +737,30 @@ def test_no_frontier_tool_emits_json(tmp_path, monkeypatch, capsys) -> None:
                 "replay_defect": [],
                 "untouched_drift": [],
                 "source_sparse": [],
+                # W-23 added the annexed-instrument-ceiling lane; this stub
+                # mirrors build_no_verify_partition's return shape, so it grows
+                # the key too (no_frontier indexes the lanes directly rather
+                # than defaulting a missing one to empty).
+                "annex_ceiling": [],
                 "consistent": [],
                 "error": [],
+            },
+            # W-45 added the ``unverifiable`` sibling BESIDE ``partitions``;
+            # W-46 reads it here. Same convention as ``annex_ceiling`` above:
+            # the stub mirrors build_no_verify_partition's return shape rather
+            # than making no_frontier default a missing key to empty.
+            "unverifiable": {
+                "no_stored_consolidation": {
+                    "total": 3,
+                    "by_family": {
+                        "amending_act": 2,
+                        "temporary_act": 0,
+                        "wage_board_act": 0,
+                        "substantive_act": 1,
+                    },
+                    "would_be_candidates": 1,
+                    "substantive_unexplained": 1,
+                },
             },
         },
     )
@@ -710,12 +783,30 @@ def test_no_frontier_tool_emits_json(tmp_path, monkeypatch, capsys) -> None:
     assert "missing_base_source" in data
     assert "consistency_sample" in data
     assert "consistency_partition" in data
+    # W-46: the census reaches the dashboard's JSON unchanged, carried straight
+    # off the partition rather than recomputed, and with both universes beside
+    # it (they come from the inventory, which this test stubs empty).
+    census = data["unverifiable_census"]
+    assert census["no_stored_consolidation"] == {
+        "total": 3,
+        "by_family": {
+            "amending_act": 2,
+            "temporary_act": 0,
+            "wage_board_act": 0,
+            "substantive_act": 1,
+        },
+        "would_be_candidates": 1,
+        "substantive_unexplained": 1,
+    }
+    assert census["stored_consolidations"] == data["inventory"]["stored_consolidations"]
+    assert census["current_laws"] == data["inventory"]["current_laws"]
     assert data["index_diagnostic_count"] == 1
     assert data["index_diagnostics"][0]["rule_id"] == "no_amendment_index_no_change_ops"
     assert data["active_consistency_lane"] in {
         "replay_defect",
         "untouched_drift",
         "source_sparse",
+        "annex_ceiling",  # W-23
         "consistent",
         "error",
     }
@@ -754,6 +845,23 @@ def test_no_frontier_tool_prints_partition_summary(tmp_path, capsys) -> None:
     assert "commencement candidate lanes" in output
     assert "active consistency lane" in output
     assert "top replay defects:" in output
+    # W-46: the census prints beside the partition it is a sibling of. This
+    # fixture's two-lane corpus stores an original for both laws and a
+    # consolidation for only the base, so the amending act 2025-02-02-5 is the
+    # one census row — invisible to every partition lane above, which is the
+    # whole reason the section exists. It lands in ``substantive_act`` (and so
+    # in ``substantive_unexplained``) because the fixture's amendment title is
+    # not one of the family-classifier's endringslov forms; the assert pins
+    # what this corpus is, not a claim about the real one.
+    assert (
+        "unverifiable census         : no_stored_consolidation=1, "
+        "would_be_candidates=0, substantive_unexplained=1"
+    ) in output
+    assert (
+        "...census by family         : amending_act=0, substantive_act=1, "
+        "temporary_act=0, wage_board_act=0"
+    ) in output
+    assert "...census universe          : stored_consolidations=1, current_laws=1" in output
 
 
 def test_no_verify_partition_tool_emits_json(tmp_path, capsys) -> None:
@@ -1196,6 +1304,53 @@ def test_no_commencement_candidates_tool_writes_artifact(tmp_path, monkeypatch, 
     assert artifact["source_lanes"] == {"local_corpus": 1, "statsrad": 1}
     assert artifact["input_locators"]["index_path"] == str(index_path)
     assert artifact["candidate_source_counts"] == {"local_corpus": 1, "statsrad": 1}
+
+
+def test_no_commencement_candidates_tool_prints_instrument_authorization(tmp_path, monkeypatch, capsys) -> None:
+    monkeypatch.setattr(
+        "lawvm.tools.no_commencement_candidates.build_no_commencement_candidate_report",
+        lambda **kwargs: {
+            "source_id": "no/lovtid/2025-02-02-5",
+            "source_title": "A",
+            "source_effective_status": "instrument_authorized",
+            "source_raw_date_in_force": "Kongen bestemmer",
+            "direct_only": False,
+            "candidate_count": 2,
+            "local_candidate_count": 0,
+            "lovtidend_commencement_instrument_count": 2,
+            "statsrad_candidate_count": 0,
+            "local_candidates": [],
+            "statsrad_candidates": [],
+            "lovtidend_commencement_instruments": [
+                {
+                    "source_id": "no/forskrift/2025-06-27-900",
+                    "scope_status": "whole_act",
+                    "replay_authorized": True,
+                    "title": "Ikrafttredelse av lov",
+                },
+                {
+                    "source_id": "no/forskrift/2025-06-27-901",
+                    "scope_status": "unresolved",
+                    "replay_authorized": False,
+                    "title": "Delvis ikrafttredelse av lov",
+                },
+            ],
+        },
+    )
+    args = Namespace(
+        source_id="no/lovtid/2025-02-02-5",
+        data_dir=None,
+        index=None,
+        commencement=None,
+        limit=None,
+        json=False,
+    )
+
+    no_commencement_candidates_main(args)
+    out = capsys.readouterr().out
+
+    assert "no/forskrift/2025-06-27-900 | scope=whole_act | replay_authorized=yes" in out
+    assert "no/forskrift/2025-06-27-901 | scope=unresolved | replay_authorized=no" in out
 
 
 def test_no_commencement_backfill_tool_writes_artifact(tmp_path, monkeypatch, capsys) -> None:
@@ -2861,6 +3016,180 @@ def test_no_verify_scan_tool_emits_json(tmp_path, capsys) -> None:
 
     assert data["candidate_count"] == 1
     assert data["summary"]["consistent"] == 1
+
+
+def test_no_verify_scan_tool_defaults_as_of_to_the_corpus_snapshot(tmp_path, monkeypatch, capsys) -> None:
+    """Finding F-01: an absent ``--as-of`` must land ON the corpus snapshot.
+
+    A default that predates the consolidation the scan compares against makes
+    every law amended in the gap read as spuriously divergent. An explicit
+    ``--as-of`` still wins verbatim, including one before the snapshot.
+    """
+    from datetime import datetime, timezone
+
+    from farchive import Farchive
+
+    db_path = tmp_path / "norway.farchive"
+    archive = Farchive(db_path)
+    archive.store(
+        "no://lov/2025-01-01-1/current.xml",
+        b"<html><body/></html>",
+        observed_at=datetime(2025, 3, 4, 23, 30, tzinfo=timezone.utc),
+    )
+    archive.close()
+
+    seen: dict = {}
+
+    def _capture(**kwargs):
+        seen.update(kwargs)
+        return {
+            "data_dir": str(db_path),
+            "as_of": kwargs["as_of"],
+            "candidate_count": 0,
+            "scanned_count": 0,
+            "summary": {"consistent": 0, "divergent": 0, "error": 0},
+            "source_signal_counts": {},
+            "results": [],
+        }
+
+    monkeypatch.setattr("lawvm.norway.verify.build_no_verify_scan", _capture)
+
+    def _run(as_of):
+        no_verify_scan_main(
+            Namespace(
+                as_of=as_of,
+                data_dir=str(db_path),
+                index=None,
+                commencement=None,
+                limit=3,
+                json=True,
+            )
+        )
+        return json.loads(capsys.readouterr().out)
+
+    assert _run(None)["as_of"] == "2025-03-04"
+    assert seen["as_of"] == "2025-03-04"
+
+    assert _run("2024-01-02")["as_of"] == "2024-01-02"
+    assert seen["as_of"] == "2024-01-02"
+
+
+class _AsOfConsumed(Exception):
+    """Aborts a command's ``main`` the moment its as-of reaches replay."""
+
+
+def _no_snapshot_corpus(tmp_path: Path) -> Path:
+    """An farchive whose only consolidation was observed on 2025-03-04."""
+    from datetime import datetime, timezone
+
+    from farchive import Farchive
+
+    db_path = tmp_path / "norway.farchive"
+    archive = Farchive(db_path)
+    archive.store(
+        "no://lov/2025-01-01-1/current.xml",
+        b"<html><body/></html>",
+        observed_at=datetime(2025, 3, 4, 23, 30, tzinfo=timezone.utc),
+    )
+    archive.close()
+    return db_path
+
+
+# W-14: the F-01 fix applied to `no-verify-scan` extended to its siblings. Each
+# row names the command, its ``main``, and the first downstream call that
+# consumes the as-of — patching *that* (rather than the derivation) is what
+# proves the derived date actually reaches replay instead of merely being
+# computed. ``no-verify-workqueue`` is listed without ``partition``: with one it
+# reads a prebuilt queue that already carries its horizon and must not derive.
+_AS_OF_SIBLINGS = (
+    (
+        "no-frontier",
+        "lawvm.tools.no_frontier",
+        "lawvm.norway.verify.build_no_verify_scan",
+        {"limit": 1, "min_blockers": 1, "min_amendments": 1},
+    ),
+    (
+        "no-divergence",
+        "lawvm.tools.no_divergence",
+        "lawvm.norway.verify.verify_no_against_current",
+        {"base_id": "no/lov/2025-01-01-1", "max_divergences": 10},
+    ),
+    (
+        "no-coverage",
+        "lawvm.tools.no_coverage",
+        "lawvm.norway.verify.verify_no_against_current",
+        {"base_id": "no/lov/2025-01-01-1", "limit": 20},
+    ),
+    (
+        "no-debug",
+        "lawvm.tools.no_debug",
+        "lawvm.tools.no_debug._build_report",
+        {"base_id": "no/lov/2025-01-01-1", "path": [], "limit": 5},
+    ),
+    (
+        "no-verify",
+        "lawvm.tools.no_verify",
+        "lawvm.norway.verify.verify_no_against_current",
+        {"base_id": "no/lov/2025-01-01-1"},
+    ),
+    (
+        "no-verify-partition",
+        "lawvm.tools.no_verify_partition",
+        "lawvm.norway.verify.build_no_verify_partition",
+        {"limit": 1, "base_id": [], "output": None, "progress": False},
+    ),
+    (
+        "no-verify-workqueue",
+        "lawvm.tools.no_verify_workqueue",
+        "lawvm.norway.verify.build_no_verify_partition",
+        {"limit": 1, "base_id": [], "bucket": "replay_defect", "partition": None, "progress": False},
+    ),
+)
+
+
+@pytest.mark.parametrize(
+    "command,module,downstream,extra",
+    _AS_OF_SIBLINGS,
+    ids=[row[0] for row in _AS_OF_SIBLINGS],
+)
+def test_no_sibling_tools_default_as_of_to_the_corpus_snapshot(
+    command, module, downstream, extra, tmp_path, monkeypatch
+) -> None:
+    """Finding F-01, residue W-14: the siblings share the scan's derived default.
+
+    A default frozen at a literal predating the consolidation makes every law
+    amended in the gap read as spuriously divergent, and it makes a drill-down
+    (`no-divergence` above all) incommensurable with the scan that sent the
+    triager there. An explicit ``--as-of`` still wins verbatim, including one
+    before the snapshot.
+    """
+    importlib.import_module("lawvm.norway.verify")
+    main = importlib.import_module(module).main
+    db_path = _no_snapshot_corpus(tmp_path)
+    seen: dict = {}
+
+    def _consume(*args, **kwargs):
+        seen["as_of"] = kwargs.get("as_of")
+        raise _AsOfConsumed(command)
+
+    monkeypatch.setattr(downstream, _consume)
+
+    def _run(as_of):
+        seen.clear()
+        args = Namespace(
+            as_of=as_of,
+            data_dir=str(db_path),
+            index=None,
+            commencement=None,
+            json=True,
+            **extra,
+        )
+        with pytest.raises(_AsOfConsumed):
+            main(args)
+        return seen["as_of"]
+
+    assert _run(None) == "2025-03-04"
+    assert _run("2024-01-02") == "2024-01-02"
 
 
 def test_no_statsrad_tool_emits_json(monkeypatch, capsys) -> None:

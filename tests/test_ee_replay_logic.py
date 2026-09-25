@@ -52,6 +52,8 @@ class _ReadOnlyArchiveLease:
 
 @pytest.fixture(scope="module", autouse=True)
 def _shared_readonly_rt_archive() -> Iterator[None]:
+    if not ee_fetch._DEFAULT_RT_DB.exists():
+        pytest.skip(f"EE archive not reachable: {ee_fetch._DEFAULT_RT_DB}")
     original_fetch_open = ee_fetch.open_rt_archive
     archive = original_fetch_open(readonly=True)
     lease = _ReadOnlyArchiveLease(archive)

@@ -50,11 +50,12 @@ def build_no_coverage_report(
     data_dir: Path | None = None,
     index_path: Path | None = None,
     commencement_path: Path | None = None,
-    as_of: str = "2026-03-29",
+    as_of: str | None = None,
     limit: int = 20,
     index: Any | None = None,
     verify_result: Any | None = None,
 ) -> dict[str, Any]:
+    from lawvm.norway.sources import no_consolidation_snapshot_date
     from lawvm.norway.verify import (
         build_no_verify_coverage_summary,
         collect_no_touched_path_counts,
@@ -66,6 +67,12 @@ def build_no_coverage_report(
     if index is None:
         index = _load_index(index_path=index_path, data_dir=data_dir)
     if verify_result is None:
+        # F-01: absent an explicit as-of, the comparison horizon comes from the
+        # corpus, not a literal that predates the consolidation this is compared
+        # against. Same derivation as `no-verify-scan`. Only reached when the
+        # verify has to be run here: a caller passing ``verify_result`` already
+        # fixed the horizon, so it must not touch the corpus for a date.
+        as_of = as_of or no_consolidation_snapshot_date(data_dir)
         verify_result = verify_no_against_current(
             norm_base_id,
             as_of=as_of,
@@ -160,7 +167,7 @@ def main(args: "argparse.Namespace") -> None:
         data_dir=data_dir,
         index_path=index_path,
         commencement_path=commencement_path,
-        as_of=getattr(args, "as_of", "2026-03-29"),
+        as_of=getattr(args, "as_of", None),
         limit=limit,
     )
 
@@ -207,7 +214,7 @@ def main(args: "argparse.Namespace") -> None:
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="lawvm no-coverage")
     parser.add_argument("base_id")
-    parser.add_argument("--as-of", dest="as_of", default="2026-03-29")
+    parser.add_argument("--as-of", dest="as_of", default=None)
     parser.add_argument("--data-dir", dest="data_dir")
     parser.add_argument("--index", dest="index")
     parser.add_argument("--commencement", dest="commencement")

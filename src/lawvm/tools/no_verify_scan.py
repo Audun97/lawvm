@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 
 
 def main(args: "argparse.Namespace") -> None:
+    from lawvm.norway.sources import no_consolidation_snapshot_date
     from lawvm.norway.verify import build_no_verify_scan
 
     data_dir_arg = getattr(args, "data_dir", None)
@@ -20,8 +21,14 @@ def main(args: "argparse.Namespace") -> None:
     commencement_arg = getattr(args, "commencement", None)
     commencement_path = Path(commencement_arg) if commencement_arg else None
 
+    # An explicit --as-of is honoured verbatim. Absent one, the comparison date
+    # is derived from the corpus itself rather than frozen at a literal: a
+    # default that predates the consolidation snapshot makes every law amended
+    # in the gap read as spuriously divergent (finding F-01).
+    as_of = getattr(args, "as_of", None) or no_consolidation_snapshot_date(data_dir)
+
     report = build_no_verify_scan(
-        as_of=args.as_of,
+        as_of=as_of,
         data_dir=data_dir,
         index_path=index_path,
         commencement_path=commencement_path,
@@ -50,11 +57,32 @@ def main(args: "argparse.Namespace") -> None:
             "  source signals  : "
             + ", ".join(f"{k}={v}" for k, v in sorted(signal_counts.items()))
         )
+    totals = report.get("divergence_totals", {})
+    if totals:
+        print(
+            f"  divergences     : total={totals.get('total', 0)} "
+            f"(ceiling={totals.get('ceiling', 0)}, "
+            f"unexplained={totals.get('unexplained', 0)})"
+        )
+    ceiling_rules = report.get("ceiling_rule_counts", {})
+    if ceiling_rules:
+        print(
+            "  ceiling rules   : "
+            + ", ".join(f"{k}={v}" for k, v in sorted(ceiling_rules.items()))
+        )
     for item in report["results"]:
         tail = f" | error={item['error']}" if item["error"] else ""
         signal = f" | source_signal={item['source_signal']}" if item["source_signal"] else ""
+        # The ceiling split is only printed for the laws that have one, so the
+        # scan row of an unaffected law reads exactly as it did before W-17.
+        ceiling = (
+            f" | ceiling={item['ceiling_divergence_count']}"
+            f" | unexplained={item['unexplained_divergence_count']}"
+            if item.get("ceiling_divergence_count")
+            else ""
+        )
         print(
             f"    {item['base_id']} | consistent={item['consistent']} | "
-            f"divergences={item['divergence_count']} | amendments={item['amendment_count']} | "
+            f"divergences={item['divergence_count']}{ceiling} | amendments={item['amendment_count']} | "
             f"ops={item['replay_op_count']}{signal}{tail}"
         )

@@ -154,7 +154,7 @@ def test_dump_statute_includes_event_trace(monkeypatch: pytest.MonkeyPatch) -> N
     )
     monkeypatch.setattr(structural_review, "_render_aligned_node", lambda aligned, indent=0, compact=False: ["<aligned>"])
 
-    dump = structural_review.dump_statute("2025/1349")
+    dump = structural_review.dump_statute("2025/1349", corpus=object())
 
     assert "events (1):" in dump
     assert "ADD" in dump

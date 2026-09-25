@@ -16,7 +16,6 @@ See notes/2013_331_UNNUMBERED_PEER_CASE_STUDY.md §4 for the stub anatomy.
 """
 from __future__ import annotations
 
-import pytest
 from lxml import etree
 
 from lawvm.finland.inline_repeal_stub import (
@@ -25,6 +24,7 @@ from lawvm.finland.inline_repeal_stub import (
     extract_paragraph_stub_target_range,
 )
 from lawvm.semantic.projection import semantic_structure_from_oracle
+from tests.corpus_pin_helpers import requires_finlex_corpus
 
 
 # ---------------------------------------------------------------------------
@@ -247,10 +247,7 @@ class TestProjectionStripping:
 # Integration: 2013/331 § 3 against fin@20211030
 # ---------------------------------------------------------------------------
 
-@pytest.mark.skipif(
-    not __import__("pathlib").Path("data/finlex.farchive").exists(),
-    reason="Requires data/finlex.farchive",
-)
+@requires_finlex_corpus
 class TestIntegration2013331:
     def test_stub_stripped_from_oracle_tree(self) -> None:
         """para_2v20211030 must be stripped from the projected children.

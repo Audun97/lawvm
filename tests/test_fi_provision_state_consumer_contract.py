@@ -30,10 +30,12 @@ from pathlib import Path
 
 import pytest
 
+from lawvm.corpus_store import _archive_is_populated
+
 # --- corpus availability gate -------------------------------------------------
 _LAWVM_ROOT = Path(__file__).resolve().parents[1]
 _FINLEX_FARCHIVE = _LAWVM_ROOT / "data" / "finlex.farchive"
-_CORPUS_AVAILABLE = _FINLEX_FARCHIVE.exists()
+_CORPUS_AVAILABLE = _archive_is_populated(_FINLEX_FARCHIVE)
 
 pytestmark = [
     pytest.mark.consumer_contract,

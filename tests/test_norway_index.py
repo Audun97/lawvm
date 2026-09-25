@@ -4,13 +4,73 @@ import io
 import tarfile
 from typing import Any, cast
 
+import pytest
+
+from lawvm.norway.commencement import apply_no_commencement_overrides
+from lawvm.norway.commencement_instruments import (
+    NO_COMMENCEMENT_EXECUTION_AUTHORIZED,
+    NO_COMMENCEMENT_EXECUTION_DATE_CONFLICT,
+    NO_COMMENCEMENT_EXECUTION_REFUSED,
+    NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED,
+    NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_DATE_CONFLICT,
+    NOCommencementWidenedWholeActAuthorizationConjunct,
+)
+from lawvm.norway.grafter import (
+    NO_BERIKTIGET_PROVENANCE_TAG,
+    NO_RESANCTIONED_PROVENANCE_TAG,
+    iter_no_document_change_ops,
+    no_resanctioning_note,
+)
 from lawvm.norway.index import (
     NO_ACQUISITION_DUPLICATE_LOGICAL_LOCATOR,
+    NO_AMENDMENT_INDEX_STAGED_COMMENCEMENT_COLLAPSED,
+    NO_BERIKTIGET_ANNOUNCEMENT_PAIRED,
+    NO_BERIKTIGET_ANNOUNCEMENT_UNPAIRED,
+    NO_RESANCTIONED_ACT_SUPERSEDED,
+    NO_RESANCTIONED_ACT_UNPAIRED,
+    NOAmendmentIndex,
     build_no_amendment_index,
     load_no_amendment_index,
     save_no_amendment_index,
 )
-from lawvm.norway.sources import NOLocatedArtifact
+from lawvm.norway.sources import (
+    NO_UNRESOLVED_EFFECTIVE_STATUSES,
+    NOCommencementShape,
+    NOLocatedArtifact,
+    declared_change_targets_from_amendment,
+    load_available_lti_law_ids,
+    load_no_amendment_artifact_bytes,
+    load_no_current_law_ids,
+    parse_header_value,
+    resolve_no_source_path,
+)
+
+# Lovdata's declared ``changesToDocuments`` list for no/lovtid/2022-12-20-115, in
+# document order, and the six targets the index actually binds from extracted ops.
+_LOVTID_2022_12_20_115_DECLARED = (
+    "lov/1950-12-15-7",
+    "lov/1967-02-10",
+    "lov/1979-05-18-18",
+    "lov/1980-06-13-35",
+    "lov/1989-06-16-65",
+    "lov/1992-12-04-126",
+    "lov/1999-07-02-62",
+    "lov/1999-07-02-64",
+    "lov/2006-05-19-16",
+    "lov/2016-05-27-14",
+    "lov/2017-06-16-50",
+    "lov/2017-06-16-67",
+    "lov/2020-06-19-80",
+    "lov/2021-05-21-42",
+)
+_LOVTID_2022_12_20_115_BOUND = (
+    "lov/1950-12-15-7",
+    "lov/1979-05-18-18",
+    "lov/1992-12-04-126",
+    "lov/2017-06-16-67",
+    "lov/2020-06-19-80",
+    "lov/2021-05-21-42",
+)
 
 
 def _amendment_xml(date_in_force: str) -> bytes:
@@ -70,6 +130,66 @@ def _unresolved_structured_target_amendment_xml() -> bytes:
         <article class="legalP">§ 12 skal lyde:</article>
       </article>
     </article>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def _declared_targets_amendment_xml(
+    declared: tuple[str, ...],
+    bound: tuple[str, ...],
+) -> bytes:
+    items = "".join(f"<li>{ref}</li>" for ref in declared)
+    changes = "\n".join(
+        f"""<article class="document-change" data-document="{ref}">
+      <article class="change" data-change-part="{ref}/§1">
+        <article class="futureLegalArticle" data-name="§1">
+          <span class="futureLegalArticleHeader">
+            <span class="legalArticleValue">§ 1</span>.
+            <span class="legalArticleTitle">Nytt krav</span>
+          </span>
+          <article class="legalP">Oppdatert paragraftekst.</article>
+        </article>
+      </article>
+    </article>"""
+        for ref in bound
+    )
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="dateInForce">2023-01-01</dd>
+    <dd class="changesToDocuments"><ul>{items}</ul></dd>
+    {changes}
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def _whole_act_instrument_xml(law_ref: str, date_in_force: str) -> bytes:
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="title">Ikraftsetting av {law_ref}</dd>
+    <dd class="basedOn"><a href="{law_ref}">endringsloven</a></dd>
+    <dd class="dateInForce">{date_in_force}</dd>
+    <main class="documentBody">
+      <article class="legalP">Loven trer i kraft {date_in_force}.</article>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def _partial_instrument_xml(law_ref: str) -> bytes:
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="title">Delt ikraftsetting av {law_ref}</dd>
+    <dd class="basedOn"><a href="{law_ref}">endringsloven</a></dd>
+    <dd class="dateInForce">2025-04-01</dd>
+    <main class="documentBody">
+      <article class="legalP">Loven § 2 trer i kraft 1. april 2025.</article>
+    </main>
   </body>
 </html>
 """.encode("utf-8")
@@ -365,6 +485,2113 @@ def test_save_and_load_no_amendment_index_round_trips(tmp_path) -> None:
     assert loaded.to_dict() == index.to_dict()
 
 
+def test_declared_change_targets_reads_list_items_not_the_string_flattening() -> None:
+    payload = _declared_targets_amendment_xml(("lov/2013-01-11-3", "lov/2022-03-11-9"), ())
+
+    declared = declared_change_targets_from_amendment(payload)
+
+    assert declared.law_ids == ("no/lov/2013-01-11-3", "no/lov/2022-03-11-9")
+    # The reason the reader may not go through parse_header_value: its XPath
+    # string() flattening concatenates the declared ids into one token.
+    assert parse_header_value(payload, "changesToDocuments") == (
+        "lov/2013-01-11-3lov/2022-03-11-9"
+    )
+
+
+def test_declared_change_targets_marks_block_present_like_the_2942_acts_that_carry_one() -> None:
+    # 2,942 of the 3,089 amendment artifacts carry a changesToDocuments block and
+    # 2,941 of those hold at least one lov-form target.
+    declared = declared_change_targets_from_amendment(
+        _declared_targets_amendment_xml(_LOVTID_2022_12_20_115_DECLARED, ())
+    )
+
+    assert declared.block_present is True
+    assert len(declared.law_ids) == 14
+    assert declared.unnumbered_law_ids == ("no/lov/1967-02-10",)
+
+
+def test_declared_change_targets_marks_block_absent_like_the_147_acts_without_one() -> None:
+    declared = declared_change_targets_from_amendment(_non_operational_amendment_xml())
+
+    assert declared.block_present is False
+    assert declared.law_ids == ()
+    assert declared.unnumbered_law_ids == ()
+
+
+def test_declared_change_targets_drops_forskrift_and_null_like_no_lovtid_2021_06_18_115() -> None:
+    declared = declared_change_targets_from_amendment(
+        _declared_targets_amendment_xml(("forskrift/1952-04-21-4287", "null"), ())
+    )
+
+    assert declared.block_present is True
+    assert declared.law_ids == ()
+
+
+def test_build_no_amendment_index_adjudicates_declared_targets_no_op_bound(tmp_path) -> None:
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2022.tar.bz2",
+        [
+            (
+                "lti/2022/nl-20221220-115.xml",
+                _declared_targets_amendment_xml(
+                    _LOVTID_2022_12_20_115_DECLARED,
+                    _LOVTID_2022_12_20_115_BOUND,
+                ),
+            )
+        ],
+    )
+
+    index = build_no_amendment_index(tmp_path)
+
+    entry = index.entries[0]
+    assert entry.source_id == "no/lovtid/2022-12-20-115"
+    assert len(entry.declared_target_ids) == 14
+    assert entry.base_ids == (
+        "no/lov/1950-12-15-7",
+        "no/lov/1979-05-18-18",
+        "no/lov/1992-12-04-126",
+        "no/lov/2017-06-16-67",
+        "no/lov/2020-06-19-80",
+        "no/lov/2021-05-21-42",
+    )
+    assert index.diagnostics == [
+        {
+            "rule_id": "no_amendment_index_declared_target_unbound",
+            "family": "source_pathology",
+            "phase": "acquisition",
+            "reason": "Norway amendment act declared amendment targets that no extracted operation bound",
+            "source_id": "no/lovtid/2022-12-20-115",
+            "locator": "no://lovtid/2022-12-20-115/amendment.xml",
+            "archive": "lovtidend-avd1-2022.tar.bz2",
+            "member_name": "lti/2022/nl-20221220-115.xml",
+            "declared_target_count": 14,
+            "bound_base_id_count": 6,
+            "unbound_target_ids": [
+                "no/lov/1967-02-10",
+                "no/lov/1980-06-13-35",
+                "no/lov/1989-06-16-65",
+                "no/lov/1999-07-02-62",
+                "no/lov/1999-07-02-64",
+                "no/lov/2006-05-19-16",
+                "no/lov/2016-05-27-14",
+                "no/lov/2017-06-16-50",
+            ],
+            "unnumbered_unbound_target_ids": ["no/lov/1967-02-10"],
+            "blocking": True,
+            "strict_disposition": "block",
+            "quirks_disposition": "record",
+        }
+    ]
+
+
+def test_build_no_amendment_index_emits_no_declared_target_adjudication_when_covered(tmp_path) -> None:
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [
+            (
+                "lti/2025/nl-20250202-005.xml",
+                _declared_targets_amendment_xml(("lov/2025-01-01-1",), ("lov/2025-01-01-1",)),
+            )
+        ],
+    )
+
+    index = build_no_amendment_index(tmp_path)
+
+    assert index.entries[0].declared_target_ids == ("no/lov/2025-01-01-1",)
+    assert index.entries[0].base_ids == ("no/lov/2025-01-01-1",)
+    assert index.diagnostics == []
+
+
+def test_build_no_amendment_index_declares_no_target_gap_without_a_lov_form_target(tmp_path) -> None:
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2021.tar.bz2",
+        [
+            (
+                "lti/2021/nl-20210618-115.xml",
+                _declared_targets_amendment_xml(("forskrift/1952-04-21-4287", "null"), ()),
+            )
+        ],
+    )
+
+    index = build_no_amendment_index(tmp_path)
+
+    assert index.entries == []
+    assert [diagnostic["rule_id"] for diagnostic in index.diagnostics] == [
+        "no_amendment_index_no_change_ops"
+    ]
+
+
+def test_no_amendment_index_round_trips_declared_targets_and_adjudications(tmp_path) -> None:
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2022.tar.bz2",
+        [
+            (
+                "lti/2022/nl-20221220-115.xml",
+                _declared_targets_amendment_xml(
+                    _LOVTID_2022_12_20_115_DECLARED,
+                    _LOVTID_2022_12_20_115_BOUND,
+                ),
+            )
+        ],
+    )
+    index = build_no_amendment_index(tmp_path)
+    index_path = tmp_path / "no_index.json"
+
+    save_no_amendment_index(index, index_path)
+    loaded = load_no_amendment_index(index_path)
+
+    assert loaded.entries[0].declared_target_ids == index.entries[0].declared_target_ids
+    assert loaded.diagnostics == index.diagnostics
+    assert loaded.to_dict() == index.to_dict()
+
+
+def test_no_amendment_index_from_dict_loads_json_written_before_declared_targets(tmp_path) -> None:
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [("lti/2025/nl-20250202-005.xml", _amendment_xml("2025-02-10"))],
+    )
+    data = build_no_amendment_index(tmp_path).to_dict()
+    for entry in cast(list[dict[str, Any]], data["entries"]):
+        entry.pop("declared_target_ids")
+
+    loaded = NOAmendmentIndex.from_dict(data)
+
+    assert loaded.entries[0].base_ids == ("no/lov/2025-01-01-1",)
+    assert loaded.entries[0].declared_target_ids == ()
+
+
+def test_build_no_amendment_index_authorizes_a_whole_act_commencement_instrument(tmp_path) -> None:
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [
+            ("lti/2025/nl-20250202-005.xml", _amendment_xml("Kongen bestemmer")),
+            (
+                "lti/2025/sf-20250301-0100.xml",
+                _whole_act_instrument_xml("lov/2025-02-02-5", "2025-04-01"),
+            ),
+        ],
+    )
+
+    index = build_no_amendment_index(tmp_path)
+
+    entry = index.entries[0]
+    assert entry.source_id == "no/lovtid/2025-02-02-5"
+    assert entry.effective_status == "instrument_authorized"
+    assert entry.effective_date == "2025-04-01"
+    # The act's own header stays untouched evidence of why it was unresolved, and
+    # binding is unchanged: this re-dates an act, it binds nothing.
+    assert entry.raw_date_in_force == "Kongen bestemmer"
+    assert entry.base_ids == ("no/lov/2025-01-01-1",)
+    assert entry.n_ops == 1
+    assert [item.replay_authorized for item in index.commencement_instruments] == [True]
+    receipts = [
+        diagnostic
+        for diagnostic in index.diagnostics
+        if diagnostic["rule_id"] == NO_COMMENCEMENT_EXECUTION_AUTHORIZED
+    ]
+    assert len(receipts) == 1
+    assert receipts[0]["source_id"] == "no/lovtid/2025-02-02-5"
+    assert receipts[0]["instrument_source_ids"] == ["no/forskrift/2025-03-01-100"]
+    assert receipts[0]["effective_date"] == "2025-04-01"
+    assert receipts[0]["blocking"] is False
+    assert not [
+        diagnostic
+        for diagnostic in index.diagnostics
+        if diagnostic["rule_id"]
+        in {NO_COMMENCEMENT_EXECUTION_REFUSED, NO_COMMENCEMENT_EXECUTION_DATE_CONFLICT}
+    ]
+
+    reloaded = NOAmendmentIndex.from_dict(index.to_dict())
+    assert reloaded.entries[0].effective_status == "instrument_authorized"
+    assert reloaded.entries[0].effective_date == "2025-04-01"
+    assert reloaded.commencement_instruments[0].replay_authorized is True
+
+
+def test_build_no_amendment_index_refuses_a_partial_instrument_and_keeps_dated_acts(tmp_path) -> None:
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [
+            ("lti/2025/nl-20250202-005.xml", _amendment_xml("Kongen bestemmer")),
+            ("lti/2025/nl-20250303-006.xml", _amendment_xml("2025-03-15")),
+            ("lti/2025/sf-20250301-0100.xml", _partial_instrument_xml("lov/2025-02-02-5")),
+            (
+                "lti/2025/sf-20250401-0200.xml",
+                _whole_act_instrument_xml("lov/2025-03-03-6", "2025-09-01"),
+            ),
+        ],
+    )
+
+    index = build_no_amendment_index(tmp_path)
+
+    # The act-level verdicts are what W-7 pinned and they do not move: a partial
+    # instrument never dates an ACT.
+    assert [
+        (entry.source_id, entry.effective_status, entry.effective_date)
+        for entry in index.entries
+    ] == [
+        ("no/lovtid/2025-02-02-5", "contingent", None),
+        ("no/lovtid/2025-03-03-6", "dated", "2025-03-15"),
+    ]
+    assert not [
+        diagnostic
+        for diagnostic in index.diagnostics
+        if diagnostic["rule_id"] == NO_COMMENCEMENT_EXECUTION_AUTHORIZED
+    ]
+    # W-100. ``Loven § 2 trer i kraft 1. april 2025.`` is exactly the shape the
+    # section-scoped lane reads: the instrument is now replay-authorized for the
+    # ONE section it names, the generic whole-act refusal is withdrawn for the
+    # granted pair, and the act's binding carries a per-section date with no
+    # binding date. § 2 is not a section the act's single op targets (it rewrites
+    # § 1), so the binding is not complete and the act stays contingent for its op.
+    # (The second instrument commences an act that is already ``dated`` and so
+    # is never offered; it stays unauthorized as before.)
+    assert [item.replay_authorized for item in index.commencement_instruments] == [True, False]
+    assert not [
+        diagnostic
+        for diagnostic in index.diagnostics
+        if diagnostic["rule_id"] == NO_COMMENCEMENT_EXECUTION_REFUSED
+    ]
+    section_receipts = [
+        diagnostic
+        for diagnostic in index.diagnostics
+        if diagnostic["rule_id"] == "no_lovtidend_commencement_section_scope_execution_authorized"
+    ]
+    assert len(section_receipts) == 1
+    assert section_receipts[0]["source_id"] == "no/lovtid/2025-02-02-5"
+    assert section_receipts[0]["instrument_source_ids"] == ["no/forskrift/2025-03-01-100"]
+    assert section_receipts[0]["section_dates"] == [["2", "2025-04-01"]]
+    assert section_receipts[0]["unbound_section_labels"] == ["2"]
+    assert section_receipts[0]["complete"] is False
+    entry = index.entries[0]
+    assert entry.section_scoped_effective_dates == (("no/lov/2025-01-01-1", "2", "2025-04-01"),)
+    assert entry.effective_date_for_op("no/lov/2025-01-01-1", "1") == (None, "contingent")
+
+
+def test_commencement_override_outranks_an_instrument_authorization(tmp_path) -> None:
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [
+            ("lti/2025/nl-20250202-005.xml", _amendment_xml("Kongen bestemmer")),
+            (
+                "lti/2025/sf-20250301-0100.xml",
+                _whole_act_instrument_xml("lov/2025-02-02-5", "2025-04-01"),
+            ),
+        ],
+    )
+    index = build_no_amendment_index(tmp_path)
+
+    overridden = apply_no_commencement_overrides(
+        index,
+        {"no/lovtid/2025-02-02-5": {"effective_date": "2025-05-01", "note": "kgl.res."}},
+    )
+
+    assert overridden.entries[0].effective_status == "override"
+    assert overridden.entries[0].effective_date == "2025-05-01"
+
+
+def test_build_no_amendment_index_labels_and_receipts_a_staged_delegated_act(tmp_path) -> None:
+    """A dateInForce carrying a date AND a delegated tail is labelled, not demoted."""
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [
+            (
+                "lti/2025/nl-20250202-005.xml",
+                _amendment_xml("2025-07-01, 2025-02-10, Kongen bestemmer"),
+            ),
+            ("lti/2025/nl-20250303-006.xml", _amendment_xml("2025-03-15")),
+        ],
+    )
+
+    index = build_no_amendment_index(tmp_path)
+
+    staged, plain = index.entries
+    # The staged act keeps a resolved date at min(dates) — the collapse is
+    # unchanged — and gains only the label saying the field staged commencement.
+    assert (staged.effective_status, staged.effective_date) == ("dated", "2025-02-10")
+    assert staged.commencement_shape == NOCommencementShape.STAGED_DELEGATED
+    assert (plain.effective_status, plain.effective_date) == ("dated", "2025-03-15")
+    assert plain.commencement_shape == NOCommencementShape.PLAIN
+
+    receipts = [
+        diagnostic
+        for diagnostic in index.diagnostics
+        if diagnostic["rule_id"] == NO_AMENDMENT_INDEX_STAGED_COMMENCEMENT_COLLAPSED
+    ]
+    assert len(receipts) == 1
+    assert receipts[0]["source_id"] == "no/lovtid/2025-02-02-5"
+    assert receipts[0]["raw_date_in_force"] == "2025-07-01, 2025-02-10, Kongen bestemmer"
+    assert receipts[0]["effective_date"] == "2025-02-10"
+    assert receipts[0]["date_count"] == 2
+    assert receipts[0]["commencement_shape"] == "staged_delegated"
+    # Non-blocking: the act IS in force at the stated date; what is recorded is
+    # the narrower fact that a staged tail was collapsed away.
+    assert receipts[0]["blocking"] is False
+    assert receipts[0]["strict_disposition"] == "record"
+
+    # Readable off a serialized index without re-parsing raw_date_in_force.
+    reloaded = NOAmendmentIndex.from_dict(index.to_dict())
+    assert reloaded.entries[0].commencement_shape == "staged_delegated"
+    assert reloaded.entries[1].commencement_shape == "plain"
+
+
+def test_no_amendment_index_from_dict_loads_json_written_before_commencement_shape() -> None:
+    loaded = NOAmendmentIndex.from_dict(
+        {
+            "data_dir": "data/norway",
+            "entries": [
+                {
+                    "source_id": "no/lovtid/2025-02-02-5",
+                    "archive": "a.tar.bz2",
+                    "member_name": "m.xml",
+                    "effective_status": "dated",
+                    "effective_date": "2025-02-10",
+                }
+            ],
+        }
+    )
+
+    assert loaded.entries[0].commencement_shape == "plain"
+
+
+def test_no_amendment_index_from_dict_coerces_commencement_shape() -> None:
+    entry = {
+        "source_id": "no/lovtid/2025-02-02-5",
+        "archive": "a.tar.bz2",
+        "member_name": "m.xml",
+        "effective_status": "dated",
+        "effective_date": "2025-02-10",
+    }
+
+    # A null shape (or any falsy carrier) is the "written before the field
+    # existed" case and coerces to PLAIN — never to the string "None".
+    loaded = NOAmendmentIndex.from_dict(
+        {"data_dir": "data/norway", "entries": [dict(entry, commencement_shape=None)]}
+    )
+    assert loaded.entries[0].commencement_shape is NOCommencementShape.PLAIN
+
+    loaded = NOAmendmentIndex.from_dict(
+        {
+            "data_dir": "data/norway",
+            "entries": [dict(entry, commencement_shape="staged_delegated")],
+        }
+    )
+    assert loaded.entries[0].commencement_shape is NOCommencementShape.STAGED_DELEGATED
+
+    # A string outside the closed set is a registration gap and fails loud.
+    with pytest.raises(ValueError):
+        NOAmendmentIndex.from_dict(
+            {
+                "data_dir": "data/norway",
+                "entries": [dict(entry, commencement_shape="staged_delegatd")],
+            }
+        )
+
+
+def test_build_no_amendment_index_lets_an_instrument_redate_a_staged_delegated_act(tmp_path) -> None:
+    """Official instrument evidence outranks the min(dates) metadata guess.
+
+    The act's own header names a planned date; the Lovtidend instrument names
+    the date commencement was actually executed. Corpus-wide this fires on 8 of
+    the 167 staged acts and always moves the date EARLIER.
+    """
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [
+            (
+                "lti/2025/nl-20250202-005.xml",
+                _amendment_xml("2026-01-01, Kongen bestemmer"),
+            ),
+            (
+                "lti/2025/sf-20250301-0100.xml",
+                _whole_act_instrument_xml("lov/2025-02-02-5", "2025-04-01"),
+            ),
+        ],
+    )
+
+    index = build_no_amendment_index(tmp_path)
+
+    entry = index.entries[0]
+    assert entry.effective_status == "instrument_authorized"
+    assert entry.effective_date == "2025-04-01"
+    # The act carries BOTH receipts, and keeps the label: the shape records how
+    # its own metadata was written and is not overwritten by the authorization.
+    assert entry.commencement_shape == NOCommencementShape.STAGED_DELEGATED
+    assert entry.raw_date_in_force == "2026-01-01, Kongen bestemmer"
+    assert [
+        diagnostic["rule_id"]
+        for diagnostic in index.diagnostics
+        if diagnostic["source_id"] == "no/lovtid/2025-02-02-5"
+    ] == [
+        NO_AMENDMENT_INDEX_STAGED_COMMENCEMENT_COLLAPSED,
+        NO_COMMENCEMENT_EXECUTION_AUTHORIZED,
+    ]
+
+
+def test_build_no_amendment_index_never_offers_a_plain_dated_act_to_the_gate(tmp_path) -> None:
+    """The widening is offer-side and narrow: only the staged label is added.
+
+    A plainly dated act cited by a perfectly valid whole-act instrument still
+    keeps its own date and produces no authorization — otherwise the instrument
+    lane would start rewriting ordinary commencement dates wholesale.
+    """
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [
+            ("lti/2025/nl-20250202-005.xml", _amendment_xml("2026-01-01")),
+            (
+                "lti/2025/sf-20250301-0100.xml",
+                _whole_act_instrument_xml("lov/2025-02-02-5", "2025-04-01"),
+            ),
+        ],
+    )
+
+    index = build_no_amendment_index(tmp_path)
+
+    assert index.entries[0].effective_status == "dated"
+    assert index.entries[0].effective_date == "2026-01-01"
+    assert index.entries[0].commencement_shape == NOCommencementShape.PLAIN
+    assert not [
+        diagnostic
+        for diagnostic in index.diagnostics
+        if diagnostic["rule_id"]
+        in {NO_COMMENCEMENT_EXECUTION_AUTHORIZED, NO_COMMENCEMENT_EXECUTION_REFUSED}
+    ]
+    assert all(item.replay_authorized is False for item in index.commencement_instruments)
+
+
+# The eight staged acts the SHIPPED whole-act route re-dates, with the metadata
+# date their own header stated and the instrument date that supersedes it. Every
+# one moves EARLIER: the header named a planned commencement the instrument then
+# executed ahead of schedule (or, for 2013-01-11-1, retroactively).
+_STAGED_INSTRUMENT_REDATINGS = {
+    "no/lovtid/2013-01-11-1": ("2013-01-11", "2013-01-01"),
+    "no/lovtid/2020-05-07-38": ("2022-01-01", "2020-05-11"),
+    "no/lovtid/2022-06-10-35": ("2023-07-01", "2022-06-15"),
+    "no/lovtid/2022-06-17-58": ("2024-01-01", "2022-07-01"),
+    "no/lovtid/2022-06-17-60": ("2023-07-01", "2022-06-24"),
+    "no/lovtid/2024-06-21-50": ("2026-07-01", "2024-07-01"),
+    "no/lovtid/2024-06-25-53": ("2026-07-01", "2024-07-01"),
+    "no/lovtid/2026-06-12-22": ("2028-07-01", "2026-07-01"),
+}
+
+# W-53. The five staged acts the WIDENED whole-act route re-dates, in the same
+# (metadata date, instrument date) shape — and every one of them moves LATER,
+# the opposite direction from all eight above. That asymmetry is worth a
+# separate table rather than a widened one, because the direction is not
+# incidental to the offer gate's argument, it IS the argument: a
+# ``staged_delegated`` act's date is ``min(dates)`` over a field that also says
+# the executive fixes the real commencement, so it is a PLANNED date. The
+# shipped route happens to catch the eight the executive brought forward; the
+# widened route catches five the executive postponed. Both directions are the
+# same claim — an official instrument outranks a metadata guess — and neither
+# needs the other's sign.
+_WIDENED_STAGED_INSTRUMENT_REDATINGS = {
+    "no/lovtid/2008-12-19-106": ("2008-12-19", "2010-03-01"),
+    "no/lovtid/2013-06-21-98": ("2013-06-21", "2013-08-01"),
+    "no/lovtid/2013-06-21-104": ("2013-07-01", "2015-01-01"),
+    "no/lovtid/2017-04-28-22": ("2016-07-01", "2017-04-28"),
+    "no/lovtid/2025-06-20-85": ("2025-06-20", "2025-10-12"),
+}
+
+
+def test_corpus_staged_commencement_population_reconciles() -> None:
+    """W-5's answer, asserted against the ingested corpus rather than a fixture.
+
+    W-5 asked whether the mixed ``DATE, Kongen bestemmer`` field must demote to
+    contingent. Measured: demoting all of them costs 8 of the 58 replayable
+    laws and makes 7 of those 8 diverge MORE, because Lovdata's consolidation
+    shows the acts ARE in force at their leading date. So the population is
+    typed and receipted, and nothing is demoted.
+    """
+    data_dir = resolve_no_source_path(None)
+    if not data_dir.exists():
+        pytest.skip("local Norway corpus is not installed")
+    index = build_no_amendment_index(data_dir)
+    if index.commencement_instrument_coverage.total_instruments == 0:
+        pytest.skip("local Norway corpus is not installed")
+
+    staged = [
+        entry
+        for entry in index.entries
+        if entry.commencement_shape == NOCommencementShape.STAGED_DELEGATED
+    ]
+    # 166 under the marker vocabulary this batch inherited, plus exactly one act
+    # the batch's own marker widening adds; see the widening test below.
+    # 167 -> 170 at W-21 (part-announcement lead recognition): three of the 13
+    # acts that entered the index for the first time carry genuine mixed
+    # date-plus-delegated commencement fields (2005-06-17-59, 2007-04-13-14,
+    # 2009-06-19-108); no existing entry's shape changed. Signed off 2026-08-06.
+    # 170 -> 174 at W-30 (intro-marker morphology): four of the 64 acts gaining
+    # their first index entry carry mixed date-plus-delegated fields; all four
+    # are first-time entries, none dropped, no existing entry's shape changed.
+    # Signed off 2026-08-06.
+    # 174 -> 175 at W-36/W-28: `no/lovtid/2005-06-17-103` gains its first index
+    # entry (its part V bound nothing at all before) and carries a mixed
+    # date-plus-delegated commencement field. A first-time entry, none dropped,
+    # no existing entry's shape changed — the same reconciliation W-21 and W-30
+    # recorded.
+    # 175 -> 174 at W-85: `no/lovtid/2012-12-07-71` — a mixed date-plus-
+    # delegated act ("2012-12-07, Kongen bestemmer.") — is withdrawn WHOLE by
+    # the re-sanctioning gate (its own prose says the lovvedtak was defective
+    # and the law was sanctioned anew as `2013-01-11-1`). One entry dropped
+    # with its act, none gained, no surviving entry's shape changed.
+    assert len(staged) == 174
+    assert len([entry for entry in staged if entry.source_id != _WIDENED_MARKER_STAGED_ACT]) == 173
+
+    # Total and queryable: one receipt per staged act, no more and no fewer.
+    receipts = [
+        diagnostic
+        for diagnostic in index.diagnostics
+        if diagnostic["rule_id"] == NO_AMENDMENT_INDEX_STAGED_COMMENCEMENT_COLLAPSED
+    ]
+    assert len(receipts) == len(staged)
+    assert {receipt["source_id"] for receipt in receipts} == {
+        entry.source_id for entry in staged
+    }
+    assert all(receipt["date_count"] >= 1 for receipt in receipts)
+    assert all(receipt["blocking"] is False for receipt in receipts)
+
+    # Every staged act stays resolved: the label is orthogonal to the status.
+    assert {entry.effective_status for entry in staged} == {"dated", "instrument_authorized"}
+    assert all(entry.effective_date for entry in staged)
+
+    # Exactly the thirteen instrument-proved acts move, each to the pinned date:
+    # the shipped route's eight and W-53's widened five.
+    redated = {
+        entry.source_id: entry.effective_date
+        for entry in staged
+        if entry.effective_status == "instrument_authorized"
+    }
+    assert redated == {
+        act_id: instrument_date
+        for act_id, (_metadata_date, instrument_date) in (
+            _STAGED_INSTRUMENT_REDATINGS | _WIDENED_STAGED_INSTRUMENT_REDATINGS
+        ).items()
+    }
+    # The displaced metadata dates are read back off the staged receipts, which
+    # are emitted before authorization runs and so keep the collapsed
+    # ``min(dates)`` value. Both halves of each pinned table are thereby checked
+    # against the corpus (instrument dates via the entries above, metadata dates
+    # here), and the direction claims below are asserted over corpus values, not
+    # over the tables' own literals.
+    receipt_metadata_dates = {
+        receipt["source_id"]: receipt["effective_date"] for receipt in receipts
+    }
+    assert {act_id: receipt_metadata_dates[act_id] for act_id in redated} == {
+        act_id: metadata_date
+        for act_id, (metadata_date, _instrument_date) in (
+            _STAGED_INSTRUMENT_REDATINGS | _WIDENED_STAGED_INSTRUMENT_REDATINGS
+        ).items()
+    }
+    # The shipped route's eight all move EARLIER; W-53's five all move LATER.
+    # Two clean directions rather than one mixed bag, and asserted as such so a
+    # route ever re-dating a staged act the wrong way for it shows up here.
+    assert all(
+        redated[act_id] < receipt_metadata_dates[act_id]
+        for act_id in _STAGED_INSTRUMENT_REDATINGS
+    )
+    assert all(
+        redated[act_id] > receipt_metadata_dates[act_id]
+        for act_id in _WIDENED_STAGED_INSTRUMENT_REDATINGS
+    )
+    authorized_ids = {
+        diagnostic["source_id"]
+        for diagnostic in index.diagnostics
+        if diagnostic["rule_id"] == NO_COMMENCEMENT_EXECUTION_AUTHORIZED
+    }
+    widened_ids = {
+        diagnostic["source_id"]
+        for diagnostic in index.diagnostics
+        if diagnostic["rule_id"]
+        == NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED
+    }
+    # The thirteen carry BOTH the staged receipt and an authorization receipt,
+    # each from the route that dated it.
+    assert set(_STAGED_INSTRUMENT_REDATINGS) <= authorized_ids
+    assert set(_WIDENED_STAGED_INSTRUMENT_REDATINGS) <= widened_ids
+    # 520 acts batch 03 authorized + the 8 this batch adds; no conflicts appear.
+    # 528 -> 539 at W-30: eleven of the 64 first-time entries have commencement
+    # instruments that authorize them; the offer-gate conjuncts are unchanged,
+    # only the population grew. Signed off 2026-08-06.
+    # 539 -> 540 at W-32: four artifacts gained their FIRST index entry (their
+    # only amendment lead was one of the two silently-dropped shapes), and one of
+    # the four — ``no/lovtid/2022-12-20-116``, patentloven § 62 a fjerde ledd
+    # første punktum, a spaced letter-suffixed label — has a commencement
+    # instrument that authorizes it at 2023-02-01. The offer-gate conjuncts are
+    # again unchanged; only the population grew. Signed off 2026-08-07.
+    # 540 -> 542 at W-36/W-28: two of the ten first-time index entries have
+    # commencement instruments that authorize them — ``no/lovtid/2009-06-19-101``
+    # and ``no/lovtid/2016-06-10-23``, both W-28 acts whose only law-switch lead
+    # cited a pre-numbering act, and both ``plain`` rather than staged. The
+    # offer-gate conjuncts are again unchanged; only the population grew.
+    # 542 -> 540 at W-51, and this is the FIRST time this pin has fallen rather
+    # than grown: the whole-act route's soundness repair. Two acts lose their
+    # grant, both measured P1 breaches, neither of them staged —
+    # ``no/lovtid/2020-05-07-40`` (its instrument's text excepts kapittel 6,
+    # which commenced 15 months later) and ``no/lovtid/2020-06-19-77`` (kapittel
+    # 7 and 8 a year later). The offering is untouched; what changed is a
+    # conjunct. The eight staged re-datings above are unaffected.
+    # W-53 leaves this pin at 540 and that is the point of it being a SEPARATE
+    # rule id: the widened route can only ever be entered by a pair the shipped
+    # route already refused (``BLOCKED_ONLY_ON_SCOPE``), so the shape-proved
+    # population cannot move. Its own 430 grants are counted below.
+    # 540 -> 541 at W-61, and again the offer gate and its conjuncts are
+    # untouched — only the OFFERING grew. ``no/lovtid/2014-06-20-26`` gains its
+    # FIRST index entry: its part I ("I lov 28. februar 1997 nr. 19 om folketrygd
+    # gjøres følgende endringer:") carried exactly one operative lead, the
+    # repeal-then-shift "§ 25-2 tredje ledd oppheves. Gjeldende fjerde og femte
+    # ledd blir nytt tredje og fjerde ledd." that W-61's widening lowers, so the
+    # act had bound no law at all and could never be offered. ``plain``, not
+    # staged, effective 2014-07-01; the eight staged re-datings are unaffected.
+    # 541 -> 542 at W-77, and again the offer gate and its conjuncts are
+    # untouched — only the OFFERING grew. ``no/lovtid/2008-06-27-50`` gains its
+    # FIRST index entry: its only operative lead against folketrygdloven was the
+    # item-depth newness payload "§ 10-8 tredje ledd ny bokstav h skal lyde:",
+    # which nothing lowered before this item, so the act had bound no law at all
+    # and could never be offered. ``plain``, not staged, effective 2008-07-01 via
+    # its own ``no/forskrift/2008-06-27-722``; the eight staged re-datings are
+    # unaffected.
+    # 542 -> 541 at W-79, and for the first time the OFFERING shrank rather than
+    # grew — the offer gate and its conjuncts are again untouched.
+    # ``no/lovtid/2025-03-28-4`` loses its ONLY index entry: its single change
+    # node ("I lov 4. juni 1993 nr. 58 om allmenngjøring av tariffavtaler m.v.
+    # skal § 2 nr. 4 lyde:") declares a payload but keeps it in a
+    # ``numberedLegalP`` the structured lane's own-text fallback cannot read, so
+    # the fallback was writing that lead sentence itself into allmenngjøringsloven
+    # § 2. W-79's own-text invariant refuses it typed, the act binds no law, and
+    # it can no longer be offered. ``plain``, not staged, previously dated
+    # 2025-07-01 by its own ``no/forskrift/2025-03-28-545``; the eight staged
+    # re-datings are unaffected. Recovering it is the sized follow-up "widen the
+    # own-text fallback's payload reach" (43 nodes, 66 ops).
+    # 541 -> 545 at W-98: four acts gain their FIRST index entry from the
+    # pre-2001 lead grammar and are dated by their own kongelig resolusjon
+    # through the shipped whole-act route — ``no/lovtid/2010-06-25-50`` ("Nytt
+    # kapittel 3 A skal lyde:"), ``2016-01-22-1`` (nynorsk ledd repeals),
+    # ``2016-12-16-99`` ("Nytt kapittel II A skal lyde:"), ``2022-12-16-93``
+    # ("Nytt kapittel 6 A skal lyde:"). All ``plain``; the staged pins hold.
+    # 545 -> 546 at W-99: ``no/lovtid/2017-06-16-51`` gains its FIRST index
+    # entry — its four numbered items are address-after-citation leads
+    # ("2. Lov 23. mai 1997 nr. 31 om eierseksjoner § 3 a skal lyde:") that
+    # bound nothing before — and is dated 2018-01-01 by its own
+    # ``no/forskrift/2017-06-16-751`` through the shipped whole-act route.
+    # ``plain``; the staged pins hold.
+    assert len(authorized_ids) == 546
+    # W-53: the widened whole-act route. 430 acts whose single operative block
+    # commences them as a whole in wording ``_WHOLE_ACT_RE`` does not match.
+    # Disjoint from the shipped set by construction, and the two together are
+    # exactly the ``instrument_authorized`` histogram bucket below.
+    # 430 -> 435 at W-73, and the offer gate and every conjunct are again
+    # untouched — what grew is the route's TEXT conjunct, which now has a second
+    # reader for the one subject shape the first two cannot take: a NEW act named
+    # by its title ("Lov om bustøtte skal gjelde frå 1. januar 2013"). The five
+    # are ``no/lovtid/2009-01-09-2``, ``2010-06-04-21``, ``2012-08-24-64``,
+    # ``2017-06-16-67`` and ``2024-12-13-76``, each dated by its own kongelig
+    # resolusjon, all five ``plain`` rather than staged (so the staged pin below
+    # does not move), and all five previously ``contingent``.
+    # 435 -> 436 at W-67, by the mechanism W-61 recorded and not a new one:
+    # ``no/lovtid/2004-09-24-72`` gains its FIRST index entry off the two-token
+    # section-renumber widening (its only operative lead is "Nåværende § 16 blir
+    # § 16-1."), and the act it commences reaches the widened route. One act, one
+    # entry, ``plain`` rather than staged.
+    # 436 -> 437 at W-66, the same mechanism a third time:
+    # ``no/lovtid/2001-06-15-33`` gains its FIRST index entry off the sibling-set
+    # ledd relabel ("Nåværende annet ledd blir nytt tredje ledd.", § 73 E inherited
+    # from the preceding lead), and the act it commences reaches the widened route.
+    # One act, one entry, ``plain`` rather than staged, so the staged pin above is
+    # unmoved.
+    # 437 -> 438 at W-66b, the same mechanism a FOURTH time and one depth word
+    # down: ``no/lovtid/2005-06-17-92`` gains its FIRST index entry off the
+    # sibling-set PUNKTUM relabel ("Nåværende annet og tredje punktum blir nye
+    # fjerde og femte punktum.", § 54 første ledd of ``no/lov/1902-05-22-10``,
+    # section AND ledd both inherited from the preceding lead), and the act it
+    # commences reaches the widened route at 2006-01-01 via
+    # ``no/forskrift/2005-12-16-1517``. One act, one entry, ``plain`` rather than
+    # staged, so the staged pin above is again unmoved.
+    # 438 -> 440 at W-98: two more first-entry acts take the widened route,
+    # ``no/lovtid/2002-08-30-68`` (``bokstav f)``) and ``2016-09-16-81``
+    # ("Kapittel 12 skal lyde:"). Both ``plain``.
+    # 469 -> 470 at W-104: ``no/lovtid/2004-07-02-68`` (the Medietilsynet act)
+    # gains its first index entry from the addressed word-substitution
+    # production and is dated 2005-01-01 by ``no/forskrift/2004-07-02-1099``
+    # ("gjeld frå 1. januar 2005") through the widened route. ``plain``.
+    assert len(widened_ids) == 470
+    assert not (widened_ids & authorized_ids)
+    # FIVE of the 430 are staged acts, so the staged re-dating population grows
+    # 8 -> 13 — the same offer gate, the same "an official instrument outranks a
+    # metadata guess" argument, one more route reaching it. Every one of the five
+    # is re-dated LATER than its metadata date, the opposite direction from the
+    # original eight, because a staged act's metadata guess is a planned date the
+    # instrument then postponed rather than superseded.
+    staged_widened = {
+        entry.source_id
+        for entry in index.entries
+        if entry.source_id in widened_ids
+        and entry.commencement_shape == NOCommencementShape.STAGED_DELEGATED
+    }
+    assert staged_widened == set(_WIDENED_STAGED_INSTRUMENT_REDATINGS)
+    assert not (staged_widened & set(_STAGED_INSTRUMENT_REDATINGS))
+    # Neither act-level route resolves a date conflict silently: both write a
+    # BLOCKING receipt instead, and the corpus produces zero of either.
+    assert not [
+        diagnostic
+        for diagnostic in index.diagnostics
+        if diagnostic["rule_id"]
+        in {
+            NO_COMMENCEMENT_EXECUTION_DATE_CONFLICT,
+            NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_DATE_CONFLICT,
+        }
+    ]
+    assert index.status_counts() == {
+        # contingent 914 -> 920 and dated 1021 -> 1028 at W-21: the 13 acts
+        # gaining their first index entry via the part-announcement lead form
+        # split +6 contingent / +7 dated; no existing entry's status moved.
+        # Signed off 2026-08-06 together with the staged pin above.
+        # contingent 920 -> 921 at W-25/W-26: no/lovtid/2020-11-20-128
+        # (revisorloven's consequential-amendments act) gains its first index
+        # entry — 29 ops across 8 laws, commencement "trer i kraft fra den tid
+        # Kongen bestemmer" — once the spaced item ordinals its <strong>-wrapped
+        # numbers produce are stripped. No existing entry moved. Signed off
+        # 2026-08-06.
+        # 921 -> 953, 1028 -> 1049, 528 -> 539 at W-30 (intro-marker
+        # morphology): the 64 acts gaining their first index entry split
+        # +32 contingent / +21 dated / +11 instrument_authorized — exactly
+        # conserving the 64; no existing entry's status moved. Signed off
+        # 2026-08-06.
+        # 953 -> 954, 1049 -> 1051, 539 -> 540 at W-32 (multi-``bokstav`` and
+        # spaced-label leads): the FOUR acts gaining their first index entry
+        # split +1 contingent (`2007-06-01-18`), +2 dated (`2006-06-30-48`,
+        # `2021-04-16-19`) and +1 instrument_authorized (`2022-12-20-116`) —
+        # exactly conserving the 4; no existing entry's status moved. Signed off
+        # 2026-08-07.
+        # 954 -> 961, 1051 -> 1052, 540 -> 542 at W-36/W-28: the TEN acts gaining
+        # their first index entry split +7 contingent, +1 dated
+        # (`no/lovtid/2004-12-10-82`) and +2 instrument_authorized
+        # (`2009-06-19-101`, `2016-06-10-23`) — exactly conserving the 10; no
+        # existing entry's status moved.
+        # 961 -> 962 at W-39, and this is the WHOLE of W-39's effect on the
+        # act-level histogram. One act gains its first index entry
+        # (`2021-06-11-60`, a collective re-enactment of barnelova) and its
+        # commencement is "Kongen bestemmer", so it lands contingent. The 123
+        # part-scoped authorizations move NO act-level status by construction:
+        # a part authorization is per (act, base law) and lands in
+        # ``part_scoped_effective_dates``, because an act whose del I commenced
+        # in 2011 and del III in 2023 has no single act-level date and inventing
+        # one would be a claim the evidence does not make. In particular
+        # ``instrument_authorized`` stays at exactly 542.
+        # 962 -> 964 and 542 -> 540 at W-51: the two acts the whole-act route's
+        # soundness repair demotes fall back to the status they would have had
+        # without an instrument, which for both is ``contingent`` ("Kongen
+        # bestemmer" with no date). Exactly conserving: nothing else moves, and
+        # in particular no part-scoped grant appears in their place (both acts'
+        # ``part_scoped_effective_dates`` stay empty).
+        # 964 -> 539, 1052 -> 1047 and 540 -> 970 at W-53, and this is the
+        # largest single move this histogram has ever made. The widened
+        # whole-act route grants 430 acts an ACT-LEVEL date, so unlike W-39,
+        # W-47 and W-49 it DOES move the histogram — that is the difference
+        # between a per-binding claim and a per-act one, not a change of policy.
+        # Exactly conserving: 425 come from ``contingent`` (acts with no date at
+        # all) and 5 from ``dated`` (all five ``staged_delegated``, all five
+        # re-dated LATER than the metadata guess the offer gate exists to
+        # outrank). Nothing else moves, no act is re-dated EARLIER, and the two
+        # acts W-51 demoted stay demoted — measured, neither is a widened grant.
+        # 970 -> 971 at W-61 with every other bucket unchanged, so the whole of
+        # this widening's effect on the act-level histogram is ONE act gaining
+        # its first index entry: ``no/lovtid/2014-06-20-26``, whose only
+        # operative lead was the repeal-then-shift sentence the unstructured
+        # grammar refused. Its commencement is an instrument date (2014-07-01,
+        # ``plain``), so it lands ``instrument_authorized``. No existing entry's
+        # status moved.
+        # 539 -> 534 at W-73: the five new acts whose kongelig resolusjon names
+        # them by title. Exactly conserving into ``instrument_authorized``
+        # (971 -> 976); no other bucket moves, and no act is re-dated EARLIER
+        # than a sibling instrument (the route's fifth conjunct, measured).
+        # 534 -> 535 at W-66: ``no/lovtid/2005-06-17-98`` gains its FIRST index
+        # entry off the sibling-set ledd relabel and its commencement is
+        # contingent. A first-time entry; no existing entry's status moves.
+        # 535 -> 536 at W-77: ``no/lovtid/2012-12-07-75`` gains its FIRST index
+        # entry off the item-depth newness payload production ("§ 3-15 annet ledd
+        # ny bokstav f skal lyde:", folketrygdloven) and its commencement is "fra
+        # den tid Kongen bestemmer". A first-time entry; no existing entry's
+        # status moves.
+        # 536 -> 535 at W-79, and for the first time an act LEAVES this histogram
+        # rather than entering it: ``no/lovtid/2023-12-20-104`` loses its ONLY op
+        # to the structured payload lane's own-text invariant ("§ 4 tredje ledd
+        # nr. 2 skal lyde:" — a declaration whose payload sits in a ``li`` the
+        # own-text fallback cannot read, so the fallback was writing an EMPTY
+        # node over CO2-avgiftsloven § 4). With no bound law it has no index
+        # entry at all. Its commencement was "fra den tid Kongen bestemmer", so
+        # ``contingent`` is the bucket it leaves; no existing entry's status
+        # moves.
+        # 535 -> 536 at W-82: the SAME act returns to the SAME bucket. Its one
+        # ``li`` is now read as the payload its head declares, because the change
+        # node announces exactly one address and carries exactly one carrier —
+        # arity on both sides, which is the extent proof. No existing entry's
+        # status moves.
+        # 536 -> 535 at W-85: ``no/lovtid/2025-04-25-13`` ("Kongen bestemmer")
+        # leaves WHOLE with the re-sanctioning withdrawal — its armed duplicate
+        # of the equally-contingent replacement ``2025-06-20-67``'s 57 ops is
+        # disarmed. No existing entry's status moves.
+        # W-99: 537 -> 540 contingent, 1,067 -> 1,068 dated and 985 -> 986
+        # instrument_authorized — the five first-entry acts by their own status
+        # (``2002-05-03-13``, ``2004-03-26-17``, ``2005-12-21-123`` contingent;
+        # ``2020-12-18-144`` dated; ``2017-06-16-51`` instrument-authorized).
+        # No existing entry's status moves.
+        # W-100: 540 -> 511 contingent and 986 -> 1,015 instrument_authorized —
+        # the 29 principal acts the title-cited citation form dates (lane A);
+        # the section-scoped lane moves NO act-level status by design.
+        "contingent": 511,
+        # 1021 -> 1020 at W-15 (multi-part misbinding fix): the sole moved entry
+        # is no/lovtid/2018-12-20-119, whose only "op" was its own part II
+        # commencement sentence ("Lova tek til å gjelde straks.") swallowed as a
+        # payload and misbound onto kulturminnelova §28(1). With part boundaries
+        # respected the act emits zero ops and leaves the index entirely — pure
+        # corruption removal, verified at op level by implementer and reviewer.
+        # 1020 -> 1021 at W-18 (Rettelser lowering): no/lovtid/2020-12-18-156
+        # gains its FIRST index entry — its lowered erratum op — and its own
+        # commencement field is a plain date (2020-12-18), so it lands in the
+        # dated bucket. Every other bucket unchanged. Signed off 2026-08-06.
+        # 1021 -> 1028 at W-21: see the contingent comment above.
+        # 1028 -> 1049 at W-30: see the contingent comment above.
+        # 1049 -> 1051 at W-32: see the contingent comment above.
+        # 1047 -> 1049 at W-64, and this is the WHOLE of the heading-boundary
+        # landing's effect on the act-level histogram: two acts gain their first
+        # index entry because every lead they carry was a whole-section
+        # replacement whose payload the boundary threw away
+        # (``no/lovtid/2001-01-19-4``, ``no/lovtid/2006-12-15-79``). Both
+        # commence on a plain date, so both land here. No existing entry's status
+        # moved, and no other bucket moves — in particular
+        # ``instrument_authorized`` stays at exactly 977.
+        # 1049 -> 1051 at W-66b, and the whole of this landing's effect on the
+        # act-level histogram is THREE acts gaining their FIRST index entry off
+        # the sibling-set relabel one depth word down. Two land here on a plain
+        # own date — ``no/lovtid/2001-12-21-111`` (2001-12-21) and
+        # ``no/lovtid/2022-06-10-38`` (2022-06-10) — and the third
+        # (``no/lovtid/2005-06-17-92``) lands in ``instrument_authorized`` below.
+        # Exactly conserving: index entries 2,565 -> 2,568, nothing lost, and no
+        # existing entry's status moves.
+        #
+        # ``no/lovtid/2022-06-10-38`` is worth naming: its single lowered op
+        # REFUSES at apply (its punktum-depth companion repeal is not lowered, so
+        # the destination is occupied). It still earns an index entry, and that is
+        # correct rather than sloppy — the index is a PARSE-plane fact about which
+        # base act an instrument binds, and the refusal is an apply-plane one.
+        #
+        # 1051 -> 1054 at W-66c, and the whole of the punktum-depth REPEAL's
+        # effect on the act-level histogram is THREE acts gaining their FIRST
+        # index entry, all three on a plain own date, so all three land here:
+        # ``no/lovtid/2002-09-27-69`` (2002-09-27), ``no/lovtid/2017-12-19-127``
+        # (2018-01-01) and ``no/lovtid/2021-12-22-169`` (2021-12-22). Exactly
+        # conserving: entries 2,568 -> 2,571, nothing lost, and no existing
+        # entry's status moves — ``contingent`` stays at exactly 535 and
+        # ``instrument_authorized`` at exactly 979.
+        # 1,054 -> 1,055 at W-76, and it is ONE act gaining its FIRST index entry:
+        # ``no/lovtid/2011-12-09-55``, whose only lowerable lead corpus-wide is
+        # "Nåværende bokstav e, f og g blir bokstav d, e og f." on
+        # ``no/lov/1997-02-28-19`` § 23-3 annet ledd. Before the item-depth
+        # sibling-set relabel it bound nothing at all, so it produced no entry;
+        # its commencement field is a plain own date (2011-12-09), so it lands
+        # here. Exactly conserving: entries 2,571 -> 2,572, nothing lost, no
+        # existing entry's status moves, and ``contingent`` (535),
+        # ``instrument_authorized`` (979), ``immediate`` (1) and ``unknown`` (2)
+        # are byte-identical. The staged population above is untouched at 175.
+        # 1,055 -> 1,059 at W-77: FOUR of the six acts gaining their first index
+        # entry off the item-depth newness payload production commence on a plain
+        # own date and land here — ``no/lovtid/2001-06-15-44`` (2001-06-15),
+        # ``no/lovtid/2001-12-21-103`` (2001-12-21), ``no/lovtid/2007-02-16-7``
+        # (2007-02-16) and ``no/lovtid/2010-12-10-68`` (2011-01-01). The other two
+        # land in ``instrument_authorized`` and ``contingent``. Exactly
+        # conserving: entries 2,572 -> 2,578, nothing lost, and no existing
+        # entry's status moves.
+        # 1,059 -> 1,058 at W-85: ``no/lovtid/2012-12-07-71`` ("2012-12-07,
+        # Kongen bestemmer." — the promulgation-date reading that had it
+        # applying from sanction day) leaves WHOLE with the re-sanctioning
+        # withdrawal; its replacement ``2013-01-11-1`` already sits in
+        # ``instrument_authorized``. No existing entry's status moves.
+        # W-98: 1,058 -> 1,067 dated, 979 -> 985 instrument_authorized and
+        # 535 -> 537 contingent — the 17 first-entry acts by their own status.
+        "dated": 1068,
+        "immediate": 1,
+        # 976 -> 977 at W-67, and the whole of this landing's effect on the
+        # act-level histogram is ONE act gaining its FIRST index entry — the same
+        # mechanism W-61 recorded two paragraphs up, not a new one.
+        # ``no/lovtid/2004-09-24-72``'s only operative lead is "Nåværende § 16
+        # blir § 16-1.", which the shipped section-renumber production refused for
+        # want of the literal ``ny``; with the two-token widening it lowers, so
+        # the act binds plan- og bygningsloven 1985 for the first time and can be
+        # offered at all. Its commencement is an instrument date, ``plain`` rather
+        # than staged, so it lands ``instrument_authorized`` and the staged pin
+        # above does not move.
+        # Measured, not inferred: the entry is NEW (2,560 -> 2,561) and no
+        # PRE-EXISTING entry's ``effective_status`` changes, so every other bucket
+        # holds and the +1 is exactly conserving. W-74 adds no act to this
+        # histogram at all — all seven of its leads are in acts that already had
+        # an index entry.
+        # 977 -> 978 at W-66, the same mechanism a third time and measured the same
+        # way: ``no/lovtid/2001-06-15-33`` gains its FIRST index entry off the
+        # sibling-set ledd relabel ("Nåværende annet ledd blir nytt tredje ledd.",
+        # § 73 E inherited from the preceding lead) and is dated by its own
+        # instrument, ``plain`` rather than staged. Entries 2,563 -> 2,565 and no
+        # PRE-EXISTING entry's ``effective_status`` changes, so the two new entries
+        # land in exactly two buckets (+1 here, +1 contingent) and every other
+        # bucket holds.
+        # 978 -> 979 at W-66b, the same mechanism a FOURTH time and one depth word
+        # down: ``no/lovtid/2005-06-17-92`` gains its FIRST index entry off the
+        # sibling-set PUNKTUM relabel and is dated 2006-01-01 by
+        # ``no/forskrift/2005-12-16-1517``, ``plain`` rather than staged. It is one
+        # of THREE entrants; the other two are dated by their own date and land in
+        # ``dated`` above. Entries 2,565 -> 2,568, nothing lost, and no
+        # PRE-EXISTING entry's ``effective_status`` changes, so the three new
+        # entries land in exactly two buckets (+1 here, +2 dated) and
+        # ``contingent``/``unknown``/``immediate`` all hold.
+        # 979 -> 980 at W-77: ``no/lovtid/2008-06-27-50`` gains its FIRST index
+        # entry off the item-depth newness payload production and is dated
+        # 2008-07-01 by its own ``no/forskrift/2008-06-27-722``, ``plain`` rather
+        # than staged. One of SIX entrants; four land in ``dated`` and one in
+        # ``contingent``. ``unknown`` and ``immediate`` hold.
+        # 980 -> 979 at W-79, the mechanism running backwards for the first time:
+        # ``no/lovtid/2025-03-28-4`` loses its ONLY op to the structured payload
+        # lane's own-text invariant and with it its index entry. It was dated
+        # 2025-07-01 by its own ``no/forskrift/2025-03-28-545``, ``plain`` rather
+        # than staged. Entries 2,578 -> 2,576 (the other departure is
+        # ``no/lovtid/2023-12-20-104``, ``contingent`` above); ``dated``,
+        # ``unknown`` and ``immediate`` all hold, and no PRE-EXISTING entry's
+        # ``effective_status`` changes.
+        "instrument_authorized": 1015,
+        "unknown": 2,
+    }
+
+    # F-03's act is the one act carrying a not-in-force signal, and even it
+    # carries counter-evidence on one law. It belongs to the manual-override /
+    # provision-level lane, so this batch labels it and moves nothing.
+    f03 = next(entry for entry in index.entries if entry.source_id == "no/lovtid/2026-06-19-48")
+    assert f03.commencement_shape == NOCommencementShape.STAGED_DELEGATED
+    assert (f03.effective_status, f03.effective_date) == ("dated", "2026-06-19")
+
+
+# The one act the widened marker vocabulary adds to the staged population: its
+# field reads ``departementet fastset`` (nynorsk) beside three dates, so it was
+# an unremarked plain DATED before the widening.
+_WIDENED_MARKER_STAGED_ACT = "no/lovtid/2020-06-23-103"
+
+
+def test_corpus_marker_vocabulary_widening_moves_exactly_three_acts() -> None:
+    """The widening's whole corpus effect, recorded — not tuned."""
+    data_dir = resolve_no_source_path(None)
+    if not data_dir.exists():
+        pytest.skip("local Norway corpus is not installed")
+    index = build_no_amendment_index(data_dir)
+    if index.commencement_instrument_coverage.total_instruments == 0:
+        pytest.skip("local Norway corpus is not installed")
+
+    by_id = {entry.source_id: entry for entry in index.entries}
+
+    # 1. ``departementet fastset`` beside dates: plain dated -> staged, same date.
+    widened = by_id[_WIDENED_MARKER_STAGED_ACT]
+    assert widened.commencement_shape == NOCommencementShape.STAGED_DELEGATED
+    assert (widened.effective_status, widened.effective_date) == ("dated", "2020-06-23")
+    assert "departementet fastset" in widened.raw_date_in_force.lower()
+
+    # 2. Bare ``Kongen avgjer``: UNKNOWN (an uninterpretable signal) -> CONTINGENT
+    #    (a delegated one). Both are unresolved, so replay is unaffected; what
+    #    changes is that the act is now classified for the right reason.
+    #    W-53: and BECAUSE it is now classified contingent it is offered to the
+    #    commencement gate, where the widened whole-act route dates it
+    #    2016-08-26 — the same date its single-part grant already gave its one
+    #    binding, so the act's ops move not at all and only its act-level status
+    #    does. The classification claim this test exists for is asserted on
+    #    ``raw_date_in_force``, which is unchanged; the reclassification's
+    #    downstream reach is recorded here rather than left to the histogram.
+    unknown_to_contingent = by_id["no/lovtid/2016-06-17-56"]
+    assert unknown_to_contingent.raw_date_in_force == "Kongen avgjer"
+    assert unknown_to_contingent.effective_status == "instrument_authorized"
+    assert unknown_to_contingent.effective_date == "2016-08-26"
+    assert unknown_to_contingent.part_scoped_effective_dates == ()
+
+    # 3. The other bare ``Kongen avgjer`` act was already re-dated by an
+    #    instrument, so its final status is unchanged — UNKNOWN and CONTINGENT
+    #    are both offered to the gate.
+    already_authorized = by_id["no/lovtid/2021-04-23-23"]
+    assert already_authorized.raw_date_in_force == "Kongen avgjer"
+    assert already_authorized.effective_status == "instrument_authorized"
+
+    # Nothing else moves: no other act's field matches only a widened marker.
+    widened_only = {
+        entry.source_id
+        for entry in index.entries
+        if any(
+            marker in entry.raw_date_in_force.lower()
+            for marker in ("departementet fastset", "kongen avgjer")
+        )
+        and not any(
+            marker in entry.raw_date_in_force.lower()
+            for marker in ("kongen bestemmer", "kongen fastset", "departementet bestemmer",
+                           "fastsettes ved lov", "fra den tid")
+        )
+    }
+    assert widened_only == {
+        _WIDENED_MARKER_STAGED_ACT,
+        "no/lovtid/2016-06-17-56",
+        "no/lovtid/2021-04-23-23",
+    }
+
+
+def test_corpus_commencement_authorization_reconciles_with_the_measured_landscape() -> None:
+    """W-7 tranche 3's frozen reconciliation, asserted against the ingested corpus."""
+    data_dir = resolve_no_source_path(None)
+    if not data_dir.exists():
+        pytest.skip("local Norway corpus is not installed")
+
+    index = build_no_amendment_index(data_dir)
+    # ``resolve_no_source_path`` falls back to the tracked ``data/norway``
+    # directory, which exists in every checkout but carries no archives; an empty
+    # instrument coverage is the real "corpus absent" signal.
+    if index.commencement_instrument_coverage.total_instruments == 0:
+        pytest.skip("local Norway corpus is not installed")
+
+    # candidates 608 -> 607 and blocked_unresolved 1757 -> 1758 at W-51: the
+    # carve-out fence on ``_WHOLE_ACT_RE``'s tail. Exactly ONE instrument moves
+    # across the partition — ``no/forskrift/2020-05-07-944``, "Loven trer i
+    # kraft 1. juli 2020, med unntak av kapittel 6 …" — and it moves to
+    # ``blocked_unresolved`` with its scope residual, so the partition still
+    # totals 35,955.
+    # total 35,955 -> 36,006 and benign 33,590 -> 33,641 at W-86 (the
+    # 2026-08-14 capture re-pin): CORPUS drift, not code. The +51 are new
+    # Lovtidend avd. I forskrift announcements published after the 2026-07-10
+    # capture's early-morning generation instant — 3 published later that day
+    # (``no/forskrift/2026-07-09-1544``, ``2026-07-10-1545``, ``2026-07-10-1546``,
+    # all at 15:50) and 48 through 2026-08-13 — and every one of the 51 parses
+    # ``benign_not_commencement`` individually (``.tmp/w86/forskrift_cohort.json``),
+    # so the whole of the move lands in the benign column and ``candidates`` and
+    # ``blocked_unresolved`` do not budge: no act gains or loses a commencement
+    # date from this drift. 36,006 - 51 = 35,955 exactly; the announcement lane
+    # is append-only, and the lov lanes are digest-identical across the
+    # re-capture (zero acts entered or left).
+    assert index.commencement_instrument_coverage.to_dict() == {
+        "total_instruments": 36006,
+        "candidates": 607,
+        "benign_non_commencement": 33641,
+        "blocked_unresolved": 1758,
+    }
+    authorized = [
+        entry for entry in index.entries if entry.effective_status == "instrument_authorized"
+    ]
+    # 520 acts whose own commencement was unresolved (W-7 tranche 3), plus the 8
+    # staged acts batch 04 added to the offer set; the gate's conjuncts are the
+    # same four, only the population offered to them grew.
+    # 528 -> 539 (and 520 -> 531 non-staged) at W-30: eleven first-time entries
+    # with authorizing instruments, none staged. Signed off 2026-08-06.
+    # 539 -> 540 (and 531 -> 532 non-staged) at W-32: ONE first-time entry with
+    # an authorizing instrument, ``no/lovtid/2022-12-20-116`` (patentloven
+    # § 62 a fjerde ledd første punktum, a spaced letter-suffixed label), not
+    # staged. Signed off 2026-08-07.
+    # 540 -> 542 (and 532 -> 534 non-staged) at W-36/W-28: two first-time entries
+    # with authorizing instruments, ``no/lovtid/2009-06-19-101`` and
+    # ``no/lovtid/2016-06-10-23``, neither staged.
+    # 542 -> 540 (and 534 -> 532 non-staged) at W-51: the two acts the whole-act
+    # route's soundness repair demotes, both ``plain``. The staged eight are
+    # untouched, which is the check that the repair did not reach the
+    # re-dating population the offer gate exists for.
+    # 540 -> 970 (and 532 -> 957 non-staged, 8 -> 13 staged) at W-53: the
+    # widened whole-act route. The offering is again untouched — the entries
+    # counted here are exactly those the SAME offer gate admitted — and what
+    # changed is that a second act-level route now reaches 430 of them.
+    # 970 -> 971 (and 957 -> 958 non-staged, 13 staged unmoved) at W-61: the one
+    # first-time entry the widening creates, ``no/lovtid/2014-06-20-26``, whose
+    # authorizing instrument is ``plain``. See the note on ``authorized_ids``.
+    # 971 -> 976 (and 958 -> 963 non-staged, 13 staged unmoved) at W-73: the five
+    # NEW acts the title-cited subject reader dates, all five ``plain``. No
+    # existing entry is re-dated and none is withdrawn — the bucket grows by
+    # exactly the five acts that move out of ``contingent``.
+    # 976 -> 977 (and 963 -> 964 non-staged, 13 staged unmoved) at W-67: the
+    # single new act ``no/lovtid/2004-09-24-72``, authorized by the WIDENED route
+    # and measured ``plain`` rather than staged — which is why the whole of the
+    # move lands in the non-staged half and the staged pin does not budge.
+    # 977 -> 978 (and 964 -> 965 non-staged, 13 staged unmoved) at W-66: the single
+    # new act ``no/lovtid/2001-06-15-33``, same route, same ``plain`` shape.
+    # 978 -> 979 (and 965 -> 966 non-staged, 13 staged unmoved) at W-66b: the
+    # single new act ``no/lovtid/2005-06-17-92``, same route, same ``plain``
+    # shape, one depth word down. W-66b's other two entrants carry their own
+    # plain date and never reach this route, so the whole of the move again lands
+    # in the non-staged half and the staged pin does not budge.
+    # 979 -> 980 (and 966 -> 967 non-staged, 13 staged unmoved) at W-77: the
+    # single new act ``no/lovtid/2008-06-27-50``, dated 2008-07-01 by its own
+    # ``no/forskrift/2008-06-27-722`` and measured ``plain`` rather than staged,
+    # so the whole of the move lands in the non-staged half and the staged pin
+    # does not budge. W-77's other five entrants carry their own plain date or
+    # are contingent and never reach this route.
+    # 980 -> 979 (and 967 -> 966 non-staged, 13 staged unmoved) at W-79, the
+    # first DEPARTURE: ``no/lovtid/2025-03-28-4`` loses its only op to the
+    # own-text invariant and with it its index entry, so the whole of the move
+    # again lands in the non-staged half and the staged pin does not budge.
+    # 979 -> 985 (and 966 -> 972 non-staged, 13 staged unmoved) at W-98: six
+    # acts gain their FIRST index entry from the pre-2001 lead grammar and are
+    # instrument-authorized — four by the shipped whole-act route
+    # (``2010-06-25-50``, ``2016-01-22-1``, ``2016-12-16-99``, ``2022-12-16-93``)
+    # and two by the widened one (``2002-08-30-68``, ``2016-09-16-81``). Every
+    # one is ``plain``, so the whole move lands in the non-staged half.
+    # 985 -> 986 (and 972 -> 973 non-staged, 13 staged unmoved) at W-99: ONE
+    # act, ``no/lovtid/2017-06-16-51``, gains its first index entry from the
+    # address-after-citation lead grammar and is dated by its own forskrift
+    # through the shipped whole-act route. ``plain``.
+    # 1,015 -> 1,016 (and 1,002 -> 1,003 non-staged) at W-104: the
+    # ``2004-07-02-68`` entrant above, via the widened route.
+    assert len(authorized) == 1016
+    assert (
+        len([
+            entry
+            for entry in authorized
+            if entry.commencement_shape != NOCommencementShape.STAGED_DELEGATED
+        ])
+        # 973 -> 1,002 at W-100: the 29 acts the title-cited citation form
+        # dates are all ``plain`` principal acts (staged unmoved at 13).
+        == 1003
+    )
+    assert all(entry.effective_date for entry in authorized)
+    authorization_receipts = [
+        diagnostic
+        for diagnostic in index.diagnostics
+        if diagnostic["rule_id"] == NO_COMMENCEMENT_EXECUTION_AUTHORIZED
+    ]
+    widened_receipts = [
+        diagnostic
+        for diagnostic in index.diagnostics
+        if diagnostic["rule_id"]
+        == NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED
+    ]
+    # 542 -> 540 at W-51, in step with the entry count above: one authorization
+    # receipt per authorized act, still — and at W-53 that invariant is what
+    # ties the two routes to the one histogram bucket. 540 + 430 = 970, with no
+    # act receipted twice.
+    # 540 -> 541 at W-61, and 541 + 430 = 971: the one act gaining its first
+    # index entry (``no/lovtid/2014-06-20-26``) is authorized by the SHIPPED
+    # route, so the shipped receipt count moves and the widened one does not.
+    # 541 + 435 = 976 at W-73, the mirror case: the five acts are all authorized
+    # by the WIDENED route, so this time the widened receipt count moves alone.
+    # 541 + 436 = 977 at W-67, the same mirror case as W-73: the one new act is
+    # authorized by the WIDENED route, so the widened receipt count moves alone.
+    # 541 + 437 = 978 at W-66, the same mirror case again: ``no/lovtid/2001-06-15-33``
+    # is authorized by the WIDENED route and the shipped receipt count is unmoved.
+    # 541 + 438 = 979 at W-66b, the same mirror case a fourth time:
+    # ``no/lovtid/2005-06-17-92`` is authorized by the WIDENED route and the
+    # shipped receipt count is again unmoved. Its two sibling entrants are dated
+    # by their own date and take no authorization receipt at all.
+    # 542 + 438 = 980 at W-77, and this is the FIRST time since W-61 that the
+    # SHIPPED receipt count moves rather than the widened one:
+    # ``no/lovtid/2008-06-27-50`` is dated by its own kongelig resolusjon
+    # ``no/forskrift/2008-06-27-722``, which the shipped whole-act route admits,
+    # so the widened count is unmoved. Its five sibling entrants are dated by
+    # their own date or are contingent and take no authorization receipt at all.
+    # 541 + 438 = 979 at W-79, the mirror of W-77 running backwards:
+    # ``no/lovtid/2025-03-28-4`` was dated by its own kongelig resolusjon
+    # ``no/forskrift/2025-03-28-545``, which the SHIPPED whole-act route admits,
+    # so it is the shipped receipt count that falls and the widened one is
+    # unmoved. Its sibling departure ``no/lovtid/2023-12-20-104`` is contingent
+    # and took no authorization receipt at all.
+    # 545 + 440 = 985 at W-98: the four shipped-route and two widened-route
+    # first-entry acts named above, one receipt each.
+    # 545 -> 546 at W-99: the ``2017-06-16-51`` entrant above.
+    assert len(authorization_receipts) == 546
+    # 469 -> 470 at W-104: the ``2004-07-02-68`` entrant, one widened receipt.
+    assert len(widened_receipts) == 470
+    assert {d["source_id"] for d in authorization_receipts + widened_receipts} == {
+        entry.source_id for entry in authorized
+    }
+    # Every widened receipt names its full conjunct set, so a route that ever
+    # grew a sixth conjunct could not keep issuing five-conjunct receipts.
+    assert all(
+        d["passed_conjuncts"]
+        == [str(conjunct) for conjunct in NOCommencementWidenedWholeActAuthorizationConjunct]
+        for d in widened_receipts
+    )
+    assert not [
+        diagnostic
+        for diagnostic in index.diagnostics
+        if diagnostic["rule_id"]
+        in {
+            NO_COMMENCEMENT_EXECUTION_DATE_CONFLICT,
+            NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_DATE_CONFLICT,
+        }
+    ]
+
+    anchor = next(entry for entry in index.entries if entry.source_id == "no/lovtid/2012-01-27-9")
+    assert anchor.effective_status == "instrument_authorized"
+    assert anchor.effective_date == "2012-03-01"
+    assert anchor.raw_date_in_force == "Kongen bestemmer."
+    instrument = next(
+        item
+        for item in index.commencement_instruments
+        if item.source_id == "no/forskrift/2012-01-27-71"
+    )
+    assert instrument.replay_authorized is True
+    assert instrument.affected_law_ids == ("no/lov/2012-01-27-9",)
+
+    # F-03's mixed-commencement act is cited by no instrument and gains nothing.
+    negative_anchor = next(
+        entry for entry in index.entries if entry.source_id == "no/lovtid/2026-06-19-48"
+    )
+    assert negative_anchor.effective_status == "dated"
+    assert negative_anchor.effective_date == "2026-06-19"
+
+    by_base: dict[str, list[str]] = {}
+    for entry in index.entries:
+        for base_id in entry.base_ids:
+            # W-39: the status a binding contributes is that BINDING's status,
+            # which is what ``build_no_inventory`` reads. For every act but the
+            # 190 with a part-scoped authorization (121 acts from the
+            # single-part route, 70 from W-47's multi-part one, and
+            # ``no/lovtid/2008-12-19-106`` in both — its del II is proved by a
+            # single-part instrument and its other 17 parts by a whole-act one)
+            # this is the act's own status, byte for byte; for those it is the
+            # status of the one part that amends this base law.
+            _date, binding_status = entry.effective_date_for_base(base_id)
+            by_base.setdefault(base_id, []).append(binding_status)
+    executable = load_no_current_law_ids(data_dir) & load_available_lti_law_ids(data_dir)
+    fully_replayable = [
+        law_id
+        for law_id in executable
+        if law_id in by_base
+        and not any(status in NO_UNRESOLVED_EFFECTIVE_STATUSES for status in by_base[law_id])
+    ]
+    # 58 -> 56 at W-15 (multi-part misbinding fix). Both directions are the
+    # certifiability predicate doing its job on newly-CORRECT bindings, not a
+    # tuned pin: four laws (2002-04-26-12, 2005-05-27-31, 2010-02-19-5,
+    # 2015-05-12-27) gained a newly-bound, correctly-cited amending act whose
+    # commencement is contingent — exactly what this predicate excludes — and
+    # two laws (2012-01-27-10, 2021-06-11-79) gained their first bound source
+    # with a resolved status. Verified cause-by-cause by the independent
+    # reviewer; signed off 2026-08-02.
+    # 56 -> 57 at W-20 (citation-less global-replace fallback): 2014-08-15-59
+    # gained its first bound source with a resolved status — the recovered
+    # binding from no/lovtid/2019-05-24-18, the same mechanism as the two
+    # W-15 gains above. Signed off 2026-08-05.
+    # 57 -> 56 at W-30 (intro-marker morphology): 2006-06-30-50 gained a
+    # newly-bound, correctly-cited amending act (no/lovtid/2007-06-29-81)
+    # whose commencement is contingent — the W-15 decertification mechanism.
+    # It returns whenever that commencement resolves. Signed off 2026-08-06.
+    # 56 -> 58 at W-39 (part-scoped commencement), and this is the first landing
+    # where the predicate had to move to per-BINDING status to stay honest.
+    # Two laws enter, each traced to one instrument dating one part of one act:
+    # 2012-12-14-81 (`no/lovtid/2020-12-18-143` del I, `no/forskrift/
+    # 2021-02-19-474`, 2021-03-01) and 2019-06-21-63 (`no/lovtid/2021-06-18-135`
+    # del I, `no/forskrift/2022-03-25-466`, 2022-03-25). ZERO leave — and one
+    # would have: W-39's half (i) binds `no/lovtid/2009-06-19-85` to
+    # vaktvirksomhetsloven, whose commencement is `Kongen bestemmer.`, which is
+    # the W-15 decertification mechanism exactly. It is not decertified because
+    # `no/forskrift/2011-04-01-342` commences that act's del I. The two halves
+    # of W-39 land together for this reason and no other.
+    # 58 -> 65 at W-47 (multi-part commencement), the same mechanism one
+    # granularity wider: 260 grants over 70 acts whose Endrer header spans
+    # several parts under an operative text commencing the whole act. SEVEN
+    # laws enter, each traced to a named grant, and ZERO leave — the route only
+    # ever turns an unresolved binding into a dated one, so it cannot
+    # decertify:
+    #   2004-12-17-101 <- 2021-04-23-25 del II  (2023-09-15-1422 @2023-09-15)
+    #   2010-06-04-21  <- 2014-06-20-56 del V   (2014-06-20-782  @2014-07-01)
+    #                   + 2020-12-18-157 del V  (2021-06-04-1778 @2021-07-01)
+    #   2011-06-24-39  <- 2014-06-20-56 del IV  (2014-06-20-782  @2014-07-01)
+    #                   + 2020-12-18-157 del IV (2021-06-04-1778 @2021-07-01)
+    #   2013-04-12-13  <- 2021-04-23-25 del I   (2023-09-15-1422 @2023-09-15)
+    #   2018-04-20-7   <- 2021-05-07-33 del I   (2021-05-07-1415 @2021-06-01)
+    #   2022-06-17-56  <- 2023-06-16-38 del VI  (2023-06-16-930  @2023-10-01)
+    #   2024-12-20-96  <- 2026-01-23-1 del VII  (2026-03-13-402  @2026-07-01)
+    # The act-level histogram above is untouched, as it was at W-39 and for the
+    # same reason: the grant is per binding and never per act.
+    # 65 -> 73 at W-53 (the widened whole-act route), and this is the first
+    # landing in the series where the act-level histogram DOES move — see the
+    # status pin above. EIGHT laws enter and ZERO leave, and zero-leaving is not
+    # luck: the lane writes DATES and never ``base_ids``, and binding-status
+    # resolution is monotone in the dates, so a route that only turns unresolved
+    # bindings into dated ones cannot decertify a law. Measured, base_ids and
+    # n_ops are byte-identical for all 2,559 entries across the change.
+    # Each entrant is traced to the widened grant(s) that resolved its last
+    # unresolved binding act — law <- act @date (granting instrument):
+    #   2001-06-15-75  <- 2003-12-19-129 @2004-01-01 (2003-12-19-1792)
+    #                   + 2008-12-19-120 @2009-01-01 (2008-12-19-1483)
+    #   2004-03-26-17  <- 2019-03-15-6   @2020-01-01 (2019-12-06-1656)
+    #   2004-12-17-99  <- 2007-06-29-93  @2007-07-01 (2007-06-29-823)
+    #   2015-05-12-27  <- 2018-06-15-37  @2018-07-01 (2018-06-15-887)
+    #   2016-12-16-92  <- 2019-06-21-52  @2020-01-01 (2019-11-22-1548)
+    #   2017-04-28-23  <- 2024-03-08-9   @2024-08-01 (2024-03-08-407)
+    #   2020-04-17-29  <- 2022-03-04-7   @2023-01-01 (2022-12-16-2252)
+    #   2021-06-18-136 <- 2024-06-21-41  @2025-04-01 (2025-03-21-479)
+    # ``2004-12-17-99`` is klimakvoteloven, the act whose replay W-52 had to fix
+    # before this landing could admit it: it enters CONSISTENT at 0 divergences,
+    # so the scan's error column never opens.
+    # 73 -> 76 at W-73, the same mechanism a fourth time and again ZERO leaving:
+    # three laws' LAST unresolved binding act is one of the five the title-cited
+    # subject reader dates, so they become fully replayable —
+    #   2015-02-13-9  <- 2017-06-16-67 @2017-07-01 (2017-06-16-763)
+    #   2015-06-19-70 <- 2017-06-16-67 @2017-07-01 (2017-06-16-763)
+    #   2020-06-19-77 <- 2024-12-13-76 @2025-01-01 (2024-12-13-3095)
+    # and each enters the scan candidate set with it. The other 14 laws the five
+    # acts bind still carry some OTHER contingent amendment and stay blocked;
+    # husbankloven is one of them (`2025-04-25-12` is still `Kongen bestemmer`).
+    # 76 -> 75 at W-66c, and it is the FIRST time this number has gone DOWN. The
+    # mechanism is this test's own, run backwards: a base is fully replayable
+    # only while every act that binds it is dated or instrument-authorized, and
+    # the punktum-depth repeal gives ``no/lovtid/2013-01-11-3`` — commencement
+    # "fra den tid Kongen bestemmer" — its FIRST lowered ops against
+    # ``no/lov/2010-06-04-21`` and ``no/lov/2011-06-24-39``. One contingent
+    # binding is enough, so both leave; ``no/lov/2009-05-15-28`` enters on a
+    # first binding that is `dated`. The two leavers are not less replayable than
+    # they were — the contingent act always amended them, and the index could not
+    # see it until a production lowered the instruction. Signed off 2026-08-14.
+    # 75 -> 74 at W-98, the same mechanism a second time and again ONE law
+    # leaving: the pre-2001 lead grammar's ``bokstav d)`` reading gives
+    # ``no/lovtid/2016-12-16-91`` — commencement "fra den tid Kongen bestemmer"
+    # — its FIRST lowered op against ``no/lov/2004-03-26-17``, so that law's last
+    # binding is now contingent and it leaves. Nothing enters. The leaver is not
+    # less replayable than it was; the contingent act always amended it, and the
+    # index could not see the binding until a production lowered the instruction.
+    # 74 -> 83 at W-100: nine laws whose last unresolved binding was an act the
+    # section-scoped lane dated complete or the title-cited citation form dated
+    # whole; the seven named below all stay in.
+    # 83 -> 84 at W-101: ``no/lov/2025-06-20-99`` (folkehøgskoleloven, a 2025
+    # act with one dated amendment) enters — its only amendment's only
+    # instruction is a ``kap4`` chapter-heading block that lowers now, so the
+    # law gains its first binding and it is a dated one. Nothing leaves.
+    assert len(fully_replayable) == 84
+    assert set(fully_replayable) >= {
+        "no/lov/2001-06-15-75",
+        "no/lov/2004-12-17-99",
+        "no/lov/2015-05-12-27",
+        "no/lov/2016-12-16-92",
+        "no/lov/2017-04-28-23",
+        "no/lov/2020-04-17-29",
+        "no/lov/2021-06-18-136",
+    }
+
+
+def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> None:
+    """W-30's whole corpus effect on F-10's declared-vs-bound gap, recorded.
+
+    The part-announcement tail gate was a closed 11-member literal tuple; 535
+    leads across 346 acts carried the same amending construction in another
+    spelling and resolved nothing. Widening it to the measured morphology binds
+    291 declared targets that Lovdata's ``changesToDocuments`` list had named
+    and the index had receipted as unbound.
+
+    The 20 targets that become newly unbound are the counterpart of the 20
+    (act, law) group pairs the widening REMOVES: in each, ops that had been
+    inherited by a stale carried-over base act move to the law their own part
+    announces, and the act's genuine amendment to the old target turns out not
+    to lower at all. That is the same metric honesty W-25/W-26 recorded — a
+    lowering gap the misbinding had been masking, not a lost op. Nothing is
+    lost: the op-identity multiset is conserved act by act across all 116
+    changed acts (0 ops dropped, 958 gained).
+    """
+    data_dir = resolve_no_source_path(None)
+    if not data_dir.exists():
+        pytest.skip("local Norway corpus is not installed")
+    index = build_no_amendment_index(data_dir)
+    if index.commencement_instrument_coverage.total_instruments == 0:
+        pytest.skip("local Norway corpus is not installed")
+
+    unbound = [
+        diagnostic
+        for diagnostic in index.diagnostics
+        if diagnostic["rule_id"] == "no_amendment_index_declared_target_unbound"
+    ]
+    # 1,031 -> 975 receipts (one per act with a gap); 3,141 -> 2,850 unbound
+    # (act, target) pairs, net of the 20 newly unbound explained above.
+    # 975 -> 963 receipts and 2,850 -> 2,806 pairs at W-32: the two host-lead
+    # lowering gaps (multi-``bokstav`` leads, spaced letter-suffixed section
+    # labels) bind 44 more declared targets across 12 acts that lose their gap
+    # entirely. Purely additive here — W-32 removes no binding, and the one
+    # act whose bindings move (``no/lovtid/2015-06-19-65``, six ops crossing a
+    # swallowed law-switch lead) was already misbound to a different stale base
+    # before and after. Signed off 2026-08-07.
+    # 963 -> 960 receipts and 2,806 -> 2,642 pairs at W-34: closing the payload
+    # cursor at numbered law-switch leads binds 164 more declared targets across
+    # 15 acts, three of which lose their gap entirely. The pair drop equals the
+    # binding gain below EXACTLY (2,806 - 2,642 = 6,295 - 6,131 = 164): every
+    # target W-34 binds was a declared target the index had already receipted,
+    # and W-34 un-declares none. Signed off 2026-08-07.
+    # 960 -> 959 receipts and 2,642 -> 2,605 pairs at W-35: splitting the leads
+    # Lovdata trapped INSIDE ``futureLegalArticle`` payloads binds 37 more
+    # declared targets across 6 acts, one of which (``2015-09-04-85``) loses its
+    # gap entirely. The pair drop again equals the binding gain below EXACTLY
+    # (2,642 - 2,605 = 6,332 - 6,295 = 37), the same conservation W-34 recorded:
+    # every target the split binds was already a declared target on the receipt,
+    # and the split un-declares none. Signed off 2026-08-07.
+    # 959 -> 960 receipts and 2,605 -> 2,536 pairs at W-36/W-28, and this is the
+    # first landing in the series where the pair drop does NOT equal the binding
+    # gain — by construction, not by regression. Reconciled exactly:
+    #   * 76 of the 140 gained bindings retire a declared pair, and every one of
+    #     the 76 retired pairs has a matching gained binding (retired-without-a-
+    #     gain is 0), which is the W-34/W-35 conservation holding on the half of
+    #     the change that resolves NUMBERED citations;
+    #   * 63 of the remaining 64 are W-28 ``<date>-0`` ids. The declared side
+    #     writes the same law date-only (``no/lov/1967-02-10``), so a binding to
+    #     ``no/lov/1967-02-10-0`` cannot equal it and cannot retire it. See the
+    #     F-10 family-3 note below.
+    #   * 7 pairs are newly receipted against 8 lost bindings — honest exposure
+    #     of stale bases that lost their last op to a correct rebind, the
+    #     metric-honesty precedent W-25/W-26 set.
+    # F-10 family 3 (the 92/93 unnumbered unbound pairs) is CONSERVED as a count
+    # and its claim needs re-reading rather than re-measuring: "no corpus law id
+    # has that shape" is still literally true of date-only ids, but the
+    # inference "so they can never bind" is now false — the same laws are filed
+    # under ``<date>-0``, and 54 of the 93 pairs name a law the act ALREADY
+    # binds. They stay on the receipt only because the comparison is id-exact.
+    # 960 -> 958 receipts and 2,536 -> 2,534 pairs at W-39, and the W-34/W-35
+    # conservation holds exactly: the pair drop equals the binding gain (2 = 2).
+    # Both acts lose their gap ENTIRELY rather than shrinking it —
+    # `2009-06-19-85` declared two laws and bound one, and `2021-06-11-60`
+    # declared one and bound none (it had no index entry at all). Every target
+    # W-39 binds was already a declared target on the receipt, and W-39
+    # un-declares none.
+    # 958 -> 956 receipts and 2,534 -> 2,524 pairs at W-61, and the W-34/W-35
+    # conservation holds exactly again: the pair drop equals the binding gain
+    # (10 = 10), with ZERO targets newly unbound. The widened repeal-then-shift
+    # lead binds 10 (act, law) pairs the ``changesToDocuments`` list had always
+    # declared and the index had always receipted as unbound: one each on
+    # ``2003-06-20-40`` (barnelova), ``2014-06-20-26`` (folketrygdloven) and
+    # ``2017-12-15-105`` (finansforetaksloven), five on ``2013-01-11-3``
+    # (pengespilloven, fritids- og småbåtloven, skipssikkerhetsloven,
+    # mineralloven, sivilbeskyttelsesloven), and one each on ``2006-06-30-39``
+    # (forretningsbankloven) and ``2017-06-21-99`` (forpaktingslova) — those last
+    # two lose their gap ENTIRELY, which is why the receipt count falls by 2 while
+    # the pair count falls by 10. Every target bound was already a declared target
+    # on the receipt, and the widening un-declares none.
+    # 956 -> 955 receipts and 2,524 -> 2,523 pairs at W-67. The widening binds
+    # ``no/lovtid/2004-09-24-72`` to plan- og bygningsloven 1985, so one declared
+    # target stops being unbound; the W-34/W-35 conservation holds at 1 = 1.
+    # 955 -> 951 receipts and 2,523 -> 2,511 pairs at W-64, with the W-34/W-35
+    # conservation holding exactly again: the pair drop equals the binding gain
+    # (12 = 12), ZERO targets newly unbound and nothing rebound. The heading
+    # boundary hands twelve leads the payload they always announced, over eight
+    # acts; four of the eight lose their gap ENTIRELY (`2001-01-19-4`,
+    # `2003-12-19-129`, `2005-06-10-40`, `2006-12-15-79`), which is why the
+    # receipt count falls by 4 while the pair count falls by 12.
+    # 951 -> 953 receipts and 2,511 -> 2,516 pairs at W-75, and this one moves the
+    # WRONG WAY on purpose: it is the W-25/W-26 metric-honesty precedent, not a
+    # regression. Refusing the word-substitution address lists removes the five
+    # (act, law) bindings whose ONLY ops were the refused REPLACEs, so five
+    # declared targets stop being bound and go back on the receipt they had always
+    # been eligible for. The five newly-unbound pairs are EXACTLY the five lost
+    # bindings, one for one -- ``2025-06-20-39``/``1991-07-04-47``,
+    # ``2025-06-20-40``/``1989-02-17-2``, ``2025-06-20-82``/``1916-07-21-2``,
+    # ``2026-06-19-45``/``1984-06-08-59``, ``2026-06-19-48``/``1916-06-30-1`` --
+    # with zero targets rebound and zero receipts lost. Two of the acts had no gap
+    # at all before, which is why the receipt count rises by 2 while the pair count
+    # rises by 5. A binding that existed only because an op wrote the amendment's
+    # own address list into the law was never a binding. Signed off 2026-08-12.
+    # 953 -> 949 receipts and 2,516 -> 2,507 pairs at W-66, with the W-34/W-35
+    # conservation exact: the pair drop equals the binding gain (9 = 9), ZERO
+    # targets newly unbound and NOTHING rebound. The sibling-set ledd relabel binds
+    # nine (act, law) pairs that had only ever been DECLARED, and four of the nine
+    # acts lose their gap entirely (``2001-06-15-33``, ``2005-06-17-98``,
+    # ``2014-06-20-26``, ``2020-04-15-19``), which is why the receipt count falls by
+    # 4 while the pair count falls by 9. Signed off 2026-08-12.
+    # 949 -> 947 receipts and 2,507 -> 2,504 pairs at W-69a, and it is W-75's
+    # movement running backwards, exactly. Lowering the word-substitution address
+    # lists for real RESTORES three of the five (act, law) bindings W-75's refusal
+    # removed -- ``2025-06-20-40``/``1989-02-17-2``,
+    # ``2025-06-20-82``/``1916-07-21-2``, ``2026-06-19-45``/``1984-06-08-59`` --
+    # so three declared targets stop being unbound. The W-34/W-35 conservation is
+    # exact: the pair drop equals the binding gain (3 = 3, bindings 6,493 ->
+    # 6,496), ZERO targets newly unbound and NOTHING rebound. Two of the three
+    # acts lose their gap entirely, which is why the receipt count falls by 2
+    # while the pair count falls by 3. The two W-75 bindings that do NOT come back
+    # are its multi-base nodes (``2025-06-20-39``, ``2026-06-19-48``), which W-69a
+    # refuses whole under S2/S1. Signed off 2026-08-12.
+    # 947 -> 944 receipts at W-66b, and it is the three instruments that gain
+    # their FIRST index entry off the sibling-set relabel one depth word down:
+    # ``no/lovtid/2001-12-21-111``, ``no/lovtid/2005-06-17-92`` and
+    # ``no/lovtid/2022-06-10-38``. Each declared TWO targets and bound neither,
+    # so each loses its gap ENTIRELY: receipts fall by 3 and pairs by 6 (2,504 ->
+    # 2,498). ZERO targets newly unbound and NOTHING rebound.
+    # 944 -> 938 receipts and 2,498 -> 2,465 pairs at W-66c, the same shape as
+    # W-66b's entry above but wider, because a punktum REPEAL binds where a
+    # relabel could not. SIX instruments lose their declared-vs-bound gap
+    # ENTIRELY. Three of them gain their FIRST index entry off the repeal
+    # (``no/lovtid/2002-09-27-69``, ``no/lovtid/2017-12-19-127``,
+    # ``no/lovtid/2021-12-22-169``, all `dated`); the other three
+    # (``no/lovtid/2003-06-20-43``, ``no/lovtid/2017-06-16-55``,
+    # ``no/lovtid/2017-12-15-104``) were already indexed and simply bind their
+    # last unbound declared target. ZERO targets newly unbound and NOTHING
+    # rebound — the receipt drop is 6 and the pair drop 33 because the six acts
+    # between them declared 33 targets they bound none of.
+    # 938 -> 937 receipts and 2,465 -> 2,462 pairs at W-76, the same shape again
+    # at ITEM depth and the narrowest instance of it so far. THREE instruments
+    # bind one further declared target each off the bokstav/nr. relabel:
+    # ``no/lovtid/2003-05-23-33`` (2 -> 1 unbound, binds ``no/lov/1997-06-13-42``),
+    # ``no/lovtid/2019-06-21-70`` (5 -> 4, binds ``no/lov/2002-06-21-45``) and
+    # ``no/lovtid/2011-12-09-55`` (1 -> 0, binds ``no/lov/1997-02-28-19``), the
+    # last losing its gap ENTIRELY and thereby gaining its first index entry.
+    # ZERO targets newly unbound and NOTHING rebound.
+    # 937 -> 926 receipts and 2,462 -> 2,444 pairs at W-77, the same shape a
+    # third time at ITEM depth and the widest instance of it since W-66c. The
+    # item-depth newness PAYLOAD production binds 18 (act, law) pairs the
+    # ``changesToDocuments`` list had always declared and the index had always
+    # receipted as unbound, over 18 instruments; ELEVEN of those lose their gap
+    # ENTIRELY (``2001-06-15-44``, ``2001-12-21-103``, ``2001-12-21-113``,
+    # ``2002-12-13-74``, ``2007-02-16-7``, ``2008-06-27-50``, ``2008-06-27-62``,
+    # ``2010-12-10-68``, ``2012-12-07-75``, ``2014-12-19-93``, ``2017-02-10-6``),
+    # which is why the receipt count falls by 11 while the pair count falls by 18.
+    # The W-34/W-35 conservation is exact: the pair drop equals the binding gain
+    # (18 = 18), ZERO targets newly unbound and NOTHING rebound.
+    # 926 -> 928 receipts and 2,444 -> 2,447 pairs at W-79, the FIRST time this
+    # census has grown: the structured payload lane's own-text invariant
+    # withdraws the only binding three instruments had. TWO gain a receipt
+    # outright because they now bind NOTHING (``no/lovtid/2023-12-20-104``,
+    # ``no/lovtid/2025-03-28-4`` — both also leave the index entirely), and one
+    # already-receipted instrument gains a pair (``no/lovtid/2023-12-20-110``
+    # re-declares ``no/lov/1985-06-21-79`` unbound, its only op on that law
+    # having been an in-place word-substitution announcement written into
+    # foretaksnavneloven § 3-6 as text). The W-34/W-35 conservation is exact in
+    # the withdrawing direction: the pair GAIN equals the binding LOSS
+    # (3 = 3; index bindings 6,564 -> 6,561), ZERO targets newly bound and
+    # NOTHING rebound.
+    # 928 -> 927 receipts and 2,447 -> 2,446 pairs at W-82: the payload-reach
+    # widening gives ``no/lovtid/2023-12-20-104`` its one binding back, so its
+    # receipt goes away entirely (one act, one pair).
+    # ``no/lovtid/2025-03-28-4`` keeps its receipt: its declaration names a
+    # nummer and Lovdata's change part names the section, and W-82 refuses to
+    # write the one over the other. The W-34/W-35 conservation is exact again:
+    # the pair LOSS equals the binding GAIN (1 = 1; index bindings 6,561 ->
+    # 6,562), ZERO targets newly unbound and NOTHING rebound.
+    # 927 -> 909 receipts and 2,446 -> 2,402 pairs at W-98, the largest
+    # pay-down since W-34: the pre-2001 lead grammar binds 46 new (act, law)
+    # pairs (17 acts gain their first entry, 29 acts gain a further law), and
+    # 44 of them were declared targets the index had receipted as unbound —
+    # whole-chapter re-enactments, chapter headings, nynorsk ledd repeals,
+    # ``bokstav d)`` items and repeated-noun ledd lists whose act had no other
+    # lowered instruction against that law. The W-34/W-35 conservation holds
+    # in the binding direction: pair LOSS 44 against binding GAIN 46 (index
+    # bindings 6,550 -> 6,596), the other 2 gains being laws the act never
+    # declared. ZERO targets newly unbound and NOTHING rebound.
+    # 909 -> 904 receipts and 2,402 -> 2,370 pairs at W-99: the period-less
+    # citation grammar and the address-after-citation lead bind 32 new
+    # (act, law) pairs, every one a declared target the index had receipted
+    # as unbound — 15 receipts shrink, 5 close outright (``2004-03-26-17``,
+    # ``2008-06-27-72``, ``2017-03-17-9``, ``2020-12-18-144``,
+    # ``2021-06-11-76``; ``2017-06-16-51`` goes 12 declared / 0 bound -> 4
+    # bound, ``2003-12-19-124`` 2 -> 4, ``2019-03-15-6`` 18 -> 24). ZERO
+    # targets newly unbound; the 27 rebound ops (a lead's own act instead of
+    # the act before it) move bindings, not receipts.
+    # 2,370 -> 2,369 at W-101: ``no/lovtid/2026-06-19-59`` binds
+    # ``no/lov/2025-06-20-99`` (folkehøgskoleloven) through its
+    # ``Kapittel 4 overskriften skal lyde:`` block, whose ``kap4`` attribute
+    # token now lowers to a heading-only chapter REPLACE — the act's only
+    # instruction against that law, so the declared target was receipted as
+    # unbound until the structured chapter address existed. Receipts 904 ->
+    # 904 (the receipt shrinks by one id and does not close).
+    assert len(unbound) == 904
+    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2369
+    assert len({diagnostic["source_id"] for diagnostic in unbound}) == 904
+
+    # 64 acts gain their FIRST index entry: they announced every one of their
+    # parts with an unlisted tail, so they had bound no law at all.
+    # 2,544 -> 2,548 and 6,084 -> 6,131 at W-32: four more acts whose only
+    # amendment lead was one of the two dropped shapes.
+    # 6,131 -> 6,295 at W-34, entries unmoved: the cursor stop introduces no new
+    # amending ACT, only new (act, law) pairs inside acts that were already
+    # indexed. 166 pairs gained, 2 removed — ``2014-05-09-16``/``1987-06-12-48``
+    # and ``2015-06-19-65``/``1984-06-08-55``, both bindings that had been
+    # harvested from a swallowed sibling lead's citation and that address a
+    # section neither law has (NIS-loven has no § 339, konkursloven no § 6-2;
+    # foretaksnavneloven ``1985-06-21-79``, which the second op now binds, does).
+    # 6,295 -> 6,332 at W-35, entries again unmoved and for the same reason: the
+    # payload split reaches only INTO acts the index already has. 38 pairs
+    # gained, 1 removed — ``2015-06-19-65``/``2013-06-21-102``, whose two
+    # § 11-1 repeals move to AIF-loven ``2014-06-20-28``. Item 251 announces
+    # "gjøres følgende ENDRING" (singular) and its one change is the § 9-3
+    # heading; the § 11-1 repeals belong to item 252, which was the lead trapped
+    # inside that § 9-3 element.
+    # 2,548 -> 2,558 at W-36/W-28: ten acts gain their FIRST index entry, which
+    # is a shape earlier landings could not produce because they only reached
+    # INTO acts already indexed. Six are W-36 run-ons whose every lead was nested
+    # in the previous item's payload (`2004-12-10-76`, `2004-12-10-82`,
+    # `2007-12-21-119`, `2012-01-20-4`, `2021-12-22-163`, `2009-06-19-100`), and
+    # four are acts whose only law-switch lead carried no act number
+    # (`2003-11-28-98`, `2005-06-17-103`, `2009-06-19-101`, `2016-06-10-23`).
+    # 6,332 -> 6,464: 140 pairs gained, 8 removed. The 8 are stale bases that
+    # lost their last op to a correct rebind; 7 of them re-appear as declared
+    # gaps on the receipt above and are counted there.
+    # 2,558 -> 2,559 at W-39: exactly one act gains its first index entry —
+    # `2021-06-11-60`, whose whole part I is a collective re-enactment
+    # ("I lov 8. april 1981 nr. 7 om barn og foreldre skal følgende
+    # bestemmelser lyde:" + three new sections) and which therefore lowered
+    # nothing at all before. It enters `contingent`, so the status histogram
+    # moves by that one act and nothing else.
+    # 2,559 -> 2,560 at W-61: again exactly one act gains its first index entry —
+    # `2014-06-20-26`, whose part I carried a single operative lead ("§ 25-2
+    # tredje ledd oppheves. Gjeldende fjerde og femte ledd blir nytt tredje og
+    # fjerde ledd.") that the unstructured repeal-then-shift production refused
+    # for spelling its qualifier `Gjeldende` rather than `Nåværende`. It enters
+    # `instrument_authorized`.
+    # 2,560 -> 2,561 at W-67: ``no/lovtid/2004-09-24-72`` gains its first entry.
+    # 2,561 -> 2,563 at W-64: two acts gain their first entry, both because
+    # EVERY lead they carry was a whole-section replacement whose payload the
+    # heading boundary threw away — ``no/lovtid/2001-01-19-4`` (sjøloven's
+    # "Virkeområdet for avsnitt II og avsnitt III") and ``no/lovtid/2006-12-15-79``
+    # (folkeregisterloven). Both enter ``dated``, so the status histogram moves by
+    # those two acts and nothing else.
+    # 2,563 -> 2,565 at W-66: two acts gain their first entry off the sibling-set
+    # ledd relabel — ``no/lovtid/2001-06-15-33`` (§ 73 E inherited from the
+    # preceding lead; enters ``instrument_authorized``) and
+    # ``no/lovtid/2005-06-17-98`` (enters ``contingent``). None leaves.
+    # 2,565 -> 2,568 at W-66b: THREE acts gain their first entry off the same
+    # relabel one depth word down — ``no/lovtid/2001-12-21-111`` and
+    # ``no/lovtid/2022-06-10-38`` (both ``dated``, own plain date) and
+    # ``no/lovtid/2005-06-17-92`` (``instrument_authorized``, 2006-01-01 via
+    # ``no/forskrift/2005-12-16-1517``). None leaves, and the status histogram
+    # moves by exactly those three and nothing else.
+    # 2,568 -> 2,571 at W-66c: THREE more acts gain their first entry, this time
+    # off the punktum-depth REPEAL — ``no/lovtid/2002-09-27-69``,
+    # ``no/lovtid/2017-12-19-127`` and ``no/lovtid/2021-12-22-169``, all three
+    # ``dated`` on their own plain date. None leaves.
+    # 2,571 -> 2,572 at W-76: ONE act gains its first entry off the same relabel
+    # at ITEM depth (bokstav / nr.) — ``no/lovtid/2011-12-09-55``, ``dated`` on
+    # its own plain date 2011-12-09. Its only lowerable lead corpus-wide is
+    # "Nåværende bokstav e, f og g blir bokstav d, e og f." None leaves.
+    # 2,572 -> 2,578 at W-77: SIX acts gain their first entry off the item-depth
+    # newness PAYLOAD production — ``no/lovtid/2001-06-15-44``,
+    # ``no/lovtid/2001-12-21-103``, ``no/lovtid/2007-02-16-7`` and
+    # ``no/lovtid/2010-12-10-68`` (all ``dated`` on their own plain date),
+    # ``no/lovtid/2008-06-27-50`` (``instrument_authorized``, 2008-07-01 via
+    # ``no/forskrift/2008-06-27-722``) and ``no/lovtid/2012-12-07-75``
+    # (``contingent``). None leaves.
+    # 2,578 -> 2,576 at W-79, and this pin's "None leaves" streak ends: TWO acts
+    # leave, both because the structured payload lane's own-text invariant
+    # withdraws the only op they had. ``no/lovtid/2023-12-20-104``
+    # (``contingent``) and ``no/lovtid/2025-03-28-4`` (``instrument_authorized``,
+    # 2025-07-01) each carried exactly one ``data-change-part`` node that
+    # DECLARES its payload and then keeps it in a ``li`` / ``numberedLegalP``
+    # the own-text fallback cannot reach, so what landed was the lead sentence
+    # itself (or, once the old narrow strip consumed it, an EMPTY node). Nothing
+    # else leaves and nothing enters; bindings 6,564 -> 6,561 (the third is
+    # ``no/lovtid/2023-12-20-110`` -> ``no/lov/1985-06-21-79``).
+    # 2,576 -> 2,577 at W-82: ONE of those two acts returns.
+    # ``no/lovtid/2023-12-20-104`` (``contingent``) declared "§ 4 tredje ledd
+    # nr. 2 skal lyde:" over a ONE-address change part and one ``li``, and arity
+    # one on both sides is the extent proof W-82 reads it under.
+    # ``no/lovtid/2025-03-28-4`` does NOT return: it declares "… skal § 2 nr. 4
+    # lyde:" but Lovdata's change part stops at ``§2``, a level SHALLOWER than
+    # the declaration, so landing its ``numberedLegalP`` would write one nummer
+    # over the whole section. Under-application is safe; it stays refused under
+    # the same kind. Bindings 6,561 -> 6,562, the single binding of the
+    # returning act.
+    # 2,577 -> 2,575 at W-85: the two defective, re-sanctioned acts leave WHOLE.
+    # ``no/lovtid/2012-12-07-71`` and ``no/lovtid/2025-04-25-13`` each say in
+    # their own prose that their lovvedtak was defective and the law was
+    # sanctioned anew (as ``2013-01-11-1`` / ``2025-06-20-67``, both citing
+    # back); the re-sanctioning gate withdraws them at the pre-pass and their
+    # replacements — already indexed acts of their own — stop double-applying.
+    # Nothing enters.
+    # 2,575 -> 2,592 at W-98: the 17 acts that gain their first index entry.
+    # 2,592 -> 2,597 at W-99: five acts gain their first entry (``2002-05-03-13``,
+    # ``2004-03-26-17``, ``2005-12-21-123``, ``2017-06-16-51``, ``2020-12-18-144``),
+    # each from a lead of the address-after-citation shape.
+    # 2,597 -> 2,598 at W-104: ``no/lovtid/2004-07-02-68`` (the Medietilsynet
+    # act) gains its first entry from the addressed word-substitution
+    # production — its four parts are inline "«X» skal endrast til «Y» i § …"
+    # sentences with no change markup.
+    assert len(index.entries) == 2598
+    bindings = {
+        (entry.source_id, base_id) for entry in index.entries for base_id in entry.base_ids
+    }
+    # 6,464 -> 6,466 at W-39: two (act, law) pairs, both first-time bindings
+    # of a collective re-enactment part — `2009-06-19-85` -> vaktvirksomhets-
+    # loven and `2021-06-11-60` -> barnelova. Nothing is rebound and nothing
+    # is removed.
+    # 6,466 -> 6,476 at W-61: ten (act, law) pairs, each one an amendment the
+    # ``changesToDocuments`` list already DECLARED and the index already
+    # receipted as unbound (the receipt census above falls by exactly 10 in
+    # step). Nothing is rebound and nothing is removed — the widening only ever
+    # adds ops to a lead that previously lowered none.
+    # 6,476 -> 6,477 at W-67: one new (act, law) pair, ``2004-09-24-72`` ->
+    # plan- og bygningsloven 1985.
+    # 6,477 -> 6,489 at W-64: twelve new (act, law) pairs, every one of them a
+    # target the ``changesToDocuments`` list already DECLARED and the index
+    # already receipted as unbound (the receipt census above falls by exactly 12
+    # in step). Nothing is rebound and nothing is removed — the boundary fix only
+    # ever adds ops to a lead that previously lowered none. One of the twelve,
+    # ``2002-08-30-67`` -> verdipapirsentralloven ``1985-06-14-62``, is the only
+    # base act in the corpus to receive its FIRST op ever, taking the amended-law
+    # population from 782 to 783.
+    # 6,489 -> 6,484 at W-75: the five bindings whose only ops were the refused
+    # word-substitution REPLACEs, the same five the receipt count above gains.
+    # Signed off 2026-08-12.
+    # 6,484 -> 6,493 at W-66: nine new (act, law) pairs, every one of them a target
+    # the ``changesToDocuments`` list already DECLARED and the index already
+    # receipted as unbound (the receipt census above falls by exactly 9 in step).
+    # Nothing is rebound and nothing is removed. One of the nine,
+    # ``2018-06-15-38`` -> ``no/lov/2017-06-16-53``, is the only base act in the
+    # corpus to receive its FIRST op ever, taking the amended-law population from
+    # 783 to 784. Signed off 2026-08-12.
+    # 6,493 -> 6,496 at W-69a: three (act, law) pairs return, the same three the
+    # receipt count above loses, and they are three of the five W-75 removed. The
+    # ops binding them are the addressed word substitution lowered for real rather
+    # than the destructive REPLACEs W-75 refused, so this is not a rollback of
+    # W-75 — it is what W-75 said the follow-up would do. Nothing rebound, nothing
+    # removed; no base act gains its first op, so the amended-law population stays
+    # at 784. All three bases have no original-act source in the archive, so the
+    # bindings are declared-and-lowered but never replayed. Signed off 2026-08-12.
+    # 6,496 -> 6,502 at W-66b: six (act, law) pairs bind for the first time, and
+    # the W-34/W-35 conservation is again exact — the binding gain equals the
+    # unbound-pair drop (6 = 6), ZERO targets newly unbound and NOTHING rebound.
+    # They are the two declared targets each of the three instruments that gain
+    # their FIRST index entry off the sibling-set relabel at punktum depth
+    # (``no/lovtid/2001-12-21-111``, ``no/lovtid/2005-06-17-92``,
+    # ``no/lovtid/2022-06-10-38``). One base act receives its FIRST op ever —
+    # ``no/lov/2004-12-10-77`` — taking the amended-law population 784 -> 785,
+    # which is the same move the sweep baseline records.
+    # 6,502 -> 6,543 at W-66c: FORTY-ONE (act, law) pairs bind for the first
+    # time, ZERO rebound and ZERO removed. The W-34/W-35 conservation holds on
+    # the declared half exactly — all 33 pairs the unbound census loses become
+    # bindings, and no cleared pair fails to — but it does NOT account for the
+    # whole gain, and the residue is stated rather than netted: EIGHT of the 41
+    # had no unbound receipt to lose, because ``no/lovtid/2009-06-19-74``'s
+    # ``changesToDocuments`` list never DECLARED them. An undeclared binding is
+    # the honest shape for that act: it is an omnibus straffelov consequential
+    # act whose declared list is short of the laws its parts actually amend, and
+    # the repeal lead is what makes each one visible. 33 + 8 = 41.
+    # THREE base acts receive their FIRST op ever — ``no/lov/1991-11-29-78``,
+    # ``no/lov/1998-07-17-54`` and ``no/lov/2009-05-15-28`` — taking the
+    # amended-law population 785 -> 788, the same move the sweep baseline
+    # records.
+    # 6,543 -> 6,546 at W-76: THREE (act, law) pairs bind for the first time,
+    # ZERO rebound and ZERO removed, and the W-34/W-35 conservation holds with no
+    # residue this time — all three are exactly the three pairs the unbound
+    # census loses (``2003-05-23-33`` -> ``1997-06-13-42``, ``2019-06-21-70`` ->
+    # ``2002-06-21-45``, ``2011-12-09-55`` -> ``1997-02-28-19``). NO base act
+    # receives its first op ever, so the amended-law population stays at 788 and
+    # the sweep baseline's ``swept`` block is byte-identical.
+    # 6,546 -> 6,564 at W-77: EIGHTEEN (act, law) pairs bind for the first time,
+    # ZERO rebound and ZERO removed, and the W-34/W-35 conservation again holds
+    # with no residue — all eighteen are exactly the eighteen pairs the unbound
+    # census loses (see the note on ``len(unbound)`` above; eleven of the
+    # eighteen instruments lose their declared-vs-bound gap entirely). NO base
+    # act receives its first op ever, so the amended-law population stays at 788
+    # and the sweep baseline's ``swept`` block is byte-identical.
+    # 6,564 -> 6,561 at W-79, the first time this census FALLS: three (act, law)
+    # pairs unbind, ZERO rebound and ZERO newly bound, and the W-34/W-35
+    # conservation holds with no residue in the withdrawing direction — all three
+    # are exactly the three pairs the unbound census GAINS (see the note on
+    # ``len(unbound)`` above). NO base act loses its last op, so the amended-law
+    # population stays at 788 and the sweep baseline's ``swept`` block is
+    # byte-identical.
+    # 6,561 -> 6,562 at W-82: ONE (act, law) pair rebinds —
+    # ``no/lovtid/2023-12-20-104`` -> ``no/lov/2005-12-21-123``, the single
+    # binding of the single act the payload-reach widening returns. ZERO
+    # rebound, ZERO unbound. NO base act receives its first op ever, so the
+    # amended-law population stays at 788 and the sweep baseline's ``swept``
+    # block is byte-identical.
+    # 6,562 -> 6,550 at W-85: the twelve (act, law) pairs of the two withdrawn
+    # re-sanctioned acts — ``2012-12-07-71`` × 2 and ``2025-04-25-13`` × 10 —
+    # unbind with the acts. ZERO rebound and ZERO newly bound; every withdrawn
+    # base keeps the SAME binding from the act's replacement (``2013-01-11-1``
+    # / ``2025-06-20-67``, identical base sets), so no base act loses its last
+    # op and the amended-law population is untouched.
+    # 6,550 -> 6,596 at W-98: the 46 new (act, law) pairs; see the receipt note.
+    # 6,596 -> 6,628 at W-99: the 32 new (act, law) pairs, every one a declared
+    # target (receipt pairs 2,402 -> 2,370, the exact W-34/W-35 conservation:
+    # pair LOSS 32 = binding GAIN 32); the 27 rebound ops move ops between
+    # bindings both sides already had. ZERO newly unbound.
+    # 6,628 -> 6,629 at W-101: ONE new (act, law) pair, ``2026-06-19-59`` ×
+    # folkehøgskoleloven, the declared target the receipt note above records
+    # (2,370 -> 2,369). ZERO rebound, ZERO newly unbound; the 36 acts whose
+    # op counts move gain chapter ops on bindings they already had.
+    # 6,629 -> 6,634 at W-104: 7 new (act, law) pairs, 2 withdrawn.
+    # Gained: the Medietilsynet act's three declared targets (the film act,
+    # kringkastingsloven, the media-ownership act; straffeloven stays unbound
+    # on its "I Almindelig borgerlig straffelov …" lead) and the law-switch
+    # prefixed or address-first substitution sentences that now bind where
+    # before they were unmatched or mis-cited. Withdrawn: bindings whose ONLY
+    # op was a global text-replace on an addressed sentence, now refused typed
+    # (a heading in the list, an aside inside it).
+    # gained=[('no/lovtid/2003-06-27-57', 'no/lov/1976-12-17-91'), ('no/lovtid/2004-07-02-68', 'no/lov/1987-05-15-21'), ('no/lovtid/2004-07-02-68', 'no/lov/1992-12-04-127'), ('no/lovtid/2004-07-02-68', 'no/lov/1997-06-13-53'), ('no/lovtid/2018-12-20-98', 'no/lov/1953-07-17-2'), ('no/lovtid/2019-05-24-18', 'no/lov/1992-06-19-59'), ('no/lovtid/2019-12-20-105', 'no/lov/1997-02-28-19')]
+    # lost=[('no/lovtid/2014-06-20-24', 'no/lov/2010-06-25-28'), ('no/lovtid/2014-06-20-47', 'no/lov/2012-01-20-6')]
+    assert len(bindings) == 6634
+    # 26,218 at W-30; +2 at W-24, both reconciled to a named erratum and neither
+    # touching this test's own subject. W-24 lowered two Del-scoped Rettelser
+    # corrections into the law each part amends — ``2019-12-20-110`` Del I into
+    # kringkastingsloven and ``2023-12-20-98`` Del V into skatteloven — and both
+    # append to a group this artifact ALREADY bound, so bindings (6,084) and
+    # entries (2,544) above are unmoved, as are every status count,
+    # ``fully_replayable`` (56) and all 56 scan rows.
+    # 26,220 -> 26,691 at W-32: +478 gained ops (240 from multi-``bokstav``
+    # leads, 227 from the spaced-label sentence widening, 6 renumber
+    # replacements, 4 downstream, 1 erratum) less 7 that left one stale base
+    # for another inside ``no/lovtid/2015-06-19-65``. Base-agnostic op identity
+    # over the whole corpus: 472 gained, 1 lost — the single lost op is
+    # documented in the W-32 report as a fired stop condition.
+    # 26,691 -> 26,769 at W-34 (+78 net across 15 acts): 526 ops gained, 448
+    # lost, and the classification at three identity levels is 434 pure rebinds,
+    # 79 genuinely new ops, 8 rebind-plus-payload-truncation, 5 payload
+    # truncations on an unchanged binding, and 1 op removed. That one is the
+    # duplicate half of ``2014-05-09-16``'s "I § 339 … erstattes «formann» med
+    # «leder»", which used to emit TWICE because the global text-replace path
+    # harvested a citation from each of the two sibling leads its payload run had
+    # swallowed; one op on one base act now replaces two on two wrong ones.
+    # 26,769 -> 26,785 at W-35 (+16 net across the 6 acts holding all 41 trapped
+    # elements): 20 genuinely new ops, 4 removed, and the removed four are the
+    # pre-truncation half of ops that also changed base act, so nothing is lost.
+    # The other movement is 30 payload truncations and 74 pure rebinds; measured
+    # against the true governing enumeration item — run-on and numberless leads
+    # included, so leads no resolver can reach still count against the change —
+    # that is 62 wrong -> right, 13 stale -> stale, and ZERO right -> wrong.
+    # 26,785 -> 26,921 at W-36/W-28 (+136 net across 52 acts): 238 pure rebinds,
+    # 144 genuinely new ops, 3 payload truncations, and 8 lost identities of
+    # which 7 survive at the same address as the pre-truncation half of a
+    # rebind-plus-truncation pair. Exactly ONE op is genuinely dropped corpus
+    # wide: `2004-06-25-53`'s ``§ 59 annet ledd`` on tvangsfullbyrdelsesloven,
+    # which was WRONGLY bound (its lead reads "I plan- og bygningslov 14. juni
+    # 1985 nr. 77 …", a compound spelling no citation pattern reaches) and whose
+    # payload is now collected by the correctly-bound konkursloven op above it.
+    # No correctly-bound op is lost.
+    # Measured against a governing-lead truth recomputed from the RAW document at
+    # sentence granularity — so it sees the mid-node leads this change fixes and
+    # never consults the split — agreements go 2,634 -> 2,983 and disagreements
+    # 286 -> 41 over the touched acts, with ZERO artifacts getting worse and no
+    # disagreement newly created.
+    # 26,921 -> 26,946 at W-39 (+25, and the op-identity differential over the
+    # whole corpus is +25 gained / 0 lost / 0 rebound, across exactly two
+    # artifacts). 22 are `2009-06-19-85`'s re-enactment of vaktvirksomhets-
+    # loven (5 RENUMBERs sequenced ahead of 17 section payloads) and 3 are
+    # `2021-06-11-60`'s three new barnelova sections. Both are verified
+    # against the published consolidation; the first takes its law's scan row
+    # from 81 divergences to 0.
+    # 26,946 -> 26,950 at W-56 (+4, all RENUMBER, 0 lost / 0 rebound). Four
+    # change blocks carry a ``data-move-part`` that declares FEWER ledd move legs
+    # than the block's own lead sentence commands; the missing legs are now
+    # templated from the declared ones. One leg each on
+    # ``no/lovtid/2024-12-13-78`` (tvisteloven § 24-8),
+    # ``no/lovtid/2024-05-31-26`` (lov/2018-06-08-28 § 7),
+    # ``no/lovtid/2024-06-21-44`` (lov/1999-07-02-64 § 57) and
+    # ``no/lovtid/2025-12-22-129`` (lov/2020-04-17-29 § 11) — the complete
+    # corpus population of that shape, swept over all 3,089 amendment artifacts.
+    # Exactly one law's replayed TEXT moves as a result (tvisteloven, whose
+    # § 24-8 vitneforsikring stops being destroyed by the occupied-destination
+    # recovery); the other three are content-neutral and all 73 scan candidates'
+    # divergence rows are byte-identical across the change.
+    # 26,950 -> 27,018 at W-61 (+68, 0 lost / 0 rebound). The unstructured
+    # repeal-then-shift lead ("§ X <ord> ledd oppheves. <ord> ledd blir <ord>
+    # ledd.") required the literal ``Nåværende`` in its shift sentence; 24 corpus
+    # leads spell the qualifier as ``Gjeldende``/``Någjeldende``, repeat the
+    # section, or omit it entirely, and were refused whole with
+    # ``no_parse_unstructured_lead_unmatched``. 23 of them convert, across 14
+    # instruments and 21 base acts (24 receipt triples — one lead amends two acts
+    # at once); the 24th is a multi-section repeal list the guard declines. The
+    # widening is strictly additive — the shipped pattern is still tried first,
+    # byte-for-byte — and the corpus-wide receipt delta is exactly -24 of that
+    # kind and NOTHING else (the ``renumber_arity_mismatch_skipped`` count holds
+    # at 8, and no lead that lowered before lowers differently).
+    # 11 laws' replay output moves, ALL outside the 73 scan candidates, whose
+    # divergence rows are byte-identical across the change; corpus divergence
+    # total holds at 1,485 = 1,011 + 474 and the scan summary at 29/44/0. Three
+    # laws' TEXT moves and every move is a repair verified against the published
+    # consolidation: skattebetalingsloven § 8-2 (223 -> 222 divergences, the last
+    # ``removal_wrong`` in the corpus retired — see
+    # ``tests/test_no_renumber_migration.py``), utlendingsloven § 107 (842 -> 840,
+    # the tilsynsråd ledd repealed as ``no/lovtid/2021-06-11-72`` moves it to a
+    # new § 107 a) and finansforetaksloven § 7-7.
+    # 27,018 -> 27,100 at the W-67 + W-74 landing: +64 section RENUMBERs from the
+    # two-token widening and +18 from the section-level repeal-then-shift run-on
+    # (11 REPEALs and 7 RENUMBERs over its 7 accepting leads). 0 lost, 0 rebound.
+    # 27,100 -> 27,206 at W-64: +106 from the ``defaultP`` heading boundary (84
+    # REPLACEs and 22 INSERTs over 45 instruments), every one of them a lead a
+    # shipped production ALREADY accepted and whose payload the boundary threw
+    # away. 0 lost, 0 re-addressed, 0 changed kind — the op-identity diff is keyed
+    # on (base act, action, target, destination, payload digest, lead text)
+    # because ``op_id`` is a per-document sequence that churns ordinally when a
+    # document gains an op.
+    # 27,206 -> 27,099 at W-75: the 107 REPLACEs the word-substitution address
+    # lists were minting, on a content-keyed identity diff with 0 gained and 0
+    # changed. Signed off 2026-08-12.
+    # 27,099 -> 28,246 at W-66: +1,147 ledd RENUMBERs from the sibling-set relabel.
+    # On the same content-keyed identity diff the raw movement is 1,361 gained /
+    # 214 lost, and the 214 are the SAME ops promoted, not lost: a co-located
+    # "§ X <ord> ledd skal lyde:" beside a relabel that moves that same ledd is an
+    # INSERT of new content plus a shift, so the shipped
+    # ``_promote_no_replace_with_following_renumber_insert`` converts REPLACE ->
+    # INSERT at 214 addresses. Semantically 0 lost, 0 rebound. Signed off
+    # 2026-08-12.
+    # 28,246 -> 28,252 at W-70: +6 ledd RENUMBERs, and they are the whole of it —
+    # four ``data-move-part`` values whose only defect was a SEPARATOR (a stray
+    # space after ``;;`` on three, ``::`` typed for ``;;`` on one) are normalized
+    # and lower the legs they always meant to. Per instrument: 2024-06-25-60
+    # 65 -> 66, 2025-02-07-1 11 -> 13, 2025-04-10-11 25 -> 27, 2025-06-20-74
+    # 16 -> 17. On the content-keyed identity diff 8 gained / 2 lost, and the 2
+    # are again the SAME ops promoted REPLACE -> INSERT by
+    # ``_promote_no_replace_with_following_renumber_insert`` (§ 3-2 ledd 3 and § 4
+    # ledd 4, each a "skal lyde:" beside a relabel moving that same ledd).
+    # Semantically 0 lost, 0 rebound. The two cross-base malformed blocks stay
+    # refused and contribute nothing. Signed off 2026-08-12.
+    # 28,252 -> 28,363 at W-69a: +111 addressed ``TEXT_PATCH`` ops and nothing
+    # lost, on a content-keyed identity diff of 111 gained / 0 lost / 0 changed.
+    # The addressed word substitution lowers one op per (listed address x
+    # announced pair) for the 84 addresses that survive the S1-S4 envelope; 27 of
+    # those sit under two-pair ``henholdsvis`` announcements, so 57x1 + 27x2 = 111.
+    # No op changes action or address: the family minted NOTHING at base (W-75
+    # refused all 17 nodes), so this is purely additive. The 109 addresses that do
+    # NOT survive are refused typed at parse — 82 on the four-announcement node,
+    # 21 sentence addresses that are W-69b's, 6 on the multi-base node. Signed off
+    # 2026-08-12.
+    # 28,363 -> 28,384 at W-69b: +21 addressed ``TEXT_PATCH`` ops and nothing
+    # lost, on a content-keyed identity diff of 21 gained / 0 lost / 0 changed.
+    # They are exactly the 21 ``setning/N`` addresses W-69a refused with
+    # ``no_parse_substitution_sentence_address_out_of_scope`` — each announcement
+    # in this family carries a single pair, so 21 addresses = 21 ops. Per
+    # instrument: 2024-06-21-42 +1, 2024-06-21-52 +6, 2025-02-07-1 +8,
+    # 2025-12-22-129 +6.
+    #
+    # 21 is a PARSE count and it is deliberately larger than the 17 that land:
+    # the parse plane has no statute, so it cannot see that 1 address is on a base
+    # act with no replayed source at all, that 2 sit under a ledd missing from the
+    # replayed tree, or that 1 carries only a case-variant of its term. Those four
+    # refuse at apply, typed, where the evidence for refusing exists.
+    #
+    # 28,384 -> 28,545 at W-66b: +161 RENUMBER legs and nothing lost. The number
+    # is not rounded to fit — it is EXACTLY the leg count the frozen expected
+    # withdrawal set predicted before any production code was written (112
+    # lowering lead occurrences over 59 distinct leads, minting 161 legs), so
+    # this pin and the parse-plane receipt census reconcile to the same
+    # arithmetic from two directions. Every leg is a sibling-set relabel at
+    # PUNKTUM depth, ``(section, subsection, sentence)`` on both sides.
+    #
+    # 28,545 -> 28,824 at W-66c: +279 REPEAL ops and nothing lost. Same
+    # reconciliation as W-66b's, from the other action: 279 is EXACTLY the leg
+    # count the frozen expected withdrawal set predicted before any production
+    # code was written (248 lowering lead occurrences over 207 distinct leads,
+    # minting 279 legs — one per named punktum), and the parse-plane receipt
+    # census reaches it independently (``no_parse_unstructured_lead_unmatched``
+    # 8,434 -> 8,141, of which 43 + 2 take a typed address receipt instead).
+    # Every one of the 279 targets ``(section, subsection, sentence)`` and
+    # carries no destination — a repeal has nowhere to go.
+    #
+    # 28,824 -> 28,891 at W-76: +67 RENUMBER legs NET, and the same
+    # reconciliation from three directions. The frozen expected withdrawal set
+    # predicted 67 legs before any production code was written (28 lowering lead
+    # occurrences over 26 distinct leads at bokstav / nr. depth), the
+    # content-keyed op diff gains exactly those 67 and loses none of them, and
+    # the parse-plane receipt census reaches the same arithmetic independently
+    # (``no_parse_unstructured_lead_unmatched`` 8,141 -> 8,078, of which 22 take
+    # the new item-depth ledd receipt and 13 the reused address one; 28 + 35 =
+    # 63). Every leg targets ``(section, subsection, item)`` on both sides.
+    # NET is load-bearing: the content-keyed diff also shows FIVE ops changing
+    # ACTION rather than count, REPLACE -> INSERT at an unchanged path with an
+    # unchanged payload digest, which is the shipped
+    # ``_promote_no_replace_with_following_renumber_insert`` waking up where a
+    # relabel vacates the slot its co-located payload was going to overwrite.
+    # Five lost keys, 72 gained, 72 - 5 = 67.
+    #
+    # 28,891 -> 29,051 at W-77: +160 INSERT ops, and the reconciliation is exact
+    # from all three directions with NO net residue this time. The frozen
+    # expected added-content set predicted 160 elements (base act, address,
+    # payload text) before any production code was written, over 144 lowering
+    # lead occurrences on 112 instruments and 62 base acts; the content-keyed op
+    # diff gains exactly those 160 — every one an INSERT carrying
+    # ``NO_ITEM_INSERT_PAYLOAD_PROVENANCE_TAG`` — and loses NONE, so no op
+    # changes action or path; and the parse-plane receipt census reaches the same
+    # arithmetic independently (``no_parse_unstructured_lead_unmatched``
+    # 8,078 -> 7,853, of which 73 take the new item-depth ledd receipt, 7 the new
+    # address one and 1 the new payload-extent one; 144 + 81 = 225). Every op
+    # targets ``(section, subsection, item)`` and carries an ``item`` payload.
+    #
+    # 29,051 -> 29,225 at W-78: -116 REPLACE, +290 addressed ``TEXT_PATCH``, and
+    # this one is a CORRECTNESS fix, not coverage — read the two halves
+    # separately. The 116 WITHDRAWN are the defective ops W-77's collateral
+    # finding named: seven change nodes over ``no/lovtid/2026-06-19-45`` (87) and
+    # ``no/lovtid/2026-06-12-31`` (29) announce a word substitution as "Følgende
+    # steder endres ordene «X» til «Y»: <address list>", W-69a's opener
+    # enumerated the noun after ``følgende`` and did not contain ``steder``, and
+    # the structured payload lane therefore read the ``data-change-part`` list as
+    # REPLACE targets and the announcement sentence itself as their payload.
+    # Every one was a wrong-text write. The frozen defective set (base act,
+    # address, payload text) predicted exactly 116 before any production code was
+    # written and the content-keyed op diff withdraws exactly those 116, 0 strays
+    # and 0 lost. The 290 GAINED are the same 116 addresses re-lowered through
+    # W-69a's shipped production — one op per (address x announced pair), which
+    # is 3 pairs on the 85 lowerable addresses of the ``namsmann`` announcement,
+    # 2 on one ``biometrisk`` announcement and 1 elsewhere — every one carrying
+    # ``NO_SUBSTITUTION_PROVENANCE_TAG``, i.e. every one gated by the apply-plane
+    # conjunct that makes it prove its announced FROM term uniquely present as a
+    # whole word before it writes. The parse-plane receipt census reconciles
+    # independently: total parse adjudications 10,339 -> 10,339 with exactly one
+    # pair moving, ``no_parse_unresolved_structured_target_skipped`` 112 -> 111
+    # and ``no_parse_substitution_address_not_lowerable`` 0 -> 1 (the one address
+    # of the 117 that does not lower, now refusing under its own typed receipt).
+    # 29,225 -> 29,076 at W-79 (-149), the general closure of the same wrong-text
+    # class W-78 closed one dialect of, and the first time this census falls
+    # rather than grows. The structured lane's own-text fallback — the ONE payload
+    # source in that lane that reads the amendment's own prose rather than a
+    # payload structure — now refuses unless the node DECLARES its own payload
+    # ("skal … lyde" in the head, content after the colon). Measured over all 217
+    # own-text-fallback payloads the corpus produces: 68 declare one and keep
+    # lowering (61 byte-identical, 7 with the lead prefix now stripped), 149
+    # declare none and refuse under
+    # ``no_parse_structured_payload_not_declared``. The frozen refusal set
+    # predicted exactly 149 before any production code was written and the
+    # content-keyed op diff withdraws exactly those 149, 0 strays and 0 lost.
+    # Not one of the 149 was carrying statute content: 53 are announcements with
+    # no colon at all (relabels, repeals, an in-place substitution, a move), 30
+    # are an address list under a colon that introduces no payload, and 66
+    # declare a payload the fallback cannot reach (23 of which were writing an
+    # EMPTY node over their target). Unstructured refusals hold at 7,853.
+    # 29,076 -> 29,111 at W-82 (+35), the recovery of W-79's owned cost: the
+    # own-text fallback keeps W-79's GATE (a payload must be DECLARED in the
+    # head) and widens only WHERE the declared payload may LIVE. 35 of the 66
+    # come back, each from a carrier whose extent is proved against Lovdata's
+    # OWN machine labels rather than the amendment's prose — 17 from
+    # ``futureLegalArticle`` sets in bijection with the node's section addresses,
+    # 13 from a ``span.futuretitle`` heading (5 at section addresses through the
+    # heading-only payload the lane already had, 8 at KAPITTEL addresses), 5 from
+    # a single ``li`` / ``numberedLegalP`` against a single sub-section-level
+    # address. The content-keyed op diff is purely ADDITIVE: 35 added, 0
+    # withdrawn, 0 strays. The other 31 stay refused under the SAME kind —
+    # ``no_parse_structured_payload_not_declared`` 149 -> 114 — and the 83
+    # instruction-prose refusals are byte-identical in kind and count.
+    # Unstructured refusals hold at 7,853.
+    # 29,111 -> 29,115 at W-84 (+4 NET, and the net is the least interesting part
+    # of it): three superseded (``utgått``) gazette announcements have their whole
+    # op stream WITHDRAWN — 34 ops — and their rectified (``beriktiget``)
+    # re-announcements' 38 take its place. -34 +38, 0 strays and 0 lost, all six
+    # counts frozen before any production code was written:
+    #   * ``2021-06-11-80`` 12 -> 13 via ``forskrift/2021-06-25-2136`` (+1: a
+    #     friskolelova § 1-2 tredje ledd REPLACE the first announcement omitted);
+    #   * ``2021-06-18-129``  3 ->  2 via ``forskrift/2021-06-25-2137`` (-1: the
+    #     klimaloven § 6 annet ledd bokstav e INSERT, never enacted — W-83);
+    #   * ``2024-03-15-10`` 19 -> 23 via ``forskrift/2024-08-15-1960`` (+4: the
+    #     yrkestransportlova § 9 ledd renumber the first announcement omitted).
+    # Of the 34 withdrawn ops 33 return byte-identical but for the new
+    # ``beriktiget_announcement:`` provenance tag; the SUBSTANTIVE delta is 1 op
+    # out and 5 in. Index entries hold at 2,577, bindings at 6,562, declared
+    # targets at 7,887, and unstructured refusals at 7,853 (five of them move from
+    # the act's locator to the rectified document's, which is where the refused
+    # prose now lives).
+    # 29,115 -> 29,056 at W-85 (-59, 0 strays, 0 gained): the re-sanctioning
+    # gate withdraws the two defective acts' whole streams — ``2012-12-07-71``'s
+    # 2 and ``2025-04-25-13``'s 57 — all 59 content keys matched against the
+    # frozen census. Their replacements' 59 ops were ALREADY in this total under
+    # their own ids and stay byte-identical but for the new
+    # ``resanctioned_from:`` provenance tag; the corpus-wide per-instrument
+    # op-key sweep moved NO other instrument.
+    # 29,056 -> 29,612 at W-98 (+556): the nine pre-2001 productions' 558 new
+    # ops less the two REPLACEs the shipped promotion turns into INSERTs beside
+    # a newly-lowered relabel (those keep their count); 0 strays, 0 dropped.
+    # 29,612 -> 29,642 at W-99 (+30): 57 ops added, 27 removed, and every one
+    # of the 27 is the SAME op re-emitted under the act its lead names (a
+    # period-less citation or an address-after-citation lead resolving where
+    # before the op rode on the act the cursor still held); 0 strays, 0 dropped.
+    # 29,642 -> 29,697 at W-101 (+55): 172 ops added and 117 removed over 36
+    # acts, and every one of the 117 is a new chapter's section INSERT
+    # re-emitted under its chapter step (and, for 17, under its carrier's
+    # case); at section level ZERO ops are lost. The 55 net are exactly the
+    # structured chapter ops Lovdata's ``kap…`` token now lowers — 35
+    # heading-only REPLACE, 16 INSERT (W-98's tag), 4 REPEAL — beside W-82's
+    # eight ``KAPITTEL_`` chapter ops that were already here (5/2/1). 0 strays.
+    # 29,697 -> 29,870 at W-104 (+173): the addressed word-substitution
+    # production mints 217 addressed TEXT_PATCH ops over 41 laws (the 2004
+    # Medietilsynet act's 34 among them) and 44 global text-replace ops on
+    # addressed sentences are withdrawn — most re-emitted at their address,
+    # the rest refused typed. 0 strays, 0 dropped.
+    assert sum(entry.n_ops for entry in index.entries) == 29870
+
+
 def test_no_amendment_index_staleness_report_detects_archive_change(tmp_path) -> None:
     archive_path = tmp_path / "lovtidend-avd1-2025.tar.bz2"
     _write_archive(
@@ -384,3 +2611,1064 @@ def test_no_amendment_index_staleness_report_detects_archive_change(tmp_path) ->
 
     assert stale["index_stale"] is True
     assert stale["stale_archives"][0]["archive"] == "lovtidend-avd1-2025.tar.bz2"
+
+
+def test_no_consolidation_snapshot_date_reads_the_archive_observation_instant(tmp_path) -> None:
+    """The scan's default comparison date is derived, not frozen (finding F-01).
+
+    The consolidated ``current.xml`` artifacts ARE the snapshot replay is
+    compared against, so their latest observation instant is the horizon; a
+    later observation of anything else must not move it.
+    """
+    from datetime import datetime, timezone
+
+    from farchive import Farchive
+
+    from lawvm.norway.sources import (
+        NO_FALLBACK_CONSOLIDATION_SNAPSHOT_DATE,
+        no_consolidation_snapshot_date,
+    )
+
+    db_path = tmp_path / "norway.farchive"
+    archive = Farchive(db_path)
+    archive.store(
+        "no://lov/2025-01-01-1/current.xml",
+        b"<html><body/></html>",
+        # 23:30Z falls on the NEXT day in the local Norwegian timezone, so a
+        # passing assertion also pins that the instant is read as UTC.
+        observed_at=datetime(2025, 3, 4, 23, 30, tzinfo=timezone.utc),
+    )
+    archive.store(
+        "no://lovtid/2025-02-02-5/amendment.xml",
+        b"<html><body/></html>",
+        observed_at=datetime(2025, 9, 9, 12, 0, tzinfo=timezone.utc),
+    )
+    archive.close()
+
+    assert no_consolidation_snapshot_date(db_path) == "2025-03-04"
+
+    # A change-free re-crawl: the SAME bytes stored again at a later instant.
+    # farchive branches on digest identity, so this extends the open span
+    # rather than opening a new one — ``observed_from`` stays pinned at the
+    # first appearance while ``last_confirmed_at`` advances. The derived
+    # horizon must follow the re-confirmation: reading ``observed_from`` would
+    # freeze it at the last content CHANGE and re-open F-01 for every law
+    # amended between that change and the crawl that confirmed it.
+    reconfirmed = tmp_path / "reconfirmed.farchive"
+    archive = Farchive(reconfirmed)
+    archive.store(
+        "no://lov/2025-01-01-1/current.xml",
+        b"<html><body/></html>",
+        observed_at=datetime(2025, 3, 4, 23, 30, tzinfo=timezone.utc),
+    )
+    archive.store(
+        "no://lov/2025-01-01-1/current.xml",
+        b"<html><body/></html>",
+        # 23:40Z is again the next day in local Norwegian time, so the UTC
+        # read stays pinned across the re-confirmation too.
+        observed_at=datetime(2025, 6, 17, 23, 40, tzinfo=timezone.utc),
+    )
+    span = archive.resolve("no://lov/2025-01-01-1/current.xml")
+    assert span is not None
+    # Pin the farchive semantics this helper depends on: one extended span,
+    # not two, with the two instants genuinely disagreeing.
+    assert len(archive.history("no://lov/2025-01-01-1/current.xml")) == 1
+    assert span.observation_count == 2
+    assert span.observed_from == datetime(2025, 3, 4, 23, 30, tzinfo=timezone.utc)
+    assert span.last_confirmed_at == datetime(2025, 6, 17, 23, 40, tzinfo=timezone.utc)
+    archive.close()
+
+    assert no_consolidation_snapshot_date(reconfirmed) == "2025-06-17"
+
+    # A legacy tar-directory corpus records no observation instant at all.
+    legacy_dir = tmp_path / "legacy"
+    legacy_dir.mkdir()
+    assert (
+        no_consolidation_snapshot_date(legacy_dir)
+        == NO_FALLBACK_CONSOLIDATION_SNAPSHOT_DATE
+    )
+
+
+def test_no_consolidation_snapshot_date_refuses_an_archive_without_consolidations(
+    tmp_path,
+) -> None:
+    """An farchive holding no ``current.xml`` fails loud, it does not borrow the constant.
+
+    The legacy tar directory legitimately has no observation instant to derive
+    from, so it keeps the documented fallback. An farchive is a different
+    animal: holding zero consolidated artifacts means the corpus is corrupt or
+    mis-populated, and silently returning the legacy constant would make the
+    two indistinguishable (AGENTS.md §1.10).
+    """
+    from datetime import datetime, timezone
+
+    from farchive import Farchive
+
+    from lawvm.norway.sources import (
+        NOConsolidationSnapshotError,
+        no_consolidation_snapshot_date,
+    )
+
+    db_path = tmp_path / "norway.farchive"
+    archive = Farchive(db_path)
+    # Populated, but with nothing from the consolidated family.
+    archive.store(
+        "no://lovtid/2025-02-02-5/amendment.xml",
+        b"<html><body/></html>",
+        observed_at=datetime(2025, 9, 9, 12, 0, tzinfo=timezone.utc),
+    )
+    archive.close()
+
+    with pytest.raises(NOConsolidationSnapshotError) as excinfo:
+        no_consolidation_snapshot_date(db_path)
+    message = str(excinfo.value)
+    # The diagnostic must name what was expected, what was found, and the fix.
+    assert "no://lov/%/current.xml" in message
+    assert "Found: none" in message
+    assert "no-ingest" in message
+
+
+def test_corpus_consolidation_snapshot_date_reproduces_the_fallback_constant() -> None:
+    """The licensing claim on the fallback constant, made executable.
+
+    ``NO_FALLBACK_CONSOLIDATION_SNAPSHOT_DATE`` is licensed by the farchive
+    derivation independently reproducing it. Asserting that against the
+    installed corpus is what makes the constant rot LOUDLY on a future corpus
+    re-capture instead of silently drifting away from the snapshot the legacy
+    path claims to describe.
+    """
+    from lawvm.norway.sources import (
+        NO_FALLBACK_CONSOLIDATION_SNAPSHOT_DATE,
+        is_no_farchive_path,
+        no_consolidation_snapshot_date,
+    )
+
+    data_dir = resolve_no_source_path(None)
+    if not data_dir.exists() or not is_no_farchive_path(data_dir):
+        pytest.skip("local Norway corpus is not installed")
+
+    assert (
+        no_consolidation_snapshot_date(data_dir)
+        == NO_FALLBACK_CONSOLIDATION_SNAPSHOT_DATE
+    )
+
+
+# ── W-84: the beriktiget / utgått correction lane ────────────────────────────
+#
+# Lovdata supersedes a gazette announcement by marking it ``utgått`` and
+# publishing a rectified re-announcement in the FORSKRIFT lane. Both marks are
+# machine-written; neither alone moves anything. The fixtures below are the
+# smallest documents that carry each mark, so every conjunct of the gate can be
+# removed one at a time and its removal observed.
+
+_BERIKTIGET_TITLE = (
+    "Kunngjøring av beriktiget versjon av lov 2. februar 2025 nr. 5 om endringer i noe"
+)
+
+
+def _declared_section_change(law_ref: str, section: str, text: str) -> str:
+    """One structured section replacement whose payload is DECLARED (W-79)."""
+    return f"""<article class="change" data-change-part="{law_ref}/§{section}">
+        <article class="futureLegalArticle" data-name="§{section}">
+          <span class="futureLegalArticleHeader">
+            <span class="legalArticleValue">§ {section}</span>.
+            <span class="legalArticleTitle">Tittel {section}</span>
+          </span>
+          <article class="legalP">{text}</article>
+        </article>
+      </article>"""
+
+
+def _superseded_amendment_xml(note_date: str = "2025-03-01") -> bytes:
+    """The act's own announcement, marked ``utgått`` on ``note_date``.
+
+    The mark wraps the trailing commencement Del, which is where Lovdata puts it
+    in all three corpus cases, and the operative Del I sits OUTSIDE it — so a
+    part-scoped reading of the mark would suppress nothing that matters. The
+    ``§ 2`` op below is the one this announcement gets wrong.
+    """
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="dateInForce">2025-02-10</dd>
+    <dd class="title">Lov om endringer i noe</dd>
+    <dd class="changesToDocuments"><ul><li>lov/2025-01-01-1</li></ul></dd>
+    <article class="document-change" data-document="lov/2025-01-01-1">
+      {_declared_section_change("lov/2025-01-01-1", "1", "Paragraf 1 slik den ble kunngjort.")}
+      {_declared_section_change("lov/2025-01-01-1", "2", "Paragraf 2 som aldri ble vedtatt.")}
+    </article>
+    <article class="gazettenote" data-gazette-note-date="{note_date}"
+             data-gazette-note-type="utgått">
+      <article class="legalP">Loven trer i kraft straks.</article>
+    </article>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def _rectified_reannouncement_xml(
+    *,
+    title: str = _BERIKTIGET_TITLE,
+    dokid: str = "LTI/forskrift/2025-03-01-100",
+    declared: str = "lov/2025-01-01-1",
+    changed_document: str = "lov/2025-01-01-1",
+) -> bytes:
+    """The rectified re-announcement, as Lovdata files it in the forskrift lane."""
+    declaration = (
+        f"""<dd class="changesToDocuments"><ul><li>{declared}</li></ul></dd>"""
+        if declared
+        else ""
+    )
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="dokid">{dokid}</dd>
+    <dd class="dateInForce">2025-03-01</dd>
+    <dd class="title">{title}</dd>
+    {declaration}
+    <article class="document-change" data-document="{changed_document}">
+      {_declared_section_change(changed_document, "1", "Paragraf 1 slik den ble kunngjort.")}
+      {_declared_section_change(changed_document, "3", "Paragraf 3, den beriktede teksten.")}
+    </article>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def _write_beriktiget_corpus(tmp_path, **kwargs) -> None:
+    members = [
+        (
+            "lti/2025/nl-20250202-005.xml",
+            _superseded_amendment_xml(note_date=kwargs.pop("note_date", "2025-03-01")),
+        )
+    ]
+    if kwargs.pop("with_reannouncement", True):
+        members.append(
+            ("lti/2025/sf-20250301-0100.xml", _rectified_reannouncement_xml(**kwargs))
+        )
+    _write_archive(tmp_path / "lovtidend-avd1-2025.tar.bz2", members)
+
+
+def _unpaired_receipts(index: NOAmendmentIndex) -> list[dict[str, Any]]:
+    return [
+        diagnostic
+        for diagnostic in index.diagnostics
+        if diagnostic["rule_id"] == NO_BERIKTIGET_ANNOUNCEMENT_UNPAIRED
+    ]
+
+
+def _paired_receipts(index: NOAmendmentIndex) -> list[dict[str, Any]]:
+    return [
+        diagnostic
+        for diagnostic in index.diagnostics
+        if diagnostic["rule_id"] == NO_BERIKTIGET_ANNOUNCEMENT_PAIRED
+    ]
+
+
+def test_beriktiget_reannouncement_replaces_the_superseded_announcement(tmp_path) -> None:
+    """The pair mechanism, end to end: whole-instrument swap, act identity kept.
+
+    The two ops the superseded announcement minted are withdrawn WHOLESALE — not
+    merged with, not diffed against — and the rectified document's two take their
+    place, one of which (``§ 3``) the superseded announcement never carried and one
+    of which (``§ 2``) it carried and the rectification drops.
+    """
+    _write_beriktiget_corpus(tmp_path)
+
+    index = build_no_amendment_index(tmp_path)
+
+    assert len(index.entries) == 1
+    entry = index.entries[0]
+    # Identity is the ACT's: a kunngjøring av beriktiget versjon republishes a
+    # law, it does not enact one.
+    assert entry.source_id == "no/lovtid/2025-02-02-5"
+    assert entry.title == "Lov om endringer i noe"
+    assert entry.declared_target_ids == ("no/lov/2025-01-01-1",)
+    # The bytes are the re-announcement's, and the entry says so twice: once where
+    # replay reads it (``member_name``) and once where a reader does.
+    assert entry.member_name == "lti/2025/sf-20250301-0100.xml"
+    assert entry.beriktiget_announcement_id == "no/forskrift/2025-03-01-100"
+    assert entry.n_ops == 2
+
+    receipts = _paired_receipts(index)
+    assert len(receipts) == 1
+    assert receipts[0]["source_id"] == "no/lovtid/2025-02-02-5"
+    assert receipts[0]["announcement_id"] == "no/forskrift/2025-03-01-100"
+    assert receipts[0]["withdrawn_op_count"] == 2
+    assert receipts[0]["admitted_op_count"] == 2
+    assert receipts[0]["superseded_note_dates"] == ["2025-03-01"]
+    assert receipts[0]["blocking"] is False
+    assert _unpaired_receipts(index) == []
+
+
+def test_beriktiget_swap_carries_the_acts_own_dates_not_the_reannouncements(tmp_path) -> None:
+    """Dates and gating are the ACT's, and the swap does not touch them.
+
+    The rectified document is published on 2025-03-01 and says so in its own
+    ``dateInForce``. If the swap took the re-announcement's date, every op would
+    move three weeks later, the commencement gate would see a different act, and
+    the kernel's ``(effective, enacted, source_id)`` group key would change.
+    """
+    _write_beriktiget_corpus(tmp_path)
+
+    entry = build_no_amendment_index(tmp_path).entries[0]
+
+    assert entry.effective_status == "dated"
+    assert entry.effective_date == "2025-02-10"
+    assert entry.raw_date_in_force == "2025-02-10"
+
+
+def test_beriktiget_swap_transfers_a_contingent_acts_gating(tmp_path) -> None:
+    """A contingent act stays contingent through the swap.
+
+    The corpus case is ``no/lovtid/2021-06-11-80`` (``Kongen fastset``): its
+    rectified ops must inherit the act's unresolved commencement, not become
+    replayable because the re-announcement carries a plain date.
+    """
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [
+            (
+                "lti/2025/nl-20250202-005.xml",
+                _superseded_amendment_xml().replace(
+                    b'<dd class="dateInForce">2025-02-10</dd>',
+                    b'<dd class="dateInForce">Kongen bestemmer</dd>',
+                ),
+            ),
+            ("lti/2025/sf-20250301-0100.xml", _rectified_reannouncement_xml()),
+        ],
+    )
+
+    entry = build_no_amendment_index(tmp_path).entries[0]
+
+    assert entry.beriktiget_announcement_id == "no/forskrift/2025-03-01-100"
+    assert entry.effective_status == "contingent"
+    assert entry.effective_date is None
+
+
+def test_beriktiget_ops_carry_both_document_ids(tmp_path) -> None:
+    """Provenance honesty: the op names the act AND the document it was read from."""
+    _write_beriktiget_corpus(tmp_path)
+    index = build_no_amendment_index(tmp_path)
+    entry = index.entries[0]
+
+    payload = load_no_amendment_artifact_bytes(
+        entry.source_id, entry.archive, entry.member_name, tmp_path
+    )
+    assert payload is not None
+    groups = iter_no_document_change_ops(payload, entry.source_id)
+    ops = [op for _base_id, base_ops in groups for op in base_ops]
+    assert ops, "the rectified document must lower"
+    for op in ops:
+        # The enacting instrument.
+        assert op.op_id.startswith("no/lovtid/2025-02-02-5:")
+        assert op.source is not None and op.source.statute_id == "no/lovtid/2025-02-02-5"
+        # The document the corrected text was published in.
+        assert (
+            f"{NO_BERIKTIGET_PROVENANCE_TAG}:no/forskrift/2025-03-01-100"
+            in op.provenance_tags
+        )
+
+
+def test_utgatt_without_a_rectified_reannouncement_suppresses_nothing(tmp_path) -> None:
+    """THE RULE for a superseded announcement with no counterpart: ops stand.
+
+    Not exercised by the corpus — all three ``utgått`` acts are matched — but the
+    rule has to be stated somewhere executable, because the alternative reading
+    (``utgått`` alone licenses suppression) would delete enacted law on evidence
+    that says only that an announcement was superseded, never by what.
+    """
+    _write_beriktiget_corpus(tmp_path, with_reannouncement=False)
+
+    index = build_no_amendment_index(tmp_path)
+
+    entry = index.entries[0]
+    assert entry.beriktiget_announcement_id == ""
+    assert entry.member_name == "lti/2025/nl-20250202-005.xml"
+    assert entry.n_ops == 2
+    receipts = _unpaired_receipts(index)
+    assert len(receipts) == 1
+    assert receipts[0]["unpaired_reason"] == "rectified_reannouncement_absent"
+    assert receipts[0]["blocking"] is True
+    assert _paired_receipts(index) == []
+
+
+def test_forskrift_lane_document_without_the_beriktiget_title_is_not_admitted(tmp_path) -> None:
+    """The gate's counterexample: a declaration alone does not open the lane.
+
+    Thousands of forskrift artifacts carry change declarations of one kind or
+    another. This one declares the same law as the beriktiget instrument and
+    amends it in the same grammar; only the title differs, and that is the whole
+    difference between an admitted document and an ignored one.
+    """
+    _write_beriktiget_corpus(tmp_path, title="Forskrift om endring i noe")
+
+    index = build_no_amendment_index(tmp_path)
+
+    entry = index.entries[0]
+    assert entry.beriktiget_announcement_id == ""
+    assert entry.member_name == "lti/2025/nl-20250202-005.xml"
+    assert entry.n_ops == 2
+    assert [r["unpaired_reason"] for r in _unpaired_receipts(index)] == [
+        "rectified_reannouncement_absent"
+    ]
+
+
+def test_beriktiget_reannouncement_without_a_declaration_is_not_admitted(tmp_path) -> None:
+    """The gate's second conjunct: the title alone does not open the lane either."""
+    _write_beriktiget_corpus(tmp_path, declared="")
+
+    index = build_no_amendment_index(tmp_path)
+
+    assert index.entries[0].beriktiget_announcement_id == ""
+    assert index.entries[0].n_ops == 2
+    assert [r["unpaired_reason"] for r in _unpaired_receipts(index)] == [
+        "rectified_reannouncement_absent"
+    ]
+
+
+def test_beriktiget_reannouncement_whose_act_is_not_utgatt_is_not_admitted(tmp_path) -> None:
+    """One mark is not the pair, in the other direction.
+
+    A rectified re-announcement naming an act our amendment lane holds UNMARKED
+    is refused, and refused LOUDLY: it is the shape that would mean Lovdata
+    published a correction we cannot see, which is exactly the silence W-83 spent
+    an audit discovering.
+    """
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [
+            (
+                "lti/2025/nl-20250202-005.xml",
+                _superseded_amendment_xml().replace(
+                    "utgått".encode("utf-8"), b"rettelse"
+                ),
+            ),
+            ("lti/2025/sf-20250301-0100.xml", _rectified_reannouncement_xml()),
+        ],
+    )
+
+    index = build_no_amendment_index(tmp_path)
+
+    assert index.entries[0].beriktiget_announcement_id == ""
+    assert index.entries[0].n_ops == 2
+    receipts = _unpaired_receipts(index)
+    assert len(receipts) == 1
+    assert receipts[0]["unpaired_reason"] == "superseded_announcement_absent"
+    assert receipts[0]["source_id"] == "no/forskrift/2025-03-01-100"
+    assert receipts[0]["announced_act_id"] == "no/lovtid/2025-02-02-5"
+
+
+def test_beriktiget_pairing_refuses_when_the_note_date_disagrees(tmp_path) -> None:
+    """The free cross-check: the ``utgått`` date must be the re-announcement's own.
+
+    Both corpus signals carry a date, and they agree in all three pairs
+    (2021-06-25 / 2021-06-25 / 2024-08-15). Requiring the agreement costs no extra
+    parse — the date is already in the forskrift id — and it is what stops a
+    coincidental title match from binding an act.
+    """
+    _write_beriktiget_corpus(tmp_path, note_date="2024-12-24")
+
+    index = build_no_amendment_index(tmp_path)
+
+    assert index.entries[0].beriktiget_announcement_id == ""
+    assert index.entries[0].n_ops == 2
+    assert [r["unpaired_reason"] for r in _unpaired_receipts(index)] == [
+        "announcement_date_disagrees_with_note",
+        "superseded_announcement_absent",
+    ]
+
+
+def test_beriktiget_pairing_refuses_bases_the_act_never_declared(tmp_path) -> None:
+    """Conservation: the rectified ops may only bind laws the ACT declares.
+
+    A rectification republishes the act; it cannot reach a law the act never said
+    it changed. When it appears to, the title match has reached the wrong act, and
+    the whole swap is refused rather than a partly-trusted op stream landed.
+    """
+    _write_beriktiget_corpus(tmp_path, changed_document="lov/1999-09-09-9")
+
+    index = build_no_amendment_index(tmp_path)
+
+    entry = index.entries[0]
+    assert entry.beriktiget_announcement_id == ""
+    assert entry.base_ids == ("no/lov/2025-01-01-1",)
+    assert entry.n_ops == 2
+    receipts = _unpaired_receipts(index)
+    assert receipts[0]["unpaired_reason"] == "rectified_bases_not_declared_by_act"
+    assert receipts[0]["rectified_base_ids"] == ["no/lov/1999-09-09-9"]
+
+
+def test_corpus_beriktiget_population_is_exactly_three_pairs() -> None:
+    """W-84's population, asserted against the corpus rather than the W-83 census.
+
+    Three facts have to hold together, and each one is a different way for this
+    lane to be wrong. The population is EXACTLY three pairs (a fourth would mean
+    the gate over-fires); every pair is MATCHED (an unpaired half would mean a
+    correction we can see and are not acting on); and the swap is not uniformly
+    subtractive — 12→13, 3→2, 19→23 — which is why no deletion rule could have
+    stood in for reading the rectified documents.
+    """
+    data_dir = resolve_no_source_path(None)
+    if not data_dir.exists():
+        pytest.skip("local Norway corpus is not installed")
+    index = build_no_amendment_index(data_dir)
+    if not index.entries:
+        pytest.skip("local Norway corpus is not installed")
+
+    swapped = {
+        entry.source_id: entry
+        for entry in index.entries
+        if entry.beriktiget_announcement_id
+    }
+    assert {
+        source_id: entry.beriktiget_announcement_id for source_id, entry in swapped.items()
+    } == {
+        "no/lovtid/2021-06-11-80": "no/forskrift/2021-06-25-2136",
+        "no/lovtid/2021-06-18-129": "no/forskrift/2021-06-25-2137",
+        "no/lovtid/2024-03-15-10": "no/forskrift/2024-08-15-1960",
+    }
+    # Dates and gating stay the ACTS' — one contingent, one plain-dated, one
+    # re-dated by its own commencement instrument. None of the three is
+    # 2021-06-25 or 2024-08-15, which is what a re-announcement-dated swap
+    # would have produced.
+    assert {
+        source_id: (entry.effective_status, entry.effective_date)
+        for source_id, entry in swapped.items()
+    } == {
+        "no/lovtid/2021-06-11-80": ("contingent", None),
+        "no/lovtid/2021-06-18-129": ("dated", "2021-06-18"),
+        "no/lovtid/2024-03-15-10": ("instrument_authorized", "2024-09-01"),
+    }
+    paired = _paired_receipts(index)
+    assert len(paired) == 3
+    assert {
+        receipt["source_id"]: (receipt["withdrawn_op_count"], receipt["admitted_op_count"])
+        for receipt in paired
+    } == {
+        "no/lovtid/2021-06-11-80": (12, 13),
+        "no/lovtid/2021-06-18-129": (3, 2),
+        "no/lovtid/2024-03-15-10": (19, 23),
+    }
+    # Both halves of every pair accounted for: nothing flagged and unread.
+    assert _unpaired_receipts(index) == []
+
+
+# ── W-85: the re-sanctioning supersession family ─────────────────────────────
+#
+# Lovdata's second supersession mechanism: an act is sanctioned, found
+# defective, and sanctioned ANEW as a separate act — both halves ordinary
+# lovtid-lane acts, no ``utgått`` mark, the only signal bilateral prose
+# citations. The fixtures below are the smallest documents carrying each half's
+# phrase, so every conjunct of the pairing gate can be removed one at a time
+# and its removal observed.
+
+_RESANCTIONED_SUPERSEDED_MISC = (
+    "Dette lovvedtaket inneholdt en feil og kunne derfor ikke iverksettes. "
+    "Endringsloven ble som følge av dette sanksjonert på nytt som lov "
+    "1. mars 2025 nr. 9, basert på en beriktiget versjon av lovvedtak nr. 5."
+)
+_RESANCTIONED_SUPERSEDING_DEFAULTP = (
+    "Endringsloven ble første gang sanksjonert som lov 2. februar 2025 nr. 5. "
+    "Dette lovvedtaket inneholdt en feil og kan derfor ikke iverksettes. "
+    "Loven sanksjoneres derfor på nytt, basert på en beriktiget versjon av "
+    "lovvedtak nr. 5."
+)
+
+
+def _resanctioned_superseded_xml(
+    *,
+    misc: str = _RESANCTIONED_SUPERSEDED_MISC,
+    title: str = "Lov om endringer i noe",
+    second_base: bool = False,
+) -> bytes:
+    extra = (
+        f"""<article class="document-change" data-document="lov/2025-01-01-2">
+      {_declared_section_change("lov/2025-01-01-2", "7", "Paragraf 7 i den andre loven.")}
+    </article>"""
+        if second_base
+        else ""
+    )
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="dateInForce">2025-02-10</dd>
+    <dd class="title">{title}</dd>
+    <dd class="miscInformation">{misc}</dd>
+    <dd class="changesToDocuments"><ul><li>lov/2025-01-01-1</li></ul></dd>
+    <article class="document-change" data-document="lov/2025-01-01-1">
+      {_declared_section_change("lov/2025-01-01-1", "1", "Paragraf 1, felles tekst.")}
+      {_declared_section_change("lov/2025-01-01-1", "2", "Paragraf 2 med feilen.")}
+    </article>
+    {extra}
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def _resanctioned_superseding_xml(
+    *,
+    default_p: str = _RESANCTIONED_SUPERSEDING_DEFAULTP,
+    title: str = "Lov om endringer i noe",
+) -> bytes:
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="dateInForce">2025-03-15</dd>
+    <dd class="title">{title}</dd>
+    <dd class="changesToDocuments"><ul><li>lov/2025-01-01-1</li></ul></dd>
+    <article class="defaultP" data-text-size="small">{default_p}</article>
+    <article class="document-change" data-document="lov/2025-01-01-1">
+      {_declared_section_change("lov/2025-01-01-1", "1", "Paragraf 1, felles tekst.")}
+      {_declared_section_change("lov/2025-01-01-1", "2", "Paragraf 2 uten feilen.")}
+    </article>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def _write_resanctioning_corpus(tmp_path, **kwargs) -> None:
+    members = [
+        (
+            "lti/2025/nl-20250202-005.xml",
+            _resanctioned_superseded_xml(
+                misc=kwargs.pop("misc", _RESANCTIONED_SUPERSEDED_MISC),
+                title=kwargs.pop("superseded_title", "Lov om endringer i noe"),
+                second_base=kwargs.pop("second_base", False),
+            ),
+        )
+    ]
+    if kwargs.pop("with_replacement", True):
+        members.append(
+            ("lti/2025/nl-20250301-009.xml", _resanctioned_superseding_xml(**kwargs))
+        )
+    _write_archive(tmp_path / "lovtidend-avd1-2025.tar.bz2", members)
+
+
+def _resanctioned_paired_receipts(index: NOAmendmentIndex) -> list[dict[str, Any]]:
+    return [d for d in index.diagnostics if d["rule_id"] == NO_RESANCTIONED_ACT_SUPERSEDED]
+
+
+def _resanctioned_unpaired_receipts(index: NOAmendmentIndex) -> list[dict[str, Any]]:
+    return [d for d in index.diagnostics if d["rule_id"] == NO_RESANCTIONED_ACT_UNPAIRED]
+
+
+def test_resanctioned_act_is_withdrawn_whole(tmp_path) -> None:
+    """The pair mechanism, end to end: whole-ACT withdrawal, two identities kept.
+
+    The defective sanctioning contributes no entry and no ops; the re-sanctioned
+    act replays under its own id and dates and names what it replaced. Unlike
+    W-84 there is no swap — the replacement was already an indexed act of its
+    own, and the correction is that the defective one stops double-applying.
+    """
+    _write_resanctioning_corpus(tmp_path)
+
+    index = build_no_amendment_index(tmp_path)
+
+    assert [entry.source_id for entry in index.entries] == ["no/lovtid/2025-03-01-9"]
+    entry = index.entries[0]
+    assert entry.resanctioned_from_source_id == "no/lovtid/2025-02-02-5"
+    assert entry.member_name == "lti/2025/nl-20250301-009.xml"
+    assert entry.n_ops == 2
+    # Identity and dates are genuinely the replacement's own: a re-sanctioning
+    # mints a new law, so nothing is inherited from the withdrawn act.
+    assert entry.effective_status == "dated"
+    assert entry.effective_date == "2025-03-15"
+    assert entry.beriktiget_announcement_id == ""
+
+    receipts = _resanctioned_paired_receipts(index)
+    assert len(receipts) == 1
+    assert receipts[0]["source_id"] == "no/lovtid/2025-02-02-5"
+    assert receipts[0]["superseding_source_id"] == "no/lovtid/2025-03-01-9"
+    assert receipts[0]["withdrawn_op_count"] == 2
+    assert receipts[0]["admitted_op_count"] == 2
+    assert receipts[0]["withdrawn_base_ids"] == ["no/lov/2025-01-01-1"]
+    assert receipts[0]["blocking"] is False
+    assert _resanctioned_unpaired_receipts(index) == []
+
+
+def test_resanctioned_replacement_ops_carry_the_superseded_id(tmp_path) -> None:
+    """Provenance honesty: the replacement's ops name the act they replace."""
+    _write_resanctioning_corpus(tmp_path)
+    index = build_no_amendment_index(tmp_path)
+    entry = index.entries[0]
+
+    payload = load_no_amendment_artifact_bytes(
+        entry.source_id, entry.archive, entry.member_name, tmp_path
+    )
+    assert payload is not None
+    groups = iter_no_document_change_ops(payload, entry.source_id)
+    ops = [op for _base_id, base_ops in groups for op in base_ops]
+    assert ops, "the re-sanctioned act must lower"
+    for op in ops:
+        # The enacting instrument is the replacement itself.
+        assert op.op_id.startswith("no/lovtid/2025-03-01-9:")
+        # The withdrawn act it supersedes travels on every op.
+        assert (
+            f"{NO_RESANCTIONED_PROVENANCE_TAG}:no/lovtid/2025-02-02-5"
+            in op.provenance_tags
+        )
+
+
+def test_resanctioning_without_the_replacement_suppresses_nothing(tmp_path) -> None:
+    """THE RULE for a superseded act with no counterpart: ops stand.
+
+    Prose alone does not unmake a law. A document saying it was re-sanctioned as
+    an act our lane does not hold means a correction we can see and cannot act
+    on — blocking, so it surfaces in blockers rather than sitting in a census.
+    """
+    _write_resanctioning_corpus(tmp_path, with_replacement=False)
+
+    index = build_no_amendment_index(tmp_path)
+
+    assert [entry.source_id for entry in index.entries] == ["no/lovtid/2025-02-02-5"]
+    assert index.entries[0].n_ops == 2
+    assert index.entries[0].resanctioned_from_source_id == ""
+    receipts = _resanctioned_unpaired_receipts(index)
+    assert [r["unpaired_reason"] for r in receipts] == [
+        "replacement_absent_or_carries_no_note"
+    ]
+    assert receipts[0]["blocking"] is True
+    assert receipts[0]["resanctioning_role"] == "superseded"
+    assert _resanctioned_paired_receipts(index) == []
+
+
+def test_resanctioning_replacement_citing_a_different_act_pairs_nothing(tmp_path) -> None:
+    """The bilateral conjunct: a one-way citation binds nothing, either way."""
+    _write_resanctioning_corpus(
+        tmp_path,
+        default_p=_RESANCTIONED_SUPERSEDING_DEFAULTP.replace(
+            "lov 2. februar 2025 nr. 5", "lov 3. mars 2025 nr. 99"
+        ),
+    )
+
+    index = build_no_amendment_index(tmp_path)
+
+    assert sorted(entry.source_id for entry in index.entries) == [
+        "no/lovtid/2025-02-02-5",
+        "no/lovtid/2025-03-01-9",
+    ]
+    assert all(entry.resanctioned_from_source_id == "" for entry in index.entries)
+    assert sorted(
+        (r["resanctioning_role"], r["unpaired_reason"])
+        for r in _resanctioned_unpaired_receipts(index)
+    ) == [
+        ("superseded", "replacement_cites_a_different_act"),
+        ("superseding", "superseded_half_absent_or_pairing_refused"),
+    ]
+    assert _resanctioned_paired_receipts(index) == []
+
+
+def test_resanctioning_with_disagreeing_titles_refuses(tmp_path) -> None:
+    """The title conjunct: a citation reaching a differently-titled act refuses."""
+    _write_resanctioning_corpus(tmp_path, title="Lov om endringer i noe annet")
+
+    index = build_no_amendment_index(tmp_path)
+
+    assert len(index.entries) == 2
+    assert all(entry.resanctioned_from_source_id == "" for entry in index.entries)
+    assert [r["unpaired_reason"] for r in _resanctioned_unpaired_receipts(index)] == [
+        "titles_disagree",
+        "superseded_half_absent_or_pairing_refused",
+    ]
+    assert _resanctioned_paired_receipts(index) == []
+
+
+def test_resanctioning_partial_replacement_refuses(tmp_path) -> None:
+    """The total-re-enactment conjunct: whole-act withdrawal needs whole coverage.
+
+    The superseded act binds a second base the replacement never touches;
+    withdrawing it whole would delete that base's amendment on the strength of a
+    replacement that does not re-enact it. The gate refuses and both acts stand.
+    """
+    _write_resanctioning_corpus(tmp_path, second_base=True)
+
+    index = build_no_amendment_index(tmp_path)
+
+    assert len(index.entries) == 2
+    superseded = next(
+        entry for entry in index.entries if entry.source_id == "no/lovtid/2025-02-02-5"
+    )
+    assert superseded.n_ops == 3
+    assert [r["unpaired_reason"] for r in _resanctioned_unpaired_receipts(index)] == [
+        "replacement_does_not_recover_the_withdrawn_bases",
+        "superseded_half_absent_or_pairing_refused",
+    ]
+    assert _resanctioned_paired_receipts(index) == []
+
+
+def test_document_carrying_both_directions_reads_no_note() -> None:
+    """Ambiguity fails closed at the reader: both phrases, no note, ops stand."""
+    payload = _resanctioned_superseded_xml(
+        misc=_RESANCTIONED_SUPERSEDED_MISC + " " + _RESANCTIONED_SUPERSEDING_DEFAULTP
+    )
+    assert no_resanctioning_note(payload) is None
+
+
+def test_corpus_resanctioning_population_is_exactly_two_pairs() -> None:
+    """W-85's population, asserted against the corpus rather than the census.
+
+    Three facts have to hold together: the population is EXACTLY two pairs (a
+    third would mean the gate over-fires); every pair is MATCHED (an unpaired
+    half would mean a supersession we can see and are not acting on); and each
+    withdrawn stream is re-covered op-for-op in count with exactly one op's
+    content corrected — which is why whole-act withdrawal, not a diff, is the
+    right mechanism.
+    """
+    data_dir = resolve_no_source_path(None)
+    if not data_dir.exists():
+        pytest.skip("local Norway corpus is not installed")
+    index = build_no_amendment_index(data_dir)
+    if not index.entries:
+        pytest.skip("local Norway corpus is not installed")
+
+    by_id = {entry.source_id: entry for entry in index.entries}
+    assert "no/lovtid/2012-12-07-71" not in by_id
+    assert "no/lovtid/2025-04-25-13" not in by_id
+    replacements = {
+        entry.source_id: entry.resanctioned_from_source_id
+        for entry in index.entries
+        if entry.resanctioned_from_source_id
+    }
+    assert replacements == {
+        "no/lovtid/2013-01-11-1": "no/lovtid/2012-12-07-71",
+        "no/lovtid/2025-06-20-67": "no/lovtid/2025-04-25-13",
+    }
+    # Identity and dates are the replacements' own — the 2013 act commences via
+    # its own instrument, the 2025 act stays contingent. A date inherited from
+    # the withdrawn acts would have read 2012-12-07 / nothing.
+    assert by_id["no/lovtid/2013-01-11-1"].effective_status == "instrument_authorized"
+    assert by_id["no/lovtid/2025-06-20-67"].effective_status == "contingent"
+    paired = _resanctioned_paired_receipts(index)
+    assert {
+        receipt["source_id"]: (receipt["withdrawn_op_count"], receipt["admitted_op_count"])
+        for receipt in paired
+    } == {
+        "no/lovtid/2012-12-07-71": (2, 2),
+        "no/lovtid/2025-04-25-13": (57, 57),
+    }
+    # Both halves of every pair accounted for: nothing flagged and unread.
+    assert _resanctioned_unpaired_receipts(index) == []
+
+
+# --------------------------------------------------------------------------
+# W-100: the section-scoped commencement lane's landing on the index entry.
+# --------------------------------------------------------------------------
+
+
+def _section_scoped_instrument_xml(law_ref: str, body: str, date_in_force: str) -> bytes:
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="title">Delt ikraftsetting av {law_ref}</dd>
+    <dd class="basedOn"><a href="{law_ref}">endringsloven</a></dd>
+    <dd class="dateInForce">{date_in_force}</dd>
+    <main class="documentBody">
+      <article class="legalP">{body}</article>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def test_build_no_amendment_index_lands_a_section_scoped_carve_out(tmp_path) -> None:
+    """``Loven trer i kraft … med unntak av § 1``: a binding date, one targeted carve-out."""
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [
+            ("lti/2025/nl-20250202-005.xml", _amendment_xml("Kongen bestemmer")),
+            (
+                "lti/2025/sf-20250301-0100.xml",
+                _section_scoped_instrument_xml(
+                    "lov/2025-02-02-5",
+                    "Loven trer i kraft 1. april 2025 med unntak av § 1.",
+                    "2025-04-01",
+                ),
+            ),
+        ],
+    )
+
+    index = build_no_amendment_index(tmp_path)
+    entry = index.entries[0]
+    base = "no/lov/2025-01-01-1"
+    # The act's own status is untouched: this lane never dates an act.
+    assert entry.effective_status == "contingent"
+    assert entry.effective_date is None
+    assert entry.part_scoped_effective_dates == ()
+    assert entry.section_scoped_binding_dates == ((base, "2025-04-01"),)
+    assert entry.section_scoped_effective_dates == ()
+    assert entry.section_scoped_exclusions == ((base, "1"),)
+    assert entry.section_scoped_complete_laws == ()
+    assert entry.has_section_scope(base)
+    assert entry.effective_date_for_base(base) == ("2025-04-01", "section_instrument_partial")
+    assert entry.effective_date_for_op(base, "1") == (None, "contingent")
+    assert entry.effective_date_for_op(base, "2") == ("2025-04-01", "section_instrument_authorized")
+    assert entry.effective_date_for_op(base, None) == ("2025-04-01", "section_instrument_authorized")
+    assert [item.replay_authorized for item in index.commencement_instruments] == [True]
+    receipts = [
+        d for d in index.diagnostics
+        if d["rule_id"] == "no_lovtidend_commencement_section_scope_execution_authorized"
+    ]
+    assert len(receipts) == 1
+    assert receipts[0]["source_id"] == "no/lovtid/2025-02-02-5"
+    assert receipts[0]["law_id"] == base
+    assert receipts[0]["binding_date"] == "2025-04-01"
+    assert receipts[0]["excluded_section_labels"] == ["1"]
+    assert receipts[0]["complete"] is False
+    # The generic refusal is withdrawn for a granted pair.
+    assert not [d for d in index.diagnostics if d["rule_id"] == "no_lovtidend_commencement_execution_refused"]
+
+    reloaded = NOAmendmentIndex.from_dict(index.to_dict())
+    assert reloaded.entries[0] == entry
+    assert reloaded.commencement_instruments[0].scope_reading == index.commencement_instruments[0].scope_reading
+
+
+def _ledd_amendment_xml(date_in_force: str) -> bytes:
+    """W-102: one REPLACE below section level (§ 1 ledd 2) and one whole-section REPEAL (§ 2)."""
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="dateInForce">{date_in_force}</dd>
+    <article class="document-change" data-document="lov/2025-01-01-1">
+      <article class="change" data-change-part="lov/2025-01-01-1/§1/ledd2">
+        <article class="defaultP">§ 1 andre ledd skal lyde:</article>
+        <article class="legalP" id="ledd2">Nytt andre ledd.</article>
+      </article>
+      <article class="change" data-repeal-part="lov/2025-01-01-1/§2">
+        <article class="defaultP">§ 2 oppheves.</article>
+      </article>
+    </article>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def test_build_no_amendment_index_lands_a_ledd_carve_out_by_path(tmp_path) -> None:
+    """W-102. ``Loven trer i kraft … med unntak av § 1 andre ledd``: the act's
+    only op on § 1 sits inside the named ledd, so the carve-out lands as a path
+    exclusion and § 2's repeal takes the binding date."""
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [
+            ("lti/2025/nl-20250202-005.xml", _ledd_amendment_xml("Kongen bestemmer")),
+            (
+                "lti/2025/sf-20250301-0100.xml",
+                _section_scoped_instrument_xml(
+                    "lov/2025-02-02-5",
+                    "Loven trer i kraft 1. april 2025 med unntak av § 1 andre ledd.",
+                    "2025-04-01",
+                ),
+            ),
+        ],
+    )
+    index = build_no_amendment_index(tmp_path)
+    entry = index.entries[0]
+    base = "no/lov/2025-01-01-1"
+    assert entry.section_scoped_binding_dates == ((base, "2025-04-01"),)
+    assert entry.section_scoped_effective_dates == ()
+    assert entry.section_scoped_exclusions == ()
+    assert entry.section_scoped_subpath_dates == ()
+    assert entry.section_scoped_subpath_exclusions == ((base, "1", "subsection:2"),)
+    assert entry.section_scoped_complete_laws == ()
+    assert entry.effective_date_for_op(base, "1", "subsection:2") == (None, "contingent")
+    assert entry.effective_date_for_op(base, "1", "subsection:2/sentence:1") == (None, "contingent")
+    assert entry.effective_date_for_op(base, "1", "subsection:1") == ("2025-04-01", "section_instrument_authorized")
+    assert entry.effective_date_for_op(base, "2") == ("2025-04-01", "section_instrument_authorized")
+    receipt = next(
+        d for d in index.diagnostics
+        if d["rule_id"] == "no_lovtidend_commencement_section_scope_execution_authorized"
+    )
+    assert receipt["excluded_subpaths"] == [["1", "subsection:2"]]
+    assert receipt["excluded_section_labels"] == []
+    assert receipt["qualified_fallback_reasons"] == []
+    assert receipt["complete"] is False
+    reloaded = NOAmendmentIndex.from_dict(index.to_dict())
+    assert reloaded.entries[0] == entry
+
+
+def test_build_no_amendment_index_lands_a_ledd_grant_by_path(tmp_path) -> None:
+    """W-102. ``Lovens § 1 andre ledd og § 2 trer i kraft …``: the ledd is dated
+    by path, § 2 whole, and the binding is complete with no binding date."""
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [
+            ("lti/2025/nl-20250202-005.xml", _ledd_amendment_xml("Kongen bestemmer")),
+            (
+                "lti/2025/sf-20250301-0100.xml",
+                _section_scoped_instrument_xml(
+                    "lov/2025-02-02-5",
+                    "Lovens § 1 andre ledd og § 2 trer i kraft 1. april 2025.",
+                    "2025-04-01",
+                ),
+            ),
+        ],
+    )
+    index = build_no_amendment_index(tmp_path)
+    entry = index.entries[0]
+    base = "no/lov/2025-01-01-1"
+    assert entry.section_scoped_binding_dates == ((base, ""),)
+    assert entry.section_scoped_effective_dates == ((base, "2", "2025-04-01"),)
+    assert entry.section_scoped_subpath_dates == ((base, "1", "subsection:2", "2025-04-01"),)
+    assert entry.section_scoped_complete_laws == (base,)
+    assert entry.has_section_scope(base)
+    assert entry.effective_date_for_base(base) == (None, "section_instrument_authorized")
+    assert entry.effective_date_for_op(base, "1", "subsection:2") == ("2025-04-01", "section_instrument_authorized")
+    assert entry.effective_date_for_op(base, "1", "subsection:1") == (None, "contingent")
+    assert entry.effective_date_for_op(base, "1") == (None, "contingent")
+    assert entry.effective_date_for_op(base, "2") == ("2025-04-01", "section_instrument_authorized")
+    receipt = next(
+        d for d in index.diagnostics
+        if d["rule_id"] == "no_lovtidend_commencement_section_scope_execution_authorized"
+    )
+    assert receipt["subpath_dates"] == [["1", "subsection:2", "2025-04-01"]]
+    assert receipt["qualified_refused_labels"] == []
+    assert receipt["complete"] is True
+
+
+def test_build_no_amendment_index_keeps_a_whole_section_op_above_a_ledd_grant_refused(tmp_path) -> None:
+    """W-102. The same instrument against an act that rewrites § 1 whole: the
+    ledd grant is refused with the admissibility reason, as under W-100."""
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [
+            ("lti/2025/nl-20250202-005.xml", _amendment_xml("Kongen bestemmer")),
+            (
+                "lti/2025/sf-20250301-0100.xml",
+                _section_scoped_instrument_xml(
+                    "lov/2025-02-02-5", "Lovens § 1 andre ledd trer i kraft 1. april 2025.", "2025-04-01"
+                ),
+            ),
+        ],
+    )
+    index = build_no_amendment_index(tmp_path)
+    entry = index.entries[0]
+    assert not entry.has_section_scope("no/lov/2025-01-01-1")
+    refusal = next(
+        d for d in index.diagnostics
+        if d["rule_id"] == "no_lovtidend_commencement_section_scope_execution_refused"
+    )
+    assert refusal["refusal"] == "every dated label of no/lov/2025-01-01-1 is ledd-qualified"
+
+
+def test_build_no_amendment_index_lands_a_sections_only_complete_binding(tmp_path) -> None:
+    """``Lovens § 1 trer i kraft …`` covers every targeted section: authorized with no binding date."""
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [
+            ("lti/2025/nl-20250202-005.xml", _amendment_xml("Kongen bestemmer")),
+            (
+                "lti/2025/sf-20250301-0100.xml",
+                _section_scoped_instrument_xml(
+                    "lov/2025-02-02-5", "Lovens § 1 trer i kraft 1. april 2025.", "2025-04-01"
+                ),
+            ),
+        ],
+    )
+    entry = build_no_amendment_index(tmp_path).entries[0]
+    base = "no/lov/2025-01-01-1"
+    assert entry.section_scoped_binding_dates == ((base, ""),)
+    assert entry.section_scoped_effective_dates == ((base, "1", "2025-04-01"),)
+    assert entry.section_scoped_complete_laws == (base,)
+    assert entry.effective_date_for_base(base) == (None, "section_instrument_authorized")
+    assert entry.effective_date_for_op(base, "1") == ("2025-04-01", "section_instrument_authorized")
+    assert entry.effective_date_for_op(base, None) == (None, "contingent")

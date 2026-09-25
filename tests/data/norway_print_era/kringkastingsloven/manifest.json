@@ -1,0 +1,352 @@
+{
+ "base_lov_id": "1992-12-04-127",
+ "source": "Nasjonalbiblioteket digitised Norsk Lovtidend Avd. I (public domain; catalog api.nb.no, IIIF + ALTO)",
+ "acts": [
+  {
+   "act_id": "1992-12-04-127",
+   "issue_id": "babdab3f54025529caf9f8aa4c24e8d1",
+   "issue_nr": 24,
+   "urn": "URN:NBN:no-nb_digitidsskrift_2015102680003_005",
+   "start_canvas": 21,
+   "start_page": 1240,
+   "canvases": [
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30
+   ],
+   "printed_pages": [
+    1240,
+    1241,
+    1242,
+    1243,
+    1244,
+    1245,
+    1246,
+    1247,
+    1248,
+    1249
+   ],
+   "carve_item_canvas": null,
+   "ladder_totals": {
+    "A": 319,
+    "B": 46,
+    "C": 29,
+    "R": 6
+   }
+  },
+  {
+   "act_id": "1993-12-17-126",
+   "issue_id": "cc5de1e16a38f688e95077a0aae9c990",
+   "issue_nr": 21,
+   "urn": "URN:NBN:no-nb_digitidsskrift_2015102680025_001",
+   "start_canvas": 15,
+   "start_page": 1324,
+   "canvases": [
+    15,
+    16,
+    17
+   ],
+   "printed_pages": [
+    1324,
+    1325,
+    1326
+   ],
+   "carve_item_canvas": null,
+   "ladder_totals": {
+    "A": 80,
+    "B": 23,
+    "C": 6,
+    "R": 4
+   }
+  },
+  {
+   "act_id": "1994-06-16-18",
+   "issue_id": "34b9a87e0f875e4394d7c2a375aba89d",
+   "issue_nr": 10,
+   "urn": "URN:NBN:no-nb_digitidsskrift_2017020680018_010",
+   "start_canvas": 23,
+   "start_page": 716,
+   "canvases": [
+    23,
+    24
+   ],
+   "printed_pages": [
+    716,
+    717
+   ],
+   "carve_item_canvas": null,
+   "ladder_totals": {
+    "A": 59,
+    "B": 9,
+    "C": 10,
+    "R": 2
+   }
+  },
+  {
+   "act_id": "1994-06-24-45",
+   "issue_id": "0e0ab83458ab4f9977cfc50064901000",
+   "issue_nr": 11,
+   "urn": "URN:NBN:no-nb_digitidsskrift_2017020680018_011",
+   "start_canvas": 153,
+   "start_page": 912,
+   "canvases": [
+    153,
+    154,
+    155
+   ],
+   "printed_pages": [
+    912,
+    913,
+    914
+   ],
+   "carve_item_canvas": null,
+   "ladder_totals": {
+    "A": 82,
+    "B": 26,
+    "C": 11,
+    "R": 2
+   }
+  },
+  {
+   "act_id": "1995-06-30-51",
+   "issue_id": "be3cc552ac233041703eec50bb0ecab6",
+   "issue_nr": 13,
+   "urn": "URN:NBN:no-nb_digitidsskrift_2015102680030_003",
+   "start_canvas": 62,
+   "start_page": 851,
+   "canvases": [
+    62,
+    63
+   ],
+   "printed_pages": [
+    851,
+    852
+   ],
+   "carve_item_canvas": null,
+   "ladder_totals": {
+    "A": 40,
+    "B": 15,
+    "C": 12,
+    "R": 3
+   }
+  },
+  {
+   "act_id": "1996-02-02-6",
+   "issue_id": "6dd0dbcba4583467248d922aa6fe7c30",
+   "issue_nr": 2,
+   "urn": "URN:NBN:no-nb_digitidsskrift_2015102680021_002",
+   "start_canvas": 45,
+   "start_page": 98,
+   "canvases": [
+    45,
+    46
+   ],
+   "printed_pages": [
+    98,
+    99
+   ],
+   "carve_item_canvas": null,
+   "ladder_totals": {
+    "A": 59,
+    "B": 14,
+    "C": 8,
+    "R": 1
+   }
+  },
+  {
+   "act_id": "1997-06-13-44",
+   "issue_id": "bc9cc206ad25f019010553993bc27c83",
+   "issue_nr": 14,
+   "urn": "URN:NBN:no-nb_digitidsskrift_2015111680005_003",
+   "start_canvas": 51,
+   "start_page": 1174,
+   "canvases": [
+    51,
+    153
+   ],
+   "printed_pages": [
+    1174,
+    1276
+   ],
+   "carve_item_canvas": 153,
+   "ladder_totals": {
+    "A": 62,
+    "B": 24,
+    "C": 3,
+    "R": 0
+   }
+  },
+  {
+   "act_id": "1998-05-15-28",
+   "issue_id": "7d59f9631381450a06252a31e34487c3",
+   "issue_nr": 9,
+   "urn": "URN:NBN:no-nb_digitidsskrift_2015102680002_009",
+   "start_canvas": 62,
+   "start_page": 607,
+   "canvases": [
+    62,
+    63
+   ],
+   "printed_pages": [
+    607,
+    608
+   ],
+   "carve_item_canvas": null,
+   "ladder_totals": {
+    "A": 46,
+    "B": 17,
+    "C": 13,
+    "R": 2
+   }
+  },
+  {
+   "act_id": "1998-05-22-32",
+   "issue_id": "7d59f9631381450a06252a31e34487c3",
+   "issue_nr": 9,
+   "urn": "URN:NBN:no-nb_digitidsskrift_2015102680002_009",
+   "start_canvas": 75,
+   "start_page": 620,
+   "canvases": [
+    75,
+    76
+   ],
+   "printed_pages": [
+    620,
+    621
+   ],
+   "carve_item_canvas": null,
+   "ladder_totals": {
+    "A": 51,
+    "B": 8,
+    "C": 8,
+    "R": 8
+   }
+  },
+  {
+   "act_id": "1998-07-17-56",
+   "issue_id": "03bbd3a856f85083c2ac43ee31a03c18",
+   "issue_nr": 12,
+   "urn": "URN:NBN:no-nb_digitidsskrift_2015102680002_012",
+   "start_canvas": 7,
+   "start_page": 804,
+   "canvases": [
+    7,
+    53
+   ],
+   "printed_pages": [
+    804,
+    850
+   ],
+   "carve_item_canvas": 53,
+   "ladder_totals": {
+    "A": 67,
+    "B": 20,
+    "C": 5,
+    "R": 0
+   }
+  },
+  {
+   "act_id": "1999-06-25-51",
+   "issue_id": "87e8e382120d23224726bcd2036dd485",
+   "issue_nr": 13,
+   "urn": "URN:NBN:no-nb_digitidsskrift_2015102680004_001",
+   "start_canvas": 80,
+   "start_page": 1567,
+   "canvases": [
+    80,
+    81
+   ],
+   "printed_pages": [
+    1567,
+    1568
+   ],
+   "carve_item_canvas": null,
+   "ladder_totals": {
+    "A": 50,
+    "B": 8,
+    "C": 9,
+    "R": 3
+   }
+  },
+  {
+   "act_id": "2000-01-14-4",
+   "issue_id": "b713f2cbbc1a6934f83ba5c0595f401b",
+   "issue_nr": 1,
+   "urn": "URN:NBN:no-nb_digitidsskrift_2015102680035_001",
+   "start_canvas": 53,
+   "start_page": 48,
+   "canvases": [
+    53,
+    54
+   ],
+   "printed_pages": [
+    48,
+    49
+   ],
+   "carve_item_canvas": null,
+   "ladder_totals": {
+    "A": 57,
+    "B": 9,
+    "C": 10,
+    "R": 2
+   }
+  },
+  {
+   "act_id": "2000-01-14-5",
+   "issue_id": "b713f2cbbc1a6934f83ba5c0595f401b",
+   "issue_nr": 1,
+   "urn": "URN:NBN:no-nb_digitidsskrift_2015102680035_001",
+   "start_canvas": 54,
+   "start_page": 49,
+   "canvases": [
+    54,
+    55,
+    56,
+    57
+   ],
+   "printed_pages": [
+    49,
+    50,
+    51,
+    52
+   ],
+   "carve_item_canvas": null,
+   "ladder_totals": {
+    "A": 117,
+    "B": 19,
+    "C": 13,
+    "R": 5
+   }
+  },
+  {
+   "act_id": "2000-01-14-6",
+   "issue_id": "b713f2cbbc1a6934f83ba5c0595f401b",
+   "issue_nr": 1,
+   "urn": "URN:NBN:no-nb_digitidsskrift_2015102680035_001",
+   "start_canvas": 57,
+   "start_page": 52,
+   "canvases": [
+    57,
+    58
+   ],
+   "printed_pages": [
+    52,
+    53
+   ],
+   "carve_item_canvas": null,
+   "ladder_totals": {
+    "A": 50,
+    "B": 8,
+    "C": 9,
+    "R": 2
+   }
+  }
+ ]
+}

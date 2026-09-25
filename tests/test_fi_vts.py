@@ -2,7 +2,6 @@
 import re
 
 import lawvm.finland.vts as vts
-from lawvm.corpus_store import get_corpus_store
 from lawvm.core.observation_registry import get_finding_spec
 from lawvm.finland.vts import (
     VTS_PARAGRAPHIZED_FRAGMENT_UNPARSED_RULE_ID,
@@ -16,6 +15,7 @@ from lawvm.finland.vts import (
     _vts_parent_citation_re,
     extract_voimaantulo_repeals,
 )
+from tests.corpus_pin_helpers import corpus_store_or_skip
 
 # ---------------------------------------------------------------------------
 # _expand_section_range_vts
@@ -254,7 +254,7 @@ def test_extract_voimaantulo_repeals_section_range() -> None:
 
 
 def test_extract_voimaantulo_repeals_keeps_trailing_section_range_after_genitive_subsections_real_corpus() -> None:
-    cs = get_corpus_store()
+    cs = corpus_store_or_skip()
     xml = cs.read_source("2023/741")
     if xml is None:
         return
@@ -268,7 +268,7 @@ def test_extract_voimaantulo_repeals_keeps_trailing_section_range_after_genitive
 
 
 def test_extract_voimaantulo_repeals_keeps_mixed_later_targets_after_genitive_refs_real_corpus() -> None:
-    cs = get_corpus_store()
+    cs = corpus_store_or_skip()
     xml = cs.read_source("1995/386")
     if xml is None:
         return
@@ -295,7 +295,7 @@ def test_extract_voimaantulo_repeals_keeps_mixed_later_targets_after_genitive_re
 
 
 def test_extract_voimaantulo_repeals_matches_parent_title_with_citation_parenthetical_real_corpus() -> None:
-    cs = get_corpus_store()
+    cs = corpus_store_or_skip()
     xml = cs.read_source("1993/1005")
     if xml is None:
         return
@@ -488,7 +488,7 @@ def test_extract_voimaantulo_repeals_matches_bare_parent_title() -> None:
 
 
 def test_extract_voimaantulo_repeals_real_corpus_2018_253_does_not_false_repeal_kotikuntalaki_section_3() -> None:
-    cs = get_corpus_store()
+    cs = corpus_store_or_skip()
     xml = cs.read_source("2018/253")
     if xml is None:
         return
@@ -497,7 +497,7 @@ def test_extract_voimaantulo_repeals_real_corpus_2018_253_does_not_false_repeal_
 
 
 def test_extract_voimaantulo_repeals_real_corpus_1998_532_governed_numbered_list() -> None:
-    cs = get_corpus_store()
+    cs = corpus_store_or_skip()
     xml = cs.read_source("1998/532")
     if xml is None:
         return
@@ -547,7 +547,7 @@ def test_extract_voimaantulo_repeals_application_clause_with_same_paragraph_kumo
 
 
 def test_extract_voimaantulo_repeals_real_corpus_2018_253_does_not_false_repeal_etusukunimilaki() -> None:
-    cs = get_corpus_store()
+    cs = corpus_store_or_skip()
     xml = cs.read_source("2018/253")
     if xml is None:
         return

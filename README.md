@@ -124,6 +124,10 @@ For Finland:
 - [notes/FINLAND_PAYLOAD_IR_SPEC.md](notes/FINLAND_PAYLOAD_IR_SPEC.md)
 - notes/FINLAND_ELABORATION_RULES.md
 
+For Norway:
+
+- [notes/NORWAY_LAWVM_STATUS.md](notes/NORWAY_LAWVM_STATUS.md)
+
 For Open Law demo work:
 
 - [docs/open-law-demo.md](docs/open-law-demo.md)
@@ -174,7 +178,9 @@ uv run lawvm uk-replay <STATUTE_ID> --pit-date 2024-01-01
 uv run lawvm uk-fetch-affecting <STATUTE_ID>
 
 # Norway and Sweden
-uv run lawvm no-index
+uv run lawvm no-ingest --data-dir data/norway/public --db data/norway.farchive
+uv run lawvm no-index --data-dir data/norway.farchive
+uv run lawvm bench -j no --corpus data/norway/bench_corpus.csv --label no-baseline
 uv run lawvm sweden --help
 ```
 

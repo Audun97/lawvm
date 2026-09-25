@@ -58,7 +58,12 @@ from lawvm.finland.effect_lifecycle_projection import build_finland_effect_lifec
 from lawvm.finland.replay_products import ReplayProducts
 from lawvm.tools.section_keys import extract_ir_sections
 from lawvm.finland.statute import ReplayResult, ReplayState, StatuteContext
-from tests.corpus_pin_helpers import pinned_replay, replay_xml_for_test
+from tests.corpus_pin_helpers import (
+    pinned_replay as _pinned_replay,
+    replay_xml_for_test as _replay_xml_for_test,
+    requires_finlex_corpus,
+    skip_if_corpus_absent,
+)
 from lawvm.tools.inspect_amendment import build_amendment_bundle
 
 
@@ -72,6 +77,7 @@ class _ReplayCompileInputs:
     failed_ops: tuple[Any, ...]
 
 
+@skip_if_corpus_absent
 def compile_fi_facade(*args: Any, **kwargs: Any) -> Any:
     from lawvm.finland.compile import compile_fi_facade as _real_compile_fi_facade
 
@@ -84,10 +90,15 @@ def compile_fi_facade_from_replay(*args: Any, **kwargs: Any) -> Any:
     return _real_compile_fi_facade_from_replay(*args, **kwargs)
 
 
+@skip_if_corpus_absent
 def get_corpus_store() -> Any:
     from lawvm.finland.corpus import get_corpus_store as _real_get_corpus_store
 
     return _real_get_corpus_store()
+
+
+pinned_replay = skip_if_corpus_absent(_pinned_replay)
+replay_xml_for_test = skip_if_corpus_absent(_replay_xml_for_test)
 
 
 def compile_amendment_ops(*args: Any, **kwargs: Any) -> Any:
@@ -284,10 +295,7 @@ def normalize_and_compile_ops(*args: Any, **kwargs: Any) -> Any:
     return _real_normalize_and_compile_ops(*args, **kwargs)
 
 
-def replay_xml(*args: Any, **kwargs: Any) -> Any:
-    from tests.corpus_pin_helpers import replay_xml_for_test
-
-    return replay_xml_for_test(*args, **kwargs)
+replay_xml = replay_xml_for_test
 
 
 def _compile_artifacts_from_replay(*args: Any, **kwargs: Any) -> Any:
@@ -2913,6 +2921,7 @@ def test_replay_xml_1994_1505_materializes_sparse_definition_item_payloads() -> 
     )
 
 
+@requires_finlex_corpus
 def test_inspect_amendment_1994_1505_binds_explicit_1a_sparse_item_slot() -> None:
     bundle = build_amendment_bundle("1994/1505", "2000/345", "legal_pit")
     group = next(group for group in bundle["groups"] if group["target_norm"] == "3")
@@ -2929,6 +2938,7 @@ def test_inspect_amendment_1994_1505_binds_explicit_1a_sparse_item_slot() -> Non
     )
 
 
+@requires_finlex_corpus
 def test_inspect_amendment_1997_396_keeps_explicit_45_subsection_shell() -> None:
     bundle = build_amendment_bundle("1997/396", "2001/1119", "legal_pit")
     group = next(group for group in bundle["groups"] if group["target_norm"] == "45")
@@ -4464,6 +4474,7 @@ def test_duplicate_section_scope_from_source_heading_binds_unique_live_duplicate
     ) == (None, "5")
 
 
+@requires_finlex_corpus
 def test_normalize_and_compile_ops_1993_1390_1995_64_scopes_duplicate_17_by_heading() -> None:
     from tests.corpus_pin_helpers import replay_xml_for_test
 
@@ -4913,6 +4924,7 @@ def test_normalize_and_compile_ops_records_sec1_peg_skip_observation(
     assert peg_skip[0].detail.get("used_preamble_body_fallback") is True
 
 
+@requires_finlex_corpus
 def test_normalize_and_compile_ops_keeps_sec1_keeper_act_repeal_list_on_peg_path() -> None:
     import lawvm.finland.frontend_compile as frontend_compile
 
@@ -5668,6 +5680,7 @@ def test_group_surface_does_not_reuse_payload_claimed_by_another_section_op() ->
     )
 
 
+@requires_finlex_corpus
 def test_replay_xml_1932_244_updates_section_54_after_1971_304_label_mismatch() -> None:
     from tests.corpus_pin_helpers import replay_xml_for_test
 

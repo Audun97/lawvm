@@ -3,7 +3,7 @@ from lxml import etree
 from lawvm.core.ir_helpers import irnode_to_text
 from lawvm.core.tree_ops import check_invariants
 from lawvm.core.semantic_types import IRNodeKind
-from lawvm.finland.corpus import get_corpus_store
+from tests.corpus_pin_helpers import corpus_store_or_skip
 from lawvm.finland.helpers import _fi_label_postprocessor
 from lawvm.finland.xml_ir import fi_xml_to_ir_node
 from lawvm.finland.source_normalize import normalize_source_ir
@@ -334,7 +334,7 @@ def test_fi_xml_to_ir_node_nests_repeated_dotted_digit_rows_with_embedded_items(
 
 
 def test_real_1999_785_section_4_preserves_repeated_dotted_digit_rows() -> None:
-    xml_bytes = get_corpus_store().read_source("1999/785")
+    xml_bytes = corpus_store_or_skip().read_source("1999/785")
     assert xml_bytes is not None
     root = etree.fromstring(xml_bytes)
     section_el = next(

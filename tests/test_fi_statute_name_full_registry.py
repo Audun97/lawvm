@@ -23,6 +23,7 @@ from pathlib import Path
 
 import pytest
 
+from lawvm.corpus_store import _archive_is_populated
 from lawvm.finland.references.registries.statute_name import (
     StatuteNameEntry,
     all_entries_from_farchive,
@@ -36,7 +37,7 @@ def _archive_path() -> str:
     return os.path.join(root, "data", "finlex.farchive")
 
 
-_HAS_CORPUS = Path(_archive_path()).exists()
+_HAS_CORPUS = _archive_is_populated(Path(_archive_path()))
 _skip_no_corpus = pytest.mark.skipif(
     not _HAS_CORPUS,
     reason=f"farchive not present at {_archive_path()} (gitignored artifact)",

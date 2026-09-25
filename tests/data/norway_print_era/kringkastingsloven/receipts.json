@@ -1,0 +1,430 @@
+{
+ "1992-12-04-127": {
+  "act_id": "1992-12-04-127",
+  "title": "Lov om kringkasting.",
+  "line_count": 400,
+  "parts": [],
+  "refused_leads": [],
+  "address_folds": 0,
+  "proposal_lines": 0,
+  "date_in_force": "1992-12-04",
+  "date_source": "act-date",
+  "carve": null,
+  "rule_ids": []
+ },
+ "1993-12-17-126": {
+  "act_id": "1993-12-17-126",
+  "title": "Lov om endringer i lov av 4. desember 1992 nr. 127 om kringkasting.",
+  "line_count": 81,
+  "parts": [
+   [
+    "I.",
+    66,
+    true
+   ],
+   [
+    "II.",
+    10,
+    false
+   ]
+  ],
+  "refused_leads": [
+   "§ 2-1 sjette ledd blir nytt fjerde ledd."
+  ],
+  "address_folds": 3,
+  "proposal_lines": 2,
+  "date_in_force": "1994-01-01",
+  "date_source": "consolidation-chain-ikr",
+  "carve": null,
+  "rule_ids": [
+   "no_print_era_lead_refused",
+   "no_print_era_proposal_text_landed",
+   "no_print_era_address_dash_folded",
+   "no_print_era_date_from_consolidation_chain"
+  ]
+ },
+ "1994-06-16-18": {
+  "act_id": "1994-06-16-18",
+  "title": "Lov om endringer i lov av 4. desember 1992 nr. 127 om kringkasting.",
+  "line_count": 55,
+  "parts": [
+   [
+    "I.",
+    45,
+    true
+   ],
+   [
+    "II.",
+    5,
+    false
+   ]
+  ],
+  "refused_leads": [],
+  "address_folds": 2,
+  "proposal_lines": 1,
+  "date_in_force": "1997-02-28",
+  "date_source": "consolidation-chain-ikr",
+  "carve": null,
+  "rule_ids": [
+   "no_print_era_proposal_text_landed",
+   "no_print_era_address_dash_folded",
+   "no_print_era_date_from_consolidation_chain"
+  ]
+ },
+ "1994-06-24-45": {
+  "act_id": "1994-06-24-45",
+  "title": "Lov om omdanning av forvaltningsbedrifta Televerket til aksjeselskap.",
+  "line_count": 87,
+  "parts": [
+   [
+    "1. Lov av 29. april 1899 om Eneret for S",
+    1,
+    false
+   ],
+   [
+    "2. Lov av 13. august 1915 nr. 6 om rette",
+    0,
+    false
+   ],
+   [
+    "3. Lov av 22. mai 1981 nr. 25 om retterg",
+    0,
+    false
+   ],
+   [
+    "4. Lov av 4. desember 1992 nr. 127 om kr",
+    34,
+    true
+   ],
+   [
+    "1. Lov av 29. april 1899 om Eneret for S",
+    22,
+    false
+   ],
+   [
+    "2. Lov av 13. august 1915 nr. 6 om rette",
+    6,
+    false
+   ],
+   [
+    "3. Lov av 22. mai 1981 nr. 25 om retterg",
+    11,
+    false
+   ],
+   [
+    "4. Lov av 4. desember 1992 nr. 127 om kr",
+    1,
+    true
+   ]
+  ],
+  "refused_leads": [],
+  "address_folds": 1,
+  "proposal_lines": 0,
+  "date_in_force": "1994-06-24",
+  "date_source": "act-date",
+  "carve": null,
+  "rule_ids": [
+   "no_print_era_address_dash_folded"
+  ]
+ },
+ "1995-06-30-51": {
+  "act_id": "1995-06-30-51",
+  "title": "Lov om endring i lov av 4. desember 1992 nr. 127 om kringkasting.",
+  "line_count": 13,
+  "parts": [
+   [
+    "I.",
+    7,
+    true
+   ],
+   [
+    "forpliktelser. II.",
+    1,
+    false
+   ]
+  ],
+  "refused_leads": [],
+  "address_folds": 1,
+  "proposal_lines": 0,
+  "date_in_force": "1996-01-01",
+  "date_source": "consolidation-chain-ikr",
+  "carve": null,
+  "rule_ids": [
+   "no_print_era_address_dash_folded",
+   "no_print_era_date_from_consolidation_chain"
+  ]
+ },
+ "1996-02-02-6": {
+  "act_id": "1996-02-02-6",
+  "title": "Lov om endringer i lov av 4. desember 1992 nr. 127 om kringkasting.",
+  "line_count": 54,
+  "parts": [
+   [
+    "I.",
+    50,
+    true
+   ]
+  ],
+  "refused_leads": [],
+  "address_folds": 1,
+  "proposal_lines": 0,
+  "date_in_force": "1996-04-30",
+  "date_source": "consolidation-chain-ikr",
+  "carve": null,
+  "rule_ids": [
+   "no_print_era_address_dash_folded",
+   "no_print_era_date_from_consolidation_chain"
+  ]
+ },
+ "1997-06-13-44": {
+  "act_id": "1997-06-13-44",
+  "title": "Lov om aksjeselskaper (aksjeloven).",
+  "line_count": 4,
+  "parts": [
+   [
+    "59. I lov 4 desember 1992 nr 127 om krin",
+    4,
+    true
+   ]
+  ],
+  "refused_leads": [],
+  "address_folds": 0,
+  "proposal_lines": 0,
+  "date_in_force": "1999-01-01",
+  "date_source": "consolidation-chain-ikr",
+  "carve": {
+   "item_no": "59",
+   "item_canvas": 153,
+   "items_on_page": 6
+  },
+  "rule_ids": [
+   "no_print_era_omnibus_carve",
+   "no_print_era_date_from_consolidation_chain"
+  ]
+ },
+ "1998-05-15-28": {
+  "act_id": "1998-05-15-28",
+  "title": "Lov om endringer i lov av 4. desember 1992 nr. 127 om kringkasting (Innkreving av kringkastingsavgift m.v.).",
+  "line_count": 35,
+  "parts": [
+   [
+    "I.",
+    26,
+    true
+   ],
+   [
+    "II.",
+    3,
+    true
+   ]
+  ],
+  "refused_leads": [],
+  "address_folds": 3,
+  "proposal_lines": 0,
+  "date_in_force": "1998-07-01",
+  "date_source": "consolidation-chain-ikr",
+  "carve": null,
+  "rule_ids": [
+   "no_print_era_address_dash_folded",
+   "no_print_era_date_from_consolidation_chain"
+  ]
+ },
+ "1998-05-22-32": {
+  "act_id": "1998-05-22-32",
+  "title": "Lov om endringer i kringkastingsloven.",
+  "line_count": 46,
+  "parts": [
+   [
+    "I.",
+    38,
+    true
+   ],
+   [
+    "II.",
+    3,
+    true
+   ]
+  ],
+  "refused_leads": [
+   "§ 2-1 første ledd andre og tredje punktum skal lyde:",
+   "§ 2-1 andre ledd skal lyde:",
+   "§ 5-1 til § 5-6 oppheves."
+  ],
+  "address_folds": 4,
+  "proposal_lines": 7,
+  "date_in_force": "1998-06-01",
+  "date_source": "consolidation-chain-ikr",
+  "carve": null,
+  "rule_ids": [
+   "no_print_era_lead_refused",
+   "no_print_era_proposal_text_landed",
+   "no_print_era_address_dash_folded",
+   "no_print_era_date_from_consolidation_chain"
+  ]
+ },
+ "1998-07-17-56": {
+  "act_id": "1998-07-17-56",
+  "title": "Lov om årsregnskap m.v. (regnskapsloven).",
+  "line_count": 6,
+  "parts": [
+   [
+    "47. Lov 4. desember 1992 nr. 127 om krin",
+    6,
+    true
+   ]
+  ],
+  "refused_leads": [],
+  "address_folds": 1,
+  "proposal_lines": 0,
+  "date_in_force": "1999-01-01",
+  "date_source": "consolidation-chain-ikr",
+  "carve": {
+   "item_no": "47",
+   "item_canvas": 53,
+   "items_on_page": 5
+  },
+  "rule_ids": [
+   "no_print_era_address_dash_folded",
+   "no_print_era_omnibus_carve",
+   "no_print_era_date_from_consolidation_chain"
+  ]
+ },
+ "1999-06-25-51": {
+  "act_id": "1999-06-25-51",
+  "title": "Lov om endringer i lov av 4. desember 1992 nr. 127 om kringkasting m.m.",
+  "line_count": 37,
+  "parts": [
+   [
+    "1. Lov av 16. juni 1972 nr. 47 om kontro",
+    1,
+    false
+   ],
+   [
+    "I.",
+    14,
+    true
+   ],
+   [
+    "II.",
+    13,
+    false
+   ],
+   [
+    "III.",
+    1,
+    false
+   ]
+  ],
+  "refused_leads": [
+   "§ 2-1 nytt femte ledd skal lyde:",
+   "§ 3-1 nytt tredje ledd skal lyde:",
+   "Nåværende § 3-1 tredje ledd blir nytt fjerde ledd."
+  ],
+  "address_folds": 1,
+  "proposal_lines": 3,
+  "date_in_force": "1999-07-01",
+  "date_source": "consolidation-chain-ikr",
+  "carve": null,
+  "rule_ids": [
+   "no_print_era_lead_refused",
+   "no_print_era_proposal_text_landed",
+   "no_print_era_address_dash_folded",
+   "no_print_era_date_from_consolidation_chain"
+  ]
+ },
+ "2000-01-14-4": {
+  "act_id": "2000-01-14-4",
+  "title": "Lov om endringer i lov 4. desember 1992 nr. 127 om kringkasting.",
+  "line_count": 26,
+  "parts": [
+   [
+    "I",
+    20,
+    true
+   ],
+   [
+    "II",
+    1,
+    false
+   ]
+  ],
+  "refused_leads": [],
+  "address_folds": 4,
+  "proposal_lines": 0,
+  "date_in_force": "2000-01-20",
+  "date_source": "consolidation-chain-ikr",
+  "carve": null,
+  "rule_ids": [
+   "no_print_era_address_dash_folded",
+   "no_print_era_date_from_consolidation_chain"
+  ]
+ },
+ "2000-01-14-5": {
+  "act_id": "2000-01-14-5",
+  "title": "Lov om endringer i lov 4. desember 1992 nr. 127 om kringkasting. (Endringer som følge av tillegg til EØS-avtalens fjernsynsdirektiv).",
+  "line_count": 126,
+  "parts": [
+   [
+    "I",
+    119,
+    true
+   ],
+   [
+    "II",
+    1,
+    false
+   ]
+  ],
+  "refused_leads": [
+   "§ 2-1 andre ledd nytt fjerde punktum skal lyde:",
+   "§ 5-1 skal lyde:"
+  ],
+  "address_folds": 9,
+  "proposal_lines": 5,
+  "date_in_force": "2000-01-20",
+  "date_source": "consolidation-chain-ikr",
+  "carve": null,
+  "rule_ids": [
+   "no_print_era_lead_refused",
+   "no_print_era_proposal_text_landed",
+   "no_print_era_address_dash_folded",
+   "no_print_era_date_from_consolidation_chain"
+  ]
+ },
+ "2000-01-14-6": {
+  "act_id": "2000-01-14-6",
+  "title": "Lov om endringar i lov 4. desember 1992 nr. 127 om kringkasting og i lov 15. mai 1987 nr. 21 om film og videogram.",
+  "line_count": 32,
+  "parts": [
+   [
+    "?",
+    14,
+    true
+   ],
+   [
+    "II",
+    10,
+    false
+   ],
+   [
+    "III",
+    1,
+    false
+   ]
+  ],
+  "refused_leads": [
+   "§ 6-1 tredje ledd skal lyde:"
+  ],
+  "address_folds": 1,
+  "proposal_lines": 1,
+  "date_in_force": "2000-01-20",
+  "date_source": "consolidation-chain-ikr",
+  "carve": null,
+  "rule_ids": [
+   "no_print_era_lead_refused",
+   "no_print_era_proposal_text_landed",
+   "no_print_era_address_dash_folded",
+   "no_print_era_date_from_consolidation_chain"
+  ]
+ }
+}

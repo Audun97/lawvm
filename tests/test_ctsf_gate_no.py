@@ -37,7 +37,9 @@ from lawvm.tools.no_anchor_manifest import (
     REAL_ANCHOR_NO_CORPUS,
     REAL_ANCHOR_NO_CORPUS_SIDS,
     REAL_ANCHOR_NO_JURISDICTION,
+    _no_future_skip_horizon,
     _repo_root,
+    attribute_statute,
     load_no_baseline,
     no_anchor_corpus_available,
     run_no_gate_report,
@@ -86,14 +88,15 @@ def test_committed_no_baseline_is_zero_billable():
 
     Provenance: the NO corpus is curated to lov acts whose base→current replay is
     0-BILLABLE (no replay_bug/unknown). Most reproduce every replay-touched oracle
-    section; a member MAY carry a typed NON-billable residual (the WARN lane): e.g.
-    no/lov/2020-12-18-156 § 5 carries a confirmed oracle-side editorial correction
-    (Lovtidend typo "skatteloven § 23" that Lovdata silently corrected to "§ 2-3",
-    no amending act), typed ``oracle_editorial_pathology`` via the anchor manifest's
-    byte-exact editorial-correction registry — never a replay bug. NO acts whose
-    replay surfaces GENUINE billable residuals are DELIBERATELY EXCLUDED — they are
-    defects to fix, not to freeze. So the NO gate's FAIL lane is proven by synthetic
-    injection (``test_no_new_billable_fails``), not a standing residual.
+    section; a member MAY carry a typed NON-billable residual (the WARN lane). Both
+    standing WARN rows are COMMENSURABILITY limits of the single live Lovdata oracle,
+    typed byte-exactly, never replay bugs: no/lov/2020-05-07-38 § 64 (lov 2026-06-19-48
+    repealed the sunset ledd effective 2026-06-19, so the oracle is ahead of the
+    2026-03-29 anchor window) and no/lov/2025-04-25-12 (a contingent amendment blocks
+    the replay — the per-anchor ``oracle_suspect`` witness). NO acts whose replay
+    surfaces GENUINE billable residuals are DELIBERATELY EXCLUDED — they are defects to
+    fix, not to freeze. So the NO gate's FAIL lane is proven by synthetic injection
+    (``test_no_new_billable_fails``), not a standing residual.
     """
     committed = load_no_baseline()
     committed_billable = sum(
@@ -214,6 +217,71 @@ def test_no_real_corpus_gate_passes():
     result = run_no_gate_report()
     assert isinstance(result, GateResult)
     assert result.verdict == "PASS"
+
+
+# ---------------------------------------------------------------------------
+# The oracle-ahead-of-as_of TEMPORAL rail (W-55)
+# ---------------------------------------------------------------------------
+
+
+class _FakeAdjudication:
+    def __init__(self, kind, detail):
+        self.kind = kind
+        self.detail = detail
+
+
+class _FakeReplay:
+    def __init__(self, adjudications):
+        self.adjudications = adjudications
+
+
+class _FakeResult:
+    def __init__(self, replay):
+        self.replay = replay
+
+
+def test_future_skip_horizon_is_the_max_withheld_effective_date():
+    """The horizon is read off replay's OWN typed future-skip receipts (max effective
+    date) — never invented, never a heuristic. Corpus-free."""
+    from lawvm.norway.replay import NO_REPLAY_FUTURE_EFFECTIVE_SKIPPED
+
+    adjudications = [
+        _FakeAdjudication(
+            NO_REPLAY_FUTURE_EFFECTIVE_SKIPPED, {"effective_date": "2026-06-19"}
+        ),
+        _FakeAdjudication(
+            NO_REPLAY_FUTURE_EFFECTIVE_SKIPPED, {"effective_date": "2027-01-01"}
+        ),
+        # A non-future skip (e.g. contingent) must not contribute a horizon.
+        _FakeAdjudication("no_replay_contingent_commencement_skipped", {}),
+    ]
+    result = _FakeResult(_FakeReplay(adjudications))
+    assert _no_future_skip_horizon(result) == "2027-01-01"
+
+
+def test_future_skip_horizon_is_empty_without_future_skips():
+    """No future-withheld amendment ⇒ no horizon ⇒ the temporal rail never fires."""
+    assert _no_future_skip_horizon(_FakeResult(_FakeReplay([]))) == ""
+    assert _no_future_skip_horizon(_FakeResult(None)) == ""
+    assert _no_future_skip_horizon(None) == ""
+
+
+@requires_no_corpus
+def test_no_oracle_ahead_of_as_of_types_temporal_not_replay_bug():
+    """no/lov/2020-05-07-38 § 64: lov 2026-06-19-48 repealed the sunset ledd effective
+    2026-06-19, so the LIVE Lovdata oracle carries the repeal while a correct replay to
+    as_of=2026-03-29 does not. That divergence types ``temporal_mismatch``, never a
+    replay bug — replay is right and the oracle is simply ahead of the anchor window.
+    """
+    attr = attribute_statute("no/lov/2020-05-07-38", "2026-03-29")
+    assert attr.status == "OK"
+    verdicts = {o.section_key: o.verdict for o in attr.observations}
+    assert verdicts.get("chapter:10/section:64") == "temporal_mismatch_commensurability"
+    assert attr.is_gated_clean
+    evidence = {o.section_key: o.evidence for o in attr.observations}
+    # The witness names the byte-exact reconciliation and the withheld amendment.
+    assert "byte-exact reconciliation" in evidence["chapter:10/section:64"]
+    assert "no/lovtid/2026-06-19-48" in evidence["chapter:10/section:64"]
 
 
 @requires_no_corpus

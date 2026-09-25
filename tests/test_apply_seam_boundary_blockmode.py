@@ -233,7 +233,7 @@ def test_unproven_frontends_keep_boundary_mode_off() -> None:
     import lawvm.sweden.grafter as se_g
     import lawvm.uk_legislation.replay_executor as uk_x
 
-    no_src = inspect.getsource(no_g.apply_no_ops)
+    no_src = inspect.getsource(no_g._apply_no_ops_fold)
     se_src = inspect.getsource(se_g.apply_se_ops)
     uk_src = inspect.getsource(uk_x.UKReplayExecutor._uk_seam_apply_profile)
 

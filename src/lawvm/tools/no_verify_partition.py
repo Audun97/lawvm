@@ -11,10 +11,15 @@ if TYPE_CHECKING:
 
 
 def main(args: "argparse.Namespace") -> None:
+    from lawvm.norway.sources import no_consolidation_snapshot_date
     from lawvm.norway.verify import build_no_verify_partition
 
     data_dir_arg = getattr(args, "data_dir", None)
     data_dir = Path(data_dir_arg) if data_dir_arg else None
+    # F-01: absent --as-of, the comparison horizon comes from the corpus, not a
+    # literal that predates the consolidation this is compared against. Explicit
+    # flag passes through verbatim. Same derivation as `no-verify-scan`.
+    as_of = getattr(args, "as_of", None) or no_consolidation_snapshot_date(data_dir)
     index_arg = getattr(args, "index", None)
     index_path = Path(index_arg) if index_arg else None
     commencement_arg = getattr(args, "commencement", None)
@@ -23,7 +28,7 @@ def main(args: "argparse.Namespace") -> None:
     output_path = Path(output_arg) if output_arg else None
 
     report = build_no_verify_partition(
-        as_of=args.as_of,
+        as_of=as_of,
         data_dir=data_dir,
         index_path=index_path,
         commencement_path=commencement_path,
@@ -53,14 +58,44 @@ def main(args: "argparse.Namespace") -> None:
             "  source signals  : "
             + ", ".join(f"{k}={v}" for k, v in sorted(signal_counts.items()))
         )
+    totals = report.get("divergence_totals", {})
+    if totals:
+        print(
+            f"  divergences     : total={totals.get('total', 0)} "
+            f"(ceiling={totals.get('ceiling', 0)}, "
+            f"unexplained={totals.get('unexplained', 0)})"
+        )
+    ceiling_rules = report.get("ceiling_rule_counts", {})
+    if ceiling_rules:
+        print(
+            "  ceiling rules   : "
+            + ", ".join(f"{k}={v}" for k, v in sorted(ceiling_rules.items()))
+        )
     if output_path is not None:
         print(f"  output          : {output_path}")
+
+    # W-45: the laws the run could never have reached, printed beside the
+    # verdicts rather than as one of them. ``.get`` because it is a sibling of
+    # ``partitions``, not a bucket in it, and a saved pre-W-45 partition JSON
+    # replayed through this renderer has no such key.
+    no_consolidation = report.get("unverifiable", {}).get("no_stored_consolidation")
+    if no_consolidation:
+        print(
+            f"  unverifiable    : no_stored_consolidation={no_consolidation['total']} "
+            f"(would-be candidates={no_consolidation['would_be_candidates']}, "
+            f"substantive unexplained={no_consolidation['substantive_unexplained']})"
+        )
+        print(
+            "  ...by family    : "
+            + ", ".join(f"{k}={v}" for k, v in sorted(no_consolidation["by_family"].items()))
+        )
 
     partitions = report["partitions"]
     for key, label in [
         ("replay_defect", "Replay Defects"),
         ("untouched_drift", "Untouched Drift"),
         ("source_sparse", "Sparse Source Cases"),
+        ("annex_ceiling", "Annexed-Instrument Ceiling"),
         ("consistent", "Consistent"),
         ("error", "Errors"),
     ]:
@@ -71,7 +106,15 @@ def main(args: "argparse.Namespace") -> None:
         for item in items:
             tail = f" | source_signal={item['source_signal']}" if item["source_signal"] else ""
             err = f" | error={item['error']}" if item["error"] else ""
+            # Only the laws with an annexed-instrument ceiling grow a column;
+            # every other row is byte-identical to the pre-W-17 rendering.
+            ceiling = (
+                f" | ceiling={item['ceiling_divergence_count']}"
+                f" | unexplained={item['unexplained_divergence_count']}"
+                if item.get("ceiling_divergence_count")
+                else ""
+            )
             print(
-                f"    {item['base_id']} | divergences={item['divergence_count']} | "
+                f"    {item['base_id']} | divergences={item['divergence_count']}{ceiling} | "
                 f"ops={item['replay_op_count']}{tail}{err}"
             )

@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+import pytest
+
+from lawvm.corpus_store import _archive_is_populated
+
 from tests.corpus_pin_helpers import pinned_replay
 from lawvm.finland.johtolause.api import parse_clause
 from lawvm.finland.johtolause.surface_model import (
@@ -9,6 +15,14 @@ from lawvm.finland.johtolause.surface_model import (
     VerbKind,
 )
 from lawvm.tools.inspect_amendment import build_amendment_bundle
+
+
+_requires_corpus = pytest.mark.skipif(
+    not _archive_is_populated(
+        Path(__file__).resolve().parents[1] / "data" / "finlex.farchive"
+    ),
+    reason="Finland corpus is not populated",
+)
 
 
 def test_parse_clause_handles_qualified_jolloin_chapter_renumber() -> None:
@@ -36,6 +50,7 @@ def test_parse_clause_handles_qualified_jolloin_chapter_renumber() -> None:
     assert tail.new_label == "9"
 
 
+@_requires_corpus
 def test_1990_811_compiles_the_qualified_jolloin_chapter_renumber() -> None:
     bundle = build_amendment_bundle("1978/38", "1990/811", "legal_pit")
     compiled_ops = bundle["compiled_ops"]
@@ -44,6 +59,7 @@ def test_1990_811_compiles_the_qualified_jolloin_chapter_renumber() -> None:
     assert "INSERT 8 luku" in compiled_ops
 
 
+@_requires_corpus
 def test_2007_349_compiles_siirtaa_current_section_renumber_tail() -> None:
     bundle = build_amendment_bundle("2007/349", "2010/322", "legal_pit")
     compiled_ops = bundle["compiled_ops"]
@@ -52,6 +68,7 @@ def test_2007_349_compiles_siirtaa_current_section_renumber_tail() -> None:
     assert "RENUMBER 8 luku 64 §" in compiled_ops
 
 
+@_requires_corpus
 def test_1978_38_preserves_shifted_old_chapter_9_after_1990_811() -> None:
     state = pinned_replay("1978/38", mode="legal_pit", stop_before="1994/16", quiet=True)
     chapter_labels = [
@@ -83,6 +100,7 @@ def _chapter_section_labels(ir, chapter_label: str) -> tuple[str, list[str]]:
     raise AssertionError(f"chapter {chapter_label!r} not found")
 
 
+@_requires_corpus
 def test_1978_38_consumer_credit_chapter_7_not_mislabelled_as_12() -> None:
     # Regression: chapter 7 ("Kuluttajaluotot") was fully replaced by 2010/746
     # ("muutetaan ... 7 luku"). The label 7 had earlier been vacated by a

@@ -1,0 +1,179 @@
+{
+  "schemaVersion": 1,
+  "id": "03-commencement-execution-authorization",
+  "slug": "commencement-execution-authorization",
+  "title": "Authorize whole-act Lovtidend commencement instruments to re-date unresolved amendment acts",
+  "classification": "confirmed",
+  "source": {
+    "path": "notes/NORWAY_VERIFY_FINDINGS_LEDGER.md",
+    "sections": [
+      "W-7 (active, tranche 1 done 2026-07-31)",
+      "F-03 — Mixed dateInForce"
+    ]
+  },
+  "branch": "audun/norway-receipt-spine",
+  "productBaseline": "a6d92016646a34bffb310299eaf0fa712ff67667",
+  "dependsOn": [],
+  "recommendedAfter": ["02-declared-target-binding-coverage"],
+  "objective": "Build the typed execution-authorization validator of NORWAY_LAWVM_STATUS.md section 7 item 4: a whole-act, single-date Lovtidend commencement instrument whose basedOn cites an unresolved amendment act re-dates that act through a new typed effective status, with a receipt per authorization and a typed refusal for every candidate that fails the gate. Exactly 520 acts authorize, 38 blocked laws become replayable, the scan candidate set grows 20 to 58, and the original 20 scan rows stay byte-identical. READ notes/norway-batches/contracts/03-commencement-execution-authorization.brief.md IN FULL BEFORE ACTING — it carries the binding detail for every item below.",
+  "preflightChecks": [
+    "data/norway.farchive contains exactly 35955 no://forskrift/ locators.",
+    "Index commencement coverage partitions as 35955 = 608 + 33590 + 1757.",
+    "whole_act needs one operative block fully matching the whole-act regex and one date.",
+    "index.commencement_instruments holds 2365 items: 608 whole_act, 1757 unresolved scope.",
+    "NOCommencementInstrumentCandidate.to_dict writes the literal False for replay_authorized.",
+    "NOCommencementInstrumentCandidate.from_dict never reads replay_authorized.",
+    "_law_ids emits no/lov date-number ids; the index keys the same acts as no/lovtid.",
+    "no/forskrift/2012-01-27-71 is a whole_act candidate dated 2012-03-01 citing no/lov/2012-01-27-9.",
+    "The index holds no/lovtid/2012-01-27-9 as contingent with raw dateInForce Kongen bestemmer.",
+    "scripts/probes/no_w7_unlock_landscape.py reports 520 authorizable acts, 0 conflicts, 38 flips.",
+    "NOEffectiveStatus has six members; the resolved set is dated, immediate, override.",
+    "NOEffectiveStatus.OVERRIDE is assigned only by apply_no_commencement_overrides.",
+    "replay.py blocks only on the status strings contingent, missing, and unknown.",
+    "replay.py applies any entry outside those statuses that carries an effective_date.",
+    "no_base_replay_status_from_statuses blocks only on CONTINGENT, UNKNOWN, and MISSING.",
+    "no-verify-scan --as-of 2026-07-10 --limit 200 reports candidate_count 20 and 12/8/0.",
+    "All four no_lovtidend_ rule ids have _NO_RULE_SPECS entries.",
+    "tests/test_spec_ledger_no_catalog.py runs on shard tools_cli_debug.",
+    "No commencement instrument cites no/lov/2026-06-19-48.",
+    "test_shard.sh affected for the six required paths reports norway and tools_cli_debug."
+  ],
+  "scope": {
+    "boundary": [
+      "src/lawvm/norway/sources.py",
+      "src/lawvm/norway/commencement_instruments.py",
+      "src/lawvm/norway/index.py",
+      "src/lawvm/norway/replay.py",
+      "src/lawvm/norway/commencement.py",
+      "src/lawvm/norway/inventory.py",
+      "src/lawvm/norway/verify.py",
+      "src/lawvm/tools/spec_ledger_no_catalog.py",
+      "tests/test_norway_index.py",
+      "tests/test_norway_commencement_instruments.py",
+      "tests/test_norway_commencement.py",
+      "tests/test_norway_replay.py",
+      "tests/test_norway_inventory.py",
+      "tests/test_no_commencement_candidates.py"
+    ],
+    "allowedPaths": [
+      "src/lawvm/norway/sources.py",
+      "src/lawvm/norway/commencement_instruments.py",
+      "src/lawvm/norway/index.py",
+      "src/lawvm/tools/spec_ledger_no_catalog.py",
+      "tests/test_norway_index.py",
+      "tests/test_norway_commencement_instruments.py"
+    ],
+    "requiredChangedPaths": [
+      "src/lawvm/norway/sources.py",
+      "src/lawvm/norway/commencement_instruments.py",
+      "src/lawvm/norway/index.py",
+      "src/lawvm/tools/spec_ledger_no_catalog.py",
+      "tests/test_norway_index.py",
+      "tests/test_norway_commencement_instruments.py"
+    ],
+    "requiredAddedPaths": [],
+    "requiredDeletedPaths": []
+  },
+  "requirements": [
+    "READ notes/norway-batches/contracts/03-commencement-execution-authorization.brief.md IN FULL BEFORE ACTING — it carries the binding detail for every item below.",
+    "Build the validator over ALREADY-PARSED NOCommencementInstrumentCandidate values. It must not re-parse instrument XML or relax any parse classification.",
+    "The authorization gate, all conjuncts mandatory: parse status CANDIDATE, scope whole_act, exactly one effective date, and a basedOn law id that aliases (no/lov/D-N to no/lovtid/D-N) to an amendment act whose effective_status is in NO_UNRESOLVED_EFFECTIVE_STATUSES. A cited law id that aliases to no unresolved act authorizes nothing — that is the enabling-statute filter, not an error.",
+    "Conflict gate: two instruments authorizing the same act with different dates refuse BOTH with a typed conflict receipt. The corpus measures zero conflicts today; the gate and its test must exist anyway.",
+    "An authorized act gets a NEW NOEffectiveStatus member (name yours), distinct from DATED and from OVERRIDE, added to NO_RESOLVED_EFFECTIVE_STATUSES, with effective_date set to the instrument's single date.",
+    "Every authorization emits a queryable typed receipt naming the instrument source_id, the act source_id, and the date. Every gate refusal for an instrument that cites an unresolved act emits a typed refusal receipt naming the failed conjunct.",
+    "Authorization runs inside build_no_amendment_index so every downstream consumer — inventory, scan, replay, commencement reports — sees the same statuses. No consumer-side patching.",
+    "replay_authorized becomes a real round-tripping field: to_dict serializes the actual value, from_dict reads it with default False, and only validator-passed candidates carry True.",
+    "Every new rule id gets a _NO_RULE_SPECS catalog entry in the sibling voice.",
+    "Reconcile in tests: exactly 520 acts authorized, 0 conflicts, scan candidate set exactly 58; assert the counts, do not tune them.",
+    "Test at minimum: no/lovtid/2012-01-27-9 authorized at 2012-03-01 by no/forskrift/2012-01-27-71; a non-whole-act candidate refused; a multi-date instrument refused; a synthetic conflict refusing both instruments; an instrument citing only ids that alias to no unresolved act authorizing nothing; replay_authorized round-trip through to_dict/from_dict; an already-dated act never re-dated."
+  ],
+  "invariants": [
+    "Only acts whose effective_status is in NO_UNRESOLVED_EFFECTIVE_STATUSES can change status; DATED, IMMEDIATE, and OVERRIDE entries are untouched.",
+    "The manual override sidecar (apply_no_commencement_overrides) keeps its semantics and still overrides an instrument-authorized status when both exist.",
+    "The instrument coverage partition stays 35955 = 608 + 33590 + 1757; the validator classifies candidates, it never reclassifies parses.",
+    "base_ids, n_ops, and op content unchanged on every entry — this batch re-dates acts, it binds nothing.",
+    "The original 20 scan rows at as-of 2026-07-10 stay byte-identical: 12 consistent / 8 divergent / 0 error.",
+    "Candidates that fail the gate keep replay_authorized False, provably through serialization.",
+    "Existing diagnostics keep their rule ids, blocking flags, and dispositions; blocked and benign instruments emit residuals exactly as before.",
+    "Every no_ rule id emitted under src/lawvm/norway/ has a _NO_RULE_SPECS entry.",
+    "The norway and tools_cli_debug shards pass."
+  ],
+  "exclusions": [
+    "Partial or provision-level commencement: the 1757 blocked-unresolved instruments stay blocked evidence. This is section 7 item 4's LATER phase.",
+    "Multi-date whole-act instruments (the ~200 two-date and rarer shapes): refused with receipts, never split or interpreted.",
+    "W-5 / F-03's mixed 'DATE, Kongen bestemmer' demotion: do not touch parse_no_effective_date or the dated classification of mixed fields.",
+    "Binding recovery (F-10): no declared or extracted target newly binds.",
+    "The manual override sidecar's file format, validation, or CLI.",
+    "The statsrad and local_corpus evidence lanes.",
+    "Ledger and progress updates: the human apply step."
+  ],
+  "stopConditions": [
+    "The authorized-act count at build is not exactly 520: stop, record the delta and the differing acts. Do not tune the gate to hit the number.",
+    "Any of the original 20 scan rows moves at as-of 2026-07-10: stop — authorization leaked into laws that were already replayable.",
+    "A real same-act different-date conflict surfaces in the corpus (measured zero): stop and record it; the gate then has a live case and the contract's zero-conflict claim is stale.",
+    "An existing serialized index fails from_dict after the new status member: stop; silent migration is out of scope."
+  ],
+  "reviewFocus": [
+    "READ notes/norway-batches/contracts/03-commencement-execution-authorization.brief.md IN FULL BEFORE ACTING — judge the patch against it, not against these summaries.",
+    "Authorization creep is the central risk. Confirm the gate is conjunctive and closed: nothing outside CANDIDATE + whole_act + single-date + unresolved-act alias authorizes, including fallback branches, and no partial or multi-date instrument leaks through.",
+    "Confirm the enabling-statute filter works by construction: an instrument commencing a forskrift cites its hjemmel statutes in basedOn, and those must authorize nothing because they alias to no unresolved amendment act.",
+    "Confirm the new status is in NO_RESOLVED_EFFECTIVE_STATUSES and flows through replay.py, no_base_replay_status_from_statuses, inventory, and the commencement report lanes without any of those files special-casing it — if one needed patching, the design leaked.",
+    "Confirm OVERRIDE precedence: an act with both a manual override and an instrument ends OVERRIDE.",
+    "Confirm receipts are total: 520 authorizations each named, and every whole-act candidate citing an unresolved act that was NOT authorized carries a refusal receipt naming the conjunct that failed.",
+    "Confirm replay_authorized round-trips and that a hand-built dict without the key still deserializes False.",
+    "Confirm the 520 / 0 / 58 numbers are asserted against the real corpus, not against a fixture that cannot fail."
+  ],
+  "verification": {
+    "targeted": [
+      {
+        "id": "static",
+        "command": "uv run ruff check src/lawvm/norway/sources.py src/lawvm/norway/commencement_instruments.py src/lawvm/norway/index.py src/lawvm/tools/spec_ledger_no_catalog.py tests/test_norway_index.py tests/test_norway_commencement_instruments.py --no-fix",
+        "group": "static",
+        "required": true
+      },
+      {
+        "id": "types",
+        "command": "uv run ty check src/lawvm/norway/sources.py src/lawvm/norway/commencement_instruments.py src/lawvm/norway/index.py src/lawvm/tools/spec_ledger_no_catalog.py tests/test_norway_index.py tests/test_norway_commencement_instruments.py",
+        "group": "static",
+        "required": true
+      },
+      {
+        "id": "instrument-tests",
+        "command": "./scripts/test_shard.sh run norway -- tests/test_norway_commencement_instruments.py tests/test_norway_index.py",
+        "group": "tests",
+        "required": true
+      },
+      {
+        "id": "norway-shard",
+        "command": "./scripts/test_shard.sh run norway",
+        "group": "tests",
+        "required": true
+      },
+      {
+        "id": "spec-catalog-guard",
+        "command": "./scripts/test_shard.sh run tools_cli_debug -- tests/test_spec_ledger_no_catalog.py",
+        "group": "tests",
+        "required": true
+      }
+    ],
+    "full": [
+      {
+        "id": "ci-affected",
+        "command": "./scripts/ci.sh --affected src/lawvm/norway/sources.py src/lawvm/norway/commencement_instruments.py src/lawvm/norway/index.py src/lawvm/tools/spec_ledger_no_catalog.py tests/test_norway_index.py tests/test_norway_commencement_instruments.py",
+        "group": "ci",
+        "required": true
+      }
+    ]
+  },
+  "fieldVerification": {
+    "policy": "required-after-application",
+    "instructions": [
+      "uv run lawvm no-verify-scan --as-of 2026-07-10 --limit 200 — candidate_count MUST be 58 and the original 20 rows byte-identical at 12/8/0. Any movement in those 20: revert, do not accept.",
+      "Record the 38 new laws' verdicts as the new scoreboard baseline. Their verdicts are unknown ex ante — record, do not tune.",
+      "uv run python scripts/probes/no_w7_unlock_landscape.py — authorizable must drop to 0 remaining, blocked from 217 to 179, and the status counts must reconcile with exactly 520 authorized acts.",
+      "Spot-check one flipped law end-to-end: replay applies its previously-contingent amendment at the instrument's date, not the sanction date.",
+      "no/lov/2026-06-19-48's entry stays unauthorized (no instrument exists for it) — the F-03 act must not gain a date from this batch.",
+      "Update the ledger and see notes/norway-batches/contracts/03-commencement-execution-authorization.brief.md for the full list."
+    ]
+  }
+}

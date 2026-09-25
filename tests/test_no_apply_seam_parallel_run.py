@@ -50,7 +50,6 @@ from lawvm.replay_adjudication import CompileAdjudication
 from lawvm.norway.grafter import (
     apply_no_ops,
     apply_no_ops_conserved,
-    no_replay_write_receipts,
 )
 
 
@@ -246,22 +245,20 @@ def test_no_apply_seam_matches_conserved_wrapper_statute() -> None:
 
 def test_no_apply_seam_receipts_are_additive_and_satisfy_invariants() -> None:
     """ADDITIVE OUTPUT VALIDATION: the per-op ``WriteReceipt`` lane the seam
-    makes available (via ``no_replay_write_receipts``) satisfies the core
+    emits from the authoritative conserved fold satisfies the core
     receipt invariants — every receipt's bound→landed divergence is explained
     (``WriteReceipt.divergence_explained``), the declared footprint is
     non-empty, and the receipt count never exceeds the applied-op count. This is
     NOT compared against an old output (NO had no receipts before); it is
     validated against the ``core/write_receipt`` contract (design §4.1)."""
     for name, ops in _op_sets():
-        _final_statute, receipts = no_replay_write_receipts(_statute(), list(ops))
-        # NB: ``no_replay_write_receipts`` applies ops ONE AT A TIME to snapshot
-        # per-op before/after trees; its docstring documents (and the base
-        # behavior confirms) that the single-op fold is body-equal to the full
-        # ``apply_no_ops`` fold only when the replay does not branch on multi-op
-        # invariants. A renumber-vacate chain (5->6, 6->7) IS such an interlock,
-        # so we do NOT assert receipt-fold body equality here — that is a
-        # pre-existing property of the single-op receipt fold, orthogonal to the
-        # seam cutover. We validate the RECEIPT CONTRACT instead.
+        result = apply_no_ops_conserved(
+            _statute(),
+            list(ops),
+            strict_invariants=False,
+            emit_receipts=True,
+        )
+        receipts = result.write_receipts
         assert len(receipts) <= len(ops), f"{name}: more receipts than ops"
         for r in receipts:
             # Every receipt's bound→landed relation is replay-authorized (a

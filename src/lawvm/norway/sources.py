@@ -17,6 +17,7 @@ import os
 import re
 import tarfile
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Iterator, Optional, cast
@@ -33,7 +34,11 @@ from lawvm.core.filter_result import RejectedItem
 from lawvm.core.ir_helpers import kind_str
 from lawvm.core.source_lane import SourceLaneAttempt, SourceLaneSelectionEvidence
 from lawvm.core.xml_parse import parse_corpus_xml
-from lawvm.norway.grafter import lovdata_amendment_filename_to_id, lovdata_filename_to_id
+from lawvm.norway.grafter import (
+    lovdata_amendment_filename_to_id,
+    lovdata_filename_to_id,
+    normalize_lovdata_refid,
+)
 from lawvm.core.quirks_disposition import QuirksDisposition
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -44,6 +49,14 @@ ARCHIVE_SPAN_RE = re.compile(r"^lovtidend-avd1-(\d{4})(?:-(\d{4}))?\.tar\.bz2$")
 _NO_CURRENT_LOCATOR_RE = re.compile(r"^no://lov/(?P<date>\d{4}-\d{2}-\d{2}-\d+)/current\.xml$")
 _NO_ORIGINAL_LOCATOR_RE = re.compile(r"^no://lov/(?P<date>\d{4}-\d{2}-\d{2}-\d+)/original\.lti\.xml$")
 _NO_AMENDMENT_LOCATOR_RE = re.compile(r"^no://lovtid/(?P<date>\d{4}-\d{2}-\d{2}-\d+)/amendment\.xml$")
+_NO_FORSKRIFT_FILENAME_RE = re.compile(r"(?:^|/)sf-(?P<date>\d{8})-(?P<num>\d+)\.xml$")
+_NO_UNNUMBERED_LAW_ID_RE = re.compile(r"^no/lov/\d{4}-\d{2}-\d{2}$")
+_NO_CHANGES_TO_DOCUMENTS_XPATH = (
+    "//*[contains(concat(' ', normalize-space(@class), ' '), ' changesToDocuments ')]"
+)
+_NO_FORSKRIFT_LOCATOR_RE = re.compile(
+    r"^no://forskrift/(?P<date>\d{4}-\d{2}-\d{2}-\d+)/original\.lti\.xml$"
+)
 
 
 # §1.8 typed-receipt reason_code for archive members that declare more bytes
@@ -133,6 +146,38 @@ class NOEffectiveStatus(StrEnum):
     OVERRIDE = "override"
     """An explicit commencement override supplied the in-force date."""
 
+    INSTRUMENT_AUTHORIZED = "instrument_authorized"
+    """An official Norsk Lovtidend whole-act commencement instrument supplied
+    the in-force date. Distinct from ``DATED`` (metadata-derived, no instrument
+    in evidence) and from ``OVERRIDE`` (manually curated evidence) so a reader
+    of a serialized index can tell why the act carries a date."""
+
+    PART_INSTRUMENT_AUTHORIZED = "part_instrument_authorized"
+    """An official instrument commenced the ONE part of a staged multi-part act
+    that amends this base law (W-39).
+
+    Never an act-level status: it is issued per (act, base law) binding, because
+    that is exactly the scope the evidence covers. The act's own
+    ``effective_status`` stays whatever it was — usually ``contingent`` — since
+    the act's other parts are still uncommenced, and no single date could stand
+    for parts that commence years apart."""
+
+    SECTION_INSTRUMENT_AUTHORIZED = "section_instrument_authorized"
+    """W-100. Official instrument(s) dated this (act, base law) binding BELOW
+    binding level — a binding date with carve-outs, per-section dates, or both —
+    and every op of the act on this law resolves to a date through
+    ``NOAmendmentIndexEntry.effective_date_for_op``. Per binding, never
+    act-level, for W-39's reason. The binding's own ``effective_date`` may be
+    ``None`` when only sections were dated; consumers that need one date per op
+    must ask per op."""
+
+    SECTION_INSTRUMENT_PARTIAL = "section_instrument_partial"
+    """W-100. Instrument(s) dated SOME ops of this binding and not others: a
+    carved-out section still undated, or a section list that does not cover
+    every section the act's ops target. Unresolved at binding level — the base
+    law stays ``blocked_contingent`` — while replay still dates the ops it can
+    and skips the rest with a per-op receipt."""
+
     CONTINGENT = "contingent"
     """In force on a condition / future delegated commencement (unresolved)."""
 
@@ -146,10 +191,106 @@ class NOEffectiveStatus(StrEnum):
 # Statuses that count as a RESOLVED in-force date (replayable). The complement
 # (contingent/missing/unknown) blocks deterministic replay.
 NO_RESOLVED_EFFECTIVE_STATUSES: frozenset[NOEffectiveStatus] = frozenset(
-    {NOEffectiveStatus.DATED, NOEffectiveStatus.IMMEDIATE, NOEffectiveStatus.OVERRIDE}
+    {
+        NOEffectiveStatus.DATED,
+        NOEffectiveStatus.IMMEDIATE,
+        NOEffectiveStatus.OVERRIDE,
+        NOEffectiveStatus.INSTRUMENT_AUTHORIZED,
+        NOEffectiveStatus.PART_INSTRUMENT_AUTHORIZED,
+        NOEffectiveStatus.SECTION_INSTRUMENT_AUTHORIZED,
+    }
 )
 NO_UNRESOLVED_EFFECTIVE_STATUSES: frozenset[NOEffectiveStatus] = frozenset(
     {NOEffectiveStatus.CONTINGENT, NOEffectiveStatus.MISSING, NOEffectiveStatus.UNKNOWN}
+)
+# W-100. Binding-level statuses that classify a base law as blocked on a
+# contingent commencement even though some of the binding's ops are dated.
+NO_PARTIALLY_RESOLVED_EFFECTIVE_STATUSES: frozenset[NOEffectiveStatus] = frozenset(
+    {NOEffectiveStatus.SECTION_INSTRUMENT_PARTIAL}
+)
+
+
+class NOCommencementShape(StrEnum):
+    """Closed set of shapes a *resolved* ``dateInForce`` field can have.
+
+    Orthogonal to :class:`NOEffectiveStatus`, which says *how* the in-force date
+    was resolved. This says what the Lovdata metadata field the date came from
+    actually looked like — the distinction between "a date and nothing else" and
+    "a date plus a delegated-commencement tail". A ``StrEnum`` so it flows
+    through the serialized ``commencement_shape`` index field byte-for-byte
+    while the value set stays closed, which is the point: the shape must be
+    readable off a serialized index without re-parsing ``raw_date_in_force``.
+    """
+
+    PLAIN = "plain"
+    """The field carried ISO dates and no delegated-commencement language."""
+
+    STAGED_DELEGATED = "staged_delegated"
+    """The field carried at least one ISO date AND a delegated-commencement
+    tail (``Kongen bestemmer`` and its siblings).
+
+    That conjunction — dates plus a tail — is the whole guarantee. It is a
+    shape read off the raw field, not a claim about what the dates *do*: the
+    common member is Lovdata's way of writing STAGED commencement (part of the
+    act enters force at the stated date(s), the rest on a date the executive
+    later fixes), but the label does not certify that reading of every member.
+    ``no/lovtid/2024-06-21-50`` is the counterexample in the corpus — its
+    ``Kongen bestemmer, oppheves 2026-07-01`` puts the delegated tail beside a
+    REPEAL date, so its stated date takes force away rather than granting it.
+    A reader who needs the dates' direction must go to ``raw_date_in_force``.
+
+    This is emphatically NOT deferred commencement. Measured over the corpus,
+    Lovdata's own consolidation shows most such acts ARE in force at their
+    leading date, so the act stays resolved at ``min(dates)`` and stays inside
+    :data:`NO_RESOLVED_EFFECTIVE_STATUSES`. The shape is a label on a resolved
+    date, recording that the collapse to ``min(dates)`` threw away a staged tail
+    the engine cannot yet represent at provision level (see
+    ``notes/NORWAY_LAWVM_STATUS.md`` 2.3). Its operational use is that such an
+    act is offered to the commencement-instrument authorization gate: an
+    official whole-act instrument outranks a ``min(dates)`` metadata guess.
+    """
+
+
+def coerce_no_commencement_shape(value: object) -> NOCommencementShape:
+    """Coerce a stored/loaded value to a ``NOCommencementShape``, failing loud.
+
+    Used where ``commencement_shape`` re-enters from an untyped mapping
+    (mirrors ``lawvm.core.quirks_disposition.coerce_quirks_disposition``): an
+    unrecognized string is a registration gap, never a silently-carried label
+    outside the closed set.
+    """
+    if isinstance(value, NOCommencementShape):
+        return value
+    return NOCommencementShape(str(value))
+
+
+# Lovdata's delegated-commencement vocabulary in ``dateInForce``: the phrases
+# that say "the executive fixes the (rest of the) commencement date". Read on
+# the lowercased field, prefix-matched, so bokmål/nynorsk inflections of the
+# same phrase (``fastsetter`` / ``fastsetjer`` after ``fastset``) are covered by
+# one member.
+#
+# Which axis a marker lands on depends on whether the field ALSO carries a date:
+# with no date it is the whole in-force signal, so the act is CONTINGENT; beside
+# a date it is a staged tail, so the act stays DATED and is labelled
+# :attr:`NOCommencementShape.STAGED_DELEGATED`.
+#
+# ``departementet fastset`` and ``kongen avgjer`` are the nynorsk siblings of
+# ``departementet bestemmer`` / ``kongen bestemmer``; both were measured absent
+# and are the batch-04 widening. Their total corpus effect is three acts and
+# nothing else: ``no/lovtid/2016-06-17-56`` and ``no/lovtid/2021-04-23-23``
+# (bare ``Kongen avgjer``, previously UNKNOWN — an in-force signal the reader
+# could not interpret — now correctly CONTINGENT), and ``no/lovtid/2020-06-23-103``
+# (``departementet fastset`` beside three dates, previously an unremarked plain
+# DATED, now labelled STAGED_DELEGATED).
+NO_DELEGATED_COMMENCEMENT_MARKERS: tuple[str, ...] = (
+    "kongen bestemmer",
+    "kongen fastset",
+    "kongen avgjer",
+    "departementet bestemmer",
+    "departementet fastset",
+    "fastsettes ved lov",
+    "fra den tid",
 )
 
 
@@ -225,7 +366,11 @@ def no_base_replay_status_from_statuses(
     """
     if not statuses:
         return NOReplayStatus.NO_AMENDMENTS
-    if any(status == NOEffectiveStatus.CONTINGENT for status in statuses):
+    if any(
+        status == NOEffectiveStatus.CONTINGENT
+        or status in NO_PARTIALLY_RESOLVED_EFFECTIVE_STATUSES
+        for status in statuses
+    ):
         return NOReplayStatus.BLOCKED_CONTINGENT
     if any(status not in NO_RESOLVED_EFFECTIVE_STATUSES for status in statuses):
         return NOReplayStatus.BLOCKED_UNKNOWN
@@ -248,6 +393,9 @@ class NOBackfillLane(StrEnum):
 
     LOCAL_CORPUS = "local_corpus"
     """Only local_corpus candidates surfaced."""
+
+    LOVTIDEND_COMMENCEMENT_INSTRUMENT = "lovtidend_commencement_instrument"
+    """An official Lovtidend instrument cites the contingent amending law."""
 
     UNRESOLVED = "unresolved"
     """No candidate surfaced in any lane."""
@@ -274,6 +422,9 @@ class NOBackfillHintStatus(StrEnum):
     LOCAL_CORPUS_FIRST = "local_corpus_first"
     """Only local_corpus candidates surfaced — start there."""
 
+    LOVTIDEND_FIRST = "lovtidend_first"
+    """An official Lovtidend commencement candidate should be validated first."""
+
 
 class NOBackfillPlanStatus(StrEnum):
     """Closed set of per-source-plan-item states for a NO backfill plan.
@@ -298,6 +449,39 @@ class NOEffectiveDate:
     effective_status: NOEffectiveStatus
     effective_date: Optional[str] = None
     raw_text: str = ""
+    # The shape of the ``dateInForce`` field the status was read off, and how
+    # many ISO dates it held. ``date_count`` is carried here rather than
+    # recomputed downstream so the staged-commencement receipt can name the
+    # count of collapsed dates without re-parsing ``raw_text``.
+    commencement_shape: NOCommencementShape = NOCommencementShape.PLAIN
+    date_count: int = 0
+
+
+@dataclass(frozen=True)
+class NODeclaredChangeTargets:
+    """The amendment targets Lovdata declares on one act's ``changesToDocuments`` block.
+
+    Block presence is measured on the ``<dd class="changesToDocuments">`` element:
+    2,942 of the 3,089 amendment artifacts carry one and 147 carry none. Every
+    block present is non-empty, and 2,941 of them hold at least one ``lov``-form
+    target — ``no/lovtid/2021-06-18-115`` declares only ``forskrift/1952-04-21-4287``.
+
+    ``law_ids`` holds every declared ``lov`` reference normalized through
+    :func:`normalize_lovdata_refid`, deduplicated in document order; forskrift
+    references and the literal ``null`` normalize to nothing and never appear.
+    ``unnumbered_law_ids`` is the ``lov/<date>`` subset declared without a
+    trailing act number (109 declarations corpus-wide, e.g. ``lov/1967-02-10``).
+    That is the whole claim the field makes: the declaration carried no act
+    number. It is a label, not an unreachability verdict — 65 of the 92 such ids
+    the index reports unbound do name a corpus law, filed there under a
+    ``<date>-0`` id (``no/lov/1967-02-10`` is forvaltningsloven, present as
+    ``no/lov/1967-02-10-0``). They stay inside the measured gap; see
+    :func:`lawvm.norway.index._no_index_declared_target_unbound_diagnostic`.
+    """
+
+    block_present: bool = False
+    law_ids: tuple[str, ...] = ()
+    unnumbered_law_ids: tuple[str, ...] = ()
 
 
 def resolve_no_source_path(path: Path | None = None) -> Path:
@@ -337,6 +521,105 @@ def open_no_archive(db_path: Path | None = None, *, readonly: bool = True):  # r
     return Farchive(path, readonly=readonly)
 
 
+# Fallback consolidation horizon, used only when the source path carries no
+# observation metadata (legacy tar directory). Source: the `gjeldende-lover`
+# consolidation snapshot this corpus was captured from, recorded in
+# ``notes/NORWAY_VERIFY_FINDINGS_LEDGER.md`` section 1 and used there as the
+# commensurable comparison date behind every scan reading in the scoreboard.
+# The farchive derivation below independently reproduces this date, and
+# ``test_corpus_consolidation_snapshot_date_reproduces_the_fallback_constant``
+# asserts that reproduction against the installed corpus — that executable
+# check is what licenses this constant as the fallback rather than a second
+# guess, and it is what makes it rot loudly on a corpus re-capture.
+#
+# 2026-07-10 -> 2026-08-17 at W-86, the first re-capture this constant has
+# lived through, and the rot alarm fired exactly as designed. The derivation's
+# contract is the latest OBSERVATION instant over the ``current.xml`` family,
+# and on the restored corpus every one of the 758 spans was confirmed
+# 2026-08-17 (the restoration ingest, item 91) — three days after the
+# capture's own Lovdata generation date (`gjeldende-lover` lastModified
+# 2026-08-14T01:31Z). The charter posed moving to 2026-08-14; measurement
+# corrected it: the constant follows the derivation, not the tarball label.
+# The three-day gap is observationally inert on this corpus — no act or
+# instrument carries an effective date in (2026-08-14, 2026-08-17] (measured
+# zero at W-86), and the full scan at --as-of 2026-08-17 is row-for-row
+# byte-identical to the pinned --as-of 2026-08-14 scoreboard reading
+# (``.tmp/w86/scan_0814.json`` vs ``scan_0817.json``). Scoreboard rows keep
+# reading --as-of 2026-08-14, the snapshot-commensurable horizon.
+NO_FALLBACK_CONSOLIDATION_SNAPSHOT_DATE: str = "2026-08-17"
+
+
+class NOConsolidationSnapshotError(ValueError):
+    """An farchive Norway source carries no consolidated ``current.xml`` observation."""
+
+
+def no_consolidation_snapshot_date(source_path: Path | None = None) -> str:
+    """Return the ISO date of the consolidated snapshot the corpus carries.
+
+    Replay is compared against the ``current.xml`` consolidated artifacts, and
+    an farchive records when each artifact was observed. The latest observation
+    over that family therefore *is* the consolidation horizon: a comparison at
+    or after this date is commensurable with the snapshot, one before it is not
+    — laws then read as defective purely because an amendment took effect in
+    the gap (finding F-01 in ``notes/NORWAY_VERIFY_FINDINGS_LEDGER.md``).
+
+    The instant read is :attr:`~farchive.StateSpan.last_confirmed_at`, not
+    ``observed_from``. farchive's ``store`` branches on digest identity: content
+    identical to the locator's head EXTENDS the open span — bumping
+    ``last_confirmed_at`` and ``observation_count`` while leaving
+    ``observed_from`` at the instant that content first appeared. Only
+    ``last_confirmed_at`` therefore answers "when did the crawl last see this
+    consolidation", which is the horizon; ``observed_from`` would freeze the
+    answer at the last content *change* and re-open F-01 after any change-free
+    re-crawl. The two coincide on today's corpus (every ``current.xml`` span has
+    ``observation_count == 1``), so the distinction is latent, not academic.
+
+    Only the newest span per locator is read, via :meth:`~farchive.Farchive.resolve`.
+    A locator keeps exactly one open span, and a digest change closes the old
+    span at the same instant the new one opens with that instant as its
+    ``last_confirmed_at`` — so the open span's ``last_confirmed_at`` is
+    monotonically the locator's maximum, and the closed spans behind it cannot
+    beat it. This is one indexed single-row query per locator instead of
+    materializing every locator's whole history.
+
+    Observation instants are stored UTC and read as UTC, so the answer does not
+    move with the reader's timezone. Falls back to
+    :data:`NO_FALLBACK_CONSOLIDATION_SNAPSHOT_DATE` only for a legacy tar
+    directory, which records no observation instant at all. An farchive holding
+    no consolidated artifact is a corrupt or mis-populated corpus, not a legacy
+    one, and raises :class:`NOConsolidationSnapshotError` rather than borrowing
+    the legacy constant — a silent share would make the two indistinguishable.
+    """
+    source_path = resolve_no_source_path(source_path)
+    if not is_no_farchive_path(source_path) or not source_path.exists():
+        return NO_FALLBACK_CONSOLIDATION_SNAPSHOT_DATE
+    latest: datetime | None = None
+    archive = open_no_archive(source_path)
+    try:
+        for locator in archive.locators("no://lov/%/current.xml"):
+            span = archive.resolve(locator)
+            # ``locators()`` lists only locators that own a span, and a locator
+            # always retains exactly one open span, so this is never None on a
+            # well-formed archive; the guard is for the type checker.
+            if span is not None and (latest is None or span.last_confirmed_at > latest):
+                latest = span.last_confirmed_at
+    finally:
+        archive.close()
+    if latest is None:
+        raise NOConsolidationSnapshotError(
+            f"Norway farchive {source_path} records no consolidated snapshot "
+            "observation, so the scan's comparison horizon cannot be derived. "
+            "Expected: at least one `no://lov/%/current.xml` artifact carrying "
+            "an observation instant. Found: none. Fix: re-ingest the "
+            "`gjeldende-lover` consolidation into this archive with "
+            "`uv run lawvm no-ingest`, or point LAWVM_NORWAY_DB at a populated "
+            "corpus. Do not substitute NO_FALLBACK_CONSOLIDATION_SNAPSHOT_DATE "
+            "here — that constant documents a legacy tar directory, and reusing "
+            "it would make a mis-populated archive read as a legitimate one."
+        )
+    return latest.astimezone(timezone.utc).date().isoformat()
+
+
 def no_current_locator(base_id: str) -> str:
     return f"no://lov/{base_id.removeprefix('no/lov/')}/current.xml"
 
@@ -347,6 +630,29 @@ def no_original_locator(base_id: str) -> str:
 
 def no_amendment_locator(source_id: str) -> str:
     return f"no://lovtid/{source_id.removeprefix('no/lovtid/')}/amendment.xml"
+
+
+def no_forskrift_id_from_filename(member_name: str) -> str | None:
+    # lawvm-regex: owning_parser derives the forskrift id from its archive member filename
+    match = _NO_FORSKRIFT_FILENAME_RE.search(member_name)
+    if not match:
+        return None
+    raw_date = match.group("date")
+    return (
+        f"no/forskrift/{raw_date[:4]}-{raw_date[4:6]}-{raw_date[6:8]}-"
+        f"{int(match.group('num'))}"
+    )
+
+
+def no_forskrift_locator(source_id: str) -> str:
+    return f"no://forskrift/{source_id.removeprefix('no/forskrift/')}/original.lti.xml"
+
+
+def no_forskrift_id_from_locator(locator: str) -> str | None:
+    match = _NO_FORSKRIFT_LOCATOR_RE.fullmatch(locator.strip())
+    if not match:
+        return None
+    return f"no/forskrift/{match.group('date')}"
 
 
 def no_base_id_from_current_locator(locator: str) -> str | None:
@@ -387,7 +693,7 @@ def repair_mojibake(text: str) -> str:
     return repaired
 
 
-def parse_header_value(html_bytes: bytes, dd_class: str) -> str:
+def _parse_no_header_root(html_bytes: bytes) -> etree._Element:
     root = None
     try:
         root = parse_corpus_xml(html_bytes, recover=True)
@@ -396,6 +702,11 @@ def parse_header_value(html_bytes: bytes, dd_class: str) -> str:
     if root is None:
         parser = etree.HTMLParser(recover=True)
         root = etree.fromstring(html_bytes, parser=parser)
+    return root
+
+
+def parse_header_value(html_bytes: bytes, dd_class: str) -> str:
+    root = _parse_no_header_root(html_bytes)
     values = root.xpath(
         f"string(//dd[contains(concat(' ', normalize-space(@class), ' '), ' {dd_class} ')][1])"
     )
@@ -403,29 +714,80 @@ def parse_header_value(html_bytes: bytes, dd_class: str) -> str:
     return repair_mojibake(normalized)
 
 
+def declared_change_targets_from_root(root: etree._Element) -> NODeclaredChangeTargets:
+    """Read the amendment targets Lovdata declares on a parsed act.
+
+    The single reader of the ``changesToDocuments`` block: the grafter takes its
+    sole-declared-ref ``default_base_id`` from it, the index its declared-target
+    denominator. It reads the ``<li>`` elements, never
+    :func:`parse_header_value` — that helper's XPath ``string()`` flattening
+    concatenates the declared ids into one separator-free token.
+    """
+    block_present = False
+    law_ids: list[str] = []
+    for element in cast(list[etree._Element], root.xpath(_NO_CHANGES_TO_DOCUMENTS_XPATH)):
+        if etree.QName(element).localname == "dd":
+            block_present = True
+        law_ids.extend(
+            ref
+            for ref in (
+                normalize_lovdata_refid(
+                    " ".join("".join(str(part) for part in li.itertext()).split())
+                )
+                for li in cast(list[etree._Element], element.xpath(".//li"))
+            )
+            if ref is not None
+        )
+    ordered = tuple(dict.fromkeys(law_ids))
+    return NODeclaredChangeTargets(
+        block_present=block_present,
+        law_ids=ordered,
+        unnumbered_law_ids=tuple(
+            # lawvm-regex: owning_parser shape-tests an id for the unnumbered no/lov/<date> form
+            law_id for law_id in ordered if _NO_UNNUMBERED_LAW_ID_RE.match(law_id)
+        ),
+    )
+
+
+def declared_change_targets_from_amendment(html_bytes: bytes) -> NODeclaredChangeTargets:
+    """Read the declared amendment targets from raw Lovdata amendment bytes."""
+    return declared_change_targets_from_root(_parse_no_header_root(html_bytes))
+
+
 def effective_date_from_amendment(html_bytes: bytes, source_date: str = "") -> NOEffectiveDate:
+    """Classify one act's ``dateInForce`` metadata field.
+
+    The field is read on two axes, not one. :class:`NOEffectiveStatus` answers
+    "is there a resolved date, and where did it come from"; ``date_count`` and
+    :class:`NOCommencementShape` answer "what did the field say". A field with
+    no ISO date and delegated-commencement language is CONTINGENT — nothing is
+    resolved. A field carrying BOTH is not: Lovdata writes staged commencement
+    that way, and the corpus shows the leading date is real. Such an act stays
+    DATED at ``min(dates)`` and is merely labelled ``STAGED_DELEGATED``, so the
+    collapse is queryable instead of silent.
+    """
     raw = parse_header_value(html_bytes, "dateInForce")
     dates = ISO_DATE_RE.findall(raw)
+    lowered = raw.lower()
+    delegated = any(marker in lowered for marker in NO_DELEGATED_COMMENCEMENT_MARKERS)
     if not dates:
-        lowered = raw.lower()
         if not raw:
             return NOEffectiveDate(effective_status=NOEffectiveStatus.MISSING, raw_text="")
         if "straks" in lowered and source_date:
             return NOEffectiveDate(
                 effective_status=NOEffectiveStatus.IMMEDIATE, effective_date=source_date, raw_text=raw
             )
-        contingent_markers = (
-            "kongen bestemmer",
-            "kongen fastset",
-            "departementet bestemmer",
-            "fastsettes ved lov",
-            "fra den tid",
-        )
-        if any(marker in lowered for marker in contingent_markers):
+        if delegated:
             return NOEffectiveDate(effective_status=NOEffectiveStatus.CONTINGENT, raw_text=raw)
         return NOEffectiveDate(effective_status=NOEffectiveStatus.UNKNOWN, raw_text=raw)
     return NOEffectiveDate(
-        effective_status=NOEffectiveStatus.DATED, effective_date=min(dates), raw_text=raw
+        effective_status=NOEffectiveStatus.DATED,
+        effective_date=min(dates),
+        raw_text=raw,
+        commencement_shape=(
+            NOCommencementShape.STAGED_DELEGATED if delegated else NOCommencementShape.PLAIN
+        ),
+        date_count=len(dates),
     )
 
 
@@ -544,13 +906,27 @@ def _iter_amendment_artifacts_from_dir(data_dir: Path) -> Iterator[NOLocatedArti
         )
 
 
+def _iter_forskrift_artifacts_from_dir(data_dir: Path) -> Iterator[NOLocatedArtifact]:
+    for _base_id, _source_id, archive_name, member_name, payload in _iter_lovtidend_members_from_dir(data_dir):
+        source_id = no_forskrift_id_from_filename(member_name)
+        if source_id is None:
+            continue
+        yield NOLocatedArtifact(
+            locator=no_forskrift_locator(source_id),
+            logical_id=source_id,
+            source_name=archive_name,
+            member_name=member_name,
+            payload=payload,
+        )
+
+
 def iter_no_unmapped_lovtidend_xml_members(source_path: Path | None = None) -> Iterator[NOLocatedArtifact]:
     """Yield Lovtidend XML members whose filename cannot be mapped to a legal source id."""
     source_path = resolve_no_source_path(source_path)
     if is_no_farchive_path(source_path):
         return
     for base_id, source_id, archive_name, member_name, payload in _iter_lovtidend_members_from_dir(source_path):
-        if base_id is not None or source_id is not None:
+        if base_id is not None or source_id is not None or no_forskrift_id_from_filename(member_name) is not None:
             continue
         yield NOLocatedArtifact(
             locator="",
@@ -659,6 +1035,18 @@ def iter_no_amendment_artifacts(source_path: Path | None = None) -> Iterator[NOL
         )
         return
     yield from _iter_amendment_artifacts_from_dir(source_path)
+
+
+def iter_no_forskrift_artifacts(source_path: Path | None = None) -> Iterator[NOLocatedArtifact]:
+    source_path = resolve_no_source_path(source_path)
+    if is_no_farchive_path(source_path):
+        yield from _iter_artifacts_from_farchive(
+            source_path,
+            pattern="no://forskrift/%/original.lti.xml",
+            id_from_locator=no_forskrift_id_from_locator,
+        )
+        return
+    yield from _iter_forskrift_artifacts_from_dir(source_path)
 
 
 def load_no_current_bytes(base_id: str, source_path: Path | None = None) -> bytes | None:
@@ -983,6 +1371,7 @@ def ingest_no_public_archives(
         "current_locators_stored": 0,
         "original_locators_stored": 0,
         "amendment_locators_stored": 0,
+        "forskrift_locators_stored": 0,
         "skipped_existing": 0,
         "skipped_existing_entries": skipped_existing_entries,
         "skipped_unmapped": 0,
@@ -1124,6 +1513,29 @@ def ingest_no_public_archives(
                 metadata={"source_name": artifact.source_name, "member_name": artifact.member_name, "kind": "amendment"},
             )
             report["amendment_locators_stored"] += 1
+        for artifact in _iter_forskrift_artifacts_from_dir(source_dir):
+            if skip_existing and archive.has(artifact.locator):
+                _record_skipped_existing(artifact, kind="forskrift")
+                continue
+            if archive.has(artifact.locator):
+                _record_duplicate_locator(
+                    artifact,
+                    kind="forskrift",
+                    existing_payload=archive.get(artifact.locator) or b"",
+                )
+                continue
+            archive.store(
+                artifact.locator,
+                artifact.payload,
+                storage_class="xml",
+                metadata={
+                    "source_name": artifact.source_name,
+                    "member_name": artifact.member_name,
+                    "kind": "forskrift",
+                    "replay_authorized": False,
+                },
+            )
+            report["forskrift_locators_stored"] += 1
     finally:
         archive.close()
     return report

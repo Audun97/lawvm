@@ -37,6 +37,65 @@ _NON_RULE_LITERALS = frozenset(
         "no_affecting_act:",  # EV-05 per-instance authorization_rule_id f-string prefix
         #                       (grafter.py f"no_affecting_act:{statute_id}"); the rule
         #                       FAMILY no_affecting_act_authorizes_apply IS cataloged.
+        "no_ledd_set_relabel",  # W-66 PROVENANCE TAG stamped on the sibling-set relabel's
+        #                         ops (grafter.py NO_LEDD_SET_RELABEL_PROVENANCE_TAG). It is
+        #                         how the apply seam recognises its own ops — a carrier
+        #                         mark, not a hypothesis a replay could falsify. The rule it
+        #                         gates (no_replay_ledd_set_relabel_occupied_destination_
+        #                         refused) IS cataloged.
+        "no_item_insert_payload",  # W-77 PROVENANCE TAG stamped on the item-depth newness
+        #                            payload production's INSERT ops (grafter.py
+        #                            NO_ITEM_INSERT_PAYLOAD_PROVENANCE_TAG). It is how the
+        #                            apply seam recognises its own ops and refuses an
+        #                            occupied target instead of taking the shipped
+        #                            (INSERT, target_occupied) recovery — a carrier mark,
+        #                            not a hypothesis a replay could falsify. The rule it
+        #                            gates (no_replay_item_insert_payload_occupied_target_
+        #                            refused) IS cataloged.
+        "no_addressed_substitution",  # W-69a PROVENANCE TAG stamped on the addressed
+        #                               word-substitution production's TEXT_PATCH ops
+        #                               (grafter.py NO_SUBSTITUTION_PROVENANCE_TAG). It is
+        #                               how the apply seam recognises its own ops and
+        #                               recovers one announcement's FROM-term set — a
+        #                               carrier mark, not a hypothesis a replay could
+        #                               falsify. The rule it gates
+        #                               (no_replay_substitution_term_not_uniquely_present)
+        #                               IS cataloged.
+        "no_chapter_reenactment",  # W-98 PROVENANCE TAG stamped on the CHAPTER op a
+        #                            "Kapittel N skal lyde:" / "Nytt kapittel N skal lyde:"
+        #                            lead mints (grafter.py NO_CHAPTER_REENACTMENT_
+        #                            PROVENANCE_TAG). A carrier mark; the rules it gates
+        #                            (no_replay_chapter_reenactment_uncarried_sections_
+        #                            refused, no_replay_reenactment_insert_occupied_
+        #                            target_refused) ARE cataloged.
+        "no_chapter_heading",  # W-98 PROVENANCE TAG on the heading-only CHAPTER op an
+        #                        "Overskriften til kapittel N skal lyde:" lead mints
+        #                        (grafter.py NO_CHAPTER_HEADING_PROVENANCE_TAG). Census
+        #                        visibility only — the heading-only merge is keyed on the
+        #                        payload shape, not on the tag.
+        "no_ledd_repeal_reenact",  # W-98 PROVENANCE TAG on every op the compound
+        #                            "§ X <ord> ledd oppheves. Nytt <ord> ledd … skal
+        #                            lyde:" lead mints (grafter.py NO_LEDD_REPEAL_REENACT_
+        #                            PROVENANCE_TAG). A carrier mark; the rule it gates
+        #                            (no_replay_reenactment_insert_occupied_target_
+        #                            refused) IS cataloged.
+        "no_item_payload_single_text_article",  # W-98 PROVENANCE TAG on an item REPLACE
+        #                                         whose payload was read off the ONE
+        #                                         legalP after a single-item lead
+        #                                         (grafter.py NO_ITEM_PAYLOAD_SINGLE_TEXT_
+        #                                         ARTICLE_PROVENANCE_TAG). Census
+        #                                         visibility only.
+        "no_new_chapter_section",  # W-101 PROVENANCE TAG on the section INSERTs a
+        #                            "Nytt kapittel" block scopes to its new chapter
+        #                            (grafter.py NO_NEW_CHAPTER_SECTION_PROVENANCE_TAG).
+        #                            A carrier mark; the rule it gates
+        #                            (no_replay_new_chapter_section_relocated_from_
+        #                            occupied_label) IS cataloged.
+        "no_stored_consolidation",  # W-45 census key under build_no_verify_partition's
+        #                             ``unverifiable`` sibling (verify.py). A report
+        #                             dict key naming a corpus population, not a
+        #                             hypothesis a replay could falsify: nothing emits
+        #                             it as a witness_rule_id and no finding carries it.
     }
 )
 

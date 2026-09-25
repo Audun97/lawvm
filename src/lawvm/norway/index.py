@@ -4,17 +4,43 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import datetime, timezone
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace as dc_replace
 from pathlib import Path
 from typing import Any, Optional, cast
 
 from lawvm.core.diagnostic_records import diagnostic_detail
 from lawvm.core.source_lane import SourceLaneAttempt, SourceLaneSelectionEvidence
-from lawvm.norway.grafter import iter_no_document_change_ops, lovdata_amendment_filename_to_id
+from lawvm.norway.commencement_instruments import (
+    NOCommencementActPartEvidence,
+    NOCommencementInstrumentCandidate,
+    NOCommencementInstrumentCoverage,
+    NOCommencementParseStatus,
+    authorize_no_commencement_instruments,
+    no_commencement_op_address,
+    parse_no_commencement_instrument,
+)
+from lawvm.norway.grafter import (
+    NOBeriktigetReannouncement,
+    NOResanctioningNote,
+    iter_no_document_change_ops,
+    lovdata_amendment_filename_to_id,
+    no_beriktiget_reannouncement,
+    no_part_law_ids,
+    no_resanctioning_note,
+    no_superseded_announcement_dates,
+)
 from lawvm.norway.sources import (
+    NO_UNRESOLVED_EFFECTIVE_STATUSES,
+    NOCommencementShape,
+    NODeclaredChangeTargets,
+    NOEffectiveDate,
+    NOEffectiveStatus,
     NOLocatedArtifact,
+    coerce_no_commencement_shape,
+    declared_change_targets_from_amendment,
     effective_date_from_amendment,
     iter_no_amendment_artifacts,
+    iter_no_forskrift_artifacts,
     iter_no_unmapped_lovtidend_xml_members,
     no_source_metadata,
     parse_header_value,
@@ -24,6 +50,19 @@ from lawvm.replay_adjudication import CompileAdjudication
 from lawvm.core.quirks_disposition import QuirksDisposition, coerce_quirks_disposition
 
 NO_ACQUISITION_DUPLICATE_LOGICAL_LOCATOR = "no_acquisition_duplicate_logical_locator"
+NO_AMENDMENT_INDEX_STAGED_COMMENCEMENT_COLLAPSED = (
+    "no_amendment_index_staged_commencement_collapsed"
+)
+# W-84, the two receipts of the beriktiget/utgått correction lane. Neither
+# supersession is ever silent: a matched pair says so, and an unmatched half says
+# so more loudly, because an unmatched half means the machinery is knowingly
+# replaying (or knowingly ignoring) text Lovdata has flagged.
+NO_BERIKTIGET_ANNOUNCEMENT_PAIRED = "no_beriktiget_announcement_paired"
+NO_BERIKTIGET_ANNOUNCEMENT_UNPAIRED = "no_beriktiget_announcement_unpaired"
+# W-85, the two receipts of the re-sanctioning supersession lane. Same shape as
+# W-84's, same rule: neither suppression nor its refusal is ever silent.
+NO_RESANCTIONED_ACT_SUPERSEDED = "no_resanctioned_act_superseded"
+NO_RESANCTIONED_ACT_UNPAIRED = "no_resanctioned_act_unpaired"
 
 
 @dataclass(frozen=True)
@@ -37,6 +76,152 @@ class NOAmendmentIndexEntry:
     title: str = ""
     base_ids: tuple[str, ...] = ()
     n_ops: int = 0
+    # Lovdata's own ``changesToDocuments`` list, recorded beside ``base_ids`` so
+    # the two can be compared. Storing it here binds nothing — no code reads this
+    # tuple back — but the list itself is NOT inert upstream: the grafter's
+    # sole-declared-ref ``default_base_id`` (``grafter.py`` ~:1500, outranking
+    # every extracted signal at ~:1557) is the only ``base_id`` 393 of the 2466
+    # entries have. Measured by counterfactual: strip every ``changesToDocuments``
+    # carrier and rebuild, and those 393 lose ``base_ids`` entirely.
+    declared_target_ids: tuple[str, ...] = ()
+    # The shape of the ``dateInForce`` field this entry's date was read off
+    # (:class:`NOCommencementShape`), carried as its ``StrEnum`` value so the
+    # staged-commencement population is queryable off a serialized index without
+    # re-parsing ``raw_date_in_force``. Orthogonal to ``effective_status``: the
+    # 8 staged acts an instrument re-dates keep ``staged_delegated`` here while
+    # their status moves to ``instrument_authorized``.
+    commencement_shape: str = NOCommencementShape.PLAIN
+    # W-84. Empty for every entry but the three superseded/rectified pairs. When
+    # set it is the ``no/forskrift/<id>`` of the *beriktiget* re-announcement whose
+    # bytes this entry's ops were lowered from — the entry's ``member_name`` points
+    # at that document, while ``source_id``, ``title`` and every date stay the ACT's.
+    # Both ids on one row is the point: a reader can see that the text replayed for
+    # ``no/lovtid/2021-06-18-129`` was read from ``no/forskrift/2021-06-25-2137``.
+    beriktiget_announcement_id: str = ""
+    # W-85. Empty for every entry but the re-sanctioned replacements (two in the
+    # corpus). When set it is the ``no/lovtid/<id>`` of the DEFECTIVE act this act
+    # was sanctioned anew to replace — the act whose whole op stream the index
+    # withdrew on the strength of the bilateral pairing. Unlike W-84's field this
+    # names another ACT, not another document of the same act: a re-sanctioning
+    # mints a new law with its own identity and dates, and this entry's
+    # ``source_id``, ``member_name``, title and dates are all genuinely its own.
+    # Both ids on one row is still the point.
+    resanctioned_from_source_id: str = ""
+    # W-39. Per-BINDING commencement dates: ``(base law id, ISO date)`` pairs
+    # granted by the part-scoped route, sorted by law id. Orthogonal to
+    # ``effective_status``/``effective_date``, which stay the act's WHOLE-act
+    # verdict: a staged act whose part I commenced in 2011 and part III in 2023
+    # has no single act-level date, and inventing one would be a claim the
+    # evidence does not make. Consumers resolve a base law's date as "this map
+    # first, the act-level date otherwise".
+    part_scoped_effective_dates: tuple[tuple[str, str], ...] = ()
+    # W-100. The section-scoped lane's landing, per binding, in four sorted
+    # tuples so the entry stays a flat serializable record:
+    #   ``section_scoped_binding_dates``   (law, date)  — the binding's own date,
+    #       the one every op takes unless a finer entry says otherwise; ``""``
+    #       when only sections were dated;
+    #   ``section_scoped_effective_dates`` (law, section label, date);
+    #   ``section_scoped_exclusions``      (law, section label) — carved out and
+    #       still undated, restricted to sections the act's ops target;
+    #   ``section_scoped_complete_laws``   (law, …) — the bindings where every
+    #       targeted op resolves to a date.
+    # W-102 adds two below section level, in the grafter's own step spelling:
+    #   ``section_scoped_subpath_dates``   (law, section label, subpath, date) —
+    #       ``§ 2-3 andre ledd skal gjelde fra …`` lands as
+    #       ``(law, "2-3", "subsection:2", date)``;
+    #   ``section_scoped_subpath_exclusions`` (law, section label, subpath) —
+    #       ``… med unntak av nytt § 4-4 tredje ledd`` as ``(law, "4-4", "subsection:3")``.
+    # Orthogonal to ``part_scoped_effective_dates`` as that is to the act-level
+    # fields: a law here was dated by no older route (the gate yields to them),
+    # and consumers resolve an op's date as "``effective_date_for_op`` first".
+    section_scoped_binding_dates: tuple[tuple[str, str], ...] = ()
+    section_scoped_effective_dates: tuple[tuple[str, str, str], ...] = ()
+    section_scoped_exclusions: tuple[tuple[str, str], ...] = ()
+    section_scoped_complete_laws: tuple[str, ...] = ()
+    section_scoped_subpath_dates: tuple[tuple[str, str, str, str], ...] = ()
+    section_scoped_subpath_exclusions: tuple[tuple[str, str, str], ...] = ()
+
+    def has_section_scope(self, base_id: str) -> bool:
+        """Did the section-scoped lane land anything for ``base_id``? W-100."""
+        return (
+            any(law_id == base_id for law_id, _date in self.section_scoped_binding_dates)
+            or any(law_id == base_id for law_id, _label, _date in self.section_scoped_effective_dates)
+            or any(
+                law_id == base_id for law_id, _label, _subpath, _date in self.section_scoped_subpath_dates
+            )
+        )
+
+    def effective_date_for_base(self, base_id: str) -> tuple[str | None, str]:
+        """``(date, status)`` for this entry AS IT APPLIES TO ``base_id``.
+
+        W-100: a binding the section-scoped lane landed reports that lane's
+        status — ``section_instrument_authorized`` when every targeted op
+        resolves to a date, ``section_instrument_partial`` otherwise — and its
+        binding date, which is ``None`` when only sections were dated. Per-op
+        callers must use :meth:`effective_date_for_op`.
+        """
+        for law_id, date in self.part_scoped_effective_dates:
+            if law_id == base_id:
+                return date, NOEffectiveStatus.PART_INSTRUMENT_AUTHORIZED
+        if self.has_section_scope(base_id):
+            binding_date = next(
+                (date for law_id, date in self.section_scoped_binding_dates if law_id == base_id),
+                "",
+            )
+            status = (
+                NOEffectiveStatus.SECTION_INSTRUMENT_AUTHORIZED
+                if base_id in self.section_scoped_complete_laws
+                else NOEffectiveStatus.SECTION_INSTRUMENT_PARTIAL
+            )
+            return (binding_date or None), status
+        return self.effective_date, self.effective_status
+
+    def effective_date_for_op(
+        self, base_id: str, section_label: str | None, subpath: str = ""
+    ) -> tuple[str | None, str]:
+        """``(date, status)`` for ONE op of this entry on ``base_id``. W-100.
+
+        ``section_label`` is the op's section label in the grafter's spelling,
+        or ``None`` for an op that targets no section (a chapter heading);
+        ``subpath`` (W-102) the op's steps below that section in the same
+        spelling (``subsection:2``, ``subsection:2/sentence:5``), ``""`` for a
+        whole-section op. Resolution: the date of a landed path the op sits at
+        or below; else the section's own date; else a carve-out — by path or
+        whole section — which is ``contingent``; else the binding's date; else
+        the binding-level answer. A binding the lane landed without a binding
+        date leaves every op it did not date explicitly ``contingent``. The
+        gate admits a path only where every op on the section sits cleanly
+        inside or outside it, so a whole-section op never reaches a path entry
+        of its own section.
+        """
+        if not self.has_section_scope(base_id):
+            return self.effective_date_for_base(base_id)
+        if section_label:
+            for law_id, label, landed_subpath, date in self.section_scoped_subpath_dates:
+                if law_id == base_id and label == section_label and _subpath_at_or_below(subpath, landed_subpath):
+                    return date, NOEffectiveStatus.SECTION_INSTRUMENT_AUTHORIZED
+            for law_id, label, date in self.section_scoped_effective_dates:
+                if law_id == base_id and label == section_label:
+                    return date, NOEffectiveStatus.SECTION_INSTRUMENT_AUTHORIZED
+            for law_id, label, excluded_subpath in self.section_scoped_subpath_exclusions:
+                if law_id == base_id and label == section_label and _subpath_at_or_below(subpath, excluded_subpath):
+                    return None, NOEffectiveStatus.CONTINGENT
+            if (base_id, section_label) in self.section_scoped_exclusions:
+                return None, NOEffectiveStatus.CONTINGENT
+        binding_date = next(
+            (date for law_id, date in self.section_scoped_binding_dates if law_id == base_id),
+            "",
+        )
+        if binding_date:
+            return binding_date, NOEffectiveStatus.SECTION_INSTRUMENT_AUTHORIZED
+        return None, NOEffectiveStatus.CONTINGENT
+
+
+def _subpath_at_or_below(subpath: str, landed: str) -> bool:
+    """Is an op's ``subpath`` at or below a landed path? W-102. The same
+    relation the gate's ``_subpath_inside`` reads, spelled here so the entry
+    stays a plain record that imports nothing from the gate."""
+    return subpath == landed or subpath.startswith(landed + "/")
 
 
 @dataclass
@@ -47,6 +232,10 @@ class NOAmendmentIndex:
     archive_names: list[str] = field(default_factory=list)
     archive_metadata: dict[str, dict[str, int | str]] = field(default_factory=dict)
     entries: list[NOAmendmentIndexEntry] = field(default_factory=list)
+    commencement_instruments: list[NOCommencementInstrumentCandidate] = field(default_factory=list)
+    commencement_instrument_coverage: NOCommencementInstrumentCoverage = field(
+        default_factory=NOCommencementInstrumentCoverage
+    )
     diagnostics: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
@@ -57,6 +246,10 @@ class NOAmendmentIndex:
             "archive_names": list(self.archive_names),
             "archive_metadata": self.archive_metadata,
             "entries": [asdict(entry) for entry in self.entries],
+            "commencement_instruments": [
+                instrument.to_dict() for instrument in self.commencement_instruments
+            ],
+            "commencement_instrument_coverage": self.commencement_instrument_coverage.to_dict(),
             "diagnostics": list(self.diagnostics),
         }
 
@@ -74,6 +267,47 @@ class NOAmendmentIndex:
                 title=entry.get("title", ""),
                 base_ids=tuple(entry.get("base_ids", [])),
                 n_ops=int(entry.get("n_ops", 0)),
+                declared_target_ids=tuple(entry.get("declared_target_ids", [])),
+                commencement_shape=coerce_no_commencement_shape(
+                    entry.get("commencement_shape") or NOCommencementShape.PLAIN
+                ),
+                beriktiget_announcement_id=str(entry.get("beriktiget_announcement_id", "") or ""),
+                resanctioned_from_source_id=str(entry.get("resanctioned_from_source_id", "") or ""),
+                part_scoped_effective_dates=tuple(
+                    (str(pair[0]), str(pair[1]))
+                    for pair in entry.get("part_scoped_effective_dates", []) or []
+                    if isinstance(pair, (list, tuple)) and len(pair) == 2
+                ),
+                section_scoped_binding_dates=tuple(
+                    (str(pair[0]), str(pair[1]))
+                    for pair in entry.get("section_scoped_binding_dates", []) or []
+                    if isinstance(pair, (list, tuple)) and len(pair) == 2
+                ),
+                section_scoped_effective_dates=tuple(
+                    (str(row[0]), str(row[1]), str(row[2]))
+                    for row in entry.get("section_scoped_effective_dates", []) or []
+                    if isinstance(row, (list, tuple)) and len(row) == 3
+                ),
+                section_scoped_exclusions=tuple(
+                    (str(pair[0]), str(pair[1]))
+                    for pair in entry.get("section_scoped_exclusions", []) or []
+                    if isinstance(pair, (list, tuple)) and len(pair) == 2
+                ),
+                section_scoped_complete_laws=tuple(
+                    str(law_id)
+                    for law_id in entry.get("section_scoped_complete_laws", []) or []
+                    if isinstance(law_id, str)
+                ),
+                section_scoped_subpath_dates=tuple(
+                    (str(row[0]), str(row[1]), str(row[2]), str(row[3]))
+                    for row in entry.get("section_scoped_subpath_dates", []) or []
+                    if isinstance(row, (list, tuple)) and len(row) == 4
+                ),
+                section_scoped_subpath_exclusions=tuple(
+                    (str(row[0]), str(row[1]), str(row[2]))
+                    for row in entry.get("section_scoped_subpath_exclusions", []) or []
+                    if isinstance(row, (list, tuple)) and len(row) == 3
+                ),
             )
             for entry in raw_entries
             if isinstance(entry, dict)
@@ -81,6 +315,7 @@ class NOAmendmentIndex:
         archive_names = [str(item) for item in data.get("archive_names", [])]
         archive_metadata = data.get("archive_metadata", {})
         raw_diagnostics = data.get("diagnostics", [])
+        raw_commencement_instruments = data.get("commencement_instruments", [])
         return cls(
             data_dir=str(data.get("data_dir", "")),
             source_kind=str(data.get("source_kind", "dir")),
@@ -91,6 +326,14 @@ class NOAmendmentIndex:
                 if isinstance(key, str) and isinstance(value, dict)
             },
             entries=entries,
+            commencement_instruments=[
+                NOCommencementInstrumentCandidate.from_dict(item)
+                for item in raw_commencement_instruments
+                if isinstance(item, dict)
+            ],
+            commencement_instrument_coverage=NOCommencementInstrumentCoverage.from_dict(
+                data.get("commencement_instrument_coverage", {})
+            ),
             diagnostics=[dict(item) for item in raw_diagnostics if isinstance(item, dict)],
         )
 
@@ -159,6 +402,309 @@ class NOAmendmentIndex:
         }
 
 
+@dataclass(frozen=True)
+class NOBeriktigetPair:
+    """One superseded announcement matched to its rectified re-announcement."""
+
+    reannouncement: NOBeriktigetReannouncement
+    artifact: NOLocatedArtifact
+
+
+def _no_beriktiget_reannouncements(data_dir: Path) -> dict[str, NOBeriktigetPair]:
+    """Index the forskrift lane's rectified re-announcements by the act they announce.
+
+    A pre-pass rather than a second consumer of the commencement loop below,
+    because its answer is needed BEFORE the amendment loop lowers anything: a
+    superseded announcement's ops are never minted and then withdrawn, they are
+    never minted. Cost is one pass over the forskrift lane (~1.5s of a ~45s
+    build); the reader's own byte prefilter is what keeps it that cheap, since
+    35,952 of the 35,955 artifacts are rejected without being parsed.
+
+    Keyed by the ANNOUNCED act. A second re-announcement of the same act would
+    make the key ambiguous, so it is dropped from the map instead of overwriting —
+    the caller then sees no match and refuses the pairing, which is the safe
+    direction. Measured: no act is re-announced twice.
+    """
+    found: dict[str, list[NOBeriktigetPair]] = {}
+    for artifact in iter_no_forskrift_artifacts(data_dir):
+        reannouncement = no_beriktiget_reannouncement(artifact.payload)
+        if reannouncement is None:
+            continue
+        found.setdefault(reannouncement.announced_act_id, []).append(
+            NOBeriktigetPair(reannouncement=reannouncement, artifact=artifact)
+        )
+    return {
+        act_id: pairs[0]
+        for act_id, pairs in found.items()
+        if len(pairs) == 1
+    }
+
+
+def _no_beriktiget_paired_diagnostic(
+    *,
+    artifact: NOLocatedArtifact,
+    pair: NOBeriktigetPair,
+    note_dates: tuple[str, ...],
+    withdrawn_ops: int,
+    admitted_ops: int,
+    base_ids: tuple[str, ...],
+) -> dict[str, Any]:
+    """Receipt the whole-instrument swap of a superseded announcement.
+
+    Non-blocking and dispositioned APPLY: this is not a refusal, it is the
+    correction landing. What it has to preserve is the pair of numbers a reader
+    would otherwise have to reconstruct from two archives — how many ops the
+    superseded announcement used to mint, and how many the rectified one mints in
+    their place. The two are NOT ordered: rectified versions in this corpus both
+    add ops and remove them.
+    """
+    return diagnostic_detail(
+        rule_id=NO_BERIKTIGET_ANNOUNCEMENT_PAIRED,
+        family="source_pathology",
+        phase="acquisition",
+        reason=(
+            "Norway amendment index replaced a superseded (utgått) gazette announcement's "
+            "operations with those of its rectified (beriktiget) re-announcement."
+        ),
+        blocking=False,
+        quirks_disposition=QuirksDisposition.APPLY,
+        source_id=artifact.logical_id,
+        locator=artifact.locator,
+        archive=artifact.source_name,
+        member_name=artifact.member_name,
+        superseded_note_dates=list(note_dates),
+        announcement_id=pair.reannouncement.announcement_id,
+        announcement_locator=pair.artifact.locator,
+        announcement_date=pair.reannouncement.announcement_date,
+        withdrawn_op_count=withdrawn_ops,
+        admitted_op_count=admitted_ops,
+        base_ids=list(base_ids),
+    )
+
+
+def _no_beriktiget_unpaired_diagnostic(
+    *,
+    source_id: str,
+    locator: str,
+    reason: str,
+    detail: dict[str, Any],
+) -> dict[str, Any]:
+    """Receipt a supersession half that found no counterpart.
+
+    THE RULE THIS RECORDS, stated because the corpus does not yet exercise it: a
+    superseded announcement with no matched re-announcement is NOT suppressed. Its
+    ops stand. ``utgått`` says the announcement was superseded; it does not say by
+    what, and it does not say the act was unmade. Dropping the ops on the strength
+    of the mark alone would delete enacted law on no evidence of what replaced it —
+    the same over-application in the opposite direction from the one W-84 fixes.
+    Symmetrically, a rectified re-announcement whose act carries no ``utgått`` mark
+    is NOT admitted: one signal is not the pair, and the forskrift lane stays shut.
+    Either way the machinery is knowingly leaving a flagged document unread, which
+    is exactly the class of silence W-83 spent an audit discovering, so it is
+    blocking: it should surface in the blockers report, not sit in a census.
+    """
+    return diagnostic_detail(
+        rule_id=NO_BERIKTIGET_ANNOUNCEMENT_UNPAIRED,
+        family="source_pathology",
+        phase="acquisition",
+        reason=(
+            "Norway amendment index found one half of a superseded/rectified announcement "
+            "pair without its counterpart; neither suppression nor admission applied."
+        ),
+        blocking=True,
+        strict_disposition="block",
+        quirks_disposition=QuirksDisposition.RECORD,
+        source_id=source_id,
+        locator=locator,
+        unpaired_reason=reason,
+        **detail,
+    )
+
+
+@dataclass(frozen=True)
+class NOResanctioningPair:
+    """One defective act matched to the act that re-sanctions it — W-85.
+
+    All fields are read in the pre-pass so the main loop can suppress without
+    lowering: the superseded half's ops are counted here for the receipt and then
+    never minted, and the replacement's counts are already proven non-empty.
+    """
+
+    superseded_id: str
+    superseding_id: str
+    withdrawn_op_count: int
+    withdrawn_base_ids: tuple[str, ...]
+    admitted_op_count: int
+    admitted_base_ids: tuple[str, ...]
+
+
+def _no_resanctioning_pairs(
+    data_dir: Path,
+    diagnostics: list[dict[str, Any]],
+) -> dict[str, NOResanctioningPair]:
+    """Pair the corpus's re-sanctioning notes, refusing everything unmatched.
+
+    A pre-pass for the same reason W-84's is: a superseded act's ops must never
+    enter the stream, not enter it and be taken back out. Cost is one prefiltered
+    sweep of the amendment lane (3,085 of 3,089 artifacts are rejected on bytes),
+    plus one lowering of each note-carrying document — four in this corpus.
+
+    THE GATE, every conjunct required, all read off Lovdata's own text:
+
+      1. bilateral citation — the superseded half names the replacement by
+         numbered citation and the replacement names it back;
+      2. title equality — both halves announce the same law (byte-equal titles
+         in both corpus pairs; a rename would mean the citation reached the
+         wrong act, so it refuses);
+      3. total re-enactment — the replacement lowers a non-empty op stream
+         binding every base the superseded half bound. Whole-act suppression is
+         only sound if the replacement re-covers everything withdrawn; both
+         corpus pairs re-enact the full lovvedtak (measured: identical base
+         sets, op counts 2/2 and 57/57, exactly one op's content corrected in
+         each). A partial re-sanction would fail this conjunct and refuse.
+
+    An unmatched half suppresses/admits NOTHING and is receipted blocking, per
+    the W-84 rule: the machinery would be knowingly replaying text the document
+    itself says was superseded, and that must surface in blockers, not a census.
+    """
+    notes: dict[str, NOResanctioningNote] = {}
+    titles: dict[str, str] = {}
+    lowered: dict[str, tuple[int, tuple[str, ...]]] = {}
+    for artifact in iter_no_amendment_artifacts(data_dir):
+        source_id = artifact.logical_id
+        if source_id in notes:
+            continue
+        note = no_resanctioning_note(artifact.payload)
+        if note is None:
+            continue
+        notes[source_id] = note
+        titles[source_id] = parse_header_value(artifact.payload, "title") or ""
+        grouped = iter_no_document_change_ops(artifact.payload, source_id)
+        lowered[source_id] = (
+            sum(len(ops) for _base_id, ops in grouped),
+            tuple(sorted({base_id for base_id, _ops in grouped})),
+        )
+
+    pairs: dict[str, NOResanctioningPair] = {}
+    matched_superseding: set[str] = set()
+    for source_id, note in sorted(notes.items()):
+        if note.role != "superseded":
+            continue
+        counterpart = notes.get(note.counterpart_id)
+        if counterpart is None:
+            reason = "replacement_absent_or_carries_no_note"
+        elif counterpart.role != "superseding":
+            reason = "replacement_note_not_superseding"
+        elif counterpart.counterpart_id != source_id:
+            reason = "replacement_cites_a_different_act"
+        elif titles.get(source_id) != titles.get(note.counterpart_id):
+            reason = "titles_disagree"
+        else:
+            withdrawn_ops, withdrawn_bases = lowered[source_id]
+            admitted_ops, admitted_bases = lowered[note.counterpart_id]
+            if admitted_ops and set(withdrawn_bases) <= set(admitted_bases):
+                pairs[source_id] = NOResanctioningPair(
+                    superseded_id=source_id,
+                    superseding_id=note.counterpart_id,
+                    withdrawn_op_count=withdrawn_ops,
+                    withdrawn_base_ids=withdrawn_bases,
+                    admitted_op_count=admitted_ops,
+                    admitted_base_ids=admitted_bases,
+                )
+                matched_superseding.add(note.counterpart_id)
+                continue
+            reason = "replacement_does_not_recover_the_withdrawn_bases"
+        diagnostics.append(
+            _no_resanctioned_unpaired_diagnostic(
+                source_id=source_id,
+                role="superseded",
+                counterpart_id=note.counterpart_id,
+                reason=reason,
+            )
+        )
+    for source_id, note in sorted(notes.items()):
+        if note.role != "superseding" or source_id in matched_superseding:
+            continue
+        diagnostics.append(
+            _no_resanctioned_unpaired_diagnostic(
+                source_id=source_id,
+                role="superseding",
+                counterpart_id=note.counterpart_id,
+                reason="superseded_half_absent_or_pairing_refused",
+            )
+        )
+    return pairs
+
+
+def _no_resanctioned_superseded_diagnostic(
+    *,
+    artifact: NOLocatedArtifact,
+    pair: NOResanctioningPair,
+) -> dict[str, Any]:
+    """Receipt the whole-act withdrawal of a superseded, re-sanctioned act.
+
+    Non-blocking and dispositioned APPLY, like W-84's paired receipt: this is the
+    correction landing, and it preserves the numbers a reader would otherwise
+    reconstruct from two documents — what the defective sanctioning used to mint,
+    and what the re-sanctioned act mints in its place under its OWN identity.
+    """
+    return diagnostic_detail(
+        rule_id=NO_RESANCTIONED_ACT_SUPERSEDED,
+        family="source_pathology",
+        phase="acquisition",
+        reason=(
+            "Norway amendment index withdrew a superseded act's whole operation stream: "
+            "the act's own prose says it could not take effect and was sanctioned anew "
+            "as a separate act, which re-enacts every base the withdrawn stream bound."
+        ),
+        blocking=False,
+        quirks_disposition=QuirksDisposition.APPLY,
+        source_id=artifact.logical_id,
+        locator=artifact.locator,
+        archive=artifact.source_name,
+        member_name=artifact.member_name,
+        superseding_source_id=pair.superseding_id,
+        withdrawn_op_count=pair.withdrawn_op_count,
+        withdrawn_base_ids=list(pair.withdrawn_base_ids),
+        admitted_op_count=pair.admitted_op_count,
+        admitted_base_ids=list(pair.admitted_base_ids),
+    )
+
+
+def _no_resanctioned_unpaired_diagnostic(
+    *,
+    source_id: str,
+    role: str,
+    counterpart_id: str,
+    reason: str,
+) -> dict[str, Any]:
+    """Receipt a re-sanctioning half whose counterpart failed the gate.
+
+    Blocking, per the W-84 rule restated for acts: a document claiming it was
+    superseded keeps replaying (its ops stand — prose alone does not unmake a
+    law), and a document claiming to re-sanction gets no counterpart withdrawn.
+    Either way a flagged document is knowingly not being acted on, and that
+    belongs in the blockers report, not a census.
+    """
+    return diagnostic_detail(
+        rule_id=NO_RESANCTIONED_ACT_UNPAIRED,
+        family="source_pathology",
+        phase="acquisition",
+        reason=(
+            "Norway amendment index found one half of a re-sanctioning supersession "
+            "pair without a counterpart passing the bilateral gate; neither "
+            "suppression nor pairing applied."
+        ),
+        blocking=True,
+        strict_disposition="block",
+        quirks_disposition=QuirksDisposition.RECORD,
+        source_id=source_id,
+        resanctioning_role=role,
+        counterpart_id=counterpart_id,
+        unpaired_reason=reason,
+    )
+
+
 def build_no_amendment_index(data_dir: Optional[Path] = None) -> NOAmendmentIndex:
     data_dir = resolve_no_source_path(data_dir)
     source_meta = no_source_metadata(data_dir)
@@ -181,6 +727,20 @@ def build_no_amendment_index(data_dir: Optional[Path] = None) -> NOAmendmentInde
         archive_names=archive_names,
         archive_metadata=archive_metadata,
     )
+
+    act_part_evidence: dict[str, NOCommencementActPartEvidence] = {}
+    # W-84. Read before a single amendment is lowered: a superseded announcement's
+    # ops must never enter the stream, not enter it and be taken back out.
+    beriktiget_by_act = _no_beriktiget_reannouncements(data_dir)
+    beriktiget_paired: set[str] = set()
+    # W-85, same placement discipline for the second supersession mechanism: the
+    # re-sanctioning pairs are resolved before the loop so a superseded act's ops
+    # are never minted. Unmatched halves were already receipted (blocking) inside
+    # the pre-pass.
+    resanctioning_pairs = _no_resanctioning_pairs(data_dir, index.diagnostics)
+    resanctioned_from_by_superseding = {
+        pair.superseding_id: pair.superseded_id for pair in resanctioning_pairs.values()
+    }
 
     if index.source_kind == "dir":
         for artifact in iter_no_unmapped_lovtidend_xml_members(data_dir):
@@ -205,19 +765,124 @@ def build_no_amendment_index(data_dir: Optional[Path] = None) -> NOAmendmentInde
                 )
             )
             continue
+        # ── W-85: the re-sanctioning supersession ────────────────────────────
+        #
+        # Whole-ACT withdrawal, decided in the pre-pass: this act's own prose says
+        # its lovvedtak was defective and the law was sanctioned anew as a separate
+        # act, that act cites this one back, and its stream re-covers every base
+        # bound here. Nothing of this artifact is lowered — no entry, no ops, no
+        # parser adjudications — because the act never validly took effect; the
+        # replacement replays under its OWN identity and dates. Receipted, never
+        # silent.
+        resanctioning_pair = resanctioning_pairs.get(source_id)
+        if resanctioning_pair is not None:
+            index.diagnostics.append(
+                _no_resanctioned_superseded_diagnostic(
+                    artifact=artifact,
+                    pair=resanctioning_pair,
+                )
+            )
+            continue
+        declared = declared_change_targets_from_amendment(artifact.payload)
         parser_adjudications: list[CompileAdjudication] = []
+        # ── W-84: the superseded/rectified swap ──────────────────────────────
+        #
+        # Two of Lovdata's own marks have to agree before anything moves: the act
+        # carries an ``utgått`` gazettenote, and a forskrift-lane document titled
+        # "Kunngjøring av beriktiget versjon av lov …" names THIS act. The note's
+        # date is then required to equal the re-announcement's own publication
+        # date — a free cross-check (the date is already in the forskrift id), and
+        # the one that makes a coincidental title match unable to bind an act.
+        #
+        # The swap is WHOLE-INSTRUMENT: the rectified document re-announces the act
+        # in full, so its ops replace the superseded announcement's wholesale rather
+        # than merging with them. Identity and dates stay the ACT's throughout —
+        # ``source_id``, ``title``, ``declared``, ``effective`` are all still read
+        # off the act — because a *kunngjøring av beriktiget versjon* is a
+        # republication, not a new law. Only the operative TEXT comes from the
+        # rectified bytes. See the dates discussion in the paired receipt.
+        superseded_note_dates = no_superseded_announcement_dates(artifact.payload)
+        pair = beriktiget_by_act.get(source_id) if superseded_note_dates else None
+        if pair is not None and pair.reannouncement.announcement_date not in superseded_note_dates:
+            index.diagnostics.append(
+                _no_beriktiget_unpaired_diagnostic(
+                    source_id=source_id,
+                    locator=artifact.locator,
+                    reason="announcement_date_disagrees_with_note",
+                    detail={
+                        "superseded_note_dates": list(superseded_note_dates),
+                        "announcement_id": pair.reannouncement.announcement_id,
+                        "announcement_date": pair.reannouncement.announcement_date,
+                    },
+                )
+            )
+            pair = None
+        elif superseded_note_dates and pair is None:
+            index.diagnostics.append(
+                _no_beriktiget_unpaired_diagnostic(
+                    source_id=source_id,
+                    locator=artifact.locator,
+                    reason="rectified_reannouncement_absent",
+                    detail={"superseded_note_dates": list(superseded_note_dates)},
+                )
+            )
+        lowered_payload = artifact.payload if pair is None else pair.artifact.payload
         grouped = iter_no_document_change_ops(
-            artifact.payload,
+            lowered_payload,
             source_id,
             adjudications_out=parser_adjudications,
         )
+        if pair is not None:
+            # Conservation, checked against Lovdata's own declaration on the ACT: a
+            # rectified re-announcement of act X may only bind laws X itself
+            # declares it changes. Nothing in the corpus violates this (all three
+            # pairs bind exactly the act's declared set), and a violation would
+            # mean the title match had reached the wrong act — so it refuses the
+            # whole swap rather than landing a partly-trusted op stream.
+            swapped_base_ids = tuple(sorted({base_id for base_id, _ops in grouped}))
+            undeclared = [
+                base_id for base_id in swapped_base_ids if base_id not in declared.law_ids
+            ]
+            if undeclared or not swapped_base_ids:
+                index.diagnostics.append(
+                    _no_beriktiget_unpaired_diagnostic(
+                        source_id=source_id,
+                        locator=artifact.locator,
+                        reason="rectified_bases_not_declared_by_act",
+                        detail={
+                            "superseded_note_dates": list(superseded_note_dates),
+                            "announcement_id": pair.reannouncement.announcement_id,
+                            "rectified_base_ids": list(swapped_base_ids),
+                            "declared_target_ids": list(declared.law_ids),
+                        },
+                    )
+                )
+                pair = None
+                parser_adjudications = []
+                grouped = iter_no_document_change_ops(
+                    artifact.payload,
+                    source_id,
+                    adjudications_out=parser_adjudications,
+                )
         for adjudication in parser_adjudications:
             index.diagnostics.append(
                 _no_index_parser_adjudication_diagnostic(
                     adjudication=adjudication,
-                    artifact=artifact,
+                    # The DOCUMENT the refused prose actually lives in. For a
+                    # swapped entry that is the rectified re-announcement, not the
+                    # act: a reader chasing the receipt back to bytes must land on
+                    # the bytes the parser read.
+                    artifact=artifact if pair is None else pair.artifact,
                 )
             )
+        base_ids = tuple(sorted({base_id for base_id, _ops in grouped}))
+        declared_target_gap = _no_index_declared_target_unbound_diagnostic(
+            artifact=artifact,
+            declared=declared,
+            base_ids=base_ids,
+        )
+        if declared_target_gap is not None:
+            index.diagnostics.append(declared_target_gap)
         if not grouped:
             index.diagnostics.append(
                 _no_index_skipped_artifact_diagnostic(
@@ -232,22 +897,334 @@ def build_no_amendment_index(data_dir: Optional[Path] = None) -> NOAmendmentInde
             artifact.payload,
             source_date=source_id.removeprefix("no/lovtid/"),
         )
+        if effective.commencement_shape is NOCommencementShape.STAGED_DELEGATED:
+            index.diagnostics.append(
+                _no_index_staged_commencement_diagnostic(
+                    artifact=artifact,
+                    source_id=source_id,
+                    effective=effective,
+                )
+            )
+        # W-39. The part-scoped commencement gate's scope proof, read here
+        # because this is where the artifact's bytes and its lowered op stream
+        # are both in hand; the gate parses no XML of its own. Only acts with
+        # roman-numbered parts contribute — for everything else the map is empty
+        # and the part route can never fire.
+        # W-100 widens the population to EVERY act with bound ops: the
+        # section-scoped route needs the op stream's section labels for a
+        # part-less act too (``no/lovtid/2015-02-06-7`` binds two laws and has no
+        # romertall). The three part routes refuse an empty part map on their
+        # first structural conjunct, so offering them the wider population
+        # changes nothing they grant.
+        part_law_ids = no_part_law_ids(artifact.payload)
+        if part_law_ids or base_ids:
+            # W-102. One address per op, and the section-level facts derived
+            # from the same addresses. The section step is looked up rather
+            # than assumed first: a new chapter's sections carry the chapter as
+            # their first step (W-101), and W-100's ``path[:1]`` read them as
+            # unsectioned.
+            law_op_addresses = {
+                base_id: tuple(no_commencement_op_address(op) for op in ops)
+                for base_id, ops in grouped
+            }
+            act_part_evidence[source_id] = NOCommencementActPartEvidence(
+                part_law_ids=part_law_ids,
+                bound_law_ids=base_ids,
+                law_section_labels={
+                    base_id: frozenset(
+                        address.section_label
+                        for address in addresses
+                        if address.section_label is not None
+                    )
+                    for base_id, addresses in law_op_addresses.items()
+                },
+                unsectioned_op_laws=tuple(
+                    sorted(
+                        base_id
+                        for base_id, addresses in law_op_addresses.items()
+                        if any(address.section_label is None for address in addresses)
+                    )
+                ),
+                law_op_addresses=law_op_addresses,
+            )
+        # W-84. A swapped entry points ``archive``/``member_name`` at the rectified
+        # document, which is what makes replay load the corrected bytes: replay
+        # resolves an entry's source through those two fields, not through
+        # ``source_id``. Everything else on the row stays the act's.
+        if pair is not None:
+            beriktiget_paired.add(pair.reannouncement.announcement_id)
+            withdrawn = iter_no_document_change_ops(artifact.payload, source_id)
+            index.diagnostics.append(
+                _no_beriktiget_paired_diagnostic(
+                    artifact=artifact,
+                    pair=pair,
+                    note_dates=superseded_note_dates,
+                    withdrawn_ops=sum(len(ops) for _base_id, ops in withdrawn),
+                    admitted_ops=sum(len(ops) for _base_id, ops in grouped),
+                    base_ids=base_ids,
+                )
+            )
         index.entries.append(
             NOAmendmentIndexEntry(
                 source_id=source_id,
-                archive=artifact.source_name,
-                member_name=artifact.member_name,
+                archive=artifact.source_name if pair is None else pair.artifact.source_name,
+                member_name=artifact.member_name if pair is None else pair.artifact.member_name,
                 effective_status=effective.effective_status,
                 effective_date=effective.effective_date,
                 raw_date_in_force=effective.raw_text,
                 title=parse_header_value(artifact.payload, "title") or parse_header_value(artifact.payload, "titleShort"),
-                base_ids=tuple(sorted({base_id for base_id, _ops in grouped})),
+                base_ids=base_ids,
                 n_ops=sum(len(ops) for _base_id, ops in grouped),
+                declared_target_ids=declared.law_ids,
+                commencement_shape=effective.commencement_shape,
+                beriktiget_announcement_id=(
+                    "" if pair is None else pair.reannouncement.announcement_id
+                ),
+                resanctioned_from_source_id=resanctioned_from_by_superseding.get(
+                    source_id, ""
+                ),
             )
         )
 
+    # The gate's other half, receipted: a rectified re-announcement whose act
+    # carries no ``utgått`` mark (or which the pairing refused) is NOT admitted,
+    # and the forskrift lane stays shut behind it.
+    for act_id, unpaired in sorted(beriktiget_by_act.items()):
+        if unpaired.reannouncement.announcement_id in beriktiget_paired:
+            continue
+        index.diagnostics.append(
+            _no_beriktiget_unpaired_diagnostic(
+                source_id=unpaired.reannouncement.announcement_id,
+                locator=unpaired.artifact.locator,
+                reason="superseded_announcement_absent",
+                detail={
+                    "announced_act_id": act_id,
+                    "announcement_date": unpaired.reannouncement.announcement_date,
+                },
+            )
+        )
+
+    commencement_total = 0
+    commencement_candidates = 0
+    commencement_benign = 0
+    commencement_blocked = 0
+    parsed_instruments: list[
+        tuple[NOCommencementParseStatus, NOCommencementInstrumentCandidate]
+    ] = []
+    for artifact in _deduplicated_no_amendment_artifacts(
+        tuple(iter_no_forskrift_artifacts(data_dir)),
+        diagnostics=index.diagnostics,
+    ):
+        commencement_total += 1
+        result = parse_no_commencement_instrument(
+            artifact.payload,
+            source_id=artifact.logical_id,
+            locator=artifact.locator,
+            archive=artifact.source_name,
+            member_name=artifact.member_name,
+        )
+        if result.parse_status is NOCommencementParseStatus.BENIGN_NOT_COMMENCEMENT:
+            commencement_benign += 1
+            continue
+        if result.parse_status is NOCommencementParseStatus.BLOCKED_UNRESOLVED:
+            commencement_blocked += 1
+        else:
+            commencement_candidates += 1
+        if result.candidate is not None:
+            parsed_instruments.append((result.parse_status, result.candidate))
+        for residual in result.residuals:
+            index.diagnostics.append(
+                {
+                    **residual.to_dict(),
+                    "source_id": artifact.logical_id,
+                    "locator": artifact.locator,
+                    "archive": artifact.source_name,
+                    "member_name": artifact.member_name,
+                    "quirks_disposition": QuirksDisposition.RECORD,
+                }
+            )
+
+    index.commencement_instrument_coverage = NOCommencementInstrumentCoverage(
+        total_instruments=commencement_total,
+        candidates=commencement_candidates,
+        benign_non_commencement=commencement_benign,
+        blocked_unresolved=commencement_blocked,
+    )
+    if not index.commencement_instrument_coverage.is_partition():
+        raise AssertionError("Norway commencement-instrument coverage is not a total partition")
+
     index.entries.sort(key=lambda entry: (entry.source_id, entry.archive, entry.member_name))
+    parsed_instruments.sort(
+        key=lambda item: (item[1].source_id, item[1].archive, item[1].member_name)
+    )
+    _authorize_no_commencement_instruments_into_index(
+        index, parsed_instruments, act_part_evidence
+    )
     return index
+
+
+def _authorize_no_commencement_instruments_into_index(
+    index: NOAmendmentIndex,
+    parsed_instruments: list[
+        tuple[NOCommencementParseStatus, NOCommencementInstrumentCandidate]
+    ],
+    act_part_evidence: dict[str, NOCommencementActPartEvidence] | None = None,
+) -> None:
+    """Re-date acts whose own date is weak from their whole-act commencement instruments.
+
+    Runs inside the index build so inventory, scan, replay, and the commencement
+    reports all read one authorized view; no consumer authorizes for itself. The
+    manual override sidecar — applied after the build — still outranks an
+    instrument authorization.
+
+    Two populations are offered, and offering is all that changed here: the
+    gate's own conjuncts (candidate parse, whole-act scope, exactly one
+    effective date, cited act present in the offered set) are untouched.
+
+    1. Acts with an unresolved ``effective_status``. They have no date at all,
+       so any authorized date is strictly more than they had.
+    2. Acts labelled :attr:`NOCommencementShape.STAGED_DELEGATED`. These DO
+       carry a date, but it is the weakest kind the index issues: ``min(dates)``
+       over a metadata field that also says the executive fixes the real
+       commencement. An official Norsk Lovtidend whole-act instrument outranks
+       that guess, so the instrument's date wins where one exists. Measured
+       corpus-wide this re-dates 8 of the 167 staged acts, every one of them
+       EARLIER than the metadata guess (the metadata named a planned date the
+       instrument then superseded); the other 159 keep ``min(dates)`` and replay
+       exactly as before.
+
+    A ``plain`` dated / ``immediate`` / ``override`` entry is still never
+    offered and so can never be re-dated here.
+
+    W-39 changes what a refused pair may still yield, not what is offered: the
+    same offered set now also feeds the part-scoped route, whose grant lands in
+    ``part_scoped_effective_dates`` rather than in ``effective_status`` /
+    ``effective_date``. That asymmetry is the point — the act's whole-act
+    verdict is untouched (the corpus's status histogram does not move), while
+    the ONE binding the instrument proves gets a date.
+
+    W-47 changes neither the offering nor the landing place: its multi-part
+    route grants the same kind of per-binding date into the same field, for acts
+    whose Endrer header spans several parts under a whole-act operative text. So
+    the act-level histogram does not move for it either — an act with parts
+    commencing on one date still has no single act-level date to claim.
+
+    W-49's named-part-list route changes neither either, for the third time and
+    the same reason: one more per-binding date into the same field, from an
+    instrument that names the parts it commences instead of commencing the act
+    whole. No act-level status moves, and no ``base_ids`` are ever written.
+
+    W-53's widened whole-act route is the first since W-39 to move the act-level
+    histogram: its grant lands in ``authorized_effective_dates`` beside the
+    shipped route's, so the acts it dates become ``instrument_authorized`` exactly
+    as they would have under a matched ``_WHOLE_ACT_RE``. What it still does not
+    touch is the OFFERING (unchanged, above) and ``base_ids`` — this lane writes
+    dates and never bindings, which is why widening it cannot decertify a law: a
+    law's coverage partition is a function of its bindings, and resolution is
+    monotone in the dates.
+    """
+    authorization = authorize_no_commencement_instruments(
+        parsed_instruments,
+        offered_act_ids={
+            entry.source_id
+            for entry in index.entries
+            if entry.effective_status in NO_UNRESOLVED_EFFECTIVE_STATUSES
+            or entry.commencement_shape == NOCommencementShape.STAGED_DELEGATED
+        },
+        act_part_evidence=act_part_evidence,
+    )
+    index.commencement_instruments = list(authorization.instruments)
+    effective_dates = authorization.authorized_effective_dates()
+    part_dates = authorization.part_authorized_effective_dates()
+    section_landings = authorization.section_scoped_landings()
+
+    def _with_section_scope(entry: NOAmendmentIndexEntry) -> NOAmendmentIndexEntry:
+        # W-100. The fourth landing place. A law the part routes dated is never
+        # in here (the gate yields per binding), so the two maps never overlap.
+        receipts = section_landings.get(entry.source_id, ())
+        if not receipts:
+            return entry
+        return dc_replace(
+            entry,
+            section_scoped_binding_dates=tuple(
+                sorted((receipt.law_id, receipt.binding_date or "") for receipt in receipts)
+            ),
+            section_scoped_effective_dates=tuple(
+                sorted(
+                    (receipt.law_id, label, date)
+                    for receipt in receipts
+                    for label, date in receipt.section_dates
+                )
+            ),
+            section_scoped_exclusions=tuple(
+                sorted(
+                    (receipt.law_id, label)
+                    for receipt in receipts
+                    for label in receipt.excluded_section_labels
+                )
+            ),
+            section_scoped_complete_laws=tuple(
+                sorted(receipt.law_id for receipt in receipts if receipt.complete)
+            ),
+            section_scoped_subpath_dates=tuple(
+                sorted(
+                    (receipt.law_id, label, subpath, date)
+                    for receipt in receipts
+                    for label, subpath, date in receipt.subpath_dates
+                )
+            ),
+            section_scoped_subpath_exclusions=tuple(
+                sorted(
+                    (receipt.law_id, label, subpath)
+                    for receipt in receipts
+                    for label, subpath in receipt.excluded_subpaths
+                )
+            ),
+        )
+
+    index.entries = [
+        dc_replace(
+            entry,
+            effective_status=NOEffectiveStatus.INSTRUMENT_AUTHORIZED,
+            effective_date=effective_dates[entry.source_id],
+        )
+        if entry.source_id in effective_dates
+        else _with_section_scope(
+            dc_replace(
+                entry,
+                part_scoped_effective_dates=tuple(
+                    sorted(part_dates[entry.source_id].items())
+                ),
+            )
+            if entry.source_id in part_dates
+            else entry
+        )
+        for entry in index.entries
+    ]
+    for receipt in authorization.authorizations:
+        index.diagnostics.append(receipt.to_diagnostic_detail())
+    for receipt in authorization.part_authorizations:
+        index.diagnostics.append(receipt.to_diagnostic_detail())
+    for multi_part_receipt in authorization.multi_part_authorizations:
+        index.diagnostics.append(multi_part_receipt.to_diagnostic_detail())
+    for section_receipt in authorization.section_scoped_authorizations:
+        index.diagnostics.append(section_receipt.to_diagnostic_detail())
+    for section_conflict in authorization.section_scoped_conflicts:
+        index.diagnostics.append(section_conflict.to_diagnostic_detail())
+    for section_refusal in authorization.section_scoped_refusals:
+        index.diagnostics.append(section_refusal.to_diagnostic_detail())
+    for named_part_receipt in authorization.named_part_list_authorizations:
+        index.diagnostics.append(named_part_receipt.to_diagnostic_detail())
+    for widened_receipt in authorization.widened_whole_act_authorizations:
+        index.diagnostics.append(widened_receipt.to_diagnostic_detail())
+    for widened_conflict in authorization.widened_whole_act_conflicts:
+        index.diagnostics.append(widened_conflict.to_diagnostic_detail())
+    for refusal in authorization.refusals:
+        index.diagnostics.append(refusal.to_diagnostic_detail())
+    for conflict in authorization.conflicts:
+        index.diagnostics.append(conflict.to_diagnostic_detail())
+    for part_conflict in authorization.part_conflicts:
+        index.diagnostics.append(part_conflict.to_diagnostic_detail())
 
 
 def _payload_digest(payload: bytes) -> str:
@@ -447,6 +1424,89 @@ def _no_index_skipped_artifact_diagnostic(
         locator=artifact.locator,
         archive=artifact.source_name,
         member_name=artifact.member_name,
+    )
+
+
+def _no_index_staged_commencement_diagnostic(
+    *,
+    artifact: NOLocatedArtifact,
+    source_id: str,
+    effective: NOEffectiveDate,
+) -> dict[str, Any]:
+    """Receipt one act whose ``dateInForce`` staged its commencement.
+
+    Emitted once per act whose field carries both ISO dates and a
+    delegated-commencement tail, so the population is total and queryable rather
+    than an unremarked DATED. Non-blocking on purpose: the act IS in force at
+    ``min(dates)`` — Lovdata's own consolidation says so — and the recorded fact
+    is the narrower one that ``date_count`` dates collapsed to one and a
+    delegated tail was dropped, because the engine represents commencement at
+    act rather than provision granularity (``NORWAY_LAWVM_STATUS.md`` 2.3).
+    Naming the raw field and the collapsed date is what lets a reader recover
+    what the collapse discarded without re-reading the source.
+    """
+    return diagnostic_detail(
+        rule_id=NO_AMENDMENT_INDEX_STAGED_COMMENCEMENT_COLLAPSED,
+        family="temporal_recovery",
+        phase="temporal",
+        reason=(
+            "Norway amendment act states a commencement date AND delegates the rest of its "
+            "commencement to the executive; the act is dated at the earliest stated date and "
+            "the staged tail is recorded, not represented."
+        ),
+        blocking=False,
+        strict_disposition="record",
+        quirks_disposition=QuirksDisposition.RECORD,
+        source_id=source_id,
+        locator=artifact.locator,
+        archive=artifact.source_name,
+        member_name=artifact.member_name,
+        commencement_shape=str(effective.commencement_shape),
+        raw_date_in_force=effective.raw_text,
+        effective_date=effective.effective_date,
+        date_count=effective.date_count,
+    )
+
+
+def _no_index_declared_target_unbound_diagnostic(
+    *,
+    artifact: NOLocatedArtifact,
+    declared: NODeclaredChangeTargets,
+    base_ids: tuple[str, ...],
+) -> Optional[dict[str, Any]]:
+    """Adjudicate the targets Lovdata declared that the extracted ops never bound.
+
+    Measurement only: ``base_ids`` stays whatever extraction produced, and a
+    declared id that is absent from it is recorded here rather than bound.
+    ``unnumbered_unbound_target_ids`` labels the ``no/lov/<date>`` declarations
+    that carry no trailing act number. They are labelled inside the gap, not
+    held apart from it: they stay in ``unbound_target_ids`` and in
+    ``declared_target_count``, which is what makes the emitted totals reconcile
+    with ``scripts/probes/no_declared_target_coverage.py`` (4,088 unbound across
+    1,245 acts). The label is not an unreachability verdict — 65 of the 92
+    unnumbered ids emitted corpus-wide do name a corpus law, filed under a
+    ``<date>-0`` id — so these are real gaps, reported as such and merely
+    distinguished by the form in which Lovdata declared them.
+    """
+    unbound = tuple(sorted(set(declared.law_ids) - set(base_ids)))
+    if not unbound:
+        return None
+    return diagnostic_detail(
+        rule_id="no_amendment_index_declared_target_unbound",
+        family="source_pathology",
+        phase="acquisition",
+        reason="Norway amendment act declared amendment targets that no extracted operation bound",
+        blocking=True,
+        strict_disposition="block",
+        quirks_disposition=QuirksDisposition.RECORD,
+        source_id=artifact.logical_id,
+        locator=artifact.locator,
+        archive=artifact.source_name,
+        member_name=artifact.member_name,
+        declared_target_count=len(declared.law_ids),
+        bound_base_id_count=len(base_ids),
+        unbound_target_ids=list(unbound),
+        unnumbered_unbound_target_ids=sorted(set(declared.unnumbered_law_ids) & set(unbound)),
     )
 
 

@@ -12,7 +12,7 @@ from lawvm.core.semantic_types import IRNodeKind
 from lawvm.finland.amendment_payload_lookup import _find_muutos_ir
 from lawvm.finland.body_coverage import BodyCoveragePayloadRef, extract_body_coverage
 from lawvm.finland.body_pairing import build_observed_body_inventory
-from lawvm.finland.corpus import get_corpus_store
+from tests.corpus_pin_helpers import corpus_store_or_skip
 from lawvm.finland.ops import OpType, AmendmentOp
 from lawvm.finland.source_model import AmendmentSourceModel, SourceMetadataSeed
 from lawvm.finland.statute import ReplayState
@@ -806,7 +806,7 @@ def test_source_model_payload_lookup_converts_only_selected_source_unit(
 
 
 def test_source_model_chapter_payload_lookup_uses_logical_pseudo_chapter_segments() -> None:
-    xml = get_corpus_store().read_source("1997/611")
+    xml = corpus_store_or_skip().read_source("1997/611")
     assert xml is not None
     model = AmendmentSourceModel.from_tree(etree.fromstring(xml), source_ref="1997/611")
 
@@ -839,7 +839,7 @@ def test_source_model_chapter_payload_lookup_uses_logical_pseudo_chapter_segment
 
 
 def test_source_model_chapter_payload_lookup_salvages_marker_only_pseudo_chapter() -> None:
-    xml = get_corpus_store().read_source("1995/1396")
+    xml = corpus_store_or_skip().read_source("1995/1396")
     assert xml is not None
     model = AmendmentSourceModel.from_tree(etree.fromstring(xml), source_ref="1995/1396")
 

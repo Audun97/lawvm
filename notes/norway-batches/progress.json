@@ -1,0 +1,702 @@
+{
+  "schemaVersion": 1,
+  "branch": "audun/norway-receipt-spine",
+  "sourceReview": {
+    "path": "notes/NORWAY_VERIFY_FINDINGS_LEDGER.md",
+    "sha256": "94206087c5748ae6ab145e6d6132a9958c6c8e5a8b228f34b0c1f79124c76e7f"
+  },
+  "executionPolicy": {
+    "runnableState": "ready",
+    "readyAtHeadMeaning": "frozen-product-baseline",
+    "allowedControlPlaneDrift": [
+      {
+        "path": ".claude/",
+        "match": "prefix"
+      },
+      {
+        "path": "notes/",
+        "match": "prefix"
+      }
+    ],
+    "requiredCompletedRelations": [
+      "dependsOn",
+      "recommendedAfter"
+    ],
+    "fieldVerificationPolicies": [
+      "not-required",
+      "required-after-application"
+    ]
+  },
+  "batches": {
+    "03-commencement-execution-authorization": {
+      "state": "complete",
+      "readyAtHead": "a6d92016646a34bffb310299eaf0fa712ff67667",
+      "contract": {
+        "path": "notes/norway-batches/contracts/03-commencement-execution-authorization.json",
+        "sha256": "8b7421d427adf3b5d3987eebc90e5c02ab8140f938bdf67bca22d78e4396f6f6"
+      },
+      "fieldVerification": {
+        "status": "required-after-application",
+        "completed": true
+      },
+      "patch": {
+        "sha256": "3920b47c81a5be5c86edf18414bb8ac80184fba1c4fc9c83c366a9f15c535ce1",
+        "sizeBytes": 45344,
+        "sourceBaseline": "a6d92016646a34bffb310299eaf0fa712ff67667",
+        "changedFiles": [
+          "src/lawvm/norway/commencement_instruments.py",
+          "src/lawvm/norway/index.py",
+          "src/lawvm/norway/sources.py",
+          "src/lawvm/tools/spec_ledger_no_catalog.py",
+          "tests/test_norway_commencement_instruments.py",
+          "tests/test_norway_index.py"
+        ],
+        "note": "The reviewed recovery patch was generated at promotion commit 49ddf795e, whose product plane (src, scripts, tests) is byte-identical to frozen baseline a6d920166; sourceBaseline records the product baseline per the ledger convention."
+      },
+      "application": {
+        "commit": "2c76cedecfb7fbbc020d4dbeb4930073fc1a72ae",
+        "runId": "wf_520a2597-9de",
+        "note": "Recovered original run wf_818bf816-c4d and post-fix final gate wf_e1d1cfad-6ad. The post-fix architecture review found one stale in-contract catalog statement after the bounded fixer cycle was exhausted. Narrow recovery changed only that statement relative to the recovered patch, reran all targeted gates, and received independent correctness and architecture approvals before application."
+      },
+      "evidence": {
+        "verification": {
+          "targetedResults": {
+            "ruff": "passed",
+            "ty": "passed",
+            "focusedNorway": "38 passed, 1 skipped",
+            "norwayShard": "486 passed, 1 skipped",
+            "specCatalogGuard": "6 passed"
+          },
+          "applyLadder": {
+            "status": "red-only-on-proven-pre-existing-finland-corpus-absence",
+            "compile": "passed",
+            "ruff": "passed",
+            "ty": "passed",
+            "shardOwnership": "passed",
+            "boundary": "47 passed",
+            "norway": "487 passed",
+            "toolsCliDebug": "3 failed, 154 passed",
+            "preExistingFailures": [
+              "tests/test_dangling_temporal_cause.py::test_corpus_witness_range_repeal",
+              "tests/test_bill_counterfactual_effects.py::test_witness_2018_301_has_nonempty_tier_1_and_tier_2",
+              "tests/test_dangling_references.py::test_existence_oracle_real_corpus_witness"
+            ],
+            "proof": "The exact reviewed patch was reversed, the failing tools_cli_debug shard rerun on base with the identical 3 failures and 154 passes, and the exact patch reapplied. The full affected ladder itself ran once, as required."
+          },
+          "successfulStages": [
+            "uv run ruff check src/lawvm/norway/sources.py src/lawvm/norway/commencement_instruments.py src/lawvm/norway/index.py src/lawvm/tools/spec_ledger_no_catalog.py tests/test_norway_index.py tests/test_norway_commencement_instruments.py --no-fix",
+            "uv run ty check src/lawvm/norway/sources.py src/lawvm/norway/commencement_instruments.py src/lawvm/norway/index.py src/lawvm/tools/spec_ledger_no_catalog.py tests/test_norway_index.py tests/test_norway_commencement_instruments.py",
+            "./scripts/test_shard.sh run norway -- tests/test_norway_commencement_instruments.py tests/test_norway_index.py",
+            "./scripts/test_shard.sh run norway",
+            "./scripts/test_shard.sh run tools_cli_debug -- tests/test_spec_ledger_no_catalog.py",
+            "./scripts/ci.sh --affected src/lawvm/norway/sources.py src/lawvm/norway/commencement_instruments.py src/lawvm/norway/index.py src/lawvm/tools/spec_ledger_no_catalog.py tests/test_norway_index.py tests/test_norway_commencement_instruments.py"
+          ]
+        },
+        "reviewVerdicts": {
+          "postFixFinalGate": {
+            "correctness": "approve",
+            "architecture": "findings",
+            "adjudication": "1 confirmed blocking finding"
+          },
+          "recoveryFinal": {
+            "correctness": "approve",
+            "architecture": "approve",
+            "adjudication": "approve"
+          },
+          "fixerRan": true,
+          "recoveryImplementerRan": true,
+          "note": "The original fixer corrected the dead real-corpus skip guard and stale commencement module docstring. The later confirmed finding was the stale no_replay_unknown_effective_skipped believed-spec value; recovery corrected only that value."
+        },
+        "rejectedFindings": [],
+        "fieldVerification": {
+          "asOf": "2026-07-10",
+          "scanBefore": {
+            "candidateCount": 20,
+            "consistent": 12,
+            "divergent": 8,
+            "error": 0
+          },
+          "scanAfter": {
+            "candidateCount": 58,
+            "consistent": 18,
+            "divergent": 40,
+            "error": 0
+          },
+          "originalCohort": {
+            "candidateCount": 20,
+            "consistent": 12,
+            "divergent": 8,
+            "error": 0,
+            "rowsChanged": 0,
+            "note": "All original rows byte-identical."
+          },
+          "newlyUnlocked": {
+            "candidateCount": 38,
+            "consistent": 6,
+            "divergent": 32,
+            "error": 0,
+            "rows": [
+              {
+                "baseId": "no/lov/2010-06-25-28",
+                "verdict": "divergent",
+                "divergences": 29
+              },
+              {
+                "baseId": "no/lov/2013-06-21-102",
+                "verdict": "divergent",
+                "divergences": 55
+              },
+              {
+                "baseId": "no/lov/2017-06-16-67",
+                "verdict": "divergent",
+                "divergences": 6
+              },
+              {
+                "baseId": "no/lov/2019-06-14-21",
+                "verdict": "divergent",
+                "divergences": 28
+              },
+              {
+                "baseId": "no/lov/2001-06-15-65",
+                "verdict": "divergent",
+                "divergences": 4
+              },
+              {
+                "baseId": "no/lov/2010-02-19-5",
+                "verdict": "divergent",
+                "divergences": 32
+              },
+              {
+                "baseId": "no/lov/2015-05-22-33",
+                "verdict": "divergent",
+                "divergences": 3
+              },
+              {
+                "baseId": "no/lov/2017-06-16-51",
+                "verdict": "divergent",
+                "divergences": 215
+              },
+              {
+                "baseId": "no/lov/2004-05-28-29",
+                "verdict": "divergent",
+                "divergences": 9
+              },
+              {
+                "baseId": "no/lov/2005-06-03-34",
+                "verdict": "divergent",
+                "divergences": 3
+              },
+              {
+                "baseId": "no/lov/2016-06-17-29",
+                "verdict": "divergent",
+                "divergences": 21
+              },
+              {
+                "baseId": "no/lov/2017-06-16-65",
+                "verdict": "divergent",
+                "divergences": 57
+              },
+              {
+                "baseId": "no/lov/2005-05-27-31",
+                "verdict": "divergent",
+                "divergences": 10
+              },
+              {
+                "baseId": "no/lov/2018-06-15-38",
+                "verdict": "divergent",
+                "divergences": 716
+              },
+              {
+                "baseId": "no/lov/2021-06-18-115",
+                "verdict": "consistent",
+                "divergences": 0
+              },
+              {
+                "baseId": "no/lov/2022-03-18-12",
+                "verdict": "consistent",
+                "divergences": 0
+              },
+              {
+                "baseId": "no/lov/2024-12-13-76",
+                "verdict": "divergent",
+                "divergences": 1
+              },
+              {
+                "baseId": "no/lov/2002-04-26-12",
+                "verdict": "divergent",
+                "divergences": 8
+              },
+              {
+                "baseId": "no/lov/2003-06-27-57",
+                "verdict": "divergent",
+                "divergences": 2
+              },
+              {
+                "baseId": "no/lov/2007-06-29-89",
+                "verdict": "divergent",
+                "divergences": 1
+              },
+              {
+                "baseId": "no/lov/2009-03-06-12",
+                "verdict": "divergent",
+                "divergences": 3
+              },
+              {
+                "baseId": "no/lov/2012-01-27-9",
+                "verdict": "divergent",
+                "divergences": 6
+              },
+              {
+                "baseId": "no/lov/2012-11-30-70",
+                "verdict": "divergent",
+                "divergences": 1
+              },
+              {
+                "baseId": "no/lov/2013-06-07-31",
+                "verdict": "consistent",
+                "divergences": 0
+              },
+              {
+                "baseId": "no/lov/2016-06-17-46",
+                "verdict": "divergent",
+                "divergences": 2
+              },
+              {
+                "baseId": "no/lov/2017-05-22-28",
+                "verdict": "divergent",
+                "divergences": 1
+              },
+              {
+                "baseId": "no/lov/2017-05-22-29",
+                "verdict": "divergent",
+                "divergences": 6
+              },
+              {
+                "baseId": "no/lov/2017-05-22-30",
+                "verdict": "divergent",
+                "divergences": 6
+              },
+              {
+                "baseId": "no/lov/2020-06-19-95",
+                "verdict": "divergent",
+                "divergences": 1
+              },
+              {
+                "baseId": "no/lov/2020-11-27-131",
+                "verdict": "divergent",
+                "divergences": 15
+              },
+              {
+                "baseId": "no/lov/2020-12-04-136",
+                "verdict": "divergent",
+                "divergences": 3
+              },
+              {
+                "baseId": "no/lov/2020-12-18-153",
+                "verdict": "consistent",
+                "divergences": 0
+              },
+              {
+                "baseId": "no/lov/2021-04-16-18",
+                "verdict": "divergent",
+                "divergences": 1
+              },
+              {
+                "baseId": "no/lov/2021-06-18-121",
+                "verdict": "divergent",
+                "divergences": 2
+              },
+              {
+                "baseId": "no/lov/2022-12-20-118",
+                "verdict": "divergent",
+                "divergences": 8
+              },
+              {
+                "baseId": "no/lov/2022-12-20-97",
+                "verdict": "divergent",
+                "divergences": 6
+              },
+              {
+                "baseId": "no/lov/2024-06-25-69",
+                "verdict": "consistent",
+                "divergences": 0
+              },
+              {
+                "baseId": "no/lov/2024-12-13-77",
+                "verdict": "consistent",
+                "divergences": 0
+              }
+            ]
+          },
+          "authorization": {
+            "acts": 520,
+            "supportingInstruments": 523,
+            "dateConflicts": 0,
+            "remainingAuthorizableActs": 0
+          },
+          "landscape": {
+            "currentLaws": 645,
+            "executableOriginalPresent": 337,
+            "amendedExecutableLaws": 237,
+            "fullyReplayableAmendedLaws": 58,
+            "commencementBlockedAmendedLaws": 179,
+            "zeroAmendmentExecutableLaws": 100,
+            "unresolvedAmendmentActs": 916,
+            "effectiveStatusCounts": {
+              "dated": 1029,
+              "contingent": 913,
+              "instrument_authorized": 520,
+              "unknown": 3,
+              "immediate": 1
+            },
+            "instrumentCoverage": {
+              "total": 35955,
+              "candidates": 608,
+              "benignNonCommencement": 33590,
+              "blockedUnresolved": 1757
+            }
+          },
+          "replayWitness": {
+            "baseId": "no/lov/2010-06-25-28",
+            "amendmentSourceId": "no/lovtid/2022-04-01-17",
+            "instrumentEffectiveDate": "2022-04-01",
+            "dayBefore": "2022-03-31",
+            "dayBeforeSkippedFuture": true,
+            "onDateApplied": true,
+            "onDateOperationCount": 2
+          },
+          "positiveAnchor": {
+            "sourceId": "no/lovtid/2012-01-27-9",
+            "effectiveStatus": "instrument_authorized",
+            "effectiveDate": "2012-03-01",
+            "instrumentSourceId": "no/forskrift/2012-01-27-71",
+            "instrumentReplayAuthorized": true
+          },
+          "negativeAnchor": {
+            "sourceId": "no/lovtid/2026-06-19-48",
+            "effectiveStatus": "dated",
+            "effectiveDate": "2026-06-19"
+          },
+          "followUps": [
+            "Replay currently orders amendments by source_id, which can invert effective-date order for no/lov/2010-02-19-5 and no/lov/2010-06-25-28 (open as W-10).",
+            "src/lawvm/tools/no_commencement_candidates.py hardcoded replay_authorized=False in its report output at application time (resolved 2026-08-01 as W-9; the fix also replaced the gate's author-set replay_authorized=True literal with a derived verdict after the PROJ-02 ratchet, in shard core_discipline_gates and outside this batch's affected ladder, was found red at HEAD)."
+          ]
+        }
+      }
+    },
+    "02-declared-target-binding-coverage": {
+      "state": "complete",
+      "readyAtHead": "e04be4d7ddfd8bd80750e6d260a25ddfe106bbb9",
+      "contract": {
+        "path": "notes/norway-batches/contracts/02-declared-target-binding-coverage.json",
+        "sha256": "928ff29e316ea21e07b7264f3ec0ec40665bb40f7f06910be9daf00dd0484a24"
+      },
+      "fieldVerification": {
+        "status": "required-after-application",
+        "completed": true
+      },
+      "patch": {
+        "sha256": "b861542f579d7a72e8be134fb4545905976145554f30bfcd284ce151792c10ec",
+        "sizeBytes": 23213,
+        "sourceBaseline": "e04be4d7ddfd8bd80750e6d260a25ddfe106bbb9",
+        "changedFiles": [
+          "src/lawvm/norway/grafter.py",
+          "src/lawvm/norway/index.py",
+          "src/lawvm/norway/sources.py",
+          "src/lawvm/tools/spec_ledger_no_catalog.py",
+          "tests/test_norway_index.py"
+        ]
+      },
+      "application": {
+        "commit": "f15b11aeed0e3cf414aa58a764d91126d92e9c77",
+        "runId": "wf_dae5ce77-539",
+        "note": "Workflow aborted at Adjudicate with 2 confirmed prose defects and the bounded fixer cycle exhausted. Applied by hand with those two claims corrected; no code change was required."
+      },
+      "evidence": {
+        "verification": {
+          "successfulStages": [
+            "uv run ruff check src/lawvm/norway/sources.py src/lawvm/norway/grafter.py src/lawvm/norway/index.py src/lawvm/tools/spec_ledger_no_catalog.py tests/test_norway_index.py --no-fix",
+            "uv run ty check src/lawvm/norway/sources.py src/lawvm/norway/grafter.py src/lawvm/norway/index.py src/lawvm/tools/spec_ledger_no_catalog.py tests/test_norway_index.py",
+            "./scripts/test_shard.sh run norway -- tests/test_norway_index.py",
+            "./scripts/test_shard.sh run norway",
+            "./scripts/test_shard.sh run tools_cli_debug -- tests/test_spec_ledger_no_catalog.py",
+            "./scripts/ci.sh --affected src/lawvm/norway/sources.py src/lawvm/norway/grafter.py src/lawvm/norway/index.py src/lawvm/tools/spec_ledger_no_catalog.py tests/test_norway_index.py"
+          ],
+          "applyLadderNote": "At apply (2026-07-31): norway 475 passed (was 466), catalog guard 6 passed; ci.sh --affected reported tools_cli_debug red, proved pre-existing by stash-and-rerun (byte-identical 3-row finlex corpus-absence set from the stub archive). All six frozen-ladder stages re-run verbatim 2026-07-31 at a6d920166 for batch-03 promotion bookkeeping: stages 1-5 green (norway 475 passed same-day post-ingest), stage 6 red only on the same 3-row finlex set — with only notes/ changed since f15b11aee, that red is environmental by construction."
+        },
+        "reviewVerdicts": {
+          "initial": {
+            "correctness": "findings",
+            "architecture": "findings"
+          },
+          "final": {
+            "correctness": "findings",
+            "architecture": "findings"
+          },
+          "fixerRan": true,
+          "initialConfirmedFindings": 1,
+          "finalConfirmedFindings": 2,
+          "note": "Both final findings prose-only; adjudicator supplied the wording."
+        },
+        "fieldVerification": {
+          "asOf": "2026-07-10",
+          "scanBefore": {
+            "consistent": 12,
+            "divergent": 8,
+            "error": 0
+          },
+          "scanAfter": {
+            "consistent": 12,
+            "divergent": 8,
+            "error": 0
+          },
+          "lawsChanged": [],
+          "adjudicationsEmitted": 1245,
+          "unboundBindings": 4088,
+          "probeReconciliation": "exact (1245 acts / 4088 ids)",
+          "nonVacuous": "1696 fully-covered entries emit no adjudication",
+          "note": "All 20 per-law rows byte-identical with and without the patch. No movement was the pass condition: an improvement would have meant the declared list leaked into binding authority."
+        },
+        "discovery": {
+          "claim": "The declared list is load-bearing authority for 16% of the index, not evidence-only.",
+          "measurement": "Counterfactual: strip every changesToDocuments carrier and rebuild — 393 of 2466 entries lose base_ids entirely, all 393 drawn from that act's own declared list; 397 change. Reproduced independently by both reviewers and the adjudicator."
+        }
+      }
+    },
+    "01-compare-noise-normalization": {
+      "state": "complete",
+      "readyAtHead": "3396a3713e84f6bda745e01d3c391dcbd055c799",
+      "contract": {
+        "path": "notes/norway-batches/contracts/01-compare-noise-normalization.json",
+        "sha256": "85526d29781c59077ef5eb80454f779100e3211ef60e4c088c05276690c441bb"
+      },
+      "fieldVerification": {
+        "status": "required-after-application",
+        "completed": true
+      },
+      "patch": {
+        "sha256": "d4f256e86280783d5611384efdef378e1e213af12cc440200055f874a4b85620",
+        "sizeBytes": 4996,
+        "sourceBaseline": "3396a3713e84f6bda745e01d3c391dcbd055c799",
+        "changedFiles": [
+          "src/lawvm/norway/verify.py",
+          "src/lawvm/tools/spec_ledger_no_catalog.py",
+          "tests/test_norway_verify.py"
+        ]
+      },
+      "application": {
+        "commit": "f4eae341a95f99518ed16c0bfa591ac521cd6d52",
+        "runId": "wf_6bd63566-4fb"
+      },
+      "evidence": {
+        "verification": {
+          "successfulStages": [
+            "uv run ruff check src/lawvm/norway/verify.py tests/test_norway_verify.py src/lawvm/tools/spec_ledger_no_catalog.py --no-fix",
+            "uv run ty check src/lawvm/norway/verify.py tests/test_norway_verify.py src/lawvm/tools/spec_ledger_no_catalog.py",
+            "./scripts/test_shard.sh run norway -- tests/test_norway_verify.py",
+            "./scripts/test_shard.sh run tools_cli_debug -- tests/test_spec_ledger_no_catalog.py",
+            "./scripts/ci.sh --affected src/lawvm/norway/verify.py tests/test_norway_verify.py src/lawvm/tools/spec_ledger_no_catalog.py"
+          ],
+          "applyLadderNote": "ci.sh --affected reported tools_cli_debug red. Classified as pre-existing: the shard's 14-row failure set is byte-identical with and without the patch (proved by git apply -R and re-running), and all rows are corpus-absence failures from the stub data/finlex.farchive. norway 466 passed; test_spec_ledger_no_catalog 6 passed."
+        },
+        "reviewVerdicts": {
+          "initial": {
+            "correctness": "findings",
+            "architecture": "findings"
+          },
+          "final": {
+            "correctness": "approve",
+            "architecture": "approve"
+          },
+          "fixerRan": true,
+          "initialConfirmedFindings": 1,
+          "finalConfirmedFindings": 0
+        },
+        "rejectedFindings": [
+          {
+            "id": "correctness:C2",
+            "severity": "low",
+            "file": "src/lawvm/norway/verify.py",
+            "line": 92,
+            "claim": "Removing the space makes '(Opphevet )' newly satisfy _NO_VERIFY_REPEALED_RE, so such a section blanks as a repealed shell where it previously compared as text.",
+            "reason": "Real behavior change but not a defect under this contract: it is the same blanking '(Opphevet)' already gets at HEAD, applied symmetrically to both compare sides, and a corpus scan found zero 'Opphevet<whitespace>)' shapes. Revisit if published-side extraction ever emits that shape."
+          }
+        ],
+        "fieldVerification": {
+          "asOf": "2026-07-10",
+          "scanBefore": {
+            "consistent": 11,
+            "divergent": 9,
+            "error": 0
+          },
+          "scanAfter": {
+            "consistent": 12,
+            "divergent": 8,
+            "error": 0
+          },
+          "lawsChanged": [
+            "no/lov/2018-06-15-44"
+          ],
+          "note": "Every other law's divergence count byte-identical; nothing masked, nothing newly divergent."
+        }
+      }
+    },
+    "04-mixed-commencement-typing": {
+      "state": "complete",
+      "readyAtHead": "31954739d309d708e1929c0e1f8540deca384107",
+      "contract": {
+        "path": "notes/norway-batches/contracts/04-mixed-commencement-typing.json",
+        "sha256": "5462f02bbc037453b72b06b96ac08d8add2a1d2f08f09aef86ff008fb99087ae"
+      },
+      "fieldVerification": {
+        "status": "required-after-application",
+        "completed": true
+      },
+      "patch": {
+        "sha256": "57fd36e044380856a45619491f5aec18391a84a0b0116807911be1a1e5216074",
+        "sizeBytes": 37879,
+        "sourceBaseline": "31954739d309d708e1929c0e1f8540deca384107",
+        "changedFiles": [
+          "src/lawvm/norway/index.py",
+          "src/lawvm/norway/sources.py",
+          "src/lawvm/tools/spec_ledger_no_catalog.py",
+          "tests/test_norway_index.py",
+          "tests/test_norway_replay.py"
+        ],
+        "note": "Implementer patch (sha 980ce0b3d1a6...) plus the adjudicated bounded fixer (stale 166/158 docstring counts -> 167/159; the proven-vacuous EARLIER assertion replaced with receipt-derived corpus assertions; coerce_no_commencement_shape added for from_dict). Generated at promotion commit ea37eff27, whose product plane is byte-identical to frozen baseline 31954739d."
+      },
+      "application": {
+        "commit": "6fa7b77fd275d7f583aa0873b717acd31985d22f",
+        "note": "Implemented by a sub-agent in an isolated worktree off frozen baseline 31954739d; independently reviewed by two sub-agents (architecture, correctness) in their own worktrees, both APPROVE WITH FINDINGS; bounded fixer applied by the main session and all targeted stages rerun green; applied to the main checkout and the full affected ladder run once. stopCondition 1 (166 vs 167) fired and was signed off by the user 2026-08-02; the frozen contract is unamended and the deviation is recorded in the findings ledger changelog."
+      },
+      "evidence": {
+        "verification": {
+          "targetedResults": {
+            "ruff": "passed",
+            "ty": "passed",
+            "norwayShard": "499 passed, 1 skipped",
+            "specCatalogGuard": "6 passed"
+          },
+          "applyLadder": {
+            "status": "red-only-on-proven-pre-existing-finland-corpus-absence",
+            "compile": "passed",
+            "ruff": "passed",
+            "ty": "passed",
+            "shardOwnership": "passed",
+            "boundary": "47 passed",
+            "treeWideHygieneRatchets": "397 passed",
+            "norway": "500 passed",
+            "toolsCliDebug": "3 failed, 157 passed",
+            "preExistingFailures": [
+              "tests/test_dangling_temporal_cause.py::test_corpus_witness_range_repeal",
+              "tests/test_bill_counterfactual_effects.py::test_witness_2018_301_has_nonempty_tier_1_and_tier_2",
+              "tests/test_dangling_references.py::test_existence_oracle_real_corpus_witness"
+            ],
+            "proof": "The patch was stashed, the failing tools_cli_debug shard rerun on base ea37eff27 with the identical 3 failures, and the patch restored. The full affected ladder itself ran once, as required. This was the first batch through the always-run tree-wide hygiene stage (31954739d)."
+          },
+          "successfulStages": [
+            "uv run ruff check src/lawvm/norway/sources.py src/lawvm/norway/index.py src/lawvm/tools/spec_ledger_no_catalog.py tests/test_norway_index.py tests/test_norway_replay.py --no-fix",
+            "uv run ty check src/lawvm/norway/sources.py src/lawvm/norway/index.py src/lawvm/tools/spec_ledger_no_catalog.py tests/test_norway_index.py tests/test_norway_replay.py",
+            "./scripts/test_shard.sh run norway",
+            "./scripts/test_shard.sh run tools_cli_debug -- tests/test_spec_ledger_no_catalog.py",
+            "./scripts/ci.sh --affected src/lawvm/norway/sources.py src/lawvm/norway/index.py src/lawvm/tools/spec_ledger_no_catalog.py tests/test_norway_index.py tests/test_norway_replay.py"
+          ]
+        },
+        "reviewVerdicts": {
+          "architecture": "approve-with-findings",
+          "correctness": "approve-with-findings",
+          "adjudication": "2 confirmed in-scope findings (stale docstring counts; vacuous EARLIER assertion) plus 1 optional hardening (StrEnum coercion) fixed by a bounded fixer; 3 out-of-scope follow-ups recorded as W-13; 167-vs-166 adjudicated for the implementer by both reviewers and signed off by the user.",
+          "fixerRan": true
+        },
+        "rejectedFindings": [],
+        "fieldVerification": {
+          "asOf": "2026-07-10",
+          "scan": {
+            "candidateCount": 58,
+            "consistent": 18,
+            "divergent": 40,
+            "error": 0,
+            "rowsChanged": 0,
+            "note": "Summary and per-row verdicts/divergence counts equal batch 03's recorded baseline; byte-identity of all 58 rows pre/post patch was additionally proven independently by both reviewers on the same corpus."
+          },
+          "stagedPopulation": {
+            "count": 167,
+            "receipts": 167,
+            "receiptSetEqualsStagedSet": true,
+            "preWideningCount": 166,
+            "preWideningNote": "The correctness reviewer reproduced the pre-widening state exactly (166 staged / 913 contingent / 1021 dated / 528 authorized / 3 unknown) by monkeypatching the 5-member marker tuple; stopCondition 1's firing was signed off by the user 2026-08-02 and the frozen contract left unamended."
+          },
+          "redatings": {
+            "no/lovtid/2013-01-11-1": "2013-01-01",
+            "no/lovtid/2020-05-07-38": "2020-05-11",
+            "no/lovtid/2022-06-10-35": "2022-06-15",
+            "no/lovtid/2022-06-17-58": "2022-07-01",
+            "no/lovtid/2022-06-17-60": "2022-06-24",
+            "no/lovtid/2024-06-21-50": "2024-07-01",
+            "no/lovtid/2024-06-25-53": "2024-07-01",
+            "no/lovtid/2026-06-12-22": "2026-07-01"
+          },
+          "authorization": {
+            "acts": 528,
+            "batch03ReceiptsByteIdentical": true,
+            "dateConflicts": 0,
+            "refusalReceipts": 1285,
+            "refusalReceiptsBefore": 1120
+          },
+          "effectiveStatusCounts": {
+            "dated": 1021,
+            "contingent": 914,
+            "instrument_authorized": 528,
+            "unknown": 2,
+            "immediate": 1
+          },
+          "instrumentCoverage": {
+            "total": 35955,
+            "candidates": 608,
+            "benignNonCommencement": 33590,
+            "blockedUnresolved": 1757
+          },
+          "spotChecks": {
+            "no/lovtid/2026-06-12-22": {
+              "effectiveStatus": "instrument_authorized",
+              "effectiveDate": "2026-07-01",
+              "commencementShape": "staged_delegated",
+              "note": "Moved 2028-07-01 -> 2026-07-01 on no/forskrift/2026-06-12-1076's evidence; scan still 58."
+            },
+            "no/lovtid/2026-06-19-48": {
+              "effectiveStatus": "dated",
+              "effectiveDate": "2026-06-19",
+              "commencementShape": "staged_delegated",
+              "hasStagedReceipt": true,
+              "note": "F-03's act: not demoted, not re-dated, carrying the staged receipt."
+            }
+          },
+          "markerWidening": {
+            "no/lovtid/2020-06-23-103": {
+              "effectiveStatus": "dated",
+              "effectiveDate": "2020-06-23",
+              "commencementShape": "staged_delegated"
+            },
+            "no/lovtid/2016-06-17-56": {
+              "effectiveStatus": "contingent",
+              "effectiveDate": null,
+              "commencementShape": "plain"
+            },
+            "no/lovtid/2021-04-23-23": {
+              "effectiveStatus": "instrument_authorized",
+              "effectiveDate": "2021-04-30",
+              "commencementShape": "plain",
+              "note": "Already authorized by batch 03; widening changes only its pre-gate classification (UNKNOWN -> CONTINGENT)."
+            }
+          },
+          "landscape": {
+            "commencementBlockedAmendedLaws": 179
+          },
+          "followUps": [
+            "W-13: commencement_instruments.py unresolved_act_ids naming/docstring now false for its only production caller; normalize_no_commencement_phrase still hardcodes the old 5-marker tuple (inert); STAGED_DELEGATED docstring over-claims for no/lovtid/2024-06-21-50 (repeal-date tail)."
+          ]
+        }
+      }
+    }
+  }
+}

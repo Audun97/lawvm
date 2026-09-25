@@ -14,10 +14,15 @@ def main(args: "argparse.Namespace") -> None:
         adjudication_finding_evidence_rows,
         adjudication_kind_counts,
     )
+    from lawvm.norway.sources import no_consolidation_snapshot_date
     from lawvm.norway.verify import verify_no_against_current
 
     data_dir_arg = getattr(args, "data_dir", None)
     data_dir = Path(data_dir_arg) if data_dir_arg else None
+    # F-01: absent --as-of, the comparison horizon comes from the corpus, not a
+    # literal that predates the consolidation this is compared against. Explicit
+    # flag passes through verbatim. Same derivation as `no-verify-scan`.
+    as_of = getattr(args, "as_of", None) or no_consolidation_snapshot_date(data_dir)
     index_arg = getattr(args, "index", None)
     index_path = Path(index_arg) if index_arg else None
     commencement_arg = getattr(args, "commencement", None)
@@ -25,7 +30,7 @@ def main(args: "argparse.Namespace") -> None:
 
     result = verify_no_against_current(
         args.base_id,
-        as_of=args.as_of,
+        as_of=as_of,
         data_dir=data_dir,
         index_path=index_path,
         commencement_path=commencement_path,

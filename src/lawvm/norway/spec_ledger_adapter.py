@@ -11,8 +11,8 @@ It self-registers into the core's adapter registry at import time (see
 the ``-j no`` CLI dispatch through the registry without the core importing this package.
 
 NO replays as a *consistency verification* against the live Lovdata consolidated text
-(``notes/NORWAY_LAWVM_STATUS.md``). Like EE, that consolidation is law-in-force but not
-necessarily consolidation-correct, so ``oracle_suspect`` is a first-class outcome and a
+(``notes/NORWAY_LAWVM_STATUS.md``). That editorial rendering describes law in force but
+is not necessarily consolidation-correct, so ``oracle_suspect`` is a first-class outcome and a
 raw structural divergence (``OPS_MISSING`` / ``CONSOLIDATED_MISSING`` / ``MISMATCH`` from
 ``core.timeline_consistency``) defaults to the conservative *humble* disposition rather
 than deference to the consolidation.
@@ -35,6 +35,7 @@ no such receipt => an unattributed blind spot (the ledger's frontier).
 Run:  uv run python -m lawvm.tools.spec_ledger -j no no/lov/2008-05-15-35
       uv run python -m lawvm.tools.spec_ledger -j no --corpus-bench --json ledger.json
 """
+
 from __future__ import annotations
 
 from collections import defaultdict
@@ -69,6 +70,7 @@ _NO_DIAGNOSIS_DISPOSITION: Dict[str, WitnessDisposition] = {
     # (could be a replay surplus OR an oracle omission; not pinned as our bug).
     "OPS_MISSING": "structural",
 }
+
 
 # Believed-spec catalog authored by a sibling agent in
 # ``lawvm.tools.spec_ledger_no_catalog``; import if present, else fall back to {} so the
@@ -183,12 +185,10 @@ def no_ledger_inputs(sids: List[str], mode: Mode) -> Iterator[StatuteLedgerInput
                     diagnosis=diagnosis,
                     disposition=disposition_for(diagnosis, _NO_DIAGNOSIS_DISPOSITION),
                     rule_id=rid,
-                    blame_source="",  # NO oracle is authoritative, not a blamed source
+                    blame_source="",  # NO oracle differences require adjudication, not automatic blame
                 )
             )
-        yield StatuteLedgerInput(
-            sid=sid, rule_firings=dict(firings), divergences=divergences
-        )
+        yield StatuteLedgerInput(sid=sid, rule_firings=dict(firings), divergences=divergences)
 
 
 # The fixed compare as-of for the NO current-oracle comparison. The Lovdata current
@@ -201,10 +201,10 @@ _NO_COMPARE_AS_OF = "2024-01-01"
 def _load_no_bench_ids() -> List[str]:
     """Norway ``base_id``s for the smoke corpus.
 
-    NO has no committed bench CSV; the corpus is the set of amended, fully-replayable
-    base acts the inventory scan surfaces, ordered by amendment volume (most-amended
-    first) so the smoke slice hits the acts where witness rules fire most. Bounded to
-    the top slice so ``--corpus-bench`` is a fast smoke, not the whole corpus.
+    This spec-ledger smoke intentionally derives a fresh set of amended,
+    fully-replayable base acts from the inventory. It is distinct from the committed
+    comparison corpus in ``data/norway/bench_corpus.csv`` and is ordered by amendment
+    volume so witness rules fire. The bounded slice keeps ``--corpus-bench`` fast.
     """
     from lawvm.norway.inventory import build_no_inventory
     from lawvm.norway.sources import resolve_no_source_path
@@ -213,11 +213,7 @@ def _load_no_bench_ids() -> List[str]:
     inventory = build_no_inventory(data_dir)
     status_map = inventory.amended_executable_law_status_map()
     candidates = sorted(
-        (
-            base_id
-            for base_id, status in status_map.items()
-            if status == "fully_replayable"
-        ),
+        (base_id for base_id, status in status_map.items() if status == "fully_replayable"),
         key=lambda base_id: (
             -len(inventory.base_to_sources.get(base_id, [])),
             base_id,

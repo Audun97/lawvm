@@ -32,11 +32,16 @@ from typing import TYPE_CHECKING
 import pytest
 
 from lawvm.core.invariant_detectors import run_invariant_detector_messages
-from lawvm.estonia.fetch import open_rt_archive
+from lawvm.estonia.fetch import _DEFAULT_RT_DB, open_rt_archive
 from lawvm.estonia.replay import replay_ee_to_pit, EEPitResult
 
 if TYPE_CHECKING:
     pass
+
+pytestmark = pytest.mark.skipif(
+    not _DEFAULT_RT_DB.exists(),
+    reason=f"EE archive not reachable: {_DEFAULT_RT_DB}",
+)
 
 
 # All structural-tree detectors in the shared core/invariant_detectors

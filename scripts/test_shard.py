@@ -26,6 +26,51 @@ EXCLUDED_TESTS = {
     "test_fi_pipeline_gold.py": "gold corpus suite; intentionally outside bounded non-network CI",
 }
 
+# Tests that scan source roots WIDER than their owning shard's file scope.
+#
+# Each of these AST-scans (or greps) all of src/lawvm, so a change anywhere in
+# the tree can break one -- but the test file itself lives in a narrow shard
+# (core_discipline_gates, core_ir_contracts, core_surface_semantic,
+# tools_runtime_io, norway).  Jurisdiction-scoped ``ci.sh --affected`` ladders
+# never select those shards, so a Norway-only or Estonia-only edit could break a
+# tree-wide ratchet and still show a green ladder.  That produced four silent
+# reds that each survived about three weeks (2026-07-11 .. 2026-08-01).
+#
+# ``ci_sharded.sh`` therefore runs these FILES directly in an always-run stage,
+# never their home shards -- the shards themselves are not hermetic (they carry
+# corpus-dependent tests), while every file listed here is.
+#
+# MAINTENANCE RULE: any new test that AST-scans or walks src/lawvm beyond its
+# own shard's file scope MUST be added here.  Shard ownership is unaffected --
+# these files stay owned by exactly one shard, and tests/test_ci_shards.py
+# asserts that plus their continued existence.
+TREE_WIDE_HYGIENE_TESTS: tuple[str, ...] = (
+    "test_apply_decline_ratchet.py",
+    "test_authority_boundary_ratchet.py",
+    "test_classifier_wrap_ratchet.py",
+    "test_corpus_xml_parser_ratchet.py",
+    "test_deprecated_callsite_ratchet.py",
+    "test_determinism_firewall.py",
+    "test_downgrade_witness_lint.py",
+    "test_frozen_residue_sensors_ratchet.py",
+    "test_frozen_slots_discipline.py",
+    "test_guard_liveness_totality.py",
+    "test_hidden_replay_kernel_ratchet.py",
+    "test_irnodekind_stringly_typed_gate.py",
+    "test_module_role_consistency.py",
+    "test_naming_hygiene_ratchet.py",
+    "test_no_semantic_notes_reads.py",
+    "test_projection_author_set_authority.py",
+    "test_quirks_disposition_enum.py",
+    "test_regex_perf_gate.py",
+    "test_regex_ratchet.py",
+    "test_scope_confidence_protocol.py",
+    "test_semantic_action_codec.py",
+    "test_source_witness_liveness_ratchet.py",
+    "test_typed_carrier_protocols.py",
+    "test_vocab_namespaced_status_ratchet.py",
+)
+
 SHARD_PATTERNS: dict[str, tuple[str, ...]] = {
     "boundary": (
         "test_fi_conformance.py",
@@ -1480,6 +1525,10 @@ SOURCE_SHARD_PREFIXES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("src/lawvm/estonia/", ("estonia",)),
     ("src/lawvm/eu/", ("eu",)),
     ("tests/eu/fixtures/", ("eu",)),
+    (
+        "tests/fixtures/parallel_corpus_projector.py",
+        ("tools_runtime_io",),
+    ),
     ("src/lawvm/finland/", ("finland",)),
     # Neutral two-level PDF→IR ingest machinery (Track A move). Its tests did NOT
     # move (the finland compat shim keeps their imports working), so a change to
@@ -1501,6 +1550,9 @@ SOURCE_SHARD_PREFIXES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("src/lawvm/ingest/", ("finland", "core", "tools_runtime_io")),
     ("src/lawvm/new_zealand/", ("new_zealand",)),
     ("src/lawvm/norway/", ("norway",)),
+    # W-103: the kringkastingsloven print-era witness slice (emitted acts, ladder,
+    # consolidation oracle) is read only by tests/test_norway_print_era.py.
+    ("tests/data/norway_print_era/", ("norway",)),
     ("src/lawvm/open_law/", ("starter",)),
     ("src/lawvm/sweden/", ("sweden",)),
     ("src/lawvm/uk_legislation/", ("uk",)),
@@ -1517,6 +1569,24 @@ TOOLING_SHARD_PATHS: dict[str, tuple[str, ...]] = {
     "scripts/test_shard.py": ("tools_audit_release",),
     "scripts/test_shard.sh": ("tools_audit_release",),
     "scripts/release_hygiene.sh": ("tools_audit_release",),
+    # Read-only diagnostic probes under scripts/probes/ carry no production
+    # coupling, but they import a jurisdiction's index/source API and break
+    # when it moves — so each maps to that jurisdiction's shard, not to
+    # tools_audit_release. Register new probes here; the router is exact-path
+    # keyed and rejects unmapped scripts/ paths.
+    "scripts/probes/no_declared_target_coverage.py": ("norway",),
+    "scripts/probes/no_declared_target_gap_nature.py": ("norway",),
+    "scripts/probes/no_unbound_binding_causes.py": ("norway",),
+    "scripts/probes/no_w7_unlock_landscape.py": ("norway",),
+    "scripts/probes/no_zero_amendment_divergence.py": ("norway",),
+    # W-72's corpus-sweep generator. Not a read-only probe: the norway shard
+    # binds this module BY PATH and recomputes the digests it defines, so an
+    # edit here changes what the occupied-destination pin measures.
+    "scripts/inventory_no_occupied_destination_sweep.py": ("norway",),
+    # W-103's Norway progress dashboard generator: reads the ledger, git log and
+    # the .tmp witness artifacts, imports nothing from lawvm; a projection with
+    # no bounded pytest shard impact (like a documentation path).
+    "scripts/norway_progress_site.py": (),
 }
 TOOL_SOURCE_SHARD_GROUPS: dict[tuple[str, ...], tuple[str, ...]] = {
     ("estonia", "tools_cli_debug"): (
@@ -1655,6 +1725,7 @@ TOOL_SOURCE_SHARD_GROUPS: dict[tuple[str, ...], tuple[str, ...]] = {
         "src/lawvm/tools/no_inventory.py",
         "src/lawvm/tools/no_law.py",
         "src/lawvm/tools/no_missing_base.py",
+        "src/lawvm/tools/no_no_consolidation.py",
         "src/lawvm/tools/no_op_trace.py",
         "src/lawvm/tools/no_progress.py",
         "src/lawvm/tools/no_replay.py",
@@ -1888,6 +1959,7 @@ TOOLING_BLOCKED_PREFIXES = (
     "src/lawvm/tools/",
 )
 SOURCE_SHARD_PATHS: dict[str, tuple[str, ...]] = {
+    "tests/corpus_pin_helpers.py": ("finland",),
     "tests/data/classifier_wrap_ratchet_baseline.json": ("core_ir_contracts",),
     "tests/data/ctsf_gate_residual_baseline.json": ("tools_ctsf_gate",),
     "tests/data/ctsf_gate_ee_residual_baseline.json": ("tools_ctsf_gate",),
@@ -1898,6 +1970,7 @@ SOURCE_SHARD_PATHS: dict[str, tuple[str, ...]] = {
     "tests/data/ctsf_gate_uk_residual_baseline.json": ("tools_ctsf_gate",),
     "tests/data/ctsf_gate_us_residual_baseline.json": ("tools_ctsf_gate",),
     "tests/data/module_roles_baseline.json": ("core_ir_contracts",),
+    "tests/data/no_occupied_destination_sweep_baseline.json": ("norway",),
     "tests/data/regex_ratchet_baseline.json": ("core_ir_contracts",),
     "src/lawvm/core/ctsf_gate.py": ("tools_ctsf_gate",),
     # XP-06 parity is read-mostly audit/report code. It is not on the replay
@@ -2421,6 +2494,27 @@ def list_files(shard: str) -> int:
     return 0
 
 
+def list_hygiene_files() -> int:
+    missing = [
+        filename
+        for filename in TREE_WIDE_HYGIENE_TESTS
+        if not (TEST_DIR / filename).is_file()
+    ]
+    if missing:
+        print("TREE_WIDE_HYGIENE_TESTS names files that do not exist:", file=sys.stderr)
+        for filename in missing:
+            print(f"  tests/{filename}", file=sys.stderr)
+        print(
+            "    fix: update TREE_WIDE_HYGIENE_TESTS in scripts/test_shard.py "
+            "after renaming or deleting a tree-wide ratchet.",
+            file=sys.stderr,
+        )
+        return 2
+    for filename in TREE_WIDE_HYGIENE_TESTS:
+        print(f"tests/{filename}")
+    return 0
+
+
 def shard_plan(shard: str = "all") -> dict[str, Any]:
     assignments = shard_assignments()
     if shard != "all" and shard not in assignments and shard not in SHARD_GROUPS:
@@ -2679,6 +2773,7 @@ def main(argv: list[str] | None = None) -> int:
     affected_parser = subparsers.add_parser("affected")
     affected_parser.add_argument("--json", action="store_true", dest="json_output")
     affected_parser.add_argument("paths", nargs="*")
+    subparsers.add_parser("hygiene-files")
     expand_parser = subparsers.add_parser("expand")
     expand_parser.add_argument("shards", nargs="+")
     timings_parser = subparsers.add_parser("timings")
@@ -2715,6 +2810,8 @@ def main(argv: list[str] | None = None) -> int:
         return print_plan(args.shard, json_output=args.json_output)
     if args.command == "affected":
         return print_affected(args.paths, json_output=args.json_output)
+    if args.command == "hygiene-files":
+        return list_hygiene_files()
     if args.command == "expand":
         return print_expanded(args.shards)
     if args.command == "timings":

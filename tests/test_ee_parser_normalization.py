@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
 import pytest
 
-from lawvm.estonia.fetch import fetch_rt_xml, open_rt_archive
+from lawvm.estonia.fetch import (
+    _DEFAULT_RT_DB,
+    fetch_rt_xml,
+    open_rt_archive as _open_rt_archive,
+)
 from lawvm.estonia.ee_instruction_waist import (
     read_payload_rewrite_meta,
     read_item_selection_meta,
@@ -45,6 +50,13 @@ from lawvm.estonia.target_resolution import (
     split_embedded_act_sections,
     split_plaintext_numbered_op_texts,
 )
+
+
+def open_rt_archive(db_path: Path | None = None, *, readonly: bool | None = None):
+    """Skip only corpus-backed tests when the default local archive is absent."""
+    if db_path is None and not _DEFAULT_RT_DB.exists():
+        pytest.skip(f"EE archive not reachable: {_DEFAULT_RT_DB}")
+    return _open_rt_archive(db_path, readonly=readonly)
 
 
 def _payload(op):
@@ -7659,6 +7671,8 @@ def test_parse_ee_amendment_ops_untitled_target_paragraph_keeps_itemized_ops() -
     from lawvm.estonia.fetch import _DEFAULT_RT_DB
 
     act = "107072015003"
+    if not _DEFAULT_RT_DB.exists():
+        pytest.skip(f"EE archive not reachable: {_DEFAULT_RT_DB}")
     try:
         raw = Farchive(_DEFAULT_RT_DB, readonly=True).get(f"https://www.riigiteataja.ee/akt/{act}.xml")
     except (OSError, RuntimeError) as exc:

@@ -183,6 +183,9 @@ def apply_no_commencement_overrides(
         archive_names=list(index.archive_names),
         archive_metadata=dict(index.archive_metadata),
         entries=updated_entries,
+        commencement_instruments=list(index.commencement_instruments),
+        commencement_instrument_coverage=index.commencement_instrument_coverage,
+        diagnostics=list(index.diagnostics),
     )
 
 
@@ -593,8 +596,8 @@ def build_no_commencement_candidate_artifact(
                 "index_path": str(index_path) if index_path is not None else "",
             },
             "source_lanes": {
-                "local_corpus": int(report.get("local_candidate_count", 0)),
-                "statsrad": int(report.get("statsrad_candidate_count", 0)),
+                str(key): int(value)
+                for key, value in dict(report.get("candidate_source_counts", {})).items()
             },
         }
     )
@@ -602,8 +605,11 @@ def build_no_commencement_candidate_artifact(
 
 
 def _recommend_no_backfill_lane(candidate_source_counts: dict[str, int]) -> NOBackfillLane:
+    lovtidend_count = int(candidate_source_counts.get("lovtidend_commencement_instrument", 0))
     local_count = int(candidate_source_counts.get("local_corpus", 0))
     statsrad_count = int(candidate_source_counts.get("statsrad", 0))
+    if lovtidend_count:
+        return NOBackfillLane.LOVTIDEND_COMMENCEMENT_INSTRUMENT
     if local_count and statsrad_count:
         return NOBackfillLane.MIXED
     if statsrad_count:
@@ -620,7 +626,12 @@ def _build_no_backfill_action_hint(
     candidate_groups: list[dict[str, Any]],
     candidates: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    if recommended_lane == "mixed":
+    if recommended_lane == "lovtidend_commencement_instrument":
+        next_steps = [
+            "Review the exact Lovtidend basedOn binding and parsed scope.",
+            "Do not apply the candidate unless a separate execution-authorization validator accepts it.",
+        ]
+    elif recommended_lane == "mixed":
         next_steps = [
             "Compare local_corpus and statsrad candidates side-by-side.",
             "Use the top excerpts to decide which source states the force-setting event most directly.",
@@ -681,6 +692,25 @@ def _build_no_backfill_next_source_hint(
     recommended_lane: str,
     candidate_groups: list[dict[str, Any]],
 ) -> dict[str, Any]:
+    if recommended_lane == "lovtidend_commencement_instrument":
+        return {
+            "source_id": source_id,
+            "title": title,
+            "hint_status": NOBackfillHintStatus.LOVTIDEND_FIRST,
+            "kind": "official_instrument_review",
+            "primary_source_family": "lovtidend_commencement_instrument",
+            "suggested_sources": [
+                "Review the archived Norsk Lovtidend commencement instrument first.",
+            ],
+            "rationale": "An official Lovtidend instrument explicitly cites this amending law.",
+            "candidate_group_summary": [
+                {
+                    "candidate_source": str(group.get("candidate_source", "")),
+                    "candidate_count": int(group.get("candidate_count", 0)),
+                }
+                for group in candidate_groups
+            ],
+        }
     if recommended_lane == "unresolved":
         return {
             "source_id": source_id,
@@ -767,6 +797,26 @@ def _build_no_backfill_source_plan(
     recommended_lane: str,
     candidate_groups: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
+    if recommended_lane == "lovtidend_commencement_instrument":
+        return [
+            {
+                "source_family": "lovtidend_commencement_instrument",
+                "display_name": "Norsk Lovtidend commencement instrument",
+                "priority": 1,
+                "mode": "validate",
+                "plan_status": NOBackfillPlanStatus.CANDIDATE,
+                "why": "A structured basedOn reference links an official instrument to this law.",
+                "candidate_group_summary": [
+                    {
+                        "candidate_source": str(group.get("candidate_source", "")),
+                        "candidate_count": int(group.get("candidate_count", 0)),
+                    }
+                    for group in candidate_groups
+                    if str(group.get("candidate_source", ""))
+                    == "lovtidend_commencement_instrument"
+                ],
+            }
+        ]
     if recommended_lane == "mixed":
         return [
             {
@@ -942,7 +992,11 @@ def build_no_commencement_backfill_artifact(
         executable_current_law_ids=executable_current_law_ids,
         current_law_titles=current_law_titles,
     )
-    source_counts = {"local_corpus": 0, "statsrad": 0}
+    source_counts = {
+        "local_corpus": 0,
+        "lovtidend_commencement_instrument": 0,
+        "statsrad": 0,
+    }
     backfill_items: list[dict[str, Any]] = []
     for item in list(queue.get("work_items", []))[:limit]:
         source_id = str(item.get("source_id", ""))
@@ -956,6 +1010,9 @@ def build_no_commencement_backfill_artifact(
         candidate_counts = dict(candidate_report.get("candidate_source_counts", {}))
         recommended_lane = _recommend_no_backfill_lane(candidate_counts)
         source_counts["local_corpus"] += int(candidate_counts.get("local_corpus", 0))
+        source_counts["lovtidend_commencement_instrument"] += int(
+            candidate_counts.get("lovtidend_commencement_instrument", 0)
+        )
         source_counts["statsrad"] += int(candidate_counts.get("statsrad", 0))
         action_hint = _build_no_backfill_action_hint(
             source_id=source_id,

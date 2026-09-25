@@ -4,6 +4,9 @@ import csv
 from argparse import Namespace
 from types import SimpleNamespace
 
+import pytest
+
+from lawvm.estonia.fetch import _DEFAULT_RT_DB
 from lawvm.tools import (
     bench_regression_guard,
     cli,
@@ -132,6 +135,10 @@ def test_ee_bench_defaults_to_current_replayable_corpus() -> None:
     assert ee_bench._CORPUS_CSV.name == "current_replayable_corpus.csv"
 
 
+@pytest.mark.skipif(
+    not _DEFAULT_RT_DB.exists(),
+    reason=f"EE archive not reachable: {_DEFAULT_RT_DB}",
+)
 def test_ee_ops_command_emits_compiled_ops_json(capsys) -> None:
     ops._ops_ee_sync(
         "102032022002",

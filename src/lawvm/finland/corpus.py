@@ -1004,7 +1004,7 @@ def get_consolidated_oracle_suspect(
         if xml_bytes is None:
             return None
         tree = parse_corpus_xml(xml_bytes)
-    except KeyError, FileNotFoundError:
+    except (KeyError, FileNotFoundError):
         return None
     eff_date = _amendment_effective_date(tree)
     if eff_date is not None and eff_date > cutoff_date:
@@ -1027,7 +1027,7 @@ def get_consolidated_oracle_suspect_cache_only(
     if corpus is None:
         try:
             corpus = _get_corpus_store_readonly()
-        except OSError, RuntimeError:
+        except (OSError, RuntimeError):
             return "", ""
 
     archive = getattr(corpus, "_archive", None)

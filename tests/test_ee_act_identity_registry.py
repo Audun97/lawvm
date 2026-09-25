@@ -139,6 +139,9 @@ def test_self_referential_guard_does_not_skip_target_title_with_internal_ja() ->
     from lawvm.estonia.fetch import _DEFAULT_RT_DB
     from farchive import Farchive
 
+    if not _DEFAULT_RT_DB.exists():
+        pytest.skip(f"EE archive not reachable: {_DEFAULT_RT_DB}")
+
     act = "103072014017"
     url = f"https://www.riigiteataja.ee/akt/{act}.xml"
     try:
@@ -247,7 +250,10 @@ def test_registry_evidence_does_not_admit_unrelated_old_format_header() -> None:
 
 
 def test_old_format_title_alias_routes_only_target_section_for_2024_013() -> None:
-    from lawvm.estonia.fetch import fetch_rt_xml, open_rt_archive
+    from lawvm.estonia.fetch import _DEFAULT_RT_DB, fetch_rt_xml, open_rt_archive
+
+    if not _DEFAULT_RT_DB.exists():
+        pytest.skip(f"EE archive not reachable: {_DEFAULT_RT_DB}")
 
     archive = open_rt_archive(readonly=True)
     source_xml = fetch_rt_xml("128122024013", archive=archive)
@@ -630,7 +636,10 @@ def test_registry_evidence_wins_for_untitled_omnibus_attachment_when_heuristics_
 
 
 def test_title_relabel_alias_routes_2025_justice_regulation_wrapper() -> None:
-    from lawvm.estonia.fetch import fetch_rt_xml, open_rt_archive
+    from lawvm.estonia.fetch import _DEFAULT_RT_DB, fetch_rt_xml, open_rt_archive
+
+    if not _DEFAULT_RT_DB.exists():
+        pytest.skip(f"EE archive not reachable: {_DEFAULT_RT_DB}")
 
     archive = open_rt_archive(readonly=True)
     source_xml = fetch_rt_xml("118072025001", archive=archive)

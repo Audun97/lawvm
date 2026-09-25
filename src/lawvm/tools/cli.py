@@ -2608,6 +2608,50 @@ examples (-j selects jurisdiction, default fi; Finnish IDs unless shown as ukpga
         help="emit JSON instead of plain-text summary",
     )
 
+    # --- no-no-consolidation ---
+    no_no_consolidation_p = sub.add_parser(
+        "no-no-consolidation",
+        help="report Norway laws with a replayable original and no stored consolidation",
+    )
+    no_no_consolidation_p.add_argument(
+        "--data-dir",
+        metavar="DIR",
+        help="Norway source path: farchive DB or legacy public-archive directory",
+    )
+    no_no_consolidation_p.add_argument(
+        "--index",
+        metavar="FILE",
+        help="reuse a prebuilt Norway amendment index JSON",
+    )
+    no_no_consolidation_p.add_argument(
+        "--base-id",
+        metavar="ID",
+        help="restrict the report to one Norway base act id",
+    )
+    no_no_consolidation_p.add_argument(
+        "--family",
+        choices=["amending_act", "temporary_act", "wage_board_act", "substantive_act"],
+        help="restrict the report to one title-shape family",
+    )
+    no_no_consolidation_p.add_argument(
+        "--min-amendments",
+        type=int,
+        default=0,
+        metavar="N",
+        help="show only laws with at least N indexed amendments",
+    )
+    no_no_consolidation_p.add_argument(
+        "--limit",
+        type=int,
+        metavar="N",
+        help="limit printed laws",
+    )
+    no_no_consolidation_p.add_argument(
+        "--json",
+        action="store_true",
+        help="emit JSON instead of plain-text summary",
+    )
+
     # --- no-commencement-validate ---
     no_commencement_validate_p = sub.add_parser(
         "no-commencement-validate",
@@ -2770,9 +2814,12 @@ examples (-j selects jurisdiction, default fi; Finnish IDs unless shown as ukpga
     )
     no_frontier_p.add_argument(
         "--as-of",
-        default="2026-03-29",
+        default=None,
         metavar="DATE",
-        help="comparison date for the consistency sample (default: 2026-03-29)",
+        help=(
+            "comparison date for the consistency sample "
+            "(default: the corpus consolidation snapshot date)"
+        ),
     )
     no_frontier_p.add_argument(
         "--limit",
@@ -2809,9 +2856,12 @@ examples (-j selects jurisdiction, default fi; Finnish IDs unless shown as ukpga
     no_divergence_p.add_argument("base_id", metavar="ID", help="Norway base act id")
     no_divergence_p.add_argument(
         "--as-of",
-        default="2026-03-29",
+        default=None,
         metavar="DATE",
-        help="comparison date for replay materialization (default: 2026-03-29)",
+        help=(
+            "comparison date for replay materialization "
+            "(default: the corpus consolidation snapshot date)"
+        ),
     )
     no_divergence_p.add_argument(
         "--data-dir",
@@ -2849,9 +2899,12 @@ examples (-j selects jurisdiction, default fi; Finnish IDs unless shown as ukpga
     no_coverage_p.add_argument("base_id", metavar="ID", help="Norway base act id")
     no_coverage_p.add_argument(
         "--as-of",
-        default="2026-03-29",
+        default=None,
         metavar="DATE",
-        help="comparison date for replay materialization (default: 2026-03-29)",
+        help=(
+            "comparison date for replay materialization "
+            "(default: the corpus consolidation snapshot date)"
+        ),
     )
     no_coverage_p.add_argument(
         "--data-dir",
@@ -2889,9 +2942,12 @@ examples (-j selects jurisdiction, default fi; Finnish IDs unless shown as ukpga
     no_debug_p.add_argument("base_id", metavar="ID", help="Norway base act id")
     no_debug_p.add_argument(
         "--as-of",
-        default="2026-03-29",
+        default=None,
         metavar="DATE",
-        help="comparison date for replay materialization (default: 2026-03-29)",
+        help=(
+            "comparison date for replay materialization "
+            "(default: the corpus consolidation snapshot date)"
+        ),
     )
     no_debug_p.add_argument(
         "--data-dir",
@@ -3211,9 +3267,12 @@ examples (-j selects jurisdiction, default fi; Finnish IDs unless shown as ukpga
     no_verify_p.add_argument("base_id", help="Norway law id, e.g. no/lov/2005-05-20-28")
     no_verify_p.add_argument(
         "--as-of",
-        default="2026-03-29",
+        default=None,
         metavar="DATE",
-        help="comparison date for replay materialization (default: 2026-03-29)",
+        help=(
+            "comparison date for replay materialization "
+            "(default: the corpus consolidation snapshot date)"
+        ),
     )
     no_verify_p.add_argument(
         "--data-dir",
@@ -3254,9 +3313,12 @@ examples (-j selects jurisdiction, default fi; Finnish IDs unless shown as ukpga
     )
     no_verify_scan_p.add_argument(
         "--as-of",
-        default="2026-03-29",
+        default=None,
         metavar="DATE",
-        help="comparison date for replay materialization (default: 2026-03-29)",
+        help=(
+            "comparison date for replay materialization "
+            "(default: the corpus consolidation snapshot date)"
+        ),
     )
     no_verify_scan_p.add_argument(
         "--data-dir",
@@ -3305,9 +3367,12 @@ examples (-j selects jurisdiction, default fi; Finnish IDs unless shown as ukpga
     )
     no_verify_partition_p.add_argument(
         "--as-of",
-        default="2026-03-29",
+        default=None,
         metavar="DATE",
-        help="comparison date for replay materialization (default: 2026-03-29)",
+        help=(
+            "comparison date for replay materialization "
+            "(default: the corpus consolidation snapshot date)"
+        ),
     )
     no_verify_partition_p.add_argument(
         "--data-dir",
@@ -3361,9 +3426,12 @@ examples (-j selects jurisdiction, default fi; Finnish IDs unless shown as ukpga
     )
     no_verify_workqueue_p.add_argument(
         "--as-of",
-        default="2026-03-29",
+        default=None,
         metavar="DATE",
-        help="comparison date for replay materialization (default: 2026-03-29)",
+        help=(
+            "comparison date for replay materialization "
+            "(default: the corpus consolidation snapshot date)"
+        ),
     )
     no_verify_workqueue_p.add_argument(
         "--data-dir",
@@ -14412,6 +14480,11 @@ def _main_impl() -> None:
         from lawvm.tools.no_missing_base import main as no_missing_base_main
 
         no_missing_base_main(args)
+
+    elif args.command == "no-no-consolidation":
+        from lawvm.tools.no_no_consolidation import main as no_no_consolidation_main
+
+        no_no_consolidation_main(args)
 
     elif args.command == "no-commencement-validate":
         from lawvm.tools.no_commencement_validate import main as no_commencement_validate_main

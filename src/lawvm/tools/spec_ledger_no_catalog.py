@@ -44,6 +44,28 @@ Honest scope note — what is and is not statically enumerable.
     - ``no_replay_`` — a *prefix* matched by ``kind.startswith("no_replay_")`` in
       the diagnostic family-stratification path (``grafter.py``); the bare prefix
       is never an emitted rule id, only its suffixed instances are.
+    - ``no_addressed_substitution`` — W-69a's provenance tag on the addressed
+      word-substitution production's ops (``NO_SUBSTITUTION_PROVENANCE_TAG``), the
+      apply seam's mark for its own ops. A carrier mark, not a hypothesis; the rule
+      it gates (``no_replay_substitution_term_not_uniquely_present``) IS cataloged.
+    - ``no_chapter_reenactment``, ``no_chapter_heading``, ``no_ledd_repeal_reenact``,
+      ``no_item_payload_single_text_article`` — W-98's four provenance tags on the
+      re-enactment, chapter-heading, compound repeal-then-reenact and single-article
+      item productions' ops. Carrier marks like W-66's and W-77's, not hypotheses;
+      the rules they gate (``no_replay_chapter_reenactment_uncarried_sections_refused``,
+      ``no_replay_reenactment_insert_occupied_target_refused``) ARE cataloged.
+    - ``no_new_chapter_section`` — W-101's provenance tag on the section inserts a
+      ``Nytt kapittel`` block scopes to its new chapter. A carrier mark; the rule it
+      gates (``no_replay_new_chapter_section_relocated_from_occupied_label``) IS
+      cataloged.
+    - ``no_stored_consolidation`` — the W-45 census key under
+      ``build_no_verify_partition``'s ``unverifiable`` sibling (``verify.py``). A
+      report dict key naming a corpus population ("laws with a replayable original
+      and no stored consolidation"), not a falsifiable claim about amendment
+      semantics; nothing emits it as a ``rule_id`` and no finding carries it. The
+      family labels on its rows (``amending_act`` / ``temporary_act`` /
+      ``wage_board_act`` / ``substantive_act``) are likewise data values, and are
+      outside the ``no_*`` discovery surface anyway.
 
 * Dynamic op-id prefixes: there is no Norway counterpart of Estonia's
   ``ee_snap_{n}``. Norway does not synthesize prefix+runtimesuffix op ids, so no
@@ -66,10 +88,26 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "A Norway artifact emitted a duplicate logical locator across acquisition "
         "attempts; both attempt rows are recorded, not collapsed/silently dropped."
     ),
+    "no_amendment_index_declared_target_unbound": (
+        "Lovdata's declared change-target list names a law that no operation the "
+        "Norway amendment index extracted binds; the shortfall is recorded as "
+        "blocking source-pathology and this check never binds a declared target "
+        "itself. The declared list is not inert elsewhere: the grafter's "
+        "pre-existing sole-declared-ref default_base_id is the one place a "
+        "declared id becomes a base_id, and it is left untouched."
+    ),
     "no_amendment_index_no_change_ops": (
         "A Norway amendment artifact in the index yielded zero document-change "
         "operations; the artifact is recorded as a no-op finding, not silently "
         "absorbed into the denominator."
+    ),
+    "no_amendment_index_staged_commencement_collapsed": (
+        "A Norwegian act whose dateInForce states a commencement date AND delegates "
+        "the remainder to the executive ('Kongen bestemmer' beside a date) IS in "
+        "force at the earliest stated date — the delegation stages the rest of the "
+        "act, it does not defer the whole of it — so the act stays dated at "
+        "min(dates) and the collapsed date count and dropped staged tail are "
+        "receipted rather than silently discarded."
     ),
     "no_amendment_index_unmapped_lovtidend_xml_member": (
         "A Norway Lovtidend XML member filename could not be mapped to a law or "
@@ -79,6 +117,61 @@ _NO_RULE_SPECS: Dict[str, str] = {
     "no_amendment_index_unrecognized_amendment_locator": (
         "A Norway amendment index artifact whose member name and locator both "
         "failed to identify an amendment lane is recorded as a skipped acquisition."
+    ),
+    "no_beriktiget_announcement_paired": (
+        "A Norwegian gazette announcement Lovdata marked utgått (superseded) was "
+        "matched to the rectified (beriktiget) re-announcement that replaces it, "
+        "and the superseded announcement's operations were withdrawn WHOLE-"
+        "INSTRUMENT in favour of the rectified document's. Identity and dates stay "
+        "the ACT's — a kunngjøring av beriktiget versjon republishes a law, it does "
+        "not enact one — so enacted, effective, commencement gating and the group "
+        "key are unchanged and only the operative text is re-read. The receipt "
+        "carries both document ids and both op counts. W-84."
+    ),
+    "no_beriktiget_announcement_unpaired": (
+        "One half of a superseded/rectified announcement pair was found without its "
+        "counterpart, and NEITHER suppression nor admission applied. An utgått mark "
+        "says an announcement was superseded, not by what, so its ops stand; a "
+        "beriktiget re-announcement whose act carries no utgått mark is not admitted, "
+        "so the forskrift lane stays shut. Blocking, because either case means a "
+        "document Lovdata flagged is knowingly left unread. W-84."
+    ),
+    "no_beriktiget_reannouncement_lowered": (
+        "The lowered operations came from a rectified (beriktiget) re-announcement "
+        "filed in the forskrift lane rather than from the act's own superseded "
+        "announcement; every op carries the re-announcement's id in provenance so "
+        "the op stream records both the enacting act and the document its text was "
+        "read from. Admission is gated on Lovdata's own marks — the beriktiget title "
+        "naming exactly one act, a changesToDocuments declaration, and a matching "
+        "utgått mark on that act — never on the forskrift lane being open. W-84."
+    ),
+    "no_resanctioned_act_superseded": (
+        "A Norwegian act whose own prose says its lovvedtak was defective and could "
+        "not take effect ('kunne derfor ikke iverksettes') was matched to the act "
+        "that re-sanctions it, and the defective act's operations were withdrawn "
+        "WHOLE-ACT — no entry, no ops. Unlike W-84's republication a re-sanctioning "
+        "mints a NEW law, so nothing transfers: the replacement replays under its "
+        "own id and dates, names the withdrawn act on its entry "
+        "(resanctioned_from_source_id), and the gate demands bilateral citation, "
+        "title equality and total re-enactment of every withdrawn base. The receipt "
+        "carries both act ids and both op counts. W-85."
+    ),
+    "no_resanctioned_act_unpaired": (
+        "One half of a re-sanctioning supersession pair was found without a "
+        "counterpart passing the bilateral gate, and NEITHER suppression nor "
+        "pairing applied. Prose alone does not unmake a law, so a superseded-"
+        "claiming act's ops stand; a replacement whose cited counterpart is absent, "
+        "cites elsewhere, differs in title, or is not re-covered base-for-base "
+        "withdraws nothing. Blocking, because either case means a document that "
+        "flags its own supersession is knowingly not acted on. W-85."
+    ),
+    "no_resanctioned_replacement_lowered": (
+        "The lowered operations came from a re-sanctioned act — one whose own prose "
+        "says it was 'første gang sanksjonert' as an earlier, defective act and is "
+        "sanctioned anew; every op carries the superseded act's id in provenance "
+        "(resanctioned_from:) so the op stream records both the act in force and "
+        "the defective sanctioning it replaced. Stamped from the document's own "
+        "claim, independent of the index pairing verdict. W-85."
     ),
     "no_current_law_id_parse_marker_fallback_used": (
         "Norway current-law statute id parsing fell back to a marker-bearing "
@@ -101,6 +194,84 @@ _NO_RULE_SPECS: Dict[str, str] = {
     "no_ingest_unmapped_xml_member": (
         "Norway Lovdata XML member filename could not be mapped to a legal source "
         "id during ingestion; blocking source-pathology."
+    ),
+    "no_lovtidend_commencement_execution_authorized": (
+        "A whole-act, single-date Norsk Lovtidend commencement instrument citing an "
+        "amendment act whose own commencement was unresolved IS that act's in-force "
+        "evidence; the act enters force on the instrument's date, not on its own "
+        "sanction date, and the authorization is recorded per act."
+    ),
+    "no_lovtidend_commencement_execution_date_conflict": (
+        "Two Norsk Lovtidend instruments commence the same amendment act at different "
+        "dates; contradictory official commencement evidence is blocking source "
+        "pathology and neither date re-dates the act."
+    ),
+    "no_lovtidend_commencement_part_execution_authorized": (
+        "A Norsk Lovtidend instrument whose own Endrer header names exactly the laws "
+        "of ONE romertall part of a staged multi-part amendment act, and whose "
+        "operative text does not narrow below that part, IS that part's in-force "
+        "evidence; the act's operations on that part's law take the instrument's date "
+        "while every other part of the act stays as unresolved as before."
+    ),
+    "no_lovtidend_commencement_multi_part_execution_authorized": (
+        "A Norsk Lovtidend instrument whose operative text commences a multi-part "
+        "amendment act as a WHOLE — naming no subdivision of it and no exception, "
+        "with the act itself as the commencement clause's subject — dates every part "
+        "its Endrer header names, one receipt per part; parts the header omits, and "
+        "acts a later instrument commences again, stay as unresolved as before."
+    ),
+    "no_lovtidend_commencement_named_part_list_execution_authorized": (
+        "A Norsk Lovtidend instrument whose operative text names the romertall parts it "
+        "commences — a list carrying no section sign, no sub-part qualifier and no "
+        "exception — dates every part its Endrer header spans, provided the list covers "
+        "them all and every later instrument on the act is provably about other parts, "
+        "by both its own declared laws and its own named list."
+    ),
+    "no_lovtidend_commencement_widened_whole_act_execution_authorized": (
+        "A Norsk Lovtidend instrument whose SINGLE operative block commences an "
+        "amendment act as a WHOLE — naming no subdivision of it, carrying no "
+        "exception or carve-out phrase, with the act itself as the commencement "
+        "clause's subject — IS that act's in-force evidence even where the shipped "
+        "whole-act pattern does not match its wording; the act enters force on the "
+        "instrument's date, provided no later instrument commences anything of it "
+        "and the shipped route proposed no date of its own."
+    ),
+    "no_lovtidend_commencement_widened_whole_act_execution_date_conflict": (
+        "Two Norsk Lovtidend instruments whose operative texts each commence the same "
+        "amendment act as a whole give it different dates; contradictory official "
+        "commencement evidence is blocking source pathology and neither date re-dates "
+        "the act."
+    ),
+    "no_lovtidend_commencement_part_execution_date_conflict": (
+        "Two Norsk Lovtidend instruments commence the same part of an amendment act at "
+        "different dates; contradictory official commencement evidence is blocking "
+        "source pathology and neither date dates that part."
+    ),
+    "no_lovtidend_commencement_execution_refused": (
+        "A Norsk Lovtidend instrument citing an unresolved amendment act failed at "
+        "least one execution-authorization conjunct (candidate parse, whole-act scope, "
+        "exactly one commencement date); it remains evidence and re-dates nothing, and "
+        "the failed conjunct is named."
+    ),
+    "no_lovtidend_commencement_instrument_candidate": (
+        "A Norsk Lovtidend forskrift instrument contains a typed law-commencement "
+        "surface and is retained as a non-authorizing candidate; acquisition or "
+        "basedOn linkage alone never changes replay state."
+    ),
+    "no_lovtidend_commencement_instrument_coverage_invalid": (
+        "Persisted Norsk Lovtidend commencement coverage contains a malformed "
+        "counter; loading fails explicitly rather than silently changing the "
+        "instrument-accounting partition."
+    ),
+    "no_lovtidend_commencement_instrument_parse_failed": (
+        "A Norsk Lovtidend forskrift artifact could not be parsed by the owning "
+        "commencement-instrument parser; the offending source excerpt remains a "
+        "blocking residual rather than disappearing."
+    ),
+    "no_lovtidend_commencement_scope_unresolved": (
+        "A Norsk Lovtidend commencement candidate lacks a single proved whole-law "
+        "scope, affected-law binding, or effective date; strict mode blocks any "
+        "promotion to replay authority."
     ),
     "no_inventory_current_law_id_artifact_fallback_used": (
         "Norway inventory used current artifact locators as a fallback because "
@@ -128,6 +299,11 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "A Norway statsrad event artifact root was not a list; recorded as a "
         "structural source-pathology, not silently coerced."
     ),
+    "no_statsrad_event_lane_unavailable_for_directory_source": (
+        "A tar-directory Norway source has no Statsrad artifact namespace; the "
+        "optional evidence lane is recorded unavailable instead of being opened "
+        "as an Farchive or silently omitted."
+    ),
     "no_statsrad_event_item_non_object": (
         "A Norway statsrad event artifact item was not an object; recorded with "
         "the offending index, not silently coerced."
@@ -146,6 +322,17 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "the recovered action-family is recorded as a finding so the original "
         "intent stays traceable."
     ),
+    "no_parse_collective_reenactment_part_unresolved": (
+        "A Norway collective re-enactment part ('I lov X skal følgende bestemmelser "
+        "lyde:') carried a member outside the closed member set; a partially applied "
+        "re-enactment is a wrong law rather than a partial one, so the WHOLE part "
+        "stays unlowered and the offending member is named."
+    ),
+    "no_parse_collective_reenactment_title_not_lowered": (
+        "A Norway collective re-enactment part restates the law's own title; the "
+        "Norway lowering carries no law-title operation, so the restatement is "
+        "recorded as a known unlowered directive rather than silently dropped."
+    ),
     "no_parse_cross_base_structured_renumber_skipped": (
         "A Norway structured renumber crossed base-act boundaries (source or "
         "destination on a different statute); it is skipped, never applied across "
@@ -160,9 +347,171 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "unmappable base act; the spec is skipped, failing forward to a finding "
         "instead of applying to an unresolved base."
     ),
+    "no_parse_ledd_set_relabel_address_unresolved": (
+        "A Norway sibling-set relabel (\"Nåværende femte og sjette ledd blir "
+        "sjette og sjuende ledd.\") named no section of its own, and the nearest "
+        "preceding instruction lead in the same part supplied no unambiguous "
+        "antecedent — it named no section, named several, or amends another "
+        "amendment rather than the base act. The relabel is refused rather than "
+        "attached to a guessed address. W-66; since W-66b the SAME kind carries "
+        "the section half at PUNKTUM depth too, because it is the same reader "
+        "failing the same way — the depth-specific half is the sibling kind "
+        "``no_parse_punktum_set_relabel_ledd_unresolved``. Since W-76 the same "
+        "kind also carries the section half at ITEM (bokstav / nr.) depth, and "
+        "for the same reason."
+    ),
+    "no_parse_punktum_set_relabel_ledd_unresolved": (
+        "A Norway sibling-set relabel at PUNKTUM depth (\"Nåværende annet punktum "
+        "blir nytt tredje punktum.\") resolved its SECTION but not the LEDD the "
+        "punktum hangs below: the sentence named no ledd of its own and the "
+        "DOM-local antecedent supplied none, named several, was a meta-amendment, "
+        "or was not itself a punktum-depth instruction (an antecedent naming a "
+        "whole ledd establishes that ledd as a payload, not as a container whose "
+        "sentences are being renumbered). The relabel is refused rather than "
+        "attached to a guessed ledd. W-66b."
+    ),
+    "no_parse_item_set_relabel_ledd_unresolved": (
+        "A Norway sibling-set relabel at ITEM depth (\"Nåværende bokstav c blir ny "
+        "bokstav d.\", \"Nåværende nr. 2 blir ny nr. 3.\") resolved its SECTION but "
+        "not the LEDD the bokstav/nr. hangs below. Every corpus item node sits "
+        "under a ledd, and this family never spells one, so the ledd always comes "
+        "from the DOM-local antecedent — and the antecedent supplied none, named "
+        "several, was a meta-amendment, or was not itself an instruction at this "
+        "depth. The relabel is refused rather than attached to a guessed ledd, "
+        "which at this depth would also mean a first-match DFS picking whichever "
+        "ledd's bokstav carried the label. W-76."
+    ),
+    "no_parse_item_insert_payload_address_unresolved": (
+        "A Norway item-depth NEWNESS PAYLOAD announcement (\"§ 6-2 første ledd ny "
+        "bokstav c skal lyde: …\", \"Første ledd nye nr. 15 til 19 skal lyde: …\") "
+        "spelled no section of its own and the DOM-local antecedent supplied "
+        "none, named several, or was a meta-amendment. The INSERT is refused "
+        "rather than attached to a guessed section. W-77."
+    ),
+    "no_parse_item_insert_payload_ledd_unresolved": (
+        "A Norway item-depth NEWNESS PAYLOAD announcement resolved its SECTION "
+        "but not the LEDD the new bokstav/nr. hangs below: it spelled no ledd and "
+        "the DOM-local antecedent supplied none, named several, was a "
+        "meta-amendment, or was not itself an instruction at this depth. Every "
+        "corpus item node sits under a ledd, and the resolver's find is a "
+        "first-match DFS, so a shallow (section, item) address would silently "
+        "pick whichever ledd's bokstav carried the label. Refused instead. W-77."
+    ),
+    "no_parse_item_insert_payload_extent_unprovable": (
+        "A Norway item-depth NEWNESS PAYLOAD announcement resolved its address "
+        "but the payload's EXTENT could not be proved against the announced "
+        "labels: the list carrier's top-level item labels did not equal the "
+        "announced labels one for one and in order, or there was no list and the "
+        "text carrier was not exactly one article.legalP for exactly one "
+        "announced label (a numberedLegalP opens with its own numerator, which is "
+        "a second address claim this production will not discard on trust). The "
+        "whole lead is refused rather than lowered against a guessed split — the "
+        "all-or-nothing rule, because a production that ADDS text owes the reader "
+        "a proof of WHICH text. W-77."
+    ),
+    "no_parse_ledd_set_relabel_order_unprovable": (
+        "A Norway sibling-set ledd relabel's source and destination sets form a "
+        "CYCLE (a pure swap), so no vacate-before-occupy order exists and no "
+        "sequential relabel can express it without a scratch slot. The whole "
+        "relabel is refused rather than emitted in an order that would write onto "
+        "a live sibling. W-66."
+    ),
     "no_parse_malformed_structured_renumber_attr_skipped": (
         "A Norway structured renumber attribute had a malformed token shape "
-        "(e.g. trailing separators); skipped with a typed finding, not coerced."
+        "(e.g. trailing separators); skipped with a typed finding, not coerced. "
+        "Since W-70 the finding also carries WHY the normalizer declined to "
+        "repair it — cross-base tokens, no matching rule, or an address that "
+        "will not lower."
+    ),
+    "no_parse_structured_move_attr_normalized": (
+        "A Norway ``data-move-part`` whose token grammar refuses was repaired by "
+        "an explicit SEPARATOR rule and its legs lowered: a stray space after "
+        "``;;`` (one intended pair split into two broken tokens) or ``::`` typed "
+        "for ``;;``. Every rule preserves the value's address skeleton exactly, "
+        "so a repair can never invent, drop or reorder an address; a value whose "
+        "tokens name another base act, or that no single rule makes wholly "
+        "well-formed, stays refused. Non-blocking: the legs LANDED, and this is "
+        "their provenance. W-70."
+    ),
+    "no_parse_structured_move_attr_destination_section_normalized": (
+        "A Norway ``data-move-part``'s legs named a DESTINATION SECTION other "
+        "than the section their own sources sit in, while the change block's own "
+        "announcement provably commands an intra-section ledd shift; the "
+        "destination section was rewritten to the source's and the legs lowered. "
+        "The proof is a conjunction: every leg ledd-addressed on both sides, one "
+        "shared source prefix and one shared destination prefix that differ, both "
+        "resolving to SECTIONS of the block's own base act, an announcement that "
+        "parses as a ledd-set relabel SPELLING that source section, a prose shift "
+        "map equal to the markup's pair for pair, and no other section named "
+        "anywhere in the announcement. Only the section component is rewritten — "
+        "each destination is rebuilt from its own declared ordinal — so the "
+        "repair cannot move a leg to a ledd the markup did not declare. An "
+        "attribute whose prose cannot prove the repair keeps its declared "
+        "destination and goes on refusing under the relocation-provability guard, "
+        "which is the correct standing state. Non-blocking: the legs LANDED, and "
+        "this is their provenance. W-70b."
+    ),
+    "no_parse_structured_move_legs_completed_from_lead_prose": (
+        "A Norway structured change block's ``data-move-part`` declared FEWER "
+        "ledd move legs than its own lead sentence spells; the missing legs were "
+        "templated from the declared ones (same base act, section and container "
+        "path — only the shift map comes from the prose) so the cascade lowers "
+        "whole. Lowering the partial set instead is what let (RENUMBER, "
+        "dest_occupied) remove an occupant the true timeline merely moves down."
+    ),
+    "no_parse_substitution_announcement_not_lowered": (
+        "A Norway structured change block is the ADDRESS LIST of a word "
+        "substitution announced in prose (\"I følgende bestemmelser skal ordet "
+        "«X» endres til «Y»:\"), and the announcement's (FROM, TO) pair grammar "
+        "did not parse, so the pairs the substitution applies are unknown. "
+        "Lowering the block anyway wrote the amendment's own announcement/address "
+        "prose over every listed provision of in-force law; the block is refused "
+        "instead, leaving the superseded word standing. Since W-69a this is the "
+        "S3 conjunct alone — a parseable announcement now lowers to addressed "
+        "TEXT_PATCH ops."
+    ),
+    "no_parse_substitution_multiple_announcements": (
+        "A Norway word-substitution change block's governing text carries MORE "
+        "THAN ONE announcement opener, and its flat ``data-change-part`` list "
+        "says nothing about which listed address belongs to which announcement. "
+        "Measuring every address against the first announcement's pair is "
+        "provably wrong — the corpus witness concatenates four announcements over "
+        "82 addresses and 35 base acts, and 8 of the 13 corpus addresses that "
+        "resolve without carrying their term are its later announcements'. The "
+        "whole block refuses; "
+        "partial acceptance of such a node is forbidden."
+    ),
+    "no_parse_substitution_multi_base_address_list": (
+        "A Norway word-substitution address list does not name exactly the base "
+        "act of the enclosing ``document-change`` block. The structured lane "
+        "binds the whole block to that base act, so lowering the list would bind "
+        "a substitution to a law its addresses do not belong to; the block "
+        "refuses whole."
+    ),
+    "no_parse_substitution_address_not_lowerable": (
+        "A Norway word-substitution address token could not be lowered to a "
+        "``LegalAddress`` by the shipped Lovdata path reader, so the provision to "
+        "substitute in is unknown; that address refuses rather than being guessed "
+        "from its neighbours in the list."
+    ),
+    "no_parse_addressed_substitution_pair_unresolved": (
+        "A Norway unstructured lead is an inline addressed word substitution "
+        "(\"«X» skal endrast til «Y» i § …\" or \"I § … skal «X» endrast til «Y»\") "
+        "whose (from, to) pair grammar did not parse — an unquoted TO term, or "
+        "an unpaired term count — so nothing was lowered rather than guessing "
+        "which term replaces which (W-104)."
+    ),
+    "no_parse_addressed_substitution_address_list_unresolved": (
+        "A Norway inline addressed word substitution's section list could not be "
+        "read to its end by the section-list scanner (a heading reference such as "
+        "\"§ 4-4 overskriften\", or a qualifier outside the grammar), so the whole "
+        "lead was refused rather than substituting in a partial list (W-104)."
+    ),
+    "no_parse_addressed_substitution_path_unresolved": (
+        "A Norway inline addressed word substitution qualifies one section with a "
+        "phrase the W-102 path grammar cannot place (a bare punktum with no ledd "
+        "above it, \"siste ledd\"); that section is refused and the other listed "
+        "sections lower, per label as W-69a refuses per address (W-104)."
     ),
     "no_parse_replace_promoted_to_insert_for_same_target_renumber": (
         "A Norway REPLACE targeting the same address as a RENUMBER in the same "
@@ -173,6 +522,52 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "A Norway structured amendment lead resolved to a target via lead-context "
         "rebound; recorded as target_resolution_recovery so the rebound is "
         "auditable, not silent."
+    ),
+    "no_parse_structured_renumber_replacement_not_lowered": (
+        "A Norway structured renumber lead ALSO declared a replacement of the "
+        "moved provision (\"§ 14 a blir ny § 28 b og skal lyde\") but the "
+        "replacement was not lowered: either the change block moved more than "
+        "one provision, so which one the payload rewrites is not recoverable "
+        "(move_arity_not_one), or no payload could be built for the destination "
+        "address (payload_unresolved). Typed and blocking rather than a guessed "
+        "attribution. W-32."
+    ),
+    "no_parse_structured_payload_not_declared": (
+        "A Norway structured change block declared a target but no payload of its "
+        "own: its own text carries no payload-introducing operative phrase in the "
+        "head (\"skal … lyde\", \"skal ha følgende ordlyd\"), or carries one with "
+        "nothing after the colon. Such a node's own text is an INSTRUCTION — a "
+        "relabel (\"Nåværende § 66 blir § 84.\"), a repeal or word-substitution "
+        "announcement, or a lead whose payload lives in structure the fallback "
+        "cannot read — and the last-resort own-text fallback used to write it into "
+        "in-force law at every declared address. The target refuses instead. W-79, "
+        "the general closure of the wrong-text class W-75 and W-78 closed dialect "
+        "by dialect."
+    ),
+    "no_parse_structured_chapter_target_refused": (
+        "A Norway structured change attribute named a chapter (Lovdata's "
+        "``kap<label>`` step, lowered since W-101) but the block does not prove "
+        "the chapter is what it changes: the lead does not name that chapter "
+        "(``Lovens del II oppheves`` carrying ``kapII``, ``Ny kapitteloverskrift "
+        "før § 1`` carrying ``kap1``), the lead announces a subdivision inside it "
+        "(``avsnitt``, ``deloverskrift``), no single future title carries the "
+        "heading, a ``futureLegalArticle`` in the block is claimed by no section "
+        "address of the block, or the action is a chapter relabel. Nothing is "
+        "lowered for the chapter; ``reason`` names the conjunct. W-101."
+    ),
+    "no_parse_structured_section_label_cased_from_carrier": (
+        "A Norway structured section address whose attribute token and "
+        "``futureLegalArticle`` carrier differ only by case (``§5a-1`` against "
+        "``§5A-1``) takes the carrier's case, which is the case the consolidation "
+        "prints; the address and the landed section agree with the consolidated "
+        "label instead of diverging on case alone. Non-blocking provenance. W-101."
+    ),
+    "no_parse_structured_section_target_scoped_to_new_chapter": (
+        "A Norway structured section INSERT announced inside an admitted ``Nytt "
+        "kapittel`` block takes that chapter as the first step of its address, so "
+        "the apply seam places it under the chapter op that precedes it rather "
+        "than under whichever standing chapter shares its label family. "
+        "Non-blocking provenance. W-101."
     ),
     "no_parse_unresolved_structured_renumber_skipped": (
         "A Norway structured renumber could not lower its source or destination "
@@ -186,10 +581,78 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "An unstructured Norway amendment lead looked operative but no base act "
         "could be resolved; recorded as a parse finding, not silently discarded."
     ),
+    "no_rettelse_lowered": (
+        "A published Rettelser correction carried by Lovdata's typed "
+        "gazettenote/rettelse marker resolved a clean address and was lowered "
+        "as an ordinary REPLACE op, dated by the host act's own commencement "
+        "(the rettelse announcement date rides in provenance, apply-inert). "
+        "The address is same-act, or — since W-24 — scoped to a Del of the host "
+        "act and bound to the law that part amends. W-18, W-24."
+    ),
+    "no_rettelse_not_lowered": (
+        "A published Rettelser correction was NOT lowered — excluded with a "
+        "typed, non-blocking receipt naming the reason rather than silently "
+        "skipped. Covers publication-metadata errata the IR does not model, "
+        "nested cross-act addresses that name no law, and Del-scoped addresses "
+        "whose corrected host op is itself unlowered. W-18, W-24."
+    ),
+    "no_same_act_item_address": (
+        "Reason detail on a no_rettelse_not_lowered receipt: the correction "
+        "directive did not resolve to a single same-act item address (metadata "
+        "field or non-item leaf), so no op was emitted."
+    ),
+    "no_unique_item_payload": (
+        "Reason detail on a no_rettelse_not_lowered receipt: the correction "
+        "directive resolved an address but its note did not yield exactly one "
+        "item payload, so binding would be a guess and no op was emitted."
+    ),
+    "no_nested_cross_act_address": (
+        "Reason detail on a no_rettelse_not_lowered receipt: the correction "
+        "directive starts at a section and names a SECOND one, reaching another "
+        "act through the host act's own body without citing that act. Binding "
+        "either section corrupts text, so the whole shape is excluded. W-24."
+    ),
+    "no_part_base_act": (
+        "Reason detail on a no_rettelse_not_lowered receipt: the correction "
+        "directive scoped itself to a Del of the host act, but that part "
+        "resolved no base act — absent, or its own change wrappers named more "
+        "than one law. W-24."
+    ),
+    "no_part_citation_agreement": (
+        "Reason detail on a no_rettelse_not_lowered receipt: the correction "
+        "directive cited a law explicitly AND scoped itself to a Del, and the "
+        "two resolutions disagreed. Neither is preferred over the other. W-24."
+    ),
+    "no_part_scoped_target_address": (
+        "Reason detail on a no_rettelse_not_lowered receipt: the Del scope and "
+        "its law resolved, but the residual address is not in the erratum "
+        "target grammar, so no op was emitted. W-24."
+    ),
+    "no_part_scoped_payload": (
+        "Reason detail on a no_rettelse_not_lowered receipt: the Del-scoped "
+        "target resolved but the note yielded no unique payload for its leaf "
+        "kind, so binding would be a guess. W-24."
+    ),
+    "no_corrected_host_op": (
+        "Reason detail on a no_rettelse_not_lowered receipt: the Del-scoped "
+        "target resolved, but this artifact's own lowered ops touch no such "
+        "address in that law. A Del-scoped erratum corrects the host act's own "
+        "amendment text, so with that amendment unlowered there is nothing to "
+        "correct and the address denotes a DIFFERENT provision in the law's "
+        "live text. W-24."
+    ),
     "no_parse_unstructured_lead_unmatched": (
         "An unstructured Norway amendment lead looked operative but matched no "
         "supported lowering family; recorded as a parse finding, not silently "
         "discarded."
+    ),
+    "no_parse_unstructured_multi_item_payload_arity_mismatch": (
+        "An unstructured Norway lead declared SEVERAL lettered items in one "
+        "sentence (\"§ 49 andre ledd bokstav e og ny bokstav f skal lyde\") but "
+        "the payload did not split to cover all of them. The whole lead is "
+        "dropped rather than lowered against a guessed split — the W-19 "
+        "all-or-nothing rule applied to declared item arity — and the declared "
+        "and unresolved targets are both recorded. W-32."
     ),
     "no_parse_unstructured_payload_unresolved": (
         "An unstructured Norway heading-replacement lead resolved a target but no "
@@ -201,6 +664,41 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "destination target counts; unmatched targets are not compiled and the "
         "mismatch is recorded."
     ),
+    "no_parse_chapter_reenactment_payload_unresolved": (
+        "A W-98 whole-chapter re-enactment lead (\"Kapittel N skal lyde:\" / "
+        "\"Nytt kapittel N skal lyde:\") resolved its chapter but the payload did "
+        "not read as ONE closed chapter — a subdivision heading the CHAPTER node "
+        "does not model, body text outside any section, a carrier without a "
+        "label, or a new chapter whose sections follow as leads of their own. "
+        "A partially read chapter is a wrong chapter, not a partial one, so the "
+        "whole lead stays unlowered and the offending member is named. W-98."
+    ),
+    "no_parse_chapter_heading_payload_unresolved": (
+        "A W-98 chapter-heading lead (\"Overskriften til kapittel N skal lyde:\") "
+        "resolved its chapter but no single heading payload could be read off "
+        "the announcement (inline or in the following heading element); "
+        "nothing is lowered rather than a chapter heading guessed. W-98."
+    ),
+    "no_parse_mixed_member_payload_arity_mismatch": (
+        "A W-98 mixed-depth member lead (\"første ledd første punktum og andre "
+        "ledd skal lyde\") declared members at two depths but the payload does "
+        "not carry exactly one text article per member; with no proof of WHICH "
+        "article belongs to WHICH member nothing is lowered. W-98."
+    ),
+    "no_parse_ledd_repeal_reenact_payload_arity_mismatch": (
+        "A W-98 compound ledd repeal-then-reenact lead (\"§ X tredje ledd "
+        "oppheves. Nytt tredje ledd og fjerde ledd skal lyde:\") declared its "
+        "re-enacted ledd but the payload does not carry exactly one text article "
+        "per re-enacted member; neither the repeal nor the inserts land, because "
+        "a repeal without its announced replacement is an over-repeal. W-98."
+    ),
+    "no_parse_section_range_unexpandable": (
+        "A Norway section-range repeal (\"§ 5-1 til § 5-6 oppheves\", \"§§ 5-16 "
+        "til 5-19 oppheves\") names a range the shared expander cannot enumerate "
+        "— cross-chapter, unordered, or with lettered interiors — and nothing is "
+        "repealed; the typed refusal replaces the shipped behaviour of silently "
+        "repealing the two endpoints only. W-98 (e)."
+    ),
     # --- Sort-order reconciliation ---------------------------------------------
     "no_sort_order_spurious_roman_single_letter_recheck": (
         "A Norway sibling-group ordering flagged by the litra sort key is "
@@ -208,6 +706,35 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "spurious flag is recorded as a nonblocking reclassification."
     ),
     # --- Replay / apply recovery -----------------------------------------------
+    "no_replay_section_commencement_contingent_skipped": (
+        "W-100. One op of a Norway amendment whose binding the section-scoped "
+        "commencement lane dated only in part is skipped because its own section "
+        "is carved out or undated; the sibling ops that resolve to a date are "
+        "applied, and each skip is recorded per op, never silent."
+    ),
+    "no_replay_section_future_effective_skipped": (
+        "W-100. One op of a Norway amendment resolves, through the section-scoped "
+        "commencement lane, to a date after the requested as-of date and is "
+        "skipped; recorded per op, never silent."
+    ),
+    "no_lovtidend_commencement_section_scope_execution_authorized": (
+        "W-100. Official Norsk Lovtidend commencement instrument(s) dated ONE "
+        "binding of an amendment act below binding level — a binding date with "
+        "carve-outs, per-section dates, or both — through the section-scoped "
+        "statement reader; the receipt carries the sections dated, carved out, "
+        "refused as ledd-qualified, and whether the binding is complete."
+    ),
+    "no_lovtidend_commencement_section_scope_execution_date_conflict": (
+        "W-100. Two section-scoped commencement statements gave one binding or one "
+        "section two dates, or dated a section differently from a binding it was "
+        "not carved out of; the whole binding is refused rather than resolved."
+    ),
+    "no_lovtidend_commencement_section_scope_execution_refused": (
+        "W-100. The section-scoped statement reader read an instrument's operative "
+        "text in full but the gate could not resolve a scope term against the "
+        "act's part map or bound laws; the pair re-dates nothing and the reason is "
+        "recorded."
+    ),
     "no_replay_contingent_commencement_skipped": (
         "A Norway amendment whose entry-into-force is contingent on royal decree "
         "is skipped from replay until the override sidecar supplies an effective "
@@ -225,14 +752,23 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "A Norway amendment artifact compiled zero change-group matches; the "
         "no-op replay is recorded as a finding so the artifact stays owned."
     ),
-    "no_replay_skipped_unspecified": (
-        "A Norway replay op skipped without a matching typed skip adjudication is "
-        "rejected with an explicit unspecified-skip receipt rather than disappearing."
+    "no_replay_observed_write_audit_violation": (
+        "A Norway landed write whose independent before/after path diff is not "
+        "fully accounted for by its WriteReceipt is recorded as a blocking "
+        "adjudication; strict replay refuses contradictory receipt evidence "
+        "rather than trusting the declared footprint."
+    ),
+    "no_replay_receipt_storage_path_projected": (
+        "A chapter-free Norway legal address was projected to its exact nested IR "
+        "storage path for write accounting; the receipt keeps the nominal binding "
+        "and records the resolved path as landed reality, so the projection is "
+        "witnessed instead of silently widening target resolution."
     ),
     "no_replay_unknown_effective_skipped": (
-        "A Norway amendment's effective status flag was not one of "
-        "{contingent, dated, immediate, override}; the unknown status is "
-        "recorded as blocking, never silently guessed."
+        "A Norway amendment whose effective status is missing or unknown, or whose "
+        "effective date is absent, is recorded as blocking and skipped; contingent "
+        "commencement uses its dedicated skip lane, while resolved statuses carrying "
+        "an effective date, including instrument_authorized, are replayable."
     ),
     # --- Apply-fold orchestration failure (replay.py production caller) ---------------
     # iter4 W1 (silent-failure review HIGH #2): when ``apply_no_ops_conserved``
@@ -262,6 +798,25 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "production result's adjudication ledger — §1.0 "
         "evidence-not-silently-destroyed contract."
     ),
+    # --- Heading-group fold ordering (W-12) -----------------------------------------
+    # ``apply_no_heading_groups`` folds ``Ny deloverskrift`` section-range groups
+    # after the op fold, in its own pass. Until W-12 that pass had no temporal
+    # sort — it ran in ``replay_no_to_pit``'s collection order (the index's
+    # ``source_id`` string order), the one Norway replay surface where collection
+    # order was not inert. The fold now sorts by the ordering kernel's own
+    # ``no_ordering_profile().temporal_key``. The multi-contributor case is
+    # unreached in today's corpus (0 of 3,089 original-LTI laws; the sole witness
+    # ``no/lov/2024-01-12-1`` gets all 3 groups from ``no/lovtid/2024-12-20-92``),
+    # so this receipt is the §2.9 guard-liveness surface that makes the
+    # latent→live transition visible instead of silent.
+    "no_heading_group_multi_source_fold": (
+        "One law's ``Ny deloverskrift`` heading groups arriving from more than "
+        "one amendment is receipted at the fold: non-blocking when every "
+        "contributor carries an effective date (the fold order is then proven "
+        "by the ordering kernel's temporal key), blocking when one does not "
+        "(the sort degenerates to collection order, so the order is unproven "
+        "and the law must not read as cleanly replayed)."
+    ),
     # --- Archive-size capped §1.8 receipts (iter2 W7 M9 5081fd10) --------------------
     # iter2 W7 M9 added ``NO_ARCHIVE_MEMBER_TOO_LARGE_REASON_CODE`` in both
     # ``norway/grafter.py:4591`` and ``norway/sources.py:61`` (twin definitions
@@ -290,15 +845,117 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "content payload is contradictory — and the drop is recorded as a non-blocking "
         "adjudication, never silently discarded."
     ),
-    "no_replay_insert_occupied_direct_child_replaced": (
-        "A Norway INSERT landed on an occupied direct child; replay recovers by "
-        "replacing that child, recording the action-family conversion "
-        "(insert→replace) rather than silently overwriting it."
+    "no_replay_insert_occupied_direct_child_refused": (
+        "A Norway INSERT whose own target address did NOT resolve would have "
+        "overwritten an occupied direct child at an inferred parent — an address "
+        "the operation never named, matched only by payload (kind, label). W-63 "
+        "refuses it: no write lands, the occupant survives, and the op is "
+        "rejected with a typed blocking receipt instead of being silently "
+        "converted to a replace. Distinct from the declared θ cell "
+        "no_replay_insert_occupied_target_replaced, which keeps its RECOVER "
+        "polarity for the case where the op's OWN address resolves."
     ),
     "no_replay_insert_occupied_target_replaced": (
         "A Norway INSERT landed on an occupied single target; replay recovers by "
         "replacing the target, recording the action-family conversion "
         "(insert→replace) rather than silently overwriting it."
+    ),
+    "no_replay_ledd_set_relabel_occupied_destination_refused": (
+        "A leg of a W-66 sibling-set ledd relabel found its destination still "
+        "OCCUPIED when it ran. The parse plane cannot prove that a section ends "
+        "where the drafter's ordinals say it does, and taking the declared θ "
+        "(RENUMBER, dest_occupied) recovery here destroyed in-force law twice in "
+        "measurement (straffeloven 2005 § 3 femte ledd, verdipapirhandelloven "
+        "§ 9-21 fjerde ledd — base editions that already carry the amendment being "
+        "replayed). This production refuses instead: no write lands, the occupant "
+        "survives, the op is rejected with a typed blocking receipt, and the "
+        "refusal CASCADES down the relabel's vacate-before-occupy chain so the set "
+        "drops whole rather than in halves. W-66."
+    ),
+    "no_replay_ledd_renumber_occupied_destination_refused": (
+        "A ledd-depth RENUMBER (any production, not only W-66's sibling-set "
+        "relabel) found its destination still OCCUPIED when it ran and not vacated "
+        "by its own group. Measured over the corpus no such clearing ever preserved "
+        "law: the slot is taken because the base edition already carries the "
+        "amendment (konsesjonsloven § 4 under no/lovtid/2025-06-06-27, dated by "
+        "W-102's ledd-precise grant), because the act landed on a stale section "
+        "(barnevernsloven § 10-17 under no/lovtid/2026-06-19-35) or because the "
+        "cascade is partial (W-56). The op refuses with a typed blocking receipt, "
+        "no write lands, the occupant survives and the refusal cascades down the "
+        "vacate-before-occupy chain; section-depth renumbers keep the adjudicated "
+        "θ recovery. W-102."
+    ),
+    "no_replay_new_chapter_section_relocated_from_occupied_label": (
+        "A section a W-101 ``Nytt kapittel`` block inserts under its new chapter "
+        "found its LABEL already standing elsewhere in the law (klimakvoteloven's "
+        "old § 16 in chapter 4 when the 2023 act announces \"Nytt kapittel 4 A med "
+        "§§ 16 til 16 d\"). Section labels are law-unique in Norwegian drafting, "
+        "so the standing node is the provision the new chapter re-enacts: it is "
+        "removed and the new text lands at the announced address — the θ "
+        "(INSERT, target_occupied) disposition the unscoped insert used to take in "
+        "place, at the position the amendment names. Non-blocking; the occupant "
+        "path is on the receipt. W-101."
+    ),
+    "no_replay_item_insert_payload_occupied_target_refused": (
+        "A W-77 item-depth newness payload INSERT found its target label already "
+        "OCCUPIED when it ran. The declared θ (INSERT, target_occupied) recovery "
+        "REPLACES the occupant, which is right for the \"ny § 4 a skal lyde\" "
+        "surface §2.3 documents and wrong here: an announcement that says NY "
+        "bokstav c and finds bokstav c standing means the relabel that should "
+        "have vacated it did not fire, or the archived base edition already "
+        "carries this amendment — and in neither reading is the occupant's "
+        "in-force text the thing to delete (W-66 measured exactly that "
+        "destruction at the ledd depth). This production refuses instead: no "
+        "write lands, the occupant survives, and the op is rejected with a typed "
+        "blocking receipt. The shipped θ cell keeps its RECOVER polarity for "
+        "every op that is not this production's. W-77."
+    ),
+    "no_replay_chapter_reenactment_uncarried_sections_refused": (
+        "A W-98 whole-chapter re-enactment REPLACE reached a standing chapter "
+        "whose sections are not ALL carried by the payload (an OCR-fused or "
+        "truncated payload carrying § 6-1 of §§ 6-1–6-5). Landing it would "
+        "repeal every uncarried section under cover of a re-enactment, so "
+        "NOTHING lands and the receipt names the standing, carried and "
+        "uncarried labels; over-retention is the safe wrong. W-98 (g)."
+    ),
+    "no_replay_reenactment_insert_occupied_target_refused": (
+        "A W-98 re-enactment INSERT — a \"Nytt kapittel N\" chapter, or a ledd "
+        "leg of the compound repeal-then-reenact lead — found its target label "
+        "already OCCUPIED when it ran. Same reading as W-77's: the occupant is "
+        "in-force text the announcement never repealed (or the base edition "
+        "already carries the amendment), so the shipped θ (INSERT, "
+        "target_occupied) recovery that would replace it is refused; no write "
+        "lands, the occupant survives, the op is rejected with a typed blocking "
+        "receipt whose ``production`` detail names the tag. W-98."
+    ),
+    "no_replay_relocation_order_unprovable_refused": (
+        "A leg of a Norway RENUMBER relocation whose atomic group admits NO order "
+        "in which every leg avoids writing onto a live sibling. W-66's ordering is "
+        "over integer ordinals inside ONE sibling set; the structured "
+        "data-move-part lane mints legs that LEAVE their container, so W-69c "
+        "re-keys the dependency node on the resolved (parent_path, label) pair and "
+        "judges each connected component of the relocation graph. A component is "
+        "unprovable when two legs contest a destination, two legs contest a "
+        "source, or the vacate relation closes a cycle — none of which a "
+        "topological sort can report, because its only possible answer is a "
+        "permutation. Every leg of an unprovable component refuses: no write "
+        "lands, the component drops whole rather than in halves (the W-56 failure "
+        "mode), and the op is rejected with a typed blocking receipt. "
+        "Under-application is safe; choosing a winner between two contradictory "
+        "instructions would be a semantics change on landed ops. W-69c."
+    ),
+    "no_replay_substitution_term_not_uniquely_present": (
+        "A W-69a addressed word substitution reached its resolved provision and "
+        "the announced term did not prove itself there: either more than one of "
+        "the announcement's FROM terms is present as a whole word (the pairs are "
+        "prefix-nested, so a node carrying both would take two writes from one "
+        "announcement), or this op's own term is absent / present only as an "
+        "inflection / present only inside a longer word / present more than once. "
+        "The shipped ``_apply_no_text_replace`` is an unguarded recursive "
+        "``str.replace`` honouring neither occurrence nor word boundary, so the "
+        "op refuses rather than write: no state changes, the superseded word "
+        "stands, and the reason is typed instead of vanishing into a "
+        "content-identical no-op."
     ),
     "no_replay_renumber_occupied_destination_removed": (
         "A Norway RENUMBER landed on an occupied destination that was not itself "
@@ -339,10 +996,12 @@ _NO_RULE_SPECS: Dict[str, str] = {
     # --- Detail rule ids on action_family / migration_or_lineage records ---------
     # These are the detail payload rule ids that name the specific recovery
     # contract paired with their family-level ``kind`` counterparts above.
-    "no_insert_occupied_direct_child_replace": (
-        "Detail rule id on the action_family_recovery record for "
-        "no_replay_insert_occupied_direct_child_replaced — names the specific "
-        "insert→replace recovery contract on the direct child path."
+    "no_insert_occupied_direct_child_refuse": (
+        "Detail rule id on the unsupported_or_unresolved_action refusal record "
+        "for no_replay_insert_occupied_direct_child_refused — names the specific "
+        "W-63 refusal contract: an INSERT whose unresolved target would have "
+        "overwritten a label-matched direct child at an inferred parent lands "
+        "nothing and is rejected."
     ),
     "no_insert_occupied_target_replace": (
         "Detail rule id on the action_family_recovery record for "
@@ -360,10 +1019,8 @@ _NO_RULE_SPECS: Dict[str, str] = {
     # op mints an identity migration (bound source label → landed destination
     # label) that the §1.6 unstated-migration invariant MUST carry with a named
     # rule id. Stamped on the op at mint time as ``witness_rule_id`` (the
-    # parse→apply waist proof). Receipt-side ``migration_rule_ids`` stamping is
-    # pending the per-op ``WriteReceipt`` helper for NO (split across iter2 W5 H2
-    # op-side stamping + a future receipt-helper task — see
-    # https://github.com/elias/lawvm/issues/iter2-w5-h2-no-receipt-helper).
+    # parse→apply waist proof). The authoritative apply fold also stamps the same
+    # id on its per-op WriteReceipt.
     "no_section_renumber_relabel": (
         "A Norway RENUMBER op's bound_target_path (source label) vs "
         "landed_primary_path (destination label) divergence is the typed named "
@@ -373,9 +1030,18 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "EE's ``_EE_SECTION_SEQUENCE_RENUMBER_RULE`` on op construction). The "
         "name ``section`` describes the dominant case but the rule id is the "
         "broad family owner for every RENUMBER op (one id per family, mirroring "
-        "SE's single ``se_renumber_relabel``). Receipt-side "
-        "``migration_rule_ids`` stamping requires a per-op ``WriteReceipt`` "
-        "helper that does not yet exist in the NO frontend."
+        "SE's single ``se_renumber_relabel``). The authoritative apply fold "
+        "stamps the same id in the receipt's ``migration_rule_ids``."
+    ),
+    "no_observed_write_audit_must_match_receipt": (
+        "A Norway landed write's independent before/after path diff must be "
+        "fully accounted for by its WriteReceipt; strict replay rejects a "
+        "violation instead of allowing contradictory receipt evidence."
+    ),
+    "no_receipt_storage_path_resolution": (
+        "A chapter-free Norway legal address was resolved to its exact nested IR "
+        "storage path; the receipt preserves the nominal binding and records the "
+        "resolved path as landed reality without widening target resolution."
     ),
     "no_replace_missing_last_item_append_to_parent": (
         "Detail rule id on an insert-recovery of a missing-target replace that "
@@ -415,9 +1081,16 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "Norway comparison text removes spaces after opening parenthesis so "
         "equivalent wording is not flagged as a divergence."
     ),
+    "no_compare_close_paren_spacing": (
+        "Norway comparison text removes spaces before a closing parenthesis so "
+        "equivalent wording is not flagged as a divergence."
+    ),
     "no_compare_inline_footnote_marker": (
-        "Norway comparison text removes inline numeric footnote markers between "
-        "sentences so equivalent wording is not flagged as a divergence."
+        "Norway comparison text removes a single-digit footnote marker attached "
+        "to a lowercase-initial word inside a sentence so equivalent wording is "
+        "not flagged as a divergence; structural numbering (\"Kapittel 2 …\") is "
+        "left intact because deleting it on both sides would mask real "
+        "divergences (findings-ledger F-05 / W-16)."
     ),
     "no_compare_standalone_footnote_marker": (
         "Norway comparison text removes standalone numeric footnote markers after "
@@ -482,6 +1155,65 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "no_verify.chapter_relocation_pair, which pairs provisionally-"
         "relocated provisions whose section labels match exactly."
     ),
+    # The three label lexers the annexed-instrument ceiling is built from.
+    # Bounded structural matchers over an address LABEL (never over prose), so
+    # they carry no legal claim of their own — they are cataloged because
+    # ``compile_classifier_regex``'s ``classifier_id`` is statically
+    # discoverable, and the shape each one accepts is the load-bearing part.
+    "no_verify.annex_body_chapter_label": (
+        "Recognizes an ORDINARY Norwegian legislative chapter label — decimal "
+        "(3, 10a) or roman (IV). A top-level chapter label that fails this "
+        "match is Lovdata's annex token for an incorporated instrument, which "
+        "is how the annexed-instrument ceiling tells an annex chapter from the "
+        "enacting law's own body."
+    ),
+    "no_verify.annex_article_label": (
+        "Recognizes an annexed instrument's article label as Lovdata addresses "
+        "it (a1 … a99). Norwegian section labels never take this form (they "
+        "are 11, 11a, 3-3c), so the shape separates an instrument article from "
+        "a section of the enacting law."
+    ),
+    "no_verify.annex_section_token": (
+        "Recognizes the annex token when it prefixes an article label "
+        "(the gdpr in gdpr/a1, the v22c in v22c/a80). Split off from the "
+        "article label with a one-shot partition so no optional prefix group "
+        "wraps a quantifier."
+    ),
+    "no_verify.ceiling_annexed_instrument_address": (
+        "A Norway divergence whose address sits inside a Lovdata annex chapter "
+        "carrying an incorporated international instrument (the chapter label "
+        "is the annex token and the section label is that token plus an "
+        "instrument article, e.g. chapter:gdpr/section:gdpr/a1) is typed as "
+        "the annexed-instrument representation ceiling: the consolidation "
+        "prints the instrument in full and the original-act replay lane never "
+        "had it. The row is NOT suppressed — it stays a counted divergence "
+        "and the verdict is unchanged; the receipt only lets the scoreboard "
+        "report annex and non-annex divergences separately."
+    ),
+    "no_verify.ceiling_annexed_instrument_nested_address": (
+        "A Norway divergence whose address sits inside a Lovdata annex that is "
+        "addressed as a compound SUB-CHAPTER of an ordinary host chapter "
+        "rather than by a token chapter of its own (chapter:1 holding "
+        "chapter:1-1, then an unprefixed instrument article such as "
+        "section:a1) is typed as the annexed-instrument representation "
+        "ceiling, the same ceiling as its token-encoded sibling: the "
+        "consolidation prints the incorporated instrument in full and the "
+        "original-act replay lane never had it. Disjoint from that sibling by "
+        "construction — it requires a non-ordinary top chapter label, this "
+        "one requires an ordinary one. Types rather than suppresses, so the "
+        "row stays counted and no verdict moves."
+    ),
+    "no_verify.ceiling_annexed_instrument_counterpart": (
+        "A Norway present-on-one-side-only divergence at the canonical-body "
+        "address of an instrument article that the SAME law also carries at "
+        "an annex address (e.g. chapter:1/section:a80 against the witnessed "
+        "chapter:v22c/section:v22c/a80) is typed as the counterpart half of "
+        "the annexed-instrument representation ceiling: the instrument is "
+        "represented twice at two addresses, so each copy reads as missing "
+        "from the other side. Self-limiting — with no witnessing annex-address "
+        "row for that article the rule cannot fire. Like its sibling it types "
+        "rather than suppresses, so no verdict moves."
+    ),
     "no_verify.prefix_descendant_suppressed": (
         "A Norway divergence whose address is a strict prefix of another raw "
         "divergence address is suppressed on the primary surface (the more "
@@ -512,6 +1244,41 @@ _NO_RULE_SPECS: Dict[str, str] = {
     # --- Per-op mutation-boundary escape observation (§1.0 in-fold twin) -----------------
     # Mirrors EE's ``ee_replay_mutation_boundary_per_op_violation_observed`` and
     # UK's ``uk_replay_mutation_boundary_per_op_violation_observed``.
+    # --- W-103 print-era (pre-2001) witness lane: evidence-ladder lines -> LTI XML ----
+    # Emission receipts of ``print_era.py``. The lane is a witness lane (the emitted
+    # acts are OCR reconstructions, not archived Lovtidend bytes); each id names one
+    # thing the emission did to the print text, so a divergence downstream can be
+    # attributed to it instead of to the parser or the replay.
+    "no_print_era_lead_refused": (
+        "An instruction lead of a print-era amending act built from a line on which "
+        "no two OCR channels agreed (ladder class R) is landed as a proposal and "
+        "marked on the article, never as certified text; a section the lead addresses "
+        "may therefore diverge on the lead's reading alone."
+    ),
+    "no_print_era_proposal_text_landed": (
+        "A print line of ladder class R lands with the proposal channel's reading "
+        "(GLM-OCR) under the PROPOSAL variant or the ALTO spine's under STRICT, marked "
+        "on the article; the landed text is a candidate, and a divergence on such a "
+        "line is attributable to the channel, not to the replay."
+    ),
+    "no_print_era_address_dash_folded": (
+        "The print's wide dash inside a ``§ N-N`` address token folds to ``-`` in "
+        "instruction leads and section headers only, so the grafter's address grammar "
+        "reads the label the consolidation prints; body-text dashes keep their bytes "
+        "and are compared as typed dash-class divergences."
+    ),
+    "no_print_era_omnibus_carve": (
+        "Of an omnibus act that amends many laws, only the consequential item naming "
+        "the base law is emitted; the act's other targets are neither landed nor "
+        "repealed, and the emission says so on the section, so the act replays as a "
+        "partial instrument by declaration rather than by omission."
+    ),
+    "no_print_era_date_from_consolidation_chain": (
+        "A print-era act's ``dateInForce`` is the ``ikr.`` date the consolidation's "
+        "changesToParent chain prints for that act (the act's own date where the chain "
+        "names none), because the print-era commencement lane is not built; the "
+        "receipt names the source so the date is evidence, not authority."
+    ),
     "no_replay_mutation_boundary_per_op_violation_observed": (
         "A per-op Norway write whose changed paths escape the op's declared "
         "section region is recorded as a boundary-escape observation (the in-fold "

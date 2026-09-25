@@ -48,10 +48,15 @@ def main(args: "argparse.Namespace") -> None:
     from lawvm.norway.commencement import build_no_commencement_report, build_no_blocked_law_report
     from lawvm.norway.index import build_no_amendment_index, load_no_amendment_index
     from lawvm.norway.inventory import build_no_inventory, build_no_missing_base_report
+    from lawvm.norway.sources import no_consolidation_snapshot_date
     from lawvm.norway.verify import build_no_verify_partition, build_no_verify_scan
 
     data_dir_arg = getattr(args, "data_dir", None)
     data_dir = Path(data_dir_arg) if data_dir_arg else None
+    # F-01: absent --as-of, the comparison horizon comes from the corpus, not a
+    # literal that predates the consolidation this is compared against. Explicit
+    # flag passes through verbatim. Same derivation as `no-verify-scan`.
+    as_of = getattr(args, "as_of", None) or no_consolidation_snapshot_date(data_dir)
     index_arg = getattr(args, "index", None)
     index_path = Path(index_arg) if index_arg else None
     index = load_no_amendment_index(index_path) if index_path else build_no_amendment_index(data_dir)
@@ -96,7 +101,7 @@ def main(args: "argparse.Namespace") -> None:
     missing_base_report["laws"] = missing_base_report["laws"][:limit]
 
     verify_report = build_no_verify_scan(
-        as_of=getattr(args, "as_of", "2026-03-29"),
+        as_of=as_of,
         data_dir=data_dir,
         index=index,
         commencement_path=commencement_path,
@@ -105,7 +110,7 @@ def main(args: "argparse.Namespace") -> None:
         progress_callback=(lambda msg: print(msg, file=sys.stderr)) if getattr(args, "progress", False) else None,
     )
     verify_partition = build_no_verify_partition(
-        as_of=getattr(args, "as_of", "2026-03-29"),
+        as_of=as_of,
         data_dir=data_dir,
         index=index,
         commencement_path=commencement_path,
@@ -114,9 +119,23 @@ def main(args: "argparse.Namespace") -> None:
         progress_callback=(lambda msg: print(msg, file=sys.stderr)) if getattr(args, "progress", False) else None,
     )
     partitions = verify_partition["partitions"]
+    # W-46: the W-45 census, reprinted where the dashboard already composes
+    # every other Norway frontier number. Read off ``build_no_verify_partition``
+    # rather than recomputed — this tool already pays for that call, and the
+    # census must not be able to disagree with the partition run beside it.
+    # Indexed directly, not ``.get``: unlike ``no-verify-partition`` (which can
+    # be pointed at a saved pre-W-45 partition JSON) this composes a report it
+    # just built in-process, and the same reasoning already applies to
+    # ``partitions`` above.
+    no_consolidation = verify_partition["unverifiable"]["no_stored_consolidation"]
     active_lane = "consistent"
     active_lane_count = len(partitions["consistent"])
-    for lane in ("replay_defect", "untouched_drift", "source_sparse", "error"):
+    # W-23: ``annex_ceiling`` sits between ``source_sparse`` and ``error`` in the
+    # active-lane priority order — it is the least actionable divergent lane
+    # (typed representation ceiling, not a defect), so it must never outrank a
+    # lane a triager could work. Measured no-op on the 2026-07-10 corpus: the
+    # active lane is ``replay_defect`` (16) before and after.
+    for lane in ("replay_defect", "untouched_drift", "source_sparse", "annex_ceiling", "error"):
         lane_count = len(partitions[lane])
         if lane_count:
             active_lane = lane
@@ -126,6 +145,7 @@ def main(args: "argparse.Namespace") -> None:
         "replay_defect": "Replay Defects",
         "untouched_drift": "Untouched Drift",
         "source_sparse": "Sparse Source Cases",
+        "annex_ceiling": "Annexed-Instrument Ceiling",
         "consistent": "Consistent",
         "error": "Errors",
     }
@@ -140,6 +160,21 @@ def main(args: "argparse.Namespace") -> None:
         "missing_base_source": missing_base_report,
         "consistency_sample": verify_report,
         "consistency_partition": verify_partition,
+        "unverifiable_census": {
+            # Both universes, because the W-45 STOP-1 distinction is
+            # load-bearing: 763 consolidations are stored, 645 of them are
+            # operative, and the 118-law gap is consolidations with no
+            # operative content (measured at W-45 for the 110 with stored
+            # originals: amending acts reduced to bare change instructions).
+            # Every other number
+            # on this dashboard is denominated in the 645; the census counts
+            # originals that have neither. Printing the census total without
+            # both universes invites reading it against whichever denominator
+            # the reader already had in mind.
+            "stored_consolidations": inventory_data["stored_consolidations"],
+            "current_laws": inventory_data["current_laws"],
+            "no_stored_consolidation": no_consolidation,
+        },
         "active_consistency_lane": active_lane,
         "active_consistency_lane_label": lane_label_map[active_lane],
         "active_consistency_lane_count": active_lane_count,
@@ -183,8 +218,26 @@ def main(args: "argparse.Namespace") -> None:
         f"replay_defect={len(partitions['replay_defect'])}, "
         f"untouched_drift={len(partitions['untouched_drift'])}, "
         f"source_sparse={len(partitions['source_sparse'])}, "
+        f"annex_ceiling={len(partitions['annex_ceiling'])}, "
         f"consistent={len(partitions['consistent'])}, "
         f"error={len(partitions['error'])}"
+    )
+    # W-46: printed immediately after the partition it is a sibling of, and
+    # before the queues — it is a receipt on the scan's reach, not a work queue.
+    print(
+        "  unverifiable census         : "
+        f"no_stored_consolidation={no_consolidation['total']}, "
+        f"would_be_candidates={no_consolidation['would_be_candidates']}, "
+        f"substantive_unexplained={no_consolidation['substantive_unexplained']}"
+    )
+    print(
+        "  ...census by family         : "
+        + ", ".join(f"{k}={v}" for k, v in sorted(no_consolidation["by_family"].items()))
+    )
+    print(
+        "  ...census universe          : "
+        f"stored_consolidations={report['unverifiable_census']['stored_consolidations']}, "
+        f"current_laws={report['unverifiable_census']['current_laws']}"
     )
     candidate_counts = report.get("commencement_candidate_source_counts", {})
     if candidate_counts:
@@ -216,6 +269,16 @@ def main(args: "argparse.Namespace") -> None:
             print(
                 f"    {item['base_id']} | divergences={item['divergence_count']} | "
                 f"ops={item['replay_op_count']}"
+            )
+    if partitions["annex_ceiling"]:
+        # The actionable number for this lane is the residue, not the total —
+        # print it, or the lane reads like the biggest problem in the corpus.
+        print("  top annexed-instrument-ceiling cases:")
+        for item in partitions["annex_ceiling"][: min(3, limit)]:
+            print(
+                f"    {item['base_id']} | divergences={item['divergence_count']} | "
+                f"ceiling={item['ceiling_divergence_count']} | "
+                f"unexplained={item['unexplained_divergence_count']}"
             )
 
     entries = unlock_report["entries"]

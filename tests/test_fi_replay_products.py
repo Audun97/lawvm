@@ -69,10 +69,13 @@ from lawvm.finland.replay_products import validate_replay_products
 from lawvm.finland.replay_fold_projection import ReplayFoldProjectionRequest, project_replay_fold
 from lawvm.finland.source_model import AmendmentSourceModel
 from lawvm.core.timeline_addresses import _retarget_root_node
-from lawvm.tools.inspect_amendment import build_amendment_bundle
-from tests.corpus_pin_helpers import pinned_replay
+from lawvm.tools.inspect_amendment import build_amendment_bundle as _build_amendment_bundle
+from tests.corpus_pin_helpers import pinned_replay, skip_if_corpus_absent
 from lawvm.finland.statute import ReplayResult, ReplayState, StatuteContext
 from lawvm.finland.xml_ir import fi_xml_to_ir_node
+
+
+build_amendment_bundle = skip_if_corpus_absent(_build_amendment_bundle)
 
 
 @pytest.fixture(scope="module")

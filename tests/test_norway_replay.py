@@ -1,12 +1,21 @@
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import tarfile
 
+import pytest
+
+from lawvm.core.ir_helpers import irnode_to_text
 from lawvm.core.semantic_types import IRNodeKind
 from lawvm.core.evidence_contracts import validate_corpus_finding_evidence_row
-from lawvm.norway.index import NOAmendmentIndex, NOAmendmentIndexEntry, build_no_amendment_index, save_no_amendment_index
+from lawvm.norway.index import (
+    NOAmendmentIndex,
+    NOAmendmentIndexEntry,
+    build_no_amendment_index,
+    save_no_amendment_index,
+)
 from lawvm.norway.replay import _effective_date_from_amendment, _no_ref_kind_and_date, replay_no_to_pit
 from lawvm.tools.replay_payloads import build_no_replay_payload
 
@@ -45,7 +54,7 @@ def _amendment_xml(date_in_force: str | None) -> bytes:
     if date_in_force is None:
         date_block = ""
     else:
-        date_block = f"<dd class=\"dateInForce\">{date_in_force}</dd>"
+        date_block = f'<dd class="dateInForce">{date_in_force}</dd>'
     return f"""<?xml version="1.0" encoding="utf-8"?>
 <html lang="nb">
   <body>
@@ -159,6 +168,40 @@ def test_replay_no_to_pit_applies_effective_amendments(tmp_path) -> None:
     assert result.amendments_skipped_unknown_effective == []
     assert result.n_ops == 3
 
+    assert result.apply_filter_result is not None
+    accepted_by_id = {
+        op.op_id: op for op in result.apply_filter_result.accepted_items
+    }
+    rejected_ids = {
+        item.item.op_id for item in result.apply_filter_result.rejected_items
+    }
+    receipt_ids = [receipt.op_id for receipt in result.write_receipts]
+    assert len(receipt_ids) == len(set(receipt_ids))
+    assert set(receipt_ids) == set(accepted_by_id)
+    assert set(receipt_ids).isdisjoint(rejected_ids)
+    for receipt in result.write_receipts:
+        op = accepted_by_id[receipt.op_id]
+        expected_anchor = op.source.source_anchor if op.source is not None else None
+        assert receipt.source_anchor == expected_anchor
+        if receipt.source_anchor is None:
+            continue
+        anchor = receipt.source_anchor
+        clause = _amendment_xml("2025-02-10")[
+            anchor.byte_offset : anchor.byte_offset + anchor.byte_len
+        ]
+        assert anchor.quote_hash == "sha256:" + hashlib.sha256(clause).hexdigest()
+
+    anchored_receipts = [receipt for receipt in result.write_receipts if receipt.source_anchor is not None]
+    assert anchored_receipts
+    repeal_anchor = next(receipt.source_anchor for receipt in anchored_receipts if receipt.action == "repeal")
+    assert repeal_anchor is not None
+    clause = _amendment_xml("2025-02-10")[
+        repeal_anchor.byte_offset : repeal_anchor.byte_offset + repeal_anchor.byte_len
+    ]
+    assert repeal_anchor.source_artifact_id == "no/lovtid/2025-02-02-5"
+    assert clause == b"Paragraf 1 oppheves."
+    assert repeal_anchor.quote_hash == "sha256:" + hashlib.sha256(clause).hexdigest()
+
     chapter, sections = _chapter_sections(result)
     assert chapter.kind is IRNodeKind.CHAPTER
     assert [section.label for section in sections] == ["2"]
@@ -243,9 +286,7 @@ def test_replay_no_to_pit_surfaces_action_family_adjudications(tmp_path) -> None
     ]
     payload = build_no_replay_payload(result)
     assert payload["adjudications_count"] == 1
-    assert payload["adjudication_kind_counts"] == {
-        "no_replay_insert_occupied_target_replaced": 1
-    }
+    assert payload["adjudication_kind_counts"] == {"no_replay_insert_occupied_target_replaced": 1}
     evidence_row = payload["evidence"]["finding_rows"][0]
     assert evidence_row["frontend_id"] == "norway"
     assert evidence_row["rule_id"] == "no_insert_occupied_target_replace"
@@ -293,9 +334,7 @@ def test_replay_no_to_pit_strict_action_family_rejects_recovery(tmp_path) -> Non
     assert [(item.kind, item.detail["rule_id"]) for item in result.adjudications[:1]] == [
         ("no_replay_insert_occupied_target_replaced", "no_insert_occupied_target_replace")
     ]
-    apply_raise_adjudications = [
-        a for a in result.adjudications if a.kind == "no_replay_apply_raise"
-    ]
+    apply_raise_adjudications = [a for a in result.adjudications if a.kind == "no_replay_apply_raise"]
     assert len(apply_raise_adjudications) == 1, (
         f"expected exactly one no_replay_apply_raise orchestration adjudication "
         f"on the apply-raise catch; found {len(apply_raise_adjudications)}."
@@ -416,9 +455,7 @@ def test_replay_no_to_pit_propagates_partial_adjudications_on_apply_raise(
     # local list was discarded by the propagating ValueError exception (silent-
     # failure review HIGH #2: production caller was the WEAKEST contract of the
     # four, only catching ValueError and never threading the witness).
-    pre_raise = [
-        a for a in result.adjudications if a.kind == "no_replay_target_not_found_in_spy"
-    ]
+    pre_raise = [a for a in result.adjudications if a.kind == "no_replay_target_not_found_in_spy"]
     assert pre_raise, (
         "result.adjudications does not carry the pre-raise "
         "no_replay_target_not_found_in_spy witness — the §1.0/§1.8 "
@@ -444,8 +481,7 @@ def test_replay_no_to_pit_propagates_partial_adjudications_on_apply_raise(
         "NO was the weakest of the four apply-raise contracts)."
     )
     assert orchestration.detail["exception_type"] == "ValueError", (
-        f"orchestration.detail[exception_type]={orchestration.detail.get('exception_type')!r}; "
-        f"expected 'ValueError'."
+        f"orchestration.detail[exception_type]={orchestration.detail.get('exception_type')!r}; expected 'ValueError'."
     )
     assert orchestration.detail["exception"] == raise_message
     assert orchestration.detail["clause_text"] == raise_message  # ≤400 chars
@@ -581,9 +617,7 @@ def test_replay_no_to_pit_skips_future_amendments(tmp_path) -> None:
         ("no_replay_future_effective_skipped", "temporal")
     ]
     payload = build_no_replay_payload(result)
-    assert payload["adjudication_kind_counts"] == {
-        "no_replay_future_effective_skipped": 1
-    }
+    assert payload["adjudication_kind_counts"] == {"no_replay_future_effective_skipped": 1}
     evidence_row = payload["evidence"]["finding_rows"][0]
     assert evidence_row["rule_id"] == "no_replay_future_effective_skipped"
     assert evidence_row["phase"] == "temporal"
@@ -630,9 +664,7 @@ def test_replay_no_to_pit_marks_unknown_effective_dates(tmp_path) -> None:
         ("no_replay_unknown_effective_skipped", "temporal")
     ]
     payload = build_no_replay_payload(result)
-    assert payload["adjudication_kind_counts"] == {
-        "no_replay_unknown_effective_skipped": 1
-    }
+    assert payload["adjudication_kind_counts"] == {"no_replay_unknown_effective_skipped": 1}
     evidence_row = payload["evidence"]["finding_rows"][0]
     assert evidence_row["rule_id"] == "no_replay_unknown_effective_skipped"
     assert evidence_row["phase"] == "temporal"
@@ -681,9 +713,7 @@ def test_replay_no_to_pit_surfaces_contingent_commencement_skip(tmp_path) -> Non
         ("no_replay_contingent_commencement_skipped", "temporal")
     ]
     payload = build_no_replay_payload(result)
-    assert payload["adjudication_kind_counts"] == {
-        "no_replay_contingent_commencement_skipped": 1
-    }
+    assert payload["adjudication_kind_counts"] == {"no_replay_contingent_commencement_skipped": 1}
     evidence_row = payload["evidence"]["finding_rows"][0]
     assert evidence_row["rule_id"] == "no_replay_contingent_commencement_skipped"
     assert evidence_row["phase"] == "temporal"
@@ -737,9 +767,7 @@ def test_replay_no_to_pit_marks_missing_source_separately(tmp_path) -> None:
     assert payload["amendment_counts"]["unknown_effective"] == 0
     assert payload["amendment_counts"]["missing_source"] == 1
     assert payload["skipped_amendments"]["missing_source"] == ["no/lovtid/2025-02-02-5"]
-    assert payload["adjudication_kind_counts"] == {
-        "no_replay_missing_amendment_source": 1
-    }
+    assert payload["adjudication_kind_counts"] == {"no_replay_missing_amendment_source": 1}
     evidence_row = payload["evidence"]["finding_rows"][0]
     assert evidence_row["rule_id"] == "no_replay_missing_amendment_source"
     assert evidence_row["phase"] == "acquisition"
@@ -757,6 +785,91 @@ def test_effective_date_from_amendment_marks_contingent_force() -> None:
 
     assert effective.effective_status == "contingent"
     assert effective.effective_date is None
+
+
+def test_effective_date_from_amendment_marks_contingent_for_the_nynorsk_markers() -> None:
+    """The batch-04 marker widening, on the two acts it moves out of UNKNOWN.
+
+    ``Kongen avgjer`` is nynorsk for ``Kongen bestemmer``; a date-free field
+    saying it delegates commencement exactly as the bokmål phrase does, so
+    reading it as an uninterpretable in-force signal was a vocabulary gap, not
+    a genuinely opaque source. Corpus-wide this phrase is the whole in-force
+    field of ``no/lovtid/2016-06-17-56`` and ``no/lovtid/2021-04-23-23``.
+    """
+    for raw in ("Kongen avgjer", "Departementet fastset"):
+        xml = f'<html><body><dd class="dateInForce">{raw}</dd></body></html>'.encode("utf-8")
+
+        effective = _effective_date_from_amendment(xml, source_date="2025-02-02")
+
+        assert effective.effective_status == "contingent", raw
+        assert effective.effective_date is None, raw
+        assert effective.commencement_shape == "plain", raw
+
+
+def test_effective_date_from_amendment_labels_a_date_beside_a_delegated_tail() -> None:
+    """A date AND a delegation is STAGED commencement: dated, labelled, receipted.
+
+    The act enters force at the earliest stated date — Lovdata's consolidated
+    text says so — and delegates only the remainder, so demoting it to
+    contingent would withdraw a date the source actually asserts. It stays
+    DATED at ``min(dates)`` and carries the shape label instead.
+    """
+    xml = (
+        b'<html><body><dd class="dateInForce">'
+        b"2020-07-01, 2020-01-01, Kongen bestemmer"
+        b"</dd></body></html>"
+    )
+
+    effective = _effective_date_from_amendment(xml, source_date="2019-12-20")
+
+    assert effective.effective_status == "dated"
+    assert effective.effective_date == "2020-01-01"
+    assert effective.commencement_shape == "staged_delegated"
+    assert effective.date_count == 2
+
+
+def test_effective_date_from_amendment_leaves_a_bare_date_plain() -> None:
+    xml = b'<html><body><dd class="dateInForce">2025-02-10</dd></body></html>'
+
+    effective = _effective_date_from_amendment(xml, source_date="2025-02-02")
+
+    assert effective.effective_status == "dated"
+    assert effective.effective_date == "2025-02-10"
+    assert effective.commencement_shape == "plain"
+    assert effective.date_count == 1
+
+
+def test_replay_no_to_pit_applies_a_staged_delegated_amendment_like_a_plain_one(tmp_path) -> None:
+    """The label changes what the index SAYS, not what replay DOES.
+
+    The whole point of refusing W-5's blanket demotion: a staged act is applied
+    at its earliest stated date exactly as a plain dated act is. Replay reads no
+    ``commencement_shape`` and needs no case for it — if this ever has to skip,
+    the classification leaked out of the resolved set.
+    """
+    archive_path = tmp_path / "lovtidend-avd1-2001-2025.tar.bz2"
+    _write_archive(
+        archive_path,
+        [
+            ("lti/2025/nl-20250101-001.xml", _BASE_XML),
+            (
+                "lti/2025/nl-20250202-005.xml",
+                _amendment_xml("2025-02-10, 2025-06-01, Kongen bestemmer"),
+            ),
+        ],
+    )
+    index = build_no_amendment_index(tmp_path)
+    entry = index.entries[0]
+    assert entry.effective_status == "dated"
+    assert entry.effective_date == "2025-02-10"
+    assert entry.commencement_shape == "staged_delegated"
+
+    result = replay_no_to_pit("no/lov/2025-01-01-1", as_of="2025-02-15", data_dir=tmp_path)
+
+    assert result.error is None
+    assert result.amendments_applied == ["no/lovtid/2025-02-02-5"]
+    assert result.amendments_skipped_contingent == []
+    assert result.n_ops == 3
 
 
 def test_effective_date_from_amendment_uses_source_date_for_straks() -> None:
@@ -893,3 +1006,533 @@ def test_replay_no_to_pit_surfaces_unsupported_ref_kind_as_typed_error() -> None
     assert result.error is not None
     assert "unsupported Norway ref kind" in result.error
     assert "forordning" in result.error
+
+
+# ── W-12: the heading-group fold is temporally ordered ────────────────────────
+#
+# ``replay_no_to_pit`` collects heading groups in the amendment loop, which
+# iterates the index entries sorted by ``source_id`` STRING. Before W-12 the
+# fold consumed that list as-is, so with two contributing amendments the
+# synthetic subchapters landed in archive order rather than effective-date
+# order. The fixture below is built so the two orders DISAGREE: the
+# alphabetically FIRST amendment is the temporally LAST one.
+
+_HEADING_GROUP_BASE_XML = """<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <head>
+    <title>Testlov om deloverskrifter</title>
+  </head>
+  <body>
+    <main class="documentBody" data-lovdata-URL="LTI/lov/2025-01-01-1">
+      <section class="section" data-name="kap9" data-lovdata-URL="LTI/lov/2025-01-01-1/KAPITTEL_9">
+        <h2>Kapittel 9. Regler</h2>
+        <article class="legalArticle" data-name="§2-1" data-lovdata-URL="LTI/lov/2025-01-01-1/§2-1">
+          <h3 class="legalArticleHeader">§ 2-1. Foerste</h3>
+          <article class="legalP" id="ledd1">Tekst 2-1.</article>
+        </article>
+        <article class="legalArticle" data-name="§2-2" data-lovdata-URL="LTI/lov/2025-01-01-1/§2-2">
+          <h3 class="legalArticleHeader">§ 2-2. Andre</h3>
+          <article class="legalP" id="ledd1">Tekst 2-2.</article>
+        </article>
+        <article class="legalArticle" data-name="§2-10" data-lovdata-URL="LTI/lov/2025-01-01-1/§2-10">
+          <h3 class="legalArticleHeader">§ 2-10. Tiende</h3>
+          <article class="legalP" id="ledd1">Tekst 2-10.</article>
+        </article>
+        <article class="legalArticle" data-name="§2-11" data-lovdata-URL="LTI/lov/2025-01-01-1/§2-11">
+          <h3 class="legalArticleHeader">§ 2-11. Ellevte</h3>
+          <article class="legalP" id="ledd1">Tekst 2-11.</article>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def _heading_group_amendment_xml(
+    *,
+    date_in_force: str,
+    start: str,
+    end: str,
+    title: str,
+    touched_section: str,
+) -> bytes:
+    """One amendment carrying a ``Ny deloverskrift`` range plus a real change op.
+
+    The change op exists only so the index binds this amendment to the base act
+    the ordinary way; the heading group is what the test is about.
+    """
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="dateInForce">{date_in_force}</dd>
+    <article class="document-change" data-document="lov/2025-01-01-1">
+      <article class="change" data-change-part="lov/2025-01-01-1/§{touched_section}/ledd/1">
+        <article class="defaultP">§ {touched_section} foerste ledd skal lyde:</article>
+        <article class="legalP">Endret tekst {touched_section}.</article>
+      </article>
+      <article class="defaultP">Ny deloverskrift til §§ {start} til {end} skal lyde:</article>
+      <span class="futuretitle">{title}</span>
+    </article>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def _write_heading_group_archive(tmp_path):
+    archive_path = tmp_path / "lovtidend-avd1-2001-2025.tar.bz2"
+    _write_archive(
+        archive_path,
+        [
+            ("lti/2025/nl-20250101-001.xml", _HEADING_GROUP_BASE_XML),
+            # Alphabetically first source_id, temporally LAST (2025-09-01).
+            (
+                "lti/2025/nl-20250201-001.xml",
+                _heading_group_amendment_xml(
+                    date_in_force="2025-09-01",
+                    start="2-1",
+                    end="2-2",
+                    title="Senere deloverskrift",
+                    touched_section="2-1",
+                ),
+            ),
+            # Alphabetically second source_id, temporally FIRST (2025-03-15).
+            (
+                "lti/2025/nl-20250301-002.xml",
+                _heading_group_amendment_xml(
+                    date_in_force="2025-03-15",
+                    start="2-10",
+                    end="2-11",
+                    title="Tidligere deloverskrift",
+                    touched_section="2-10",
+                ),
+            ),
+        ],
+    )
+    return archive_path
+
+
+def _heading_group_chapters(result):
+    assert result.replayed is not None
+    chapter = result.replayed.body.children[0]
+    return [child for child in chapter.children if child.kind is IRNodeKind.CHAPTER]
+
+
+def test_replay_no_folds_heading_groups_in_temporal_not_collection_order(tmp_path) -> None:
+    """W-12: collection order and temporal order disagree; temporal order wins.
+
+    ``no/lovtid/2025-02-01-1`` sorts first by ``source_id`` but takes effect
+    2025-09-01; ``no/lovtid/2025-03-01-2`` sorts second but takes effect
+    2025-03-15. The synthetic subchapter labels are minted in FOLD order
+    (``<chapter labels>-<position>``) while the containers themselves sit where
+    their sections already were, so the LABEL is what carries the fold order:
+    before W-12 ``9-1`` was the 02-01 act's group (§§ 2-1..2-2); it must now be
+    the 03-01 act's (§§ 2-10..2-11).
+    """
+    _write_heading_group_archive(tmp_path)
+
+    result = replay_no_to_pit("no/lov/2025-01-01-1", as_of="2025-12-31", data_dir=tmp_path)
+
+    assert result.error is None
+    # Collection order really is the alphabetical one — the premise of the test.
+    assert result.amendments_scanned == ["no/lovtid/2025-02-01-1", "no/lovtid/2025-03-01-2"]
+
+    # Document order is unchanged (each container replaces its own sections in
+    # place): §§ 2-1..2-2's group still precedes §§ 2-10..2-11's.
+    groups = _heading_group_chapters(result)
+    assert [group.children[0].text for group in groups] == [
+        "Senere deloverskrift",
+        "Tidligere deloverskrift",
+    ]
+    assert [
+        [child.label for child in group.children if child.kind is IRNodeKind.SECTION] for group in groups
+    ] == [["2-1", "2-2"], ["2-10", "2-11"]]
+    # Fold order is the temporal one: label ``9-1`` belongs to the act that
+    # took effect FIRST, which is the alphabetically SECOND source id.
+    assert [group.label for group in groups] == ["9-2", "9-1"]
+
+
+def test_replay_no_receipts_the_multi_amendment_heading_group_fold(tmp_path) -> None:
+    """The §2.9 guard-liveness receipt for the case that is latent in the corpus.
+
+    Zero of the 3,089 original-LTI laws reach a two-contributor fold today, so
+    without this receipt the transition from latent to live would be silent.
+    Both contributors here are dated, so the order is proven and the receipt is
+    a non-blocking notice.
+    """
+    _write_heading_group_archive(tmp_path)
+
+    result = replay_no_to_pit("no/lov/2025-01-01-1", as_of="2025-12-31", data_dir=tmp_path)
+
+    receipts = [a for a in result.adjudications if a.kind == "no_heading_group_multi_source_fold"]
+    assert len(receipts) == 1
+    receipt = receipts[0]
+    assert receipt.blocking is False
+    assert receipt.source_statute == "no/lov/2025-01-01-1"
+    assert receipt.detail["rule_id"] == "no_heading_group_multi_source_fold"
+    assert tuple(receipt.detail["source_ids"]) == ("no/lovtid/2025-02-01-1", "no/lovtid/2025-03-01-2")
+    assert receipt.detail["group_count"] == 2
+    assert tuple(receipt.detail["undated_source_ids"]) == ()
+
+
+def test_replay_no_single_amendment_heading_groups_emit_no_fold_receipt(tmp_path) -> None:
+    """The single-contributor shape — every heading group in the corpus today."""
+    archive_path = tmp_path / "lovtidend-avd1-2001-2025.tar.bz2"
+    _write_archive(
+        archive_path,
+        [
+            ("lti/2025/nl-20250101-001.xml", _HEADING_GROUP_BASE_XML),
+            (
+                "lti/2025/nl-20250201-001.xml",
+                _heading_group_amendment_xml(
+                    date_in_force="2025-09-01",
+                    start="2-1",
+                    end="2-2",
+                    title="Eneste deloverskrift",
+                    touched_section="2-1",
+                ),
+            ),
+        ],
+    )
+
+    result = replay_no_to_pit("no/lov/2025-01-01-1", as_of="2025-12-31", data_dir=tmp_path)
+
+    assert result.error is None
+    assert [a for a in result.adjudications if a.kind == "no_heading_group_multi_source_fold"] == []
+    groups = _heading_group_chapters(result)
+    assert [group.label for group in groups] == ["9-1"]
+    assert [child.label for child in groups[0].children if child.kind is IRNodeKind.SECTION] == ["2-1", "2-2"]
+
+
+def _no_farchive_path():
+    from lawvm.norway.sources import is_no_farchive_path, resolve_no_source_path
+
+    path = resolve_no_source_path(None)
+    return path if path.exists() and is_no_farchive_path(path) else None
+
+
+_NO_FARCHIVE_PATH = _no_farchive_path()
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_w84_klimaloven_carries_no_never_enacted_bokstav() -> None:
+    """W-84's end state on the law W-83 audited, asserted on the tree itself.
+
+    The scan pin in ``tests/test_norway_verify.py`` says the divergence row
+    closes; this says WHAT closed it, in the only terms that matter — the
+    provision is not in the replayed law, because it was never in the law.
+
+    The history: ``no/lovtid/2021-06-18-129`` as first announced commanded "§ 6
+    annet ledd ny bokstav e skal lyde: … trepartssamarbeid …". Lovdata marked
+    that announcement ``utgått`` on 2021-06-25 and published
+    ``no://forskrift/2021-06-25-2137``, a rectified re-announcement of the same
+    act amending ONLY §§ 3 and 4. A later act's renumber carried the phantom
+    bokstav from § 6 to § 7, which is where W-77 first saw it.
+
+    Replayed the DAY AFTER the act, so the assertion is about this act's own
+    effect and nothing else's: at 2026-07-10 a 2025 act has since rewritten § 3
+    and renumbered §§ 4–7, and the phantom would be reported at a third address.
+
+    RETROACTIVE-TOTAL, and this date is where that shows: the rectified text is
+    live from the ACT's own commencement (2021-06-18), not from the
+    re-announcement's (2021-06-25). Both halves are asserted, because a
+    suppression that also lost the act's REAL amendments would pass a "bokstav e
+    is gone" check on its own.
+    """
+    result = replay_no_to_pit(
+        "no/lov/2017-06-16-60", as_of="2021-06-19", data_dir=_NO_FARCHIVE_PATH
+    )
+
+    assert result.error is None
+    assert result.replayed is not None
+    assert "no/lovtid/2021-06-18-129" in result.amendments_applied
+    texts = [
+        irnode_to_text(node)
+        for node in _walk_no_nodes(result.replayed.body)
+    ]
+    # The never-enacted provision, gone — matched on its own words rather than on
+    # an address, so a future relabel cannot hide it from this test.
+    assert not [text for text in texts if "trepartssamarbeid" in text]
+    # The act's two real amendments, landed at the act's own date.
+    joined = " ".join(texts)
+    assert "reduseres med minst 50 og opp mot 55 prosent" in joined
+    assert "i størrelsesorden 90 til 95 prosent" in joined
+    # And the op stream says where the surviving text was read from.
+    assert [
+        a.kind for a in result.adjudications if a.kind.startswith("no_beriktiget")
+    ] == ["no_beriktiget_reannouncement_lowered"]
+
+
+def _walk_no_nodes(node):
+    yield node
+    for child in getattr(node, "children", ()) or ():
+        yield from _walk_no_nodes(child)
+
+
+# --------------------------------------------------------------------------
+# W-100: per-op dating for a binding the section-scoped commencement lane landed.
+# --------------------------------------------------------------------------
+
+
+def _section_scoped_entry(**fields) -> NOAmendmentIndexEntry:
+    return NOAmendmentIndexEntry(
+        source_id="no/lovtid/2025-02-02-5",
+        archive="lovtidend-avd1-2001-2025.tar.bz2",
+        member_name="lti/2025/nl-20250202-005.xml",
+        effective_status="contingent",
+        effective_date=None,
+        base_ids=("no/lov/2025-01-01-1",),
+        n_ops=3,
+        **fields,
+    )
+
+
+def test_replay_no_to_pit_dates_ops_per_section_and_skips_the_carved_out_one(tmp_path) -> None:
+    """A binding date with § 1 carved out: § 2's ops apply, § 1's repeal is skipped per op."""
+    archive_path = tmp_path / "lovtidend-avd1-2001-2025.tar.bz2"
+    _write_archive(
+        archive_path,
+        [
+            ("lti/2025/nl-20250101-001.xml", _BASE_XML),
+            ("lti/2025/nl-20250202-005.xml", _amendment_xml("Kongen bestemmer")),
+        ],
+    )
+    base = "no/lov/2025-01-01-1"
+    index = NOAmendmentIndex(
+        data_dir=str(tmp_path),
+        entries=[
+            _section_scoped_entry(
+                section_scoped_binding_dates=((base, "2025-03-01"),),
+                section_scoped_exclusions=((base, "1"),),
+            )
+        ],
+    )
+
+    result = replay_no_to_pit(base, as_of="2025-12-31", data_dir=tmp_path, index=index)
+
+    assert result.error is None
+    assert result.amendments_applied == ["no/lovtid/2025-02-02-5"]
+    # The binding is still blocked on the op it could not date, exactly as a
+    # whole contingent entry is, and the base-level status derives from this.
+    assert result.amendments_skipped_contingent == ["no/lovtid/2025-02-02-5"]
+    skips = [a for a in result.adjudications if a.kind == "no_replay_section_commencement_contingent_skipped"]
+    assert len(skips) == 1
+    assert skips[0].blocking is True
+    assert skips[0].detail["phase"] == "temporal"
+    assert skips[0].detail["section_label"] == "1"
+    assert skips[0].detail["effective_status"] == "section_instrument_partial"
+    assert skips[0].detail["temporal_resolution_status"] == "unresolved_contingent"
+    # § 1 survives (its repeal was carved out); § 2's item ops landed with the binding date.
+    _chapter, sections = _chapter_sections(result)
+    assert [section.label for section in sections] == ["1", "2"]
+    applied = [op for op in result.apply_filter_result.accepted_items] if result.apply_filter_result else []
+    assert {op.source.effective if op.source else None for op in applied} == {"2025-03-01"}
+    payload = build_no_replay_payload(result)
+    assert payload["adjudication_kind_counts"]["no_replay_section_commencement_contingent_skipped"] == 1
+    evidence_row = next(
+        row
+        for row in payload["evidence"]["finding_rows"]
+        if row["rule_id"] == "no_replay_section_commencement_contingent_skipped"
+    )
+    assert evidence_row["blocking"] is True
+    assert evidence_row["strict_disposition"] == "block"
+    assert validate_corpus_finding_evidence_row(evidence_row) == ()
+
+
+def test_replay_no_to_pit_skips_a_section_dated_after_as_of_per_op(tmp_path) -> None:
+    """Sections-only dates: § 2 in force, § 1's date still in the future, nothing contingent."""
+    archive_path = tmp_path / "lovtidend-avd1-2001-2025.tar.bz2"
+    _write_archive(
+        archive_path,
+        [
+            ("lti/2025/nl-20250101-001.xml", _BASE_XML),
+            ("lti/2025/nl-20250202-005.xml", _amendment_xml("Kongen bestemmer")),
+        ],
+    )
+    base = "no/lov/2025-01-01-1"
+    index = NOAmendmentIndex(
+        data_dir=str(tmp_path),
+        entries=[
+            _section_scoped_entry(
+                section_scoped_binding_dates=((base, ""),),
+                section_scoped_effective_dates=((base, "1", "2026-01-01"), (base, "2", "2025-03-01")),
+                section_scoped_complete_laws=(base,),
+            )
+        ],
+    )
+
+    result = replay_no_to_pit(base, as_of="2025-12-31", data_dir=tmp_path, index=index)
+
+    assert result.error is None
+    assert result.amendments_applied == ["no/lovtid/2025-02-02-5"]
+    assert result.amendments_skipped_contingent == []
+    assert result.amendments_skipped_future == []
+    kinds = [a.kind for a in result.adjudications]
+    assert kinds.count("no_replay_section_future_effective_skipped") == 1
+    future = next(a for a in result.adjudications if a.kind == "no_replay_section_future_effective_skipped")
+    assert future.blocking is False
+    assert future.detail["effective_date"] == "2026-01-01"
+    _chapter, sections = _chapter_sections(result)
+    assert [section.label for section in sections] == ["1", "2"]
+
+
+_TWO_LEDD_BASE_XML = """<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <head>
+    <title>Testlov om data</title>
+  </head>
+  <body>
+    <main class="documentBody" data-lovdata-URL="LTI/lov/2025-01-01-1">
+      <section class="section" data-name="kap1" data-lovdata-URL="LTI/lov/2025-01-01-1/KAPITTEL_1">
+        <h2>Kapittel 1. Innledning</h2>
+        <article class="legalArticle" data-name="§1" data-lovdata-URL="LTI/lov/2025-01-01-1/§1">
+          <h3 class="legalArticleHeader">§ 1. Formaal</h3>
+          <article class="legalP" id="ledd1">Loven gjelder testdata.</article>
+          <article class="legalP" id="ledd2">Gammelt andre ledd.</article>
+        </article>
+        <article class="legalArticle" data-name="§2" data-lovdata-URL="LTI/lov/2025-01-01-1/§2">
+          <h3 class="legalArticleHeader">§ 2. Krav</h3>
+          <article class="legalP" id="ledd1">Kravene gjelder.</article>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def _ledd_amendment_xml(date_in_force: str) -> bytes:
+    """W-102: a REPLACE of § 1 ledd 2 and a REPEAL of § 2."""
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="dateInForce">{date_in_force}</dd>
+    <article class="document-change" data-document="lov/2025-01-01-1">
+      <article class="change" data-change-part="lov/2025-01-01-1/§1/ledd2">
+        <article class="defaultP">§ 1 andre ledd skal lyde:</article>
+        <article class="legalP" id="ledd2">Nytt andre ledd.</article>
+      </article>
+      <article class="change" data-repeal-part="lov/2025-01-01-1/§2">
+        <article class="defaultP">§ 2 oppheves.</article>
+      </article>
+    </article>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def _ledd_texts(section) -> list[str]:
+    return [child.text for child in section.children if child.kind is IRNodeKind.SUBSECTION]
+
+
+def test_replay_no_to_pit_skips_a_carved_out_ledd_per_op_and_applies_the_rest(tmp_path) -> None:
+    """W-102. A binding date with § 1 andre ledd carved out by path: § 2's repeal
+    applies, § 1's ledd-2 replace is skipped per op with its subpath receipted."""
+    archive_path = tmp_path / "lovtidend-avd1-2001-2025.tar.bz2"
+    _write_archive(
+        archive_path,
+        [
+            ("lti/2025/nl-20250101-001.xml", _TWO_LEDD_BASE_XML),
+            ("lti/2025/nl-20250202-005.xml", _ledd_amendment_xml("Kongen bestemmer")),
+        ],
+    )
+    base = "no/lov/2025-01-01-1"
+    index = NOAmendmentIndex(
+        data_dir=str(tmp_path),
+        entries=[
+            _section_scoped_entry(
+                section_scoped_binding_dates=((base, "2025-03-01"),),
+                section_scoped_subpath_exclusions=((base, "1", "subsection:2"),),
+            )
+        ],
+    )
+
+    result = replay_no_to_pit(base, as_of="2025-12-31", data_dir=tmp_path, index=index)
+
+    assert result.error is None
+    assert result.amendments_applied == ["no/lovtid/2025-02-02-5"]
+    assert result.amendments_skipped_contingent == ["no/lovtid/2025-02-02-5"]
+    skips = [a for a in result.adjudications if a.kind == "no_replay_section_commencement_contingent_skipped"]
+    assert len(skips) == 1
+    assert skips[0].detail["section_label"] == "1"
+    assert skips[0].detail["subpath"] == "subsection:2"
+    _chapter, sections = _chapter_sections(result)
+    assert [section.label for section in sections] == ["1"]
+    assert _ledd_texts(sections[0]) == ["Loven gjelder testdata.", "Gammelt andre ledd."]
+
+    # The same act under a ledd GRANT: the replace applies, § 2 (undated) is skipped.
+    granted = NOAmendmentIndex(
+        data_dir=str(tmp_path),
+        entries=[
+            _section_scoped_entry(
+                section_scoped_binding_dates=((base, ""),),
+                section_scoped_subpath_dates=((base, "1", "subsection:2", "2025-03-01"),),
+            )
+        ],
+    )
+    result = replay_no_to_pit(base, as_of="2025-12-31", data_dir=tmp_path, index=granted)
+    assert result.error is None
+    skips = [a for a in result.adjudications if a.kind == "no_replay_section_commencement_contingent_skipped"]
+    assert [(a.detail["section_label"], a.detail["subpath"]) for a in skips] == [("2", "")]
+    _chapter, sections = _chapter_sections(result)
+    assert [section.label for section in sections] == ["1", "2"]
+    assert _ledd_texts(sections[0]) == ["Loven gjelder testdata.", "Nytt andre ledd."]
+    applied = [op for op in result.apply_filter_result.accepted_items] if result.apply_filter_result else []
+    assert {op.source.effective if op.source else None for op in applied} == {"2025-03-01"}
+
+
+def _new_chapter_amendment_xml(date_in_force: str) -> bytes:
+    """W-101: a ``Nytt kapittel 2`` block whose section insert carries the chapter step."""
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="dateInForce">{date_in_force}</dd>
+    <article class="document-change" data-document="lov/2025-01-01-1">
+      <article class="change" data-add-new-part="lov/2025-01-01-1/kap2 lov/2025-01-01-1/§3">
+        <article class="defaultP">Nytt kapittel 2 skal lyde:</article>
+        <span class="futuretitle">Kapittel 2. Tilsyn</span>
+        <article class="futureLegalArticle" data-name="§3">
+          <span class="futureLegalArticleHeader"><span class="legalArticleValue">§ 3</span>. <span class="legalArticleTitle">Tilsyn</span></span>
+          <article class="legalP">Departementet fører tilsyn.</article>
+        </article>
+      </article>
+    </article>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def test_replay_no_to_pit_finds_the_section_label_behind_a_chapter_step(tmp_path) -> None:
+    """W-101: a section op addressed ``chapter:2/section:3`` is dated by § 3, not by the chapter."""
+    archive_path = tmp_path / "lovtidend-avd1-2001-2025.tar.bz2"
+    _write_archive(
+        archive_path,
+        [
+            ("lti/2025/nl-20250101-001.xml", _BASE_XML),
+            ("lti/2025/nl-20250202-005.xml", _new_chapter_amendment_xml("Kongen bestemmer")),
+        ],
+    )
+    base = "no/lov/2025-01-01-1"
+    index = NOAmendmentIndex(
+        data_dir=str(tmp_path),
+        entries=[
+            _section_scoped_entry(
+                section_scoped_binding_dates=((base, "2025-03-01"),),
+                section_scoped_exclusions=((base, "3"),),
+            )
+        ],
+    )
+
+    result = replay_no_to_pit(base, as_of="2025-12-31", data_dir=tmp_path, index=index)
+
+    assert result.error is None
+    skips = [a for a in result.adjudications if a.kind == "no_replay_section_commencement_contingent_skipped"]
+    assert [a.detail["section_label"] for a in skips] == ["3"]
+    # The chapter op (no section step) took the binding date and landed; § 3 did not.
+    assert result.replayed is not None
+    chapters = [c for c in result.replayed.body.children if str(c.kind).split(".")[-1].lower() == "chapter"]
+    assert [c.label for c in chapters] == ["1", "2"]
+    assert [child.label for child in chapters[1].children if str(child.kind).split(".")[-1].lower() == "section"] == []

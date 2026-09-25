@@ -52,6 +52,13 @@ DEAD_ALLOWLIST: dict[str, str] = {
         "test_fi_appendix_vision_canary, run manually / in the canary gate — a "
         "validation tool, not a production-pipeline importer by design."
     ),
+    "lawvm.norway.print_era": (
+        "W-103 print-era (pre-2001) witness-lane emitter: reproduces the committed "
+        "kringkastingsloven slice from the evidence ladder and is consumed by "
+        "tests/test_norway_print_era.py; CLI wiring is intentionally deferred until a "
+        "second law shows which segmenter constants are the print's and which are "
+        "kringkastingsloven's (ledger item 103)."
+    ),
     "lawvm.core.cross_act_same_moment": (
         "Shared same-moment conflict detector frontier; synthetic coverage exists, "
         "production EE/UK wiring is intentionally deferred to the refactor wave."

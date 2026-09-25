@@ -1,0 +1,168 @@
+{
+  "schemaVersion": 1,
+  "id": "02-declared-target-binding-coverage",
+  "slug": "declared-target-binding-coverage",
+  "title": "Adjudicate Norway amendment targets Lovdata declares but the index never binds",
+  "classification": "confirmed",
+  "source": {
+    "path": "notes/NORWAY_VERIFY_FINDINGS_LEDGER.md",
+    "sections": [
+      "F-10 — The index ignores Lovdata's declared-target field",
+      "W-8"
+    ]
+  },
+  "branch": "audun/norway-receipt-spine",
+  "productBaseline": "e04be4d7ddfd8bd80750e6d260a25ddfe106bbb9",
+  "dependsOn": [],
+  "recommendedAfter": [],
+  "objective": "Store Lovdata's declared-target list on the index entry and emit one typed blocking adjudication per act whose bound base_ids do not cover it. Measure only: no new binding, no op change, no scoreboard movement. READ notes/norway-batches/contracts/02-declared-target-binding-coverage.brief.md IN FULL BEFORE ACTING — it carries the binding detail for every item below.",
+  "preflightChecks": [
+    "NOAmendmentIndexEntry.base_ids in src/lawvm/norway/index.py is built from the grouped op list only.",
+    "src/lawvm/norway/grafter.py reads the changesToDocuments dd class inside _iter_unstructured_no_change_groups.",
+    "That grafter block reads the li descendants and normalizes each through normalize_lovdata_refid.",
+    "That grafter block sets default_base_id to the sole declared ref when exactly one is declared.",
+    "No file under src/lawvm/norway/index.py reads changesToDocuments.",
+    "normalize_lovdata_refid maps both lov date-number and lov date to no/lov ids.",
+    "normalize_lovdata_refid returns None for a forskrift ref and for the literal null.",
+    "No corpus law id has the no/lov date form without a trailing number.",
+    "parse_header_value in src/lawvm/norway/sources.py returns an XPath string() flattening.",
+    "parse_header_value on changesToDocuments returns the declared ids concatenated with no separator.",
+    "NOAmendmentIndex in src/lawvm/norway/index.py declares a diagnostics list field.",
+    "NOAmendmentIndex.to_dict uses asdict and NOAmendmentIndex.from_dict enumerates entry fields by name.",
+    "src/lawvm/norway/index.py emits diagnostic_detail with blocking True and quirks_disposition RECORD.",
+    "diagnostic_detail in src/lawvm/core/diagnostic_records.py has no role parameter.",
+    "diagnostic_detail in src/lawvm/core/diagnostic_records.py has no default_enforcement parameter.",
+    "FINDING_REGISTRY in src/lawvm/core/observation_registry.py contains no no_ rule codes.",
+    "No file under src/lawvm/norway/ imports observation_registry.",
+    "Every no_ rule id emitted under src/lawvm/norway/ has a _NO_RULE_SPECS catalog entry.",
+    "tests/test_spec_ledger_no_catalog.py runs on shard tools_cli_debug.",
+    "2942 of 3089 amendment artifacts carry a changesToDocuments block, and every such block is non-empty.",
+    "2941 of those blocks contain at least one lov-form target; no/lovtid/2021-06-18-115 declares only a forskrift.",
+    "Declared li payloads total 8651: 8535 lov date-number, 109 lov date, 6 forskrift, 1 null.",
+    "test_shard.sh affected for the five contract paths reports norway and tools_cli_debug."
+  ],
+  "scope": {
+    "boundary": [
+      "src/lawvm/norway/sources.py",
+      "src/lawvm/norway/grafter.py",
+      "src/lawvm/norway/index.py",
+      "src/lawvm/tools/spec_ledger_no_catalog.py",
+      "tests/test_norway_index.py"
+    ],
+    "allowedPaths": [
+      "src/lawvm/norway/sources.py",
+      "src/lawvm/norway/grafter.py",
+      "src/lawvm/norway/index.py",
+      "src/lawvm/tools/spec_ledger_no_catalog.py",
+      "tests/test_norway_index.py"
+    ],
+    "requiredChangedPaths": [
+      "src/lawvm/norway/sources.py",
+      "src/lawvm/norway/grafter.py",
+      "src/lawvm/norway/index.py",
+      "src/lawvm/tools/spec_ledger_no_catalog.py",
+      "tests/test_norway_index.py"
+    ],
+    "requiredAddedPaths": [],
+    "requiredDeletedPaths": []
+  },
+  "requirements": [
+    "READ notes/norway-batches/contracts/02-declared-target-binding-coverage.brief.md IN FULL BEFORE ACTING — it carries the binding detail for every item below.",
+    "Extract the existing changesToDocuments reader from grafter.py into ONE shared helper in sources.py; call it from grafter and index. Behavior-preserving.",
+    "Do NOT reuse parse_header_value (string() flattening yields one separator-free token). Do NOT write a new id normalizer; reuse normalize_lovdata_refid. Pin both in tests.",
+    "Bucket the 109 non-resolving 'lov/<date>' ids apart from real unbound targets.",
+    "Settle block-presence in code and test names: 2942 carry a block, 147 none, 2941 hold a lov-form target. no/lovtid/2021-06-18-115 is forskrift-only.",
+    "Add a declared-targets field to NOAmendmentIndexEntry with a default; extend from_dict with .get for backward compatibility.",
+    "Emit rule_id 'no_amendment_index_declared_target_unbound', family 'source_pathology', phase 'acquisition', blocking=True, strict_disposition='block', quirks_disposition=RECORD, into NOAmendmentIndex.diagnostics.",
+    "Detail carries source_id, declared count, bound count, sorted unbound ids.",
+    "Add the _NO_RULE_SPECS entry; scope its authority claim to the index, not the frontend.",
+    "Test no/lovtid/2022-12-20-115 (14 declared, 6 bound, 8 named), a fully-covered act emitting NO adjudication, and the separator trap."
+  ],
+  "invariants": [
+    "base_ids stays derived solely from extracted ops; none added, removed, or reordered.",
+    "The grafter's sole-declared-ref default_base_id is PRE-EXISTING and preserved exactly.",
+    "n_ops unchanged; no op created, dropped, retargeted, or reordered.",
+    "Scoreboard at 2026-07-10 stays 12 consistent / 8 divergent / 0 error, per-law counts byte-identical.",
+    "The 147 block-less acts and the forskrift-only act neither raise nor emit a false adjudication.",
+    "Existing index diagnostics keep their rule ids, blocking flags, and dispositions.",
+    "Every no_* rule id under src/lawvm/norway/ has a _NO_RULE_SPECS entry.",
+    "The norway and tools_cli_debug shards pass."
+  ],
+  "exclusions": [
+    "Fixing extraction so a declared target binds. A patch that newly binds a target violates the contract.",
+    "The bulk-rename list grammar (F-10 family 1) — separate batch, gated behind W-7.",
+    "Making the 109 'lov/<date>' targets resolvable.",
+    "Changing or extending the grafter's default_base_id rule.",
+    "The 286 bound-but-not-declared bindings.",
+    "Commencement and the contingent/dated split.",
+    "F-04's OPS_MISSING half.",
+    "Ledger and progress updates: the human apply step."
+  ],
+  "stopConditions": [
+    "A declared payload outside the measured closed set: stop, record the counter-example.",
+    "from_dict cannot stay backward-compatible: stop; silent migration is out of scope.",
+    "Any replay output or divergence count moves: stop, the declared list has leaked into binding authority."
+  ],
+  "reviewFocus": [
+    "READ notes/norway-batches/contracts/02-declared-target-binding-coverage.brief.md IN FULL BEFORE ACTING — it carries the binding detail for every item below. Judge the patch against it, not against these summaries.",
+    "Authority leakage is the central risk. Confirm no declared id reaches base_ids, op construction, or target resolution through anything ADDED, including fallback branches. The grafter ALREADY binds from a sole declared ref: the question is whether this widens it.",
+    "Confirm the grafter block was EXTRACTED, not copied, and normalize_lovdata_refid reused, not reimplemented. Two copies diverge.",
+    "Confirm the helper reads <li> elements, not the string() flattening.",
+    "Confirm the 109 non-resolving ids are bucketed apart from real unbound targets.",
+    "Confirm the no-gap case is tested and passes; if every act emits an adjudication the check is vacuous.",
+    "Confirm the 147 block-less acts, the forskrift-only act, and the literal 'null' item neither raise nor invent a target.",
+    "Confirm the _NO_RULE_SPECS entry exists in the siblings voice, and the to_dict/from_dict round-trip."
+  ],
+  "verification": {
+    "targeted": [
+      {
+        "id": "static",
+        "command": "uv run ruff check src/lawvm/norway/sources.py src/lawvm/norway/grafter.py src/lawvm/norway/index.py src/lawvm/tools/spec_ledger_no_catalog.py tests/test_norway_index.py --no-fix",
+        "group": "static",
+        "required": true
+      },
+      {
+        "id": "types",
+        "command": "uv run ty check src/lawvm/norway/sources.py src/lawvm/norway/grafter.py src/lawvm/norway/index.py src/lawvm/tools/spec_ledger_no_catalog.py tests/test_norway_index.py",
+        "group": "static",
+        "required": true
+      },
+      {
+        "id": "norway-index-tests",
+        "command": "./scripts/test_shard.sh run norway -- tests/test_norway_index.py",
+        "group": "tests",
+        "required": true
+      },
+      {
+        "id": "norway-shard",
+        "command": "./scripts/test_shard.sh run norway",
+        "group": "tests",
+        "required": true
+      },
+      {
+        "id": "spec-catalog-guard",
+        "command": "./scripts/test_shard.sh run tools_cli_debug -- tests/test_spec_ledger_no_catalog.py",
+        "group": "tests",
+        "required": true
+      }
+    ],
+    "full": [
+      {
+        "id": "ci-affected",
+        "command": "./scripts/ci.sh --affected src/lawvm/norway/sources.py src/lawvm/norway/grafter.py src/lawvm/norway/index.py src/lawvm/tools/spec_ledger_no_catalog.py tests/test_norway_index.py",
+        "group": "ci",
+        "required": true
+      }
+    ]
+  },
+  "fieldVerification": {
+    "policy": "required-after-application",
+    "instructions": [
+      "uv run lawvm no-verify-scan --limit 50 --as-of 2026-07-10 — MUST still be 12/8/0. Any movement: revert, do not accept.",
+      "uv run lawvm no-divergence no/lov/2015-05-12-27 --as-of 2026-07-10 — still 5 MISMATCHes plus the OPS_MISSING.",
+      "uv run python scripts/probes/no_declared_target_coverage.py — reconcile against 4088 across 1245 acts; explain differences, do not tune.",
+      "Adjudication present and blocking for no/lovtid/2022-12-20-115, absent for a fully-bound act.",
+      "Update the ledger and see notes/norway-batches/contracts/02-declared-target-binding-coverage.brief.md for the full list."
+    ]
+  }
+}
