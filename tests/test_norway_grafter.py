@@ -14402,7 +14402,7 @@ def test_no_w101_corpus_totals() -> None:
                 continue
             path = op.target.path
             if len(path) == 1 and path[0][0] == "chapter":
-                chapter_ops[_action_value(op.action)] += 1
+                chapter_ops[str(_action_value(op.action))] += 1
             elif len(path) == 2 and path[0][0] == "chapter" and path[1][0] == "section":
                 chapter_ops[f"scoped_section_{_action_value(op.action)}"] += 1
         for item in adjudications:

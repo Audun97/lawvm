@@ -1329,7 +1329,7 @@ def test_replay_no_to_pit_dates_ops_per_section_and_skips_the_carved_out_one(tmp
     _chapter, sections = _chapter_sections(result)
     assert [section.label for section in sections] == ["1", "2"]
     applied = [op for op in result.apply_filter_result.accepted_items] if result.apply_filter_result else []
-    assert {op.source.effective for op in applied} == {"2025-03-01"}
+    assert {op.source.effective if op.source else None for op in applied} == {"2025-03-01"}
     payload = build_no_replay_payload(result)
     assert payload["adjudication_kind_counts"]["no_replay_section_commencement_contingent_skipped"] == 1
     evidence_row = next(
@@ -1481,7 +1481,7 @@ def test_replay_no_to_pit_skips_a_carved_out_ledd_per_op_and_applies_the_rest(tm
     assert [section.label for section in sections] == ["1", "2"]
     assert _ledd_texts(sections[0]) == ["Loven gjelder testdata.", "Nytt andre ledd."]
     applied = [op for op in result.apply_filter_result.accepted_items] if result.apply_filter_result else []
-    assert {op.source.effective for op in applied} == {"2025-03-01"}
+    assert {op.source.effective if op.source else None for op in applied} == {"2025-03-01"}
 
 
 def _new_chapter_amendment_xml(date_in_force: str) -> bytes:

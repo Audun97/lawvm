@@ -4085,11 +4085,11 @@ def _w102_evidence(*addresses: tuple[str, str] | tuple[str, str, tuple[str, str]
     """
     ops = tuple(
         NOCommencementOpAddress(
-            section_label=address[0],
-            subpath=address[1],
-            destination=address[2] if len(address) == 3 else None,
+            section_label=section_label,
+            subpath=subpath,
+            destination=destination[0] if destination else None,
         )
-        for address in addresses
+        for section_label, subpath, *destination in addresses
     )
     return _w100_evidence(
         law_section_labels={_W100_LAW_A: frozenset(op.section_label for op in ops if op.section_label)},

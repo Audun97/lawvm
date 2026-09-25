@@ -591,7 +591,6 @@ def _no_resanctioning_pairs(
         if note.role != "superseded":
             continue
         counterpart = notes.get(note.counterpart_id)
-        reason = ""
         if counterpart is None:
             reason = "replacement_absent_or_carries_no_note"
         elif counterpart.role != "superseding":
@@ -603,27 +602,26 @@ def _no_resanctioning_pairs(
         else:
             withdrawn_ops, withdrawn_bases = lowered[source_id]
             admitted_ops, admitted_bases = lowered[note.counterpart_id]
-            if not admitted_ops or not set(withdrawn_bases) <= set(admitted_bases):
-                reason = "replacement_does_not_recover_the_withdrawn_bases"
-        if reason:
-            diagnostics.append(
-                _no_resanctioned_unpaired_diagnostic(
-                    source_id=source_id,
-                    role="superseded",
-                    counterpart_id=note.counterpart_id,
-                    reason=reason,
+            if admitted_ops and set(withdrawn_bases) <= set(admitted_bases):
+                pairs[source_id] = NOResanctioningPair(
+                    superseded_id=source_id,
+                    superseding_id=note.counterpart_id,
+                    withdrawn_op_count=withdrawn_ops,
+                    withdrawn_base_ids=withdrawn_bases,
+                    admitted_op_count=admitted_ops,
+                    admitted_base_ids=admitted_bases,
                 )
+                matched_superseding.add(note.counterpart_id)
+                continue
+            reason = "replacement_does_not_recover_the_withdrawn_bases"
+        diagnostics.append(
+            _no_resanctioned_unpaired_diagnostic(
+                source_id=source_id,
+                role="superseded",
+                counterpart_id=note.counterpart_id,
+                reason=reason,
             )
-            continue
-        pairs[source_id] = NOResanctioningPair(
-            superseded_id=source_id,
-            superseding_id=note.counterpart_id,
-            withdrawn_op_count=withdrawn_ops,
-            withdrawn_base_ids=withdrawn_bases,
-            admitted_op_count=admitted_ops,
-            admitted_base_ids=admitted_bases,
         )
-        matched_superseding.add(note.counterpart_id)
     for source_id, note in sorted(notes.items()):
         if note.role != "superseding" or source_id in matched_superseding:
             continue
