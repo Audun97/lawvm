@@ -12,6 +12,7 @@ from lawvm.norway.index import NOAmendmentIndex, NOAmendmentIndexEntry
 from lawvm.norway.index import build_no_amendment_index, save_no_amendment_index
 from lawvm.norway.inventory import NOInventory, build_no_inventory, build_no_missing_base_report
 from lawvm.norway.sources import ingest_no_public_archives, open_no_archive
+from tests.norway_index_cache import cached_no_amendment_index
 
 
 _BASE_XML = """<?xml version="1.0" encoding="utf-8"?>
@@ -921,7 +922,7 @@ def test_corpus_no_consolidation_inventory_counters_and_would_be_ceiling() -> No
     if data_dir is None:
         pytest.skip("local Norway corpus is not installed")
 
-    inventory = build_no_inventory(data_dir)
+    inventory = build_no_inventory(data_dir, index=cached_no_amendment_index(data_dir))
     data = inventory.to_dict()
 
     assert data["stored_consolidations"] == 758

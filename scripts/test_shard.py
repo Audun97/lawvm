@@ -1971,6 +1971,9 @@ SOURCE_SHARD_PATHS: dict[str, tuple[str, ...]] = {
     "tests/data/ctsf_gate_us_residual_baseline.json": ("tools_ctsf_gate",),
     "tests/data/module_roles_baseline.json": ("core_ir_contracts",),
     "tests/data/no_occupied_destination_sweep_baseline.json": ("norway",),
+    # The norway corpus tests' shared index cache: a helper module, not a test
+    # file, so the shard globs do not see it.
+    "tests/norway_index_cache.py": ("norway",),
     "tests/data/regex_ratchet_baseline.json": ("core_ir_contracts",),
     "src/lawvm/core/ctsf_gate.py": ("tools_ctsf_gate",),
     # XP-06 parity is read-mostly audit/report code. It is not on the replay

@@ -44,6 +44,7 @@ from lawvm.norway.sources import (
     parse_header_value,
     resolve_no_source_path,
 )
+from tests.norway_index_cache import cached_no_amendment_index
 
 # Lovdata's declared ``changesToDocuments`` list for no/lovtid/2022-12-20-115, in
 # document order, and the six targets the index actually binds from extracted ops.
@@ -1006,7 +1007,7 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
     data_dir = resolve_no_source_path(None)
     if not data_dir.exists():
         pytest.skip("local Norway corpus is not installed")
-    index = build_no_amendment_index(data_dir)
+    index = cached_no_amendment_index(data_dir)
     if index.commencement_instrument_coverage.total_instruments == 0:
         pytest.skip("local Norway corpus is not installed")
 
@@ -1514,7 +1515,7 @@ def test_corpus_marker_vocabulary_widening_moves_exactly_three_acts() -> None:
     data_dir = resolve_no_source_path(None)
     if not data_dir.exists():
         pytest.skip("local Norway corpus is not installed")
-    index = build_no_amendment_index(data_dir)
+    index = cached_no_amendment_index(data_dir)
     if index.commencement_instrument_coverage.total_instruments == 0:
         pytest.skip("local Norway corpus is not installed")
 
@@ -1576,7 +1577,7 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     if not data_dir.exists():
         pytest.skip("local Norway corpus is not installed")
 
-    index = build_no_amendment_index(data_dir)
+    index = cached_no_amendment_index(data_dir)
     # ``resolve_no_source_path`` falls back to the tracked ``data/norway``
     # directory, which exists in every checkout but carries no archives; an empty
     # instrument coverage is the real "corpus absent" signal.
@@ -1925,7 +1926,7 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     data_dir = resolve_no_source_path(None)
     if not data_dir.exists():
         pytest.skip("local Norway corpus is not installed")
-    index = build_no_amendment_index(data_dir)
+    index = cached_no_amendment_index(data_dir)
     if index.commencement_instrument_coverage.total_instruments == 0:
         pytest.skip("local Norway corpus is not installed")
 
@@ -3198,7 +3199,7 @@ def test_corpus_beriktiget_population_is_exactly_three_pairs() -> None:
     data_dir = resolve_no_source_path(None)
     if not data_dir.exists():
         pytest.skip("local Norway corpus is not installed")
-    index = build_no_amendment_index(data_dir)
+    index = cached_no_amendment_index(data_dir)
     if not index.entries:
         pytest.skip("local Norway corpus is not installed")
 
@@ -3504,7 +3505,7 @@ def test_corpus_resanctioning_population_is_exactly_two_pairs() -> None:
     data_dir = resolve_no_source_path(None)
     if not data_dir.exists():
         pytest.skip("local Norway corpus is not installed")
-    index = build_no_amendment_index(data_dir)
+    index = cached_no_amendment_index(data_dir)
     if not index.entries:
         pytest.skip("local Norway corpus is not installed")
 

@@ -42,6 +42,7 @@ from lawvm.norway.commencement import _recommend_no_backfill_lane
 from lawvm.norway.replay import replay_no_to_pit
 from lawvm.norway.sources import ingest_no_public_archives, open_no_archive
 from lawvm.tools.no_commencement_candidates import build_no_commencement_candidate_report
+from tests.norway_index_cache import cached_no_amendment_index
 
 
 _BASE_XML = b"""<html><head><title>Testlov</title></head><body>
@@ -895,7 +896,7 @@ def test_w39_corpus_witness_vaktvirksomhetsloven_both_parts_authorized() -> None
     are per-binding and the act-level status does not move. Half (i) is what
     makes part I resolve a law at all; without it this test cannot pass.
     """
-    index = build_no_amendment_index(_NO_FARCHIVE_PATH)
+    index = cached_no_amendment_index(_NO_FARCHIVE_PATH)
     entry = next(e for e in index.entries if e.source_id == "no/lovtid/2009-06-19-85")
 
     assert entry.effective_status == "contingent"
@@ -940,7 +941,10 @@ def test_w39_corpus_pin_vaktvirksomhetsloven_replays_consistent() -> None:
     from lawvm.norway.verify import verify_no_against_current
 
     result = verify_no_against_current(
-        "no/lov/2001-01-05-1", as_of="2026-07-10", data_dir=_NO_FARCHIVE_PATH
+        "no/lov/2001-01-05-1",
+        as_of="2026-07-10",
+        data_dir=_NO_FARCHIVE_PATH,
+        index=cached_no_amendment_index(_NO_FARCHIVE_PATH),
     )
     assert result.replay_status == "replayed"
     assert result.divergence_count == 0
@@ -1403,7 +1407,7 @@ def test_w47_corpus_witness_is_absorbed_by_the_widened_route_at_the_same_date() 
     retired route was pinned by: the part receipts are GONE, and the property
     they were there to guarantee is asserted here in its stronger form.
     """
-    index = build_no_amendment_index(_NO_FARCHIVE_PATH)
+    index = cached_no_amendment_index(_NO_FARCHIVE_PATH)
     entry = next(e for e in index.entries if e.source_id == "no/lovtid/2021-04-23-25")
 
     assert entry.effective_status == "instrument_authorized"
@@ -1446,7 +1450,7 @@ def test_w47_corpus_negative_the_probe_witness_stays_refused() -> None:
     2021-03-01. Granting it would apply verdipapirhandelloven's ops 15 months
     early — the W-39 zero-early assertion firing.
     """
-    index = build_no_amendment_index(_NO_FARCHIVE_PATH)
+    index = cached_no_amendment_index(_NO_FARCHIVE_PATH)
     entry = next(e for e in index.entries if e.source_id == "no/lovtid/2019-12-06-76")
 
     assert entry.part_scoped_effective_dates == ()
@@ -1494,7 +1498,7 @@ def test_w47_corpus_totals_and_the_untouched_single_part_route() -> None:
     still holds among the survivors, and now holds against the act-level routes
     too.
     """
-    index = build_no_amendment_index(_NO_FARCHIVE_PATH)
+    index = cached_no_amendment_index(_NO_FARCHIVE_PATH)
     multi = [
         d
         for d in index.diagnostics
@@ -2130,7 +2134,7 @@ def test_w49_corpus_witness_dates_the_two_parts_a_list_names() -> None:
     would refuse the whole span — here it clears both witnesses and the two
     parts take their date.
     """
-    index = build_no_amendment_index(_NO_FARCHIVE_PATH)
+    index = cached_no_amendment_index(_NO_FARCHIVE_PATH)
     entry = next(e for e in index.entries if e.source_id == "no/lovtid/2009-06-19-106")
 
     assert entry.effective_status == "contingent"
@@ -2165,7 +2169,7 @@ def test_w49_corpus_negatives_the_proven_disagreements_stay_refused() -> None:
     its Endrer header names. None of them may pick up a named-part-list grant
     from that instrument.
     """
-    index = build_no_amendment_index(_NO_FARCHIVE_PATH)
+    index = cached_no_amendment_index(_NO_FARCHIVE_PATH)
     granted = {
         (d["source_id"], d["instrument_source_ids"][0])
         for d in index.diagnostics
@@ -2214,7 +2218,7 @@ def test_w49_corpus_totals_and_the_untouched_older_routes() -> None:
     ``ACT_HAS_NO_LATER_INSTRUMENT`` refuses. The two routes are mutually
     exclusive on the corpus for a structural reason, not a numerical one.
     """
-    index = build_no_amendment_index(_NO_FARCHIVE_PATH)
+    index = cached_no_amendment_index(_NO_FARCHIVE_PATH)
     named = [
         d
         for d in index.diagnostics
@@ -2699,7 +2703,7 @@ def test_w51_corpus_the_two_demoted_acts_and_their_repairs() -> None:
     failed. Both were live P1 breaches: chapter 6 commenced 2021-10-01 against a
     2020-07-01 grant, chapters 7 and 8 on 2022-01-01 against 2021-01-01.
     """
-    index = build_no_amendment_index(_NO_FARCHIVE_PATH)
+    index = cached_no_amendment_index(_NO_FARCHIVE_PATH)
     entries = {e.source_id: e for e in index.entries}
     instruments = {c.source_id: c for c in index.commencement_instruments}
 
@@ -2773,7 +2777,7 @@ def test_w51_corpus_zero_early_over_every_whole_act_grant() -> None:
     234 sibling exclusions did not hide a breach, because every one of them is
     an instrument whose ``Endrer`` block declares no law at all.
     """
-    index = build_no_amendment_index(_NO_FARCHIVE_PATH)
+    index = cached_no_amendment_index(_NO_FARCHIVE_PATH)
     instruments = {c.source_id: c for c in index.commencement_instruments}
     dates_by_act: dict[str, list[tuple[str, str]]] = {}
     for candidate in index.commencement_instruments:
@@ -2859,7 +2863,7 @@ def test_w51_corpus_totals_and_the_untouched_part_routes() -> None:
     shipped one refused) and retires the part routes into its own 430 act-level
     grants; the five-route census below is the whole lane in one assertion.
     """
-    index = build_no_amendment_index(_NO_FARCHIVE_PATH)
+    index = cached_no_amendment_index(_NO_FARCHIVE_PATH)
     counts = {
         rule: len([d for d in index.diagnostics if d.get("rule_id") == rule])
         for rule in (
@@ -3044,7 +3048,7 @@ def test_w51_corpus_the_carve_out_fence_flips_exactly_one_instrument() -> None:
     left them inert — asserted here so a later widening of the date reader
     cannot quietly promote a carve-out.
     """
-    index = build_no_amendment_index(_NO_FARCHIVE_PATH)
+    index = cached_no_amendment_index(_NO_FARCHIVE_PATH)
     assert index.commencement_instrument_coverage.to_dict()["candidates"] == 607
     whole_act_scoped = {
         candidate.source_id
@@ -3592,7 +3596,7 @@ def test_w53_corpus_witness_dates_the_act_that_needed_w52_first() -> None:
     law enters the scan CONSISTENT at 0 divergences, so the error column never
     opens.
     """
-    index = build_no_amendment_index(_NO_FARCHIVE_PATH)
+    index = cached_no_amendment_index(_NO_FARCHIVE_PATH)
     entry = next(e for e in index.entries if e.source_id == "no/lovtid/2007-06-29-93")
 
     assert entry.effective_status == "instrument_authorized"
@@ -3636,7 +3640,7 @@ def test_w53_corpus_zero_early_over_every_widened_grant() -> None:
     the SCOPE — 0 EARLY over all 1,040 grants across all five routes, where the
     older probe covered 540.
     """
-    index = build_no_amendment_index(_NO_FARCHIVE_PATH)
+    index = cached_no_amendment_index(_NO_FARCHIVE_PATH)
     dates_by_act: dict[str, list[tuple[str, str]]] = {}
     for candidate in index.commencement_instruments:
         if candidate.cites_acts_as_hjemmel_only:
@@ -3710,7 +3714,7 @@ def test_w53_corpus_the_absorbed_part_grants_are_never_dated_earlier() -> None:
     dressed as a coverage win. Measured across the change: 344 identical, 2
     later, 0 earlier (``.tmp/w53/absorption.json``).
     """
-    index = build_no_amendment_index(_NO_FARCHIVE_PATH)
+    index = cached_no_amendment_index(_NO_FARCHIVE_PATH)
     entries = {e.source_id: e for e in index.entries}
     act_dates = {
         d["source_id"]: d["effective_date"]
@@ -3789,7 +3793,7 @@ def test_w53_corpus_the_two_scope_proofs_are_nested_not_overlapping() -> None:
     population is unmoved at 1,127, which is the check that W-47's multi-part
     route saw nothing change.
     """
-    index = build_no_amendment_index(_NO_FARCHIVE_PATH)
+    index = cached_no_amendment_index(_NO_FARCHIVE_PATH)
     candidates = index.commencement_instruments
     assert len(candidates) == 2365
     reader = {c.source_id for c in candidates if c.whole_act_operative_text}
@@ -3968,7 +3972,7 @@ def test_w73_corpus_title_cited_route_dates_exactly_five_acts() -> None:
     only be entered by a pair the shipped route already refused), no act is
     re-dated, and no grant is withdrawn.
     """
-    index = build_no_amendment_index(_NO_FARCHIVE_PATH)
+    index = cached_no_amendment_index(_NO_FARCHIVE_PATH)
     entries = {entry.source_id: entry for entry in index.entries}
 
     # The five, with the instrument that dates each and the date it sets.
@@ -5009,7 +5013,7 @@ def test_w100_corpus_the_seven_kringkasting_chain_acts() -> None:
     """The witness: the seven contingent acts in kringkastingsloven's chain, after W-100."""
     if _NO_FARCHIVE_PATH is None:
         pytest.skip("local Norway public archive is not installed")
-    index = build_no_amendment_index(_NO_FARCHIVE_PATH)
+    index = cached_no_amendment_index(_NO_FARCHIVE_PATH)
     entries = {e.source_id: e for e in index.entries}
     kk = "no/lov/1992-12-04-127"
 
@@ -5093,7 +5097,7 @@ def test_w100_corpus_totals() -> None:
     """The lane's corpus footprint, pinned so a grammar change has to move it deliberately."""
     if _NO_FARCHIVE_PATH is None:
         pytest.skip("local Norway public archive is not installed")
-    index = build_no_amendment_index(_NO_FARCHIVE_PATH)
+    index = cached_no_amendment_index(_NO_FARCHIVE_PATH)
     grants = [d for d in index.diagnostics if d.get("rule_id") == NO_COMMENCEMENT_SECTION_SCOPE_EXECUTION_AUTHORIZED]
     conflicts = [d for d in index.diagnostics if d.get("rule_id") == NO_COMMENCEMENT_SECTION_SCOPE_EXECUTION_DATE_CONFLICT]
     refusals = [d for d in index.diagnostics if d.get("rule_id") == NO_COMMENCEMENT_SECTION_SCOPE_EXECUTION_REFUSED]

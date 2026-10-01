@@ -18,6 +18,7 @@ from lawvm.norway.index import (
 )
 from lawvm.norway.replay import _effective_date_from_amendment, _no_ref_kind_and_date, replay_no_to_pit
 from lawvm.tools.replay_payloads import build_no_replay_payload
+from tests.norway_index_cache import cached_no_amendment_index
 
 
 _BASE_XML = """<?xml version="1.0" encoding="utf-8"?>
@@ -970,12 +971,18 @@ def test_no_ref_kind_and_date_raises_typed_for_two_segment_id() -> None:
         raise AssertionError("expected ValueError on two-segment base_id")
 
 
+# ``replay_no_to_pit`` builds the amendment index before it looks at the id. With
+# the real archive installed that is a ~90 s build for a test about a malformed
+# id, so these three hand it an empty index; the id check does not read it.
+_NO_EMPTY_INDEX = NOAmendmentIndex(data_dir="unused")
+
+
 def test_replay_no_to_pit_surfaces_two_segment_base_id_as_typed_error() -> None:
     # Before the fix, the bare ``norm_base_id.split("/", 2)`` crash escaped
     # replay_no_to_pit and bubbled to the CLI as a raw traceback. The replay
     # contract is that malformed inputs return NOReplayResult(error=...) —
     # this test pins the contract end-to-end.
-    result = replay_no_to_pit("no/lov", as_of="2026-03-29")
+    result = replay_no_to_pit("no/lov", as_of="2026-03-29", index=_NO_EMPTY_INDEX)
 
     assert result.error is not None
     assert "expected no/<kind>/<date>" in result.error
@@ -990,7 +997,7 @@ def test_replay_no_to_pit_surfaces_non_numeric_date_segment_as_typed_error() -> 
     # when ``date_part`` did not begin with a 4-digit year. The try-block now
     # wraps the int parse so any malformed date segment produces a typed
     # NOReplayResult.error carrying the offending id.
-    result = replay_no_to_pit("no/lov/xyz-1", as_of="2026-03-29")
+    result = replay_no_to_pit("no/lov/xyz-1", as_of="2026-03-29", index=_NO_EMPTY_INDEX)
 
     assert result.error is not None
     assert "4-digit year" in result.error
@@ -1001,7 +1008,9 @@ def test_replay_no_to_pit_surfaces_non_numeric_date_segment_as_typed_error() -> 
 def test_replay_no_to_pit_surfaces_unsupported_ref_kind_as_typed_error() -> None:
     # Pre-existing behaviour for ``ref_kind != "lov"``: typed NOReplayResult.error.
     # Pinned here to ensure the new try-blocks above do not regress it.
-    result = replay_no_to_pit("no/forordning/2024-01-12-1", as_of="2026-03-29")
+    result = replay_no_to_pit(
+        "no/forordning/2024-01-12-1", as_of="2026-03-29", index=_NO_EMPTY_INDEX
+    )
 
     assert result.error is not None
     assert "unsupported Norway ref kind" in result.error
@@ -1243,7 +1252,10 @@ def test_w84_klimaloven_carries_no_never_enacted_bokstav() -> None:
     is gone" check on its own.
     """
     result = replay_no_to_pit(
-        "no/lov/2017-06-16-60", as_of="2021-06-19", data_dir=_NO_FARCHIVE_PATH
+        "no/lov/2017-06-16-60",
+        as_of="2021-06-19",
+        data_dir=_NO_FARCHIVE_PATH,
+        index=cached_no_amendment_index(_NO_FARCHIVE_PATH),
     )
 
     assert result.error is None

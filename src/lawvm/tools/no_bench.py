@@ -69,6 +69,7 @@ from lawvm.core.bench_contract import BenchStatus, BenchUnitResult, check_residu
 from lawvm.tools.section_keys import extract_ir_sections
 
 if TYPE_CHECKING:
+    from lawvm.norway.index import NOAmendmentIndex
     from lawvm.norway.verify import NOVerifyResult
 
 
@@ -682,16 +683,21 @@ def no_bench_main(args) -> int:  # noqa: ANN001 — argparse Namespace, intentio
 # initializer so each worker explicitly receives the data_dir after re-import
 # (#210 / #223).
 _WORKER_DATA_DIR: "Path | None" = None
+# The sweep's one amendment index, installed beside the data_dir. ``None`` means
+# "none given": ``verify_no_against_current`` then builds its own, as it does for
+# any caller that passes no index.
+_WORKER_INDEX: "NOAmendmentIndex | None" = None
 
 
-def _init_no_bench_worker(data_dir_str: str) -> None:
-    """ProcessPoolExecutor initializer: install per-worker data_dir.
+def _init_no_bench_worker(data_dir_str: str, index: "NOAmendmentIndex | None" = None) -> None:
+    """ProcessPoolExecutor initializer: install per-worker data_dir and index.
 
-    Runs once per worker process after module re-import, so the value
-    survives regardless of pool start method (fork/forkserver/spawn).
+    Runs once per worker process after module re-import, so the values
+    survive regardless of pool start method (fork/forkserver/spawn).
     """
-    global _WORKER_DATA_DIR
+    global _WORKER_DATA_DIR, _WORKER_INDEX
     _WORKER_DATA_DIR = Path(data_dir_str) if data_dir_str else None
+    _WORKER_INDEX = index
 
 
 # Per-statute result CSV header — one row per ``BenchUnitResult`` from the
@@ -849,6 +855,7 @@ def _no_bench_score_one_worker(row: tuple[str, str, str]) -> BenchUnitResult:
             base_id,
             as_of=as_of,
             data_dir=data_dir,
+            index=_WORKER_INDEX,
         )
         mapped = run_bench_comparator("no", verify_result)
     except Exception as exc:  # noqa: BLE001 — pin the crash with witnesses
@@ -878,14 +885,37 @@ def _run_bench_sweep(
     :class:`~concurrent.futures.ProcessPoolExecutor` completes tasks
     non-deterministically.
     """
-    global _WORKER_DATA_DIR
+    global _WORKER_DATA_DIR, _WORKER_INDEX
 
     import time
     from concurrent.futures import ProcessPoolExecutor, as_completed
     from typing import Optional, cast
 
+    from lawvm.norway.index import build_no_amendment_index
+
+    # One amendment index for the whole sweep, as ``build_no_verify_scan`` does.
+    # Every row used to build its own inside ``verify_no_against_current``: about
+    # 90 s and 800 MB apiece, eight at a time on the default pool, for an object
+    # that does not depend on the row.
+    try:
+        index = build_no_amendment_index(data_dir)
+    except Exception as exc:  # noqa: BLE001 — same contract as the per-row catch
+        # Without an index no row can be scored. Report that on every row, as
+        # the per-row build did, so the summary still accounts for each corpus
+        # member instead of losing the run to one traceback.
+        witness = f"{type(exc).__name__}: {exc}"
+        return [
+            BenchUnitResult(
+                unit_id=base_id,
+                bench_unit_status=BenchStatus.CRASH,
+                witnesses=(witness,),
+            )
+            for base_id, _as_of, _note in rows
+        ]
+
     # Set in the parent so the serial path (workers <= 1) can read it directly.
     _WORKER_DATA_DIR = data_dir
+    _WORKER_INDEX = index
     try:
         if workers <= 1:
             return [_no_bench_score_one_worker(row) for row in rows]
@@ -899,7 +929,7 @@ def _run_bench_sweep(
         with ProcessPoolExecutor(
             max_workers=workers,
             initializer=_init_no_bench_worker,
-            initargs=(str(data_dir) if data_dir is not None else "",),
+            initargs=(str(data_dir) if data_dir is not None else "", index),
         ) as pool:
             future_to_idx = {pool.submit(_no_bench_score_one_worker, row): idx for idx, row in enumerate(rows)}
             done = 0
@@ -919,3 +949,4 @@ def _run_bench_sweep(
         return cast(list[BenchUnitResult], results)
     finally:
         _WORKER_DATA_DIR = None
+        _WORKER_INDEX = None

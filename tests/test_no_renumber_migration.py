@@ -1174,9 +1174,9 @@ def _no_occupied_destination_replays():
     """Replay every law in the pinned table ONCE and share it across the pins."""
     if not _REAL_ARCHIVE.exists():
         pytest.skip("requires the local Lovdata archive (data/norway.farchive)")
-    from lawvm.norway.index import build_no_amendment_index
+    from tests.norway_index_cache import cached_no_amendment_index
 
-    index = build_no_amendment_index(_REAL_ARCHIVE)
+    index = cached_no_amendment_index(_REAL_ARCHIVE)
     return {
         base_id: replay_no_to_pit(
             base_id, as_of="2026-07-10", data_dir=_REAL_ARCHIVE, index=index
@@ -1317,9 +1317,9 @@ def test_no_barnevernsloven_10_17_klage_ledd_survives() -> None:
     """W-102's payoff on the row it removed from the table: the old § 10-17's
     fifth ledd survives the 2026 act's shift, at its own address, and the leg is
     REFUSED rather than cleared. See the table note on ``2026-06-19-35:18``."""
-    from lawvm.norway.index import build_no_amendment_index
+    from tests.norway_index_cache import cached_no_amendment_index
 
-    index = build_no_amendment_index(_REAL_ARCHIVE)
+    index = cached_no_amendment_index(_REAL_ARCHIVE)
     replay = replay_no_to_pit(
         "no/lov/2021-06-18-97", as_of="2026-07-10", data_dir=_REAL_ARCHIVE, index=index
     )
@@ -1350,9 +1350,9 @@ def test_no_konsesjonsloven_4_reguleringsplan_ledd_survives() -> None:
     edition ALREADY carries the amendment (§ 4 has the 2026 text with zero acts
     applied). Both legs refuse; the fourth ledd in force survives at its
     address; no recovery fires on this law, so it has no row to pin."""
-    from lawvm.norway.index import build_no_amendment_index
+    from tests.norway_index_cache import cached_no_amendment_index
 
-    index = build_no_amendment_index(_REAL_ARCHIVE)
+    index = cached_no_amendment_index(_REAL_ARCHIVE)
     replay = replay_no_to_pit(
         "no/lov/2003-11-28-98", as_of="2026-07-10", data_dir=_REAL_ARCHIVE, index=index
     )
@@ -1389,9 +1389,9 @@ def test_no_husbankloven_13_commencement_provision_survives() -> None:
     either direction — the provision vanishing, or the recovery waking up — fails
     here rather than silently passing a shorter table.
     """
-    from lawvm.norway.index import build_no_amendment_index
+    from tests.norway_index_cache import cached_no_amendment_index
 
-    index = build_no_amendment_index(_REAL_ARCHIVE)
+    index = cached_no_amendment_index(_REAL_ARCHIVE)
     replay = replay_no_to_pit(
         _HUSBANKLOVEN, as_of="2026-07-10", data_dir=_REAL_ARCHIVE, index=index
     )
@@ -2280,9 +2280,9 @@ def test_no_w69c_witness_2009_06_19_44_replays_to_completion() -> None:
     at W-69c nothing fired because nothing ran; now nothing fires because the
     ordering is proven safe.
     """
-    from lawvm.norway.index import build_no_amendment_index
+    from tests.norway_index_cache import cached_no_amendment_index
 
-    index = build_no_amendment_index(_REAL_ARCHIVE)
+    index = cached_no_amendment_index(_REAL_ARCHIVE)
     result = replay_no_to_pit(
         "no/lov/2009-06-19-44", as_of="2026-07-10", data_dir=_REAL_ARCHIVE, index=index
     )
@@ -2666,9 +2666,9 @@ def test_no_w66_relabel_refusal_keeps_two_live_provisions_standing() -> None:
     silently-dropped op and a refused one look the same in the tree, and only one
     of them is honest.
     """
-    from lawvm.norway.index import build_no_amendment_index
+    from tests.norway_index_cache import cached_no_amendment_index
 
-    index = build_no_amendment_index(_REAL_ARCHIVE)
+    index = cached_no_amendment_index(_REAL_ARCHIVE)
     for base_id, probe, address, expected_firings in (
         (
             _STRAFFELOVEN_2005,
@@ -2936,9 +2936,9 @@ def test_no_karanteneloven_ledd_shift_lands_after_move_attr_normalization() -> N
     the right reason, not by the insert being dropped), and the absence of any
     occupied-destination firing (the shift did not eat a sibling on the way).
     """
-    from lawvm.norway.index import build_no_amendment_index
+    from tests.norway_index_cache import cached_no_amendment_index
 
-    index = build_no_amendment_index(_REAL_ARCHIVE)
+    index = cached_no_amendment_index(_REAL_ARCHIVE)
     replay = replay_no_to_pit(
         "no/lov/2015-06-19-70", as_of="2026-07-10", data_dir=_REAL_ARCHIVE, index=index
     )
@@ -4047,12 +4047,12 @@ def _no_w66c_realized_destructions(_no_w66c_minted_repeals):
     separate them by. Joining on the ADDRESS the parse plane minted does.
     """
     from lawvm.core import tree_ops
-    from lawvm.norway.index import build_no_amendment_index
+    from tests.norway_index_cache import cached_no_amendment_index
 
     minted = {
         (leg["base_id"], leg["address"]) for leg in _no_w66c_minted_repeals["legs"]
     }
-    index = build_no_amendment_index(_REAL_ARCHIVE)
+    index = cached_no_amendment_index(_REAL_ARCHIVE)
     out: list[tuple[str, str, str]] = []
     for base_id in sorted({leg["base_id"] for leg in _no_w66c_minted_repeals["legs"]}):
         removed: list[tuple[str, str]] = []
@@ -4136,9 +4136,9 @@ def test_no_w66c_witness_law_reads_as_the_instrument_commands(
     The surviving text is what is asserted, in order: the repealed sentence
     absent, the relabelled sentence standing in slot 2.
     """
-    from lawvm.norway.index import build_no_amendment_index
+    from tests.norway_index_cache import cached_no_amendment_index
 
-    index = build_no_amendment_index(_REAL_ARCHIVE)
+    index = cached_no_amendment_index(_REAL_ARCHIVE)
     replay = replay_no_to_pit(
         "no/lov/2021-06-18-121", as_of="2026-07-10", data_dir=_REAL_ARCHIVE, index=index
     )

@@ -536,26 +536,126 @@ def test_no_bench_main_runs_curated_corpus_to_zero_crashes(tmp_path) -> None:
             history_path=history_csv,
             runs_path=runs_csv,
         )
-        buf = io.StringIO()
-        rc = no_bench_main(args)
-        assert rc == 0
-        out = buf.getvalue()
-
-        # Re-capture by running again against the redirector: the function
-        # returns 0 on success but the summary was printed to the *real*
-        # stdout above — re-run it under a fresh buffer to assert content.
+        # One run, captured. This used to run the sweep twice (once for the
+        # return code, once more under the redirector for the summary), and a
+        # sweep over the real archive is the most expensive call in the shard.
         buf = io.StringIO()
         with redirect_stdout(buf):
-            no_bench_main(args)
+            rc = no_bench_main(args)
+        assert rc == 0
         summary = buf.getvalue()
 
         # ``crashed: 0`` is the contract — no row may silently fail.
         assert "crashed: 0" in summary, summary
         # Residue reconciliation holds across all real rows end-to-end.
         assert "Residue reconciliation: OK" in summary, summary
-        # History-write spanned both runs and reported the isolated path.
+        # The history write went to the isolated path, and the summary says so.
         assert history_csv.exists()
         assert str(history_csv) in summary
+
+
+# ---------------------------------------------------------------------------
+# The sweep builds ONE amendment index and every row verifies against it.
+#
+# Each row used to build its own inside ``verify_no_against_current``: on the
+# 18-row curated corpus that was 18 builds of ~90 s and ~800 MB, eight at a
+# time, and 481 s for a run that now takes 95 s with a byte-identical
+# per-statute CSV (measured 2026-10-01). These pin the sharing without the
+# archive.
+# ---------------------------------------------------------------------------
+
+
+_SWEEP_ROWS = [
+    ("no/lov/2025-01-01-1", "2026-07-10", ""),
+    ("no/lov/2025-01-01-2", "2026-07-10", ""),
+    ("no/lov/2025-01-01-3", "2026-07-10", "a note"),
+]
+
+
+def _install_fake_verify(monkeypatch, seen: list[tuple[str, object]]) -> None:
+    def fake_verify(base_id: str, *, as_of: str, data_dir=None, index=None) -> Any:
+        seen.append((base_id, index))
+        return _verify_result(
+            base_id=base_id, consistent=True, replayed_body=_replayed_body("1", "2")
+        )
+
+    monkeypatch.setattr("lawvm.norway.verify.verify_no_against_current", fake_verify)
+
+
+def test_no_bench_sweep_builds_one_index_and_every_row_verifies_against_it(
+    monkeypatch, tmp_path
+) -> None:
+    from lawvm.norway.index import NOAmendmentIndex
+
+    the_index = NOAmendmentIndex(data_dir="the sweep's index")
+    built: list[object] = []
+
+    def fake_build(data_dir=None) -> NOAmendmentIndex:
+        built.append(data_dir)
+        return the_index
+
+    seen: list[tuple[str, object]] = []
+    monkeypatch.setattr("lawvm.norway.index.build_no_amendment_index", fake_build)
+    _install_fake_verify(monkeypatch, seen)
+
+    results = no_bench._run_bench_sweep(_SWEEP_ROWS, tmp_path, 1)
+
+    assert built == [tmp_path]
+    assert [base_id for base_id, _index in seen] == [row[0] for row in _SWEEP_ROWS]
+    assert all(index is the_index for _base_id, index in seen)
+    assert [r.bench_unit_status for r in results] == [BenchStatus.SCORED] * 3
+    # Nothing is left installed for a later caller of the worker to pick up.
+    assert no_bench._WORKER_INDEX is None
+    assert no_bench._WORKER_DATA_DIR is None
+
+
+def test_no_bench_sweep_reports_an_unbuildable_index_on_every_row(monkeypatch, tmp_path) -> None:
+    """The index cannot be built: every corpus row is still accounted for, as CRASH,
+    with the build's own error as the witness. The per-row build reported it the
+    same way; one traceback out of the CLI would lose the rows."""
+
+    def failing_build(data_dir=None):
+        raise RuntimeError("archive unreadable")
+
+    seen: list[tuple[str, object]] = []
+    monkeypatch.setattr("lawvm.norway.index.build_no_amendment_index", failing_build)
+    _install_fake_verify(monkeypatch, seen)
+
+    results = no_bench._run_bench_sweep(_SWEEP_ROWS, tmp_path, 8)
+
+    assert seen == []
+    assert [r.unit_id for r in results] == [row[0] for row in _SWEEP_ROWS]
+    assert [r.bench_unit_status for r in results] == [BenchStatus.CRASH] * 3
+    assert {r.witnesses for r in results} == {("RuntimeError: archive unreadable",)}
+
+
+def test_no_bench_worker_without_an_installed_index_lets_verify_build_its_own(
+    monkeypatch,
+) -> None:
+    """Negative: outside a sweep nothing is installed, and the worker says so by
+    passing ``index=None`` rather than a stale index from an earlier sweep."""
+    seen: list[tuple[str, object]] = []
+    _install_fake_verify(monkeypatch, seen)
+
+    result = no_bench._no_bench_score_one_worker(_SWEEP_ROWS[0])
+
+    assert seen == [("no/lov/2025-01-01-1", None)]
+    assert result.bench_unit_status is BenchStatus.SCORED
+
+
+def test_no_bench_worker_initializer_installs_the_index_beside_the_data_dir(monkeypatch) -> None:
+    """The pool path: a worker process re-imports the module, so the index has to
+    arrive through the initializer, like the data_dir."""
+    from lawvm.norway.index import NOAmendmentIndex
+
+    the_index = NOAmendmentIndex(data_dir="the sweep's index")
+    monkeypatch.setattr(no_bench, "_WORKER_DATA_DIR", None)
+    monkeypatch.setattr(no_bench, "_WORKER_INDEX", None)
+
+    no_bench._init_no_bench_worker("/some/norway.farchive", the_index)
+
+    assert no_bench._WORKER_DATA_DIR == _Path("/some/norway.farchive")
+    assert no_bench._WORKER_INDEX is the_index
 
 
 # ---------------------------------------------------------------------------

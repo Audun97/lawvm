@@ -5962,11 +5962,13 @@ def test_no_rettelse_witness_replay_carries_the_corrected_citation() -> None:
     (NORWAY_LAWVM_STATUS.md §2.2).
     """
     from lawvm.norway.replay import replay_no_to_pit
+    from tests.norway_index_cache import cached_no_amendment_index
 
     result = replay_no_to_pit(
         "no/lov/2020-12-18-156",
         as_of="2026-07-10",
         data_dir=_NO_FARCHIVE_PATH,
+        index=cached_no_amendment_index(_NO_FARCHIVE_PATH),
     )
     assert not result.error
     assert result.replayed is not None
@@ -6482,6 +6484,7 @@ def test_no_heading_group_corpus_witness_stays_single_sourced() -> None:
     and the fold's multi-source receipt is the thing to read.
     """
     from lawvm.norway.replay import replay_no_to_pit
+    from tests.norway_index_cache import cached_no_amendment_index
 
     html_bytes = load_no_amendment_bytes("no/lovtid/2024-12-20-92", _NO_FARCHIVE_PATH)
     assert html_bytes is not None
@@ -6496,6 +6499,7 @@ def test_no_heading_group_corpus_witness_stays_single_sourced() -> None:
         "no/lov/2024-01-12-1",
         as_of="2026-07-10",
         data_dir=_NO_FARCHIVE_PATH,
+        index=cached_no_amendment_index(_NO_FARCHIVE_PATH),
     )
     assert not result.error
     assert result.replayed is not None
@@ -10226,15 +10230,15 @@ def test_no_w69b_karanteneloven_replay_lands_its_substitutions_and_refuses_two()
     sentence addresses this item put in scope, each one landing on the addressed
     ``punktum`` rather than on its ledd.
     """
-    from lawvm.norway.index import build_no_amendment_index
     from lawvm.norway.replay import replay_no_to_pit
+    from tests.norway_index_cache import cached_no_amendment_index
 
     data_dir = cast(Path, _NO_FARCHIVE_PATH)
     result = replay_no_to_pit(
         "no/lov/2015-06-19-70",
         "2026-07-10",
         data_dir=data_dir,
-        index=build_no_amendment_index(data_dir),
+        index=cached_no_amendment_index(data_dir),
     )
     replayed = result.replayed
     assert replayed is not None
@@ -10503,15 +10507,15 @@ def test_no_w69b_the_two_unservable_sentence_addresses_stay_refused_typed() -> N
     ever started refusing for a reason of their own, this list would stop
     interleaving with the ledd list and the test would say so.
     """
-    from lawvm.norway.index import build_no_amendment_index
     from lawvm.norway.replay import replay_no_to_pit
+    from tests.norway_index_cache import cached_no_amendment_index
 
     data_dir = cast(Path, _NO_FARCHIVE_PATH)
     result = replay_no_to_pit(
         "no/lov/2020-04-17-29",
         "2026-07-10",
         data_dir=data_dir,
-        index=build_no_amendment_index(data_dir),
+        index=cached_no_amendment_index(data_dir),
     )
     assert result.replayed is not None
     unresolved = sorted(

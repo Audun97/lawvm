@@ -8357,6 +8357,42 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
 
+- **2026-10-01 (test infrastructure — the norway shard goes from 39 minutes
+  to under 5; no engine or replay-path change)** — the shard has to be re-run
+  after every landing, because corpus pins are restated across files, and it
+  took 2,330 s. Almost all of it was the amendment index being rebuilt: one
+  build is 87 s and ~800 MB, and 45 call sites in test code reached one (35
+  by hand, 7 through replay/verify/inventory calls given no `index=`, 3 in
+  malformed-id tests that never read it). The larger half was not in the
+  tests: `lawvm -j no bench` built the index once per corpus ROW inside
+  `verify_no_against_current`, 18 rows on an eight-process pool, and the
+  smoke test ran the sweep twice — 36 more builds and ~6 GB, which is what
+  put the 12 GB laptop into swap and stretched every other build to
+  140–290 s. Three changes. (1) `tests/norway_index_cache.py`:
+  `cached_no_amendment_index(path)` serves the real-archive index from
+  `.tmp/norway-index-cache/`, keyed on the import-closure code digest and
+  the per-plane corpus digest (the sweep baseline's own two receipts,
+  computed by the sweep script's code), the archive's size and mtime, the
+  runtime, and every `LAWVM_*` variable the closure names. The entry is a
+  pickle because the JSON `save`/`load` pair is lossy on the real index (473
+  of 15,180 diagnostics come back with `tuple` → `list`, `FrozenDict` →
+  `dict`); it is built in a child process, once, under a file lock, and
+  unpickled per call so no test can mutate another's index. (2) The bench
+  sweep builds one index and hands it to its workers, as
+  `build_no_verify_scan` already did: 481 s → 95 s for the curated corpus,
+  per-statute CSV byte-identical, summary identical. (3) The smoke test runs
+  the sweep once. Result: 1,321 tests pass in 182–271 s warm (two gate runs)
+  and 347 s on a cold cache; an all-process probe logs exactly two
+  real-archive builds in the shard (the cache's child, and the bench's own). Staleness is pinned rather
+  than assumed: the key moves on a one-line edit to `grafter.py` and returns
+  on revert; the cached entry equals a fresh in-process build field for field
+  (`-m slow -k cached_index_equals`, 90 s); nothing is stored when an input
+  moves during the build; and a guard fails any `test_no*.py` that builds
+  the real index by hand (it flags all 35 sites at the previous commit).
+  Left alone on purpose: `replay_no_to_pit` still builds the index before it
+  validates the id — fixing the order is a `replay.py` edit and so a sweep
+  re-baseline, for three tests that now pass an empty index; and the sweep
+  generator and the probes still build per process.
 - **2026-10-01 (W-68 — a lead that opens by naming a law binds to that
   law; the carry-over stops at a head nobody read)** — W-62 priced this as
   188 receipts on the wrong act. Re-derived at HEAD it is 286 receipts and,

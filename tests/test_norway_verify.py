@@ -41,6 +41,7 @@ from lawvm.norway.verify import (
     normalize_no_comparison_text,
 )
 from lawvm.norway.verify import build_no_verify_partition, build_no_verify_scan, verify_no_against_current
+from tests.norway_index_cache import cached_no_amendment_index
 
 
 _BASE_XML = """<?xml version="1.0" encoding="utf-8"?>
@@ -2397,6 +2398,7 @@ def test_annex_ceiling_corpus_counts_are_pinned() -> None:
     report = build_no_verify_scan(
         as_of="2026-07-10",
         data_dir=data_dir,
+        index=cached_no_amendment_index(data_dir),
         limit=200,
         base_ids=[
             "no/lov/2018-06-15-38",
@@ -2515,7 +2517,12 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     if not data_dir.exists():
         pytest.skip("local Norway corpus is not installed")
 
-    report = build_no_verify_partition(as_of="2026-07-10", data_dir=data_dir, limit=200)
+    report = build_no_verify_partition(
+        as_of="2026-07-10",
+        data_dir=data_dir,
+        index=cached_no_amendment_index(data_dir),
+        limit=200,
+    )
     if report["scanned_count"] == 0:
         pytest.skip("local Norway corpus is not installed")
 
