@@ -1507,8 +1507,13 @@ def test_w47_corpus_totals_and_the_untouched_single_part_route() -> None:
     ]
     assert len(multi) == 4
     assert len({d["source_id"] for d in multi}) == 2
-    assert len(single) == 33
-    assert len({d["source_id"] for d in single}) == 31
+    # 33 -> 34 (31 -> 32 acts) at W-68 (2026-10-01): ``no/lovtid/2001-06-15-86``
+    # part II opens "I vegtrafikklov 18. juni 1965 nr. 4 gjøres følgende
+    # endring:" — a law cited by short title, which the announcement reader now
+    # resolves — so the part names its law and ``no/forskrift/2011-10-21-1040``
+    # dates it (2011-10-24) through this route instead of being refused.
+    assert len(single) == 34
+    assert len({d["source_id"] for d in single}) == 32
     # No surviving part grant sits on an act either act-level route dated: the
     # yield is per act, so the two populations are disjoint by construction.
     act_level = {
@@ -2228,7 +2233,8 @@ def test_w49_corpus_totals_and_the_untouched_older_routes() -> None:
     assert len(named) == 33
     assert len({d["source_id"] for d in named}) == 10
     assert len(multi) == 4
-    assert len(single) == 33
+    # 33 -> 34 at W-68: ``no/lovtid/2001-06-15-86`` part II, see the W-47 totals.
+    assert len(single) == 34
     # Every act this route serves has a later sibling, which is what makes it
     # unreachable by the widened act-level route — the structural argument in
     # the docstring, asserted rather than asserted-about.
@@ -2813,7 +2819,15 @@ def test_w51_corpus_zero_early_over_every_whole_act_grant() -> None:
     # own notes carry the same four), and W-99's address-after-citation lead
     # gives ``no/lovtid/2017-06-16-51`` its first entry, dated 2018-01-01 by its
     # own ``no/forskrift/2017-06-16-751``. Every one is ``plain``.
-    assert len(grants) == 546
+    # 546 -> 548 at W-68 (2026-10-01), the same mechanism: two acts gain their
+    # first index entry and each is dated by its own resolution through this
+    # route. ``no/lovtid/2008-12-12-104`` opens "I Almindelig borgerlig
+    # Straffelov 22. mai 1902 nr. 10 gjøres følgende endringer:" (a short-title
+    # announcement, 4 ops, 2009-01-01 by ``no/forskrift/2008-12-12-1344``);
+    # ``no/lovtid/2021-06-18-89`` writes "I lov av 13. juni 1975 nr. 35 … skal
+    # § 1 femte ledd lyde:" under a head the walk now binds to the act it names
+    # (2 ops, 2021-06-18 by ``no/forskrift/2021-06-18-2009``).
+    assert len(grants) == 548
     early = [
         (d["source_id"], d["effective_date"], sibling_id, sibling_date)
         for d in grants
@@ -2904,13 +2918,18 @@ def test_w51_corpus_totals_and_the_untouched_part_routes() -> None:
     # 440 -> 469 at W-100 on the WIDENED route (the title-cited citation form);
     # the shipped route and the three part routes are unmoved, and the two
     # section-scoped receipts this item adds are censused in the W-100 block.
+    # W-68 (2026-10-01) moves three of the five, each by growing or shrinking
+    # what is OFFERED to the lane, never the gate: shipped 546 -> 548, widened
+    # 470 -> 471 (three in, two out), single-part 33 -> 34. The acts are named
+    # at the three per-route pins (``test_w51_corpus_zero_early_…``,
+    # ``test_w53_corpus_zero_early_…``, ``test_w47_corpus_totals_…``).
     assert counts == {
-        NO_COMMENCEMENT_EXECUTION_AUTHORIZED: 546,
+        NO_COMMENCEMENT_EXECUTION_AUTHORIZED: 548,
         # 469 -> 470 at W-104: ``no/lovtid/2004-07-02-68`` (the Medietilsynet
         # act) gains its first index entry from the addressed word-substitution
         # production and is dated by its own resolution through this route.
-        NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED: 470,
-        NO_COMMENCEMENT_PART_EXECUTION_AUTHORIZED: 33,
+        NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED: 471,
+        NO_COMMENCEMENT_PART_EXECUTION_AUTHORIZED: 34,
         NO_COMMENCEMENT_MULTI_PART_EXECUTION_AUTHORIZED: 4,
         NO_COMMENCEMENT_NAMED_PART_LIST_EXECUTION_AUTHORIZED: 33,
     }
@@ -2990,7 +3009,15 @@ def test_w51_corpus_totals_and_the_untouched_part_routes() -> None:
     # each with one group below) lands utlendingsloven § 62 "annet ledd annet
     # punktum og femte ledd første punktum" by path, so the 2022 pair sheds its
     # generic refusal.
-    assert len(refused_pairs) == 709
+    # 709 -> 720 at W-68 (2026-10-01): thirteen pairs enter and two leave, and
+    # every one follows an act's index entry, not the gate. Entering with acts
+    # that gained their first entry and are still undated: ``no/lovtid/2002-06-28-55``
+    # (2 instruments), ``2006-06-30-53`` (1), ``2007-06-29-83`` (1),
+    # ``2007-06-29-84`` (4), ``2008-06-20-47`` (3); and ``2021-12-22-163`` (2),
+    # whose section-scoped grant is withdrawn (see ``test_w100_corpus_totals``).
+    # Leaving: ``2001-06-15-86`` × ``no/forskrift/2011-10-21-1040``, now a
+    # single-part grant, and ``2011-06-24-39``, which leaves the index.
+    assert len(refused_pairs) == 720
 
     # The inert part-grant population, 31 -> 4 at W-53 with the absorption.
     inert = [
@@ -3650,7 +3677,15 @@ def test_w53_corpus_zero_early_over_every_widened_grant() -> None:
     # 469 -> 470 at W-104: ``no/lovtid/2004-07-02-68`` (the Medietilsynet act),
     # first lowered ops from the addressed word-substitution production, dated
     # 2005-01-01 by ``no/forskrift/2004-07-02-1099`` ("gjeld frå").
-    assert len(grants) == 470
+    # 470 -> 471 at W-68 (2026-10-01): three acts enter and two leave. Entering,
+    # each with its first index entry off a short-title announcement and dated
+    # by its own resolution: ``no/lovtid/2002-12-20-107`` (2004-01-01),
+    # ``2004-06-25-50`` (2004-10-01), ``2005-06-17-87`` (2005-08-05). Leaving,
+    # because their ONLY ops were citation-less leads lowered onto the previous
+    # item's act under a bare title heading, which the stale-carry guard now
+    # refuses: ``no/lovtid/2001-12-14-98`` and ``2011-06-24-39``. Nothing these
+    # two dated was law the drafter addressed.
+    assert len(grants) == 471
     early = [
         (d["source_id"], d["effective_date"], sibling_id, sibling_date)
         for d in grants
@@ -3696,7 +3731,8 @@ def test_w53_corpus_the_absorbed_part_grants_are_never_dated_earlier() -> None:
             NO_COMMENCEMENT_NAMED_PART_LIST_EXECUTION_AUTHORIZED,
         }
     ]
-    assert len(surviving) == 70
+    # 70 -> 71 at W-68: the single-part grant on ``no/lovtid/2001-06-15-86``.
+    assert len(surviving) == 71
     # Absorption is total per act, never partial: no act carries both an
     # act-level date and a part-scoped one. That is what makes "the act-level
     # date answers for every binding" safe to rely on.
@@ -3975,7 +4011,15 @@ def test_w73_corpus_title_cited_route_dates_exactly_five_acts() -> None:
     # own notes carry the same four), and W-99's address-after-citation lead
     # gives ``no/lovtid/2017-06-16-51`` its first entry, dated 2018-01-01 by its
     # own ``no/forskrift/2017-06-16-751``. Every one is ``plain``.
-    assert len(shipped) == 546
+    # 546 -> 548 at W-68 (2026-10-01), the same mechanism: two acts gain their
+    # first index entry and each is dated by its own resolution through this
+    # route. ``no/lovtid/2008-12-12-104`` opens "I Almindelig borgerlig
+    # Straffelov 22. mai 1902 nr. 10 gjøres følgende endringer:" (a short-title
+    # announcement, 4 ops, 2009-01-01 by ``no/forskrift/2008-12-12-1344``);
+    # ``no/lovtid/2021-06-18-89`` writes "I lov av 13. juni 1975 nr. 35 … skal
+    # § 1 femte ledd lyde:" under a head the walk now binds to the act it names
+    # (2 ops, 2021-06-18 by ``no/forskrift/2021-06-18-2009``).
+    assert len(shipped) == 548
 
     # The reader's own corpus population, over the candidates rather than the
     # grants: 15 instruments carry the title-cited proof, and the five above are
@@ -5078,17 +5122,39 @@ def test_w100_corpus_totals() -> None:
     # (refused qualified labels 17 -> 16, no-path reasons 4 -> 3, refusals 108
     # -> 107, all-ledd-qualified 8 -> 7); subpath dates 138 -> 142 over 93
     # labels of 43 bindings.
-    assert len(grants) == 281
-    assert sum(1 for g in grants if g["complete"]) == 225
-    assert sum(1 for g in grants if g["binding_date"]) == 223
+    # W-68 (2026-10-01): two bindings enter and one leaves — 281 -> 282
+    # (complete 225 -> 226, binding-dated 223 -> 224, 125 acts unmoved, 166 ->
+    # 168 laws). ENTERING, each a self-citing ``§`` repeal that is now a law
+    # switch of its own and so a binding the lane can date:
+    # ``no/lovtid/2002-06-21-38`` on konsesjonsloven ("Lov 31. mai 1974 nr. 19 …
+    # § 2 femte ledd vert oppheva.", 2002-07-01) and ``2019-12-13-79`` on
+    # AIF-loven ("I lov 20. juni 2014 nr. 28 … oppheves § 2-6 første ledd tredje
+    # punktum.", 2020-01-01). LEAVING: ``no/lovtid/2021-12-22-163`` on
+    # finansforetaksloven. Its "I lov 10. juni 2005 nr. 44 om
+    # forsikringsvirksomhet oppheves § 7-4." now lowers, the act is honestly
+    # multi-law, and the two instruments' law-less section terms no longer
+    # resolve ("act-level carve-out names a section without a law on a
+    # multi-law act", "section list without a resolvable law …"): refusals
+    # 107 -> 109, and the grant's one subpath date goes with it (142 -> 141,
+    # 93 -> 92 labels, 43 -> 42 bindings). That date had been "§ 9-2 første
+    # ledd" — a label finansforetaksloven's ops never carried (the receipt
+    # listed it unbound); it is the new act's OWN § 9-2, admitted only because
+    # the act looked single-law. Finansforetaksloven's two ops return to
+    # contingent. And one refusal changes its reason without moving the count:
+    # ``no/lovtid/2010-12-17-91`` part I ("I vegtrafikklov …") now resolves
+    # vegtrafikkloven, so "part I resolves no law" becomes "every dated label
+    # … is ledd-qualified" (7 -> 8).
+    assert len(grants) == 282
+    assert sum(1 for g in grants if g["complete"]) == 226
+    assert sum(1 for g in grants if g["binding_date"]) == 224
     assert len({g["source_id"] for g in grants}) == 125
-    assert len({g["law_id"] for g in grants}) == 166
+    assert len({g["law_id"] for g in grants}) == 168
     assert [(c["source_id"], c["law_id"]) for c in conflicts] == [("no/lovtid/2004-03-05-11", "no/lov/1995-05-26-25")]
-    assert len(refusals) == 107
-    assert sum(1 for r in refusals if "ledd-qualified" in r["refusal"]) == 7
-    assert sum(len(g["subpath_dates"]) for g in grants) == 142
-    assert len({(g["source_id"], g["law_id"], label) for g in grants for label, _p, _d in g["subpath_dates"]}) == 93
-    assert sum(1 for g in grants if g["subpath_dates"]) == 43
+    assert len(refusals) == 109
+    assert sum(1 for r in refusals if "ledd-qualified" in r["refusal"]) == 8
+    assert sum(len(g["subpath_dates"]) for g in grants) == 141
+    assert len({(g["source_id"], g["law_id"], label) for g in grants for label, _p, _d in g["subpath_dates"]}) == 92
+    assert sum(1 for g in grants if g["subpath_dates"]) == 42
     assert sum(len(g["excluded_subpaths"]) for g in grants) == 4
     assert sum(len(g["excluded_section_labels"]) for g in grants) == 18
     assert sum(len(g["qualified_refused_labels"]) for g in grants) == 16
@@ -5101,7 +5167,11 @@ def test_w100_corpus_totals() -> None:
     assert not [r for r in reasons if "moves" in r]
     assert sum(1 for r in reasons if r == "the qualifier spells no path") == 3
     widened = [d for d in index.diagnostics if d.get("rule_id") == NO_COMMENCEMENT_WIDENED_WHOLE_ACT_EXECUTION_AUTHORIZED]
-    assert len(widened) == 470
+    assert len(widened) == 471
     # No act-level grant of this lane, ever: the histogram's contingent column
     # only moves through lane A.
-    assert index.status_counts()[NOEffectiveStatus.CONTINGENT] == 511
+    # 511 -> 516 at W-68, and not through any commencement lane: five acts gain
+    # their FIRST index entry and their own commencement is undated
+    # (``no/lovtid/2002-06-21-38``, ``2002-06-28-55``, ``2007-06-29-83``,
+    # ``2007-06-29-84``, ``2008-06-20-47``).
+    assert index.status_counts()[NOEffectiveStatus.CONTINGENT] == 516

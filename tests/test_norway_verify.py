@@ -3155,7 +3155,9 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
         },
         # 60 -> 64 at W-100, the same four laws the inventory's would-be
         # ceiling pin names.
-        "would_be_candidates": 64,
+        # 64 -> 63 at W-68: the three laws the inventory's would-be ceiling
+        # pin names (one in, two out of ``fully_replayable``).
+        "would_be_candidates": 63,
         "substantive_unexplained": 13,
     }
 

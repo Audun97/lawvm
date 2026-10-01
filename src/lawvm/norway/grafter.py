@@ -418,6 +418,56 @@ _NO_EMBEDDED_LEAD_TAIL = r"\s+.+?\s+skal\s+(?:\S+\s+)*?(§.+)$"
 _NO_EMBEDDED_ADDRESS_FIRST_TAIL = (
     r"\s+(?:(?!§)[^:]){0,200}?(§(?:(?!§)(?!\.\s[A-ZÆØÅ])[^:]){0,160}?\bskal\s+lyde\s*:(?:\s.*)?)$"
 )
+# W-68: the REPEAL spellings of a lead that names its own law. Until this item
+# the embedded extractor read a self-citing lead only when it REPLACED
+# ("… skal § 5 lyde:", "… § 5 skal lyde:"). A self-citing REPEAL was no switch
+# at all: the citation was walked past, the lead was refused against whatever
+# act the cursor still held, and — the part that made this a correctness item
+# — every citation-less lead after it kept binding to that stale act. Two
+# word orders, both rebuilt into the citation-less ``§ … oppheves.`` form the
+# section families already consume:
+#
+#   * ADDRESS FIRST — "3. Lov 5. august 1994 nr. 55 om vern mot smittsomme
+#     sykdommer § 8-2 oppheves." (`2001-06-15-53`); "Lov 31. mai 1974 nr. 19 om
+#     konsesjon … (konsesjonsloven) § 2 femte ledd vert oppheva."
+#     (`2002-06-21-38`). W-99's tail with the repeal verb in place of ``skal
+#     lyde:``, and the same tempering: neither the title span nor the address
+#     span may cross a ``§`` or a colon, and the address may not cross a
+#     sentence end. ``§§`` opens a list ("§§ 5 og 6 oppheves.").
+#   * VERB FIRST — "10. I lov 21. desember 2000 nr. 105 om opplysningsplikt …
+#     (angrerettloven) oppheves § 6 bokstav e annet punktum." (`2002-06-21-34`);
+#     "I lov 7. juli 1967 nr. 13 om husleieregulering m.v. for boliger blir § 16
+#     oppheva." (`2001-05-11-19`). The Norwegian V2 order: the same sentence as
+#     "§ 16 blir oppheva." with the law fronted.
+#
+# What these deliberately do NOT read, because the tail is not a plain ``§``
+# address and the rebuilt lead would say something the drafter did not: a
+# repeal of a CHANGE ("… oppheves endringen i lov … § 438 annet ledd."), of a
+# part of an amending act ("… oppheves del VII."), a run-on ("… blir § 1 andre
+# ledd bokstav g oppheva. Bokstav f skal lyde: …") and a whole-act repeal
+# ("Lov … oppheves."). Each stays an UNREAD LAW HEAD — see
+# ``_no_lead_law_head`` — which binds its own receipt to the cited act and
+# stops the carry-over instead of switching on a guess.
+_NO_EMBEDDED_REPEAL_ADDRESS = r"§{1,2}(?:(?!§)(?!\.\s[A-ZÆØÅ])[^:«]){0,160}?"
+_NO_EMBEDDED_ADDRESS_FIRST_REPEAL_TAIL = (
+    r"\s+(?:(?!§)[^:]){0,200}?("
+    + _NO_EMBEDDED_REPEAL_ADDRESS
+    + r"\s(?:oppheves|opphevast|(?:blir|vert)\s+oppheva)\.?)$"
+)
+# Groups 5 and 6 are the verb (or the nynorsk auxiliary) and the address, in
+# source order; ``_extract_no_embedded_verb_first_repeal_lead`` swaps them.
+_NO_EMBEDDED_VERB_FIRST_REPEAL_HEAD = (
+    r"^(?:"
+    + _NO_LEAD_ITEM_ORDINAL
+    + r"\s+)?I\s+(?:midlertidig\s+)?lov\s+"
+    + _NO_LAW_CITATION_DATE
+    + _NO_LAW_CITATION_NUMBER
+    + r"\s+(?:(?!§)[^:]){0,200}?\b"
+)
+_NO_EMBEDDED_VERB_FIRST_REPEAL_PATTERNS = (
+    _NO_EMBEDDED_VERB_FIRST_REPEAL_HEAD + r"(oppheves|opphevast)\s+(" + _NO_EMBEDDED_REPEAL_ADDRESS + r")\.?$",
+    _NO_EMBEDDED_VERB_FIRST_REPEAL_HEAD + r"(blir|vert)\s+(" + _NO_EMBEDDED_REPEAL_ADDRESS + r")\s+oppheva\.?$",
+)
 _NO_EMBEDDED_MULTI_ACT_PATTERNS = (
     r"^"
     + _NO_LEAD_ITEM_ORDINAL
@@ -448,6 +498,16 @@ _NO_EMBEDDED_MULTI_ACT_PATTERNS = (
     + _NO_LAW_CITATION_DATE
     + _NO_LAW_CITATION_NUMBER
     + _NO_EMBEDDED_ADDRESS_FIRST_TAIL,
+    # W-68, the address-first REPEAL: W-99's head, the repeal tail. Disjoint
+    # from every pattern above (none of them ends on a repeal verb) and from
+    # the verb-first pair, which ``_extract_no_embedded_multi_act_lead`` tries
+    # only after this tuple is exhausted.
+    r"^(?:"
+    + _NO_LEAD_ITEM_ORDINAL
+    + r"\s+)?(?:I\s+)?(?:midlertidig\s+)?lov\s+"
+    + _NO_LAW_CITATION_DATE
+    + _NO_LAW_CITATION_NUMBER
+    + _NO_EMBEDDED_ADDRESS_FIRST_REPEAL_TAIL,
     # W-28, ranked LAST and behind an explicit ``lov`` token: the same two shapes
     # for a pre-numbering act, which carries no ``nr`` to match on. Both numbered
     # patterns above are tried first, so a citation that has a number can never
@@ -5934,6 +5994,11 @@ def _iter_unstructured_no_change_groups(
     idx = 0
     active_base_id: str | None = None
     active_part_index: int | None = None
+    # W-68: the last lead that opened by naming a law no switch reader read,
+    # while the act it names differs from the one being carried. Set, it marks
+    # the carry-over stale for every citation-less lead until the next read
+    # switch or resolved part. See ``_no_lead_law_head``.
+    unread_law_head: Optional[_NOLeadLawHead] = None
     while idx < len(children):
         child = children[idx]
         section_base_id = section_base_ids[idx] if idx < len(section_base_ids) else None
@@ -5952,6 +6017,7 @@ def _iter_unstructured_no_change_groups(
             )
             if part_base_id is not None:
                 active_base_id = part_base_id
+                unread_law_head = None
         # W-39: a part the collective pre-pass already lowered is done. Its
         # announcement still sets ``active_base_id`` above (a later part with no
         # lead of its own inherits it exactly as before), but its members must
@@ -5990,6 +6056,35 @@ def _iter_unstructured_no_change_groups(
         if embedded is not None:
             lead_base_id, lead = embedded
             active_base_id = lead_base_id
+        # W-68: the stale-carry guard. A lead a switch reader read clears the
+        # mark; a lead that opens by naming a law NO reader read binds its own
+        # receipt to that law and, if it is not the law being carried, sets the
+        # mark; a citation-less lead under the mark has no base it can prove.
+        # A single declared target (``default_base_id``) is evidence of its own
+        # and is left exactly as it was: such an act's followers return to the
+        # declared law, as they already do after an embedded switch.
+        stale_after: Optional[_NOLeadLawHead] = None
+        if (
+            explicit_section_base_id is not None
+            or embedded is not None
+            or (addressed_substitution is not None and addressed_substitution.cited_base_id is not None)
+        ):
+            unread_law_head = None
+        else:
+            law_head = _no_lead_law_head(lead)
+            if law_head is not None:
+                carried_base_id = None if unread_law_head is not None else (active_base_id or section_base_id)
+                if law_head.cited_base_id is None or law_head.cited_base_id != carried_base_id:
+                    unread_law_head = law_head
+                # A head the corpus cannot resolve to an id (Lovdata omitting
+                # the number of an act that has one — "I lov 20. april 2001 om
+                # erstatning frå staten …", `2008-12-19-115`) contradicts
+                # nothing a single declared target says, so that binding stands.
+                if law_head.cited_base_id is not None or default_base_id is None:
+                    lead_base_id = law_head.cited_base_id
+            elif unread_law_head is not None and default_base_id is None:
+                stale_after = unread_law_head
+                lead_base_id = None
         payload_nodes: list[etree._Element] = []
         cursor = idx + 1
         while cursor < len(children):
@@ -6059,6 +6154,17 @@ def _iter_unstructured_no_change_groups(
                 unread=addressed_substitution.unread,
             )
             if substitution_base_id is None:
+                if stale_after is not None:
+                    _append_no_stale_carry_adjudication(
+                        adjudications_out,
+                        source_id=source_id,
+                        lead=lead,
+                        unread_law_head=stale_after,
+                        stale_base_id=active_base_id or section_base_id,
+                        detail=substitution_detail,
+                    )
+                    idx += 1
+                    continue
                 _append_no_unstructured_parse_adjudication(
                     adjudications_out,
                     kind="no_parse_unstructured_lead_base_unresolved",
@@ -6203,6 +6309,18 @@ def _iter_unstructured_no_change_groups(
                 idx = cursor
                 continue
 
+        if lead_base_id is None and stale_after is not None:
+            if _no_unstructured_lead_looks_operative(lead):
+                _append_no_stale_carry_adjudication(
+                    adjudications_out,
+                    source_id=source_id,
+                    lead=lead,
+                    unread_law_head=stale_after,
+                    stale_base_id=active_base_id or section_base_id,
+                    detail={},
+                )
+            idx += 1
+            continue
         if lead_base_id is None:
             if _no_unstructured_lead_looks_operative(lead):
                 _append_no_unstructured_parse_adjudication(
@@ -7987,6 +8105,131 @@ def _infer_no_unstructured_section_base_id(children: list[etree._Element]) -> st
     return None
 
 
+# W-68: the law a lead NAMES IN ITS HEAD, whether or not any production reads
+# the rest of the lead.
+#
+# The three switch readers above each recognise a whole CONSTRUCTION — a part
+# announcement, a nominative announcement, a self-citing replace or repeal — and
+# answer ``None`` for everything else. That left the walk unable to tell two
+# very different leads apart: one that names no law (and rightly inherits the
+# act its neighbours amend) and one that opens by naming a DIFFERENT law in a
+# spelling no reader knows. Both inherited. Measured 2026-10-01 over all 3,089
+# unstructured artifacts: 188 refusals were receipted against an act other than
+# the one their own head cites, one REPLACE landed on it
+# (`2013-06-21-100` item 23, "lov 26. mars 2010 nr. 9 om vergemål skal § 39 …
+# lyde:", lowered onto the 2008 plan- og bygningslov), and the citation-less leads
+# FOLLOWING such a head kept writing into the stale act — `2007-01-26-3` item
+# 84 ("I plan- og bygningslov 14. juni 1985 nr. 77 gjøres følgende endringer:")
+# sent that law's § 58 and § 60 into konkursloven, which has both.
+#
+# This reader therefore answers a narrower question than the three above, and
+# answers it for every lead: does the lead OPEN by naming a law? It reads the
+# head and nothing after it. The grammar is closed, and token-wise rather than
+# a regex family (five spellings of one production):
+#
+#     [ordinal] [I | Til | I endring(en|ene|a|ane) i] [qualifier] NOUN [av] DATE [nr N]
+#
+# with NOUN either bare ``lov`` or ONE compound token ending in
+# ``lov``/``loven``/``lova`` ("vegtrafikklov", "straffeloven"), and the
+# qualifier one of ``midlertidig``, ``militær``, ``Al(m)in(n)elig borge(r)lig``
+# or a coordinated first member ("plan- og"). The date must follow the noun
+# IMMEDIATELY — which is what keeps statutory prose out: "Loven trer i kraft
+# 1. januar 2005", "Reglene i lov 19. desember 1952 nr. 7 … får tilsvarende
+# anvendelse" and "Fra samme tid oppheves lov 23. juni 1995 nr. 39 …" do not
+# open with the production and are not heads. A compound noun needs its
+# number; only bare ``lov`` may be numberless (W-28's rule: without a number
+# the word is the only thing that says this is a law citation at all).
+#
+# What the walk does with an answer is the guard, and it only ever REFUSES:
+# a head no switch reader read binds the lead's OWN receipt to the act it
+# names (explicit scope is not overwritten by a carried one, AGENTS.md §2.2),
+# and — when that act differs from the one being carried — the carry-over is
+# stale for every citation-less lead after it, until the next read switch or
+# resolved part. Those followers are refused with
+# ``no_parse_unstructured_lead_base_stale_after_unread_law_head`` rather than
+# bound to either act: the unread head might be an announcement (its followers
+# belong to the cited law) or a whole-act repeal (they cannot), and this
+# reader does not know which.
+NO_PARSE_UNSTRUCTURED_LEAD_BASE_STALE_AFTER_UNREAD_LAW_HEAD = (
+    "no_parse_unstructured_lead_base_stale_after_unread_law_head"
+)
+_NO_LEAD_LAW_HEAD_PREPOSITIONS = frozenset({"i", "til"})
+_NO_LEAD_LAW_HEAD_CHANGE_NOUNS = frozenset({"endringen", "endringene", "endringa", "endringane"})
+_NO_LEAD_LAW_HEAD_QUALIFIERS = frozenset({"midlertidig", "militær"})
+_NO_LEAD_LAW_HEAD_NOUN_SUFFIXES = ("lov", "loven", "lova")
+
+
+@dataclass(frozen=True, slots=True)
+class _NOLeadLawHead:
+    """The law a lead names in its head; see the block comment above."""
+
+    # ``None`` when the head is a citation the corpus cannot resolve to an id
+    # (a numberless date no act is filed under).
+    cited_base_id: Optional[str]
+    lead: str
+
+
+def _no_lead_law_head(lead: str) -> Optional[_NOLeadLawHead]:
+    """Read the law ``lead`` opens by naming, or ``None`` if it opens otherwise."""
+    lead = _repair_no_mojibake(_normalize_space(lead))
+    # lawvm-regex: owning_parser this IS the lead law-head reader, item ordinal strip
+    tokens = re.sub(_NO_LEAD_ITEM_ORDINAL_PREFIX, "", lead).split(" ")
+    lowered = [token.lower() for token in tokens]
+    # The longest head is seven tokens before the date and five in it.
+    lowered.extend([""] * 12)
+    index = 0
+    if lowered[index] in _NO_LEAD_LAW_HEAD_PREPOSITIONS:
+        index += 1
+        if lowered[index] in _NO_LEAD_LAW_HEAD_CHANGE_NOUNS and lowered[index + 1] == "i":
+            index += 2
+    if lowered[index] in _NO_LEAD_LAW_HEAD_QUALIFIERS:
+        index += 1
+    elif lowered[index] in ("almindelig", "alminnelig", "alminelig") and lowered[index + 1] in (
+        "borgerlig",
+        "borgelig",
+    ):
+        index += 2
+    elif lowered[index].endswith("-") and lowered[index + 1] == "og":
+        index += 2
+    noun = lowered[index]
+    if not noun.isalpha() or not noun.endswith(_NO_LEAD_LAW_HEAD_NOUN_SUFFIXES):
+        return None
+    index += 1
+    if lowered[index] == "av":
+        index += 1
+    day = lowered[index].removesuffix(".")
+    month = _NORWEGIAN_MONTH_NUMBERS.get(lowered[index + 1])
+    year = lowered[index + 2].rstrip(".,:;")
+    if not (day.isdigit() and len(day) <= 2 and month is not None and year.isdigit() and len(year) == 4):
+        return None
+    number = lowered[index + 4].rstrip(".,:;")
+    if year == lowered[index + 2] and lowered[index + 3] in ("nr.", "nr") and number.isdigit():
+        return _NOLeadLawHead(cited_base_id=f"no/lov/{year}-{month}-{int(day):02d}-{int(number)}", lead=lead)
+    if noun != "lov":
+        return None
+    return _NOLeadLawHead(cited_base_id=_no_numberless_law_base_id(int(day), month, year), lead=lead)
+
+
+def _no_lead_law_head_base_id(lead: str) -> Optional[str]:
+    """The act ``lead`` opens by naming, for an announcement whose tail a reader HAS matched.
+
+    W-68. The two announcement readers find their law with
+    ``_extract_no_law_citation_base_id``, whose grammar needs the bare word
+    ``lov`` in front of the date. Lovtidend also cites by short title — "I
+    vegtrafikklov 18. juni 1965 nr. 4 gjøres følgende endringer:", "I plan- og
+    bygningslov 14. juni 1985 nr. 77 gjøres følgende endring:", "I Almindelig
+    borgerlig Straffelov 22. mai 1902 nr. 10 gjøres følgende endringer:" — and
+    there the announcement tail matched, the citation did not, and the
+    announcement silently announced nothing: its sections went to the act the
+    previous announcement named (28 such heads over 17 acts, measured
+    2026-10-01; every follower of every one of them was on the wrong law).
+    Called only as the FALLBACK of that citation search, so a lead the old
+    grammar resolves resolves exactly as before.
+    """
+    head = _no_lead_law_head(lead)
+    return head.cited_base_id if head is not None else None
+
+
 def _no_unstructured_law_switch_lead_base_id(lead: str) -> str | None:
     """Resolve the base act iff ``lead`` OPENS with a law-switch of its own.
 
@@ -8046,6 +8289,13 @@ def _no_unstructured_law_switch_lead_base_id(lead: str) -> str | None:
     section_base_id = _extract_no_section_base_id_from_lead(lead)
     if section_base_id is None:
         return None
+    if _no_lead_law_head(lead) is not None:
+        # W-68: the head reader places the citation at the very start of the
+        # lead by construction, which is the property the probe below measures
+        # — and the only way a compound-noun announcement ("I vegtrafikklov 18.
+        # juni 1965 nr. 4 gjøres følgende endringer:") can be placed at all,
+        # since neither citation pattern below matches it.
+        return section_base_id
     stripped = re.sub(_NO_LEAD_ITEM_ORDINAL_PREFIX, "", lead)
     # Recognizes nothing new: the same pattern object
     # ``_extract_no_section_base_id_from_lead`` has ALREADY matched above, run
@@ -8427,7 +8677,7 @@ def _extract_no_embedded_multi_act_lead(lead: str) -> tuple[str, str] | None:
         if match is not None:
             break
     if match is None:
-        return None
+        return _extract_no_embedded_verb_first_repeal_lead(lead)
     day = int(match.group(1))
     month = _NORWEGIAN_MONTH_NUMBERS.get(match.group(2).lower())
     year = match.group(3)
@@ -8457,6 +8707,34 @@ def _extract_no_embedded_multi_act_lead(lead: str) -> tuple[str, str] | None:
     return (f"no/lov/{year}-{month}-{day:02d}-{number}", embedded_lead)
 
 
+def _extract_no_embedded_verb_first_repeal_lead(lead: str) -> tuple[str, str] | None:
+    """W-68: ``I lov <cite> oppheves § X.`` → ``(<cited act>, "§ X oppheves.")``.
+
+    The verb-first half of the self-citing repeal (the address-first half is an
+    ordinary member of ``_NO_EMBEDDED_MULTI_ACT_PATTERNS``). The rebuilt lead
+    keeps the drafter's own verb spelling, so the citation-less production that
+    reads "§ 16 blir oppheva." reads this one too, and a spelling none of them
+    reads is refused exactly as its citation-less twin would be.
+    """
+    match = None
+    for pattern in _NO_EMBEDDED_VERB_FIRST_REPEAL_PATTERNS:
+        # lawvm-regex: owning_parser this IS the embedded multi-act lead parser, verb-first repeal
+        match = re.match(pattern, lead, re.IGNORECASE)
+        if match is not None:
+            break
+    if match is None:
+        return None
+    month = _NORWEGIAN_MONTH_NUMBERS.get(match.group(2).lower())
+    if month is None:
+        return None
+    base_id = f"no/lov/{match.group(3)}-{month}-{int(match.group(1)):02d}-{int(match.group(4))}"
+    verb = match.group(5).lower()
+    address = match.group(6).strip()
+    if verb in ("blir", "vert"):
+        return (base_id, f"{address} {verb} oppheva.")
+    return (base_id, f"{address} {verb}.")
+
+
 def _extract_no_section_base_id_from_lead(lead: str) -> str | None:
     lead = _repair_no_mojibake(lead)
     lowered = lead.lower()
@@ -8467,7 +8745,7 @@ def _extract_no_section_base_id_from_lead(lead: str) -> str | None:
     # lawvm-regex: owning_parser this IS the part-announcement lead parser
     if _NO_SECTION_INTRO_MARKER_RE.search(lowered) is None:
         return None
-    return _extract_no_law_citation_base_id(lead)
+    return _extract_no_law_citation_base_id(lead) or _no_lead_law_head_base_id(lead)
 
 
 def _extract_no_law_announcement_base_id(lead: str) -> str | None:
@@ -8487,20 +8765,27 @@ def _extract_no_law_announcement_base_id(lead: str) -> str | None:
     (`2008-03-07-4`, `2009-06-19-74`).
 
     Only the amending tail makes this a part announcement. A bare citation
-    ("Lov 22. mai 1902 nr. 13 § 107 oppheves.", "Lov … om domstolene") names a
+    ("Lov 17. juni 2005 nr. 103 … oppheves.", "Lov … om domstolene") names a
     law the part acts *on as a whole* and introduces no items to bind, so it
-    must not seed the part's base act.
+    must not seed the part's base act. (A self-citing ``§`` repeal — "Lov 22.
+    mai 1902 nr. 13 § 107 oppheves." — is not this reader's either: since W-68
+    it is the embedded extractor's, as its replace twin always was.)
     """
     lead = _repair_no_mojibake(lead)
     # Item ordinals ("1.", "1 a.") prefix announcements inside enumerated lists.
     lowered = re.sub(_NO_LEAD_ITEM_ORDINAL_PREFIX, "", lead.lower()).strip()
     # lawvm-regex: owning_parser this IS the part-announcement lead parser
     if not re.match(r"^lov[ai]?\b", lowered):
-        return None
+        # W-68: the nominative announcement under a COMPOUND law noun
+        # ("Straffeprosesslova 22. mai 1981 nr. 25 vert endra slik:",
+        # `2005-12-21-131`). The head reader decides what a law noun is; the
+        # preposition-led spellings stay the ``I lov …`` resolver's.
+        if lowered.startswith(("i ", "til ")) or _no_lead_law_head(lead) is None:
+            return None
     # lawvm-regex: owning_parser this IS the part-announcement lead parser
     if not re.search(r"\b(?:endres|endras|endrast|endret|endra|endrar)\s+slik\s*:?\s*$", lowered):
         return None
-    return _extract_no_law_citation_base_id(lead)
+    return _extract_no_law_citation_base_id(lead) or _no_lead_law_head_base_id(lead)
 
 
 def _no_numberless_law_base_id(day: int, month: str, year: str) -> str | None:
@@ -8630,6 +8915,55 @@ def _append_no_unstructured_parse_adjudication(
             base_id=base_id,
             detail=detail,
         ),
+    )
+
+
+def _append_no_stale_carry_adjudication(
+    adjudications_out: Optional[List[CompileAdjudication]],
+    *,
+    source_id: str,
+    lead: str,
+    unread_law_head: _NOLeadLawHead,
+    stale_base_id: Optional[str],
+    detail: dict[str, object],
+) -> None:
+    """W-68: refuse a citation-less lead that follows an unread law head.
+
+    Two receipts, because they are two different states. With a base in hand
+    the lead WOULD have lowered, onto an act a later head contradicts — the
+    correctness class, its own kind. With none it was unresolved before this
+    guard existed and still is; it keeps that kind and gains the head that,
+    once read, would bind it.
+    """
+    head_detail = dict(
+        detail,
+        unread_law_head=unread_law_head.lead[:400],
+        unread_law_head_cited_base_id=unread_law_head.cited_base_id or "",
+    )
+    if not stale_base_id:
+        _append_no_unstructured_parse_adjudication(
+            adjudications_out,
+            kind="no_parse_unstructured_lead_base_unresolved",
+            message="Norway unstructured amendment lead looked operative, but no base act could be resolved.",
+            source_id=source_id,
+            lead=lead,
+            base_id="",
+            detail=head_detail,
+        )
+        return
+    _append_no_unstructured_parse_adjudication(
+        adjudications_out,
+        kind=NO_PARSE_UNSTRUCTURED_LEAD_BASE_STALE_AFTER_UNREAD_LAW_HEAD,
+        message=(
+            "Norway unstructured amendment lead names no law of its own, and the act it would "
+            "inherit is contradicted by an earlier lead that opens by naming another law in a "
+            "spelling no switch reader reads; nothing was lowered. Teach a switch reader the "
+            "unread head's construction to bind this lead."
+        ),
+        source_id=source_id,
+        lead=lead,
+        base_id="",
+        detail=dict(head_detail, stale_base_id=stale_base_id),
     )
 
 

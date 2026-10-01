@@ -938,6 +938,17 @@ def test_corpus_no_consolidation_inventory_counters_and_would_be_ceiling() -> No
     # ``blocked_contingent`` because the act that held them there is now dated —
     # through the section-scoped lane's per-binding dates or the title-cited
     # citation form. The 90-law sum and ``None`` (2,557) are unmoved.
+    # 64 -> 63 / 26 -> 27 at W-68 (2026-10-01), ``None`` unmoved at 2,557 and
+    # the sum 90 -> 90: three laws move, and — as at W-61 — through BINDINGS,
+    # not dates. ``no/lov/2009-06-19-101`` (mineralloven) fully_replayable ->
+    # blocked_contingent: ``no/lovtid/2017-05-11-26`` item 23's § 53 repeal and
+    # relabel are its own now (they had been lowered onto naturmangfoldloven,
+    # item 22's act), and that act is undated for it. ``no/lov/2009-02-27-10``
+    # None -> fully_replayable: ``2009-06-19-103`` item 27's insert names it and
+    # had ridden on ``2004-12-17-101``. ``no/lov/2001-06-15-62`` fully_replayable
+    # -> None: its only binding was ``2001-12-14-98``'s citation-less leads under
+    # a bare title heading naming domstolloven, which the stale-carry guard now
+    # refuses. Same -1 as ``test_norway_verify.py``'s ``would_be_candidates``.
     assert would_be == Counter(
-        {"None": 2557, "fully_replayable": 64, "blocked_contingent": 26}
+        {"None": 2557, "fully_replayable": 63, "blocked_contingent": 27}
     )

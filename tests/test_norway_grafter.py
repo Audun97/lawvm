@@ -55,6 +55,7 @@ from lawvm.norway.grafter import (
     NO_PARSE_ADDRESSED_SUBSTITUTION_ADDRESS_LIST_UNRESOLVED,
     NO_PARSE_ADDRESSED_SUBSTITUTION_PAIR_UNRESOLVED,
     NO_PARSE_ADDRESSED_SUBSTITUTION_PATH_UNRESOLVED,
+    NO_PARSE_UNSTRUCTURED_LEAD_BASE_STALE_AFTER_UNREAD_LAW_HEAD,
     NO_REPLAY_SUBSTITUTION_TERM_NOT_UNIQUELY_PRESENT,
     NO_SUBSTITUTION_PROVENANCE_TAG,
     NOHeadingGroup,
@@ -73,6 +74,7 @@ from lawvm.norway.grafter import (
     _no_rettelse_item_target_from_lead,
     _normalize_no_chapter_scoped_section_lead,
     _no_element_lead_text,
+    _no_lead_law_head,
     _no_unstructured_law_switch_lead_base_id,
     _no_antecedent_ledd_label,
     _no_antecedent_section_label,
@@ -5566,6 +5568,10 @@ def test_no_gjer_ein_folgjande_witness_enters_the_index_at_all() -> None:
         "no/lov/1997-02-28-19": 14,
         "no/lov/2005-06-17-58": 3,
         "no/lov/2005-06-17-62": 5,
+        # W-68: "I lov 29. april 2005 nr. 20 om innkreving av underholdsbidrag mv.
+        # blir § 37 tredje ledd oppheva." — a verb-first self-citing repeal, now a
+        # law switch of its own. It had been refused against ``2005-06-17-58``.
+        "no/lov/2005-04-29-20": 1,
     }
     assert [
         (op.action, op.target.path)
@@ -7373,7 +7379,13 @@ def test_no_w35_w21_section_412_witness_is_byte_identical() -> None:
     # 227 -> 228 at W-98 (h): ``no/lov/1961-06-09-1`` gains a group of its own
     # because the unqualified self-addressed shift "§ 33 tredje ledd blir nytt
     # annet ledd." is the first op this act lowers for it.
-    assert len(grouped) == 228
+    # 228 -> 229 at W-68 (2026-10-01), ops unmoved at 533: ONE op changes its
+    # base act and nothing else moves. Item 61 opens "I vegloven 21. juni 1963
+    # nr. 23 gjøres følgende endring:" — a law cited by short title, which the
+    # announcement reader did not resolve — so its "§ 61 annet ledd oppheves."
+    # rode on item 60's act (``no/lov/1963-06-21-12``, which keeps its own § 4
+    # op). It is now vegloven's, the first op this act lowers for it.
+    assert len(grouped) == 229
     # 484 -> 493 at W-66: nine sibling-set ledd relabel legs across six of this
     # act's consequential items (straffeloven 2005 § 5, straffeprosessloven
     # § 13, § 41 a, § 32, § 47, § 50). The group COUNT is unmoved, which is the
@@ -7444,7 +7456,10 @@ def test_no_w35_w21_section_412_witness_is_byte_identical() -> None:
     # W-104 re-digest: three text-replaces gain a target path and one leaves
     # the stream (above). A text-replace carries no payload, so every payload
     # the digest already held is byte-identical under it.
-    assert digest.hexdigest()[:32] == "838ad2fe0896e01651398ebf4f7ce9df"
+    # W-68 re-digest: the base act is part of the digested key, so the one
+    # re-bound repeal above moves it. A repeal carries no payload; every
+    # payload the digest already held is byte-identical under it.
+    assert digest.hexdigest()[:32] == "304830c51078ade3a754c922f4b7b221"
 
 
 # ---------------------------------------------------------------------------
@@ -14089,8 +14104,9 @@ def test_no_address_after_citation_lead_prepositional_and_insert_forms() -> None
 
 
 def test_no_address_after_citation_lead_does_not_fire_on_nearby_shapes() -> None:
-    # A bare citation acted on as a whole, and a part announcement: neither closes with ``skal lyde``.
-    assert _extract_no_embedded_multi_act_lead("Lov 22. mai 1902 nr. 13 § 107 oppheves.") is None
+    # A whole-act repeal and a part announcement: neither closes with ``skal lyde``. (The ``§`` repeal
+    # that stood here — "Lov 22. mai 1902 nr. 13 § 107 oppheves." — is W-68's own production now.)
+    assert _extract_no_embedded_multi_act_lead("Lov 22. mai 1902 nr. 13 om militær straff oppheves.") is None
     assert _extract_no_embedded_multi_act_lead("Lov 20. mai 2005 nr. 28 om straff endres slik:") is None
     # A W-36 run-on PART ANNOUNCEMENT: the colon before the ``§`` keeps it the announcement resolver's.
     assert (
@@ -15001,3 +15017,517 @@ def test_no_w104_ops_apply_through_the_w69a_seam_including_a_sentence_path() -> 
     # The six addresses this statute does not carry (§§ 4-3, 4-5, 10-3, 10-4)
     # take the ordinary unresolved-target receipt, as any addressed op would.
     assert len([a for a in adjudications if a.kind == "replay_unresolved_target"]) == 6
+
+
+# ── W-68: the law a lead names in its head ───────────────────────────────────
+# A lead that OPENS by naming a law is scoped to that law by its own text. Until
+# W-68 the walk knew that only for the constructions a switch reader read whole
+# (a part announcement, a self-citing REPLACE); every other spelling was walked
+# past, receipted against the act the cursor still held, and — the correctness
+# half — left that stale act in force for every citation-less lead after it.
+#
+# Three things land together, and the tests follow them in order: two new
+# self-citing REPEAL spellings become law switches of their own; the two
+# announcement readers accept a law cited by a compound noun; and whatever head
+# is STILL unread stops the carry-over instead of feeding it.
+
+
+def _w68_amendment(
+    *nodes: tuple[str, str],
+    targets: Sequence[str] = ("lov/1984-06-08-58", "lov/1985-06-14-77"),
+) -> bytes:
+    articles = "\n        ".join(f'<article class="{cls}">{text}</article>' for cls, text in nodes)
+    declared = "".join(f"<li>{target}</li>" for target in targets)
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="changesToDocuments"><ul>{declared}</ul></dd>
+    <dd class="dateInForce">2020-01-01</dd>
+    <main>
+      <section data-name="kapI">
+        {articles}
+      </section>
+    </main>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def _w68_ops(*nodes: tuple[str, str], targets: Sequence[str] = ("lov/1984-06-08-58", "lov/1985-06-14-77")):
+    adjudications: list[CompileAdjudication] = []
+    grouped = iter_no_document_change_ops(
+        _w68_amendment(*nodes, targets=targets), "no/lovtid/2020-01-01-1", adjudications_out=adjudications
+    )
+    return {base_id: [(op.action, op.target.path) for op in ops] for base_id, ops in grouped}, adjudications
+
+
+_W68_KONKURS = "no/lov/1984-06-08-58"
+_W68_KONKURS_ANNOUNCEMENT = ("legalP", "82. I lov 8. juni 1984 nr. 58 om gjeldsforhandling og konkurs gjøres følgende endringer:")
+_W68_KONKURS_ITEM = (
+    ("defaultP", "§ 154 sjuende ledd skal lyde:"),
+    ("legalP", "Retten kan forlenge fristen."),
+)
+
+
+@pytest.mark.parametrize(
+    ("lead", "expected"),
+    [
+        # Address first — W-99's head with a repeal tail (`2001-06-15-53` item 3, `2002-06-21-38`).
+        (
+            "3. Lov 5. august 1994 nr. 55 om vern mot smittsomme sykdommer § 8-2 oppheves.",
+            ("no/lov/1994-08-05-55", "§ 8-2 oppheves."),
+        ),
+        (
+            "Lov 31. mai 1974 nr. 19 om konsesjon og om forkjøpsrett for det offentlige ved erverv av fast "
+            "eiendom (konsesjonsloven) § 2 femte ledd vert oppheva.",
+            ("no/lov/1974-05-31-19", "§ 2 femte ledd vert oppheva."),
+        ),
+        ("Lov 22. mai 1902 nr. 13 § 107 oppheves.", ("no/lov/1902-05-22-13", "§ 107 oppheves.")),
+        # Verb first — the same sentence with the law fronted (`2002-06-21-34` item 10, `2001-05-11-19`).
+        (
+            "10. I lov 21. desember 2000 nr. 105 om opplysningsplikt og angrerett mv. ved fjernsalg og salg "
+            "utenfor fast utsalgssted (angrerettloven) oppheves § 6 bokstav e annet punktum.",
+            ("no/lov/2000-12-21-105", "§ 6 bokstav e annet punktum oppheves."),
+        ),
+        (
+            "I lov 7. juli 1967 nr. 13 om husleieregulering m.v. for boliger blir § 16 oppheva.",
+            ("no/lov/1967-07-07-13", "§ 16 blir oppheva."),
+        ),
+        ("12. I lov 13. april 2007 nr. 14 oppheves § 3.", ("no/lov/2007-04-13-14", "§ 3 oppheves.")),
+        # ``§§`` opens a list; the section families decide what to do with it (`2020-03-27-15`).
+        ("I lov 20. mai 2005 nr. 28 om straff oppheves §§ 207 og 208.", ("no/lov/2005-05-20-28", "§§ 207 og 208 oppheves.")),
+    ],
+)
+def test_no_w68_self_citing_repeal_is_an_embedded_lead(lead: str, expected: tuple[str, str]) -> None:
+    assert _extract_no_embedded_multi_act_lead(lead) == expected
+    # A switch reader read it, so it is a cursor boundary too (W-34's predicate).
+    assert _no_unstructured_law_switch_lead_base_id(lead) == expected[0]
+
+
+@pytest.mark.parametrize(
+    "lead",
+    [
+        # A whole-act repeal names no ``§``: the part acts on the law as a whole.
+        "2. Lov 23. mai 1980 nr. 11 om stiftelser m.m. oppheves.",
+        "Lov 26. juni 1998 nr. 43 om åpningstider for utsalgssteder (åpningstidsloven) blir oppheva.",
+        # The repeal of a CHANGE: rebuilt as "§ 438 annet ledd oppheves." it would repeal the provision itself.
+        "I lov 15. juni 2001 nr. 63 om endringer i straffeprosessloven mv. (gjenopptakelse) oppheves endringen i "
+        "lov 22. mai 1981 nr. 25 om rettergangsmåten i straffesaker § 438 annet ledd.",
+        "I lov 17. juni 2005 nr. 90 om mekling og rettergang i sivile tvister § 37-3 nr. 52 blir opphevinga av "
+        "lov 15. desember 1967 nr. 9 om patenter § 52 femte ledd oppheva.",
+        # A part of an amending act is not a ``§`` address.
+        "I lov 7. januar 2005 nr. 2 om endringer i lov 24. juni 1994 nr. 39 om sjøfarten (sjøloven) og i enkelte "
+        "andre lover oppheves del VII.",
+        # A run-on: the address span may not cross a sentence end (`2003-06-20-45` item 120).
+        "120. I lov 25. juni 1999 nr. 46 om finansavtaler og finansoppdrag blir § 1 andre ledd bokstav g oppheva. "
+        "Bokstav f skal lyde: institusjon som loven gjelder for etter forskrift.",
+        # A colon belongs to an announcement, never to this production (`2022-12-20-121` item 2).
+        "2. I lov 24. juni 2011 nr. 30 om kommunale helse- og omsorgstjenester m.m. oppheves: § 3-7.",
+        # Verb first needs the preposition; the nominative with a fronted verb is not Norwegian.
+        "Lov 13. april 2007 nr. 14 oppheves § 3.",
+    ],
+)
+def test_no_w68_self_citing_repeal_does_not_read_nearby_shapes(lead: str) -> None:
+    assert _extract_no_embedded_multi_act_lead(lead) is None
+
+
+def test_no_w68_verb_first_repeal_lowers_onto_the_cited_act_and_switches() -> None:
+    """Reduced from `no/lovtid/2017-05-11-26` items 22–23.
+
+    Before W-68 item 23 was refused against naturmangfoldloven (item 22's act)
+    and the ``Nåværende § 53 …`` relabel that follows it lowered there — a
+    renumber on a law the drafter never named.
+    """
+    grouped, adjudications = _w68_ops(
+        ("legalP", "22. I lov 19. juni 2009 nr. 100 om forvaltning av naturens mangfold skal § 62 tredje ledd lyde:"),
+        ("legalP", "Kongen kan gi forskrift."),
+        ("defaultP", "23. I lov 19. juni 2009 nr. 101 om erverv og utvinning av mineralressurser oppheves § 53 første ledd."),
+        ("defaultP", "Nåværende § 53 annet og tredje ledd blir første og annet ledd."),
+        targets=("lov/2009-06-19-100", "lov/2009-06-19-101"),
+    )
+    assert grouped == {
+        "no/lov/2009-06-19-100": [(StructuralAction.REPLACE, (("section", "62"), ("subsection", "3")))],
+        "no/lov/2009-06-19-101": [
+            (StructuralAction.REPEAL, (("section", "53"), ("subsection", "1"))),
+            (StructuralAction.RENUMBER, (("section", "53"), ("subsection", "2"))),
+            (StructuralAction.RENUMBER, (("section", "53"), ("subsection", "3"))),
+        ],
+    }
+    assert adjudications == []
+
+
+@pytest.mark.parametrize(
+    ("lead", "cited"),
+    [
+        ("83. Lov 7. juni 1985 nr. 51 om utmarkskommisjon for Nordland og Troms oppheves.", "no/lov/1985-06-07-51"),
+        ("84. I plan- og bygningslov 14. juni 1985 nr. 77 gjøres følgende endringer:", "no/lov/1985-06-14-77"),
+        ("I Almindelig borgerlig Straffelov 22. mai 1902 nr. 10 gjøres følgende endringer:", "no/lov/1902-05-22-10"),
+        ("1. I Almindelig borgelig Straffelov 22. mai 1902 nr. 10 (straffeloven) gjøres følgende endring:", "no/lov/1902-05-22-10"),
+        ("I militær straffelov 22. mai 1902 nr. 13 gjøres denne endringen:", "no/lov/1902-05-22-13"),
+        ("I vegtrafikklov 18. juni 1965 nr. 4 gjer ein denne endringa:", "no/lov/1965-06-18-4"),
+        ("Straffeprosesslova 22. mai 1981 nr. 25 vert endra slik:", "no/lov/1981-05-22-25"),
+        ("121. Til lov 2. juli 1999 nr. 62 om etablering og gjennomføring av psykisk helsevern blir desse endringane gjort:", "no/lov/1999-07-02-62"),
+        ("I midlertidig lov 29. juni 1951 nr. 34 om tillegg til lover av 13. desember 1946 skal del III nr. 4 lyde:", "no/lov/1951-06-29-34"),
+        ("I endringene i fengselsloven 12. desember 1958 nr. 7 gjøres følgende endringer:", "no/lov/1958-12-12-7"),
+        ("I lov av 13. juni 1975 nr. 39 om utlevering av lovbrytere m.v. skal § 9 lyde:", "no/lov/1975-06-13-39"),
+        ("23. lov 26. mars 2010 nr. 9 om vergemål skal § 39 første ledd bokstav e lyde:", "no/lov/2010-03-26-9"),
+        ("2. I lov 26. juni 1992 nr. 86 om tvangsfullbyrdelse:", "no/lov/1992-06-26-86"),
+        # The pre-2001 house style drops the day's period and the ``nr`` period (W-99).
+        ("59. I lov 4 desember 1992 nr 127 om kringkasting skal § 6-1 første ledd annet punktum lyde:", "no/lov/1992-12-04-127"),
+        # Numberless, on a date the corpus attests as a pre-numbering act (W-28).
+        ("I lov 10. februar 1967 om behandlingsmåten i forvaltningssaker (forvaltningsloven) skal § 19 lyde:", "no/lov/1967-02-10-0"),
+    ],
+)
+def test_no_w68_lead_law_head_reads_the_law_a_lead_opens_by_naming(lead: str, cited: str) -> None:
+    head = _no_lead_law_head(lead)
+    assert head is not None
+    assert head.cited_base_id == cited
+
+
+def test_no_w68_lead_law_head_is_unresolved_for_an_unattested_numberless_date() -> None:
+    """Lovdata omitting the number of an act that has one (`2008-12-19-115`): a head, and no id."""
+    head = _no_lead_law_head(
+        "I lov 20. april 2001 om erstatning frå staten for personskade valda ved straffbar handling m.m. "
+        "(valdsoffererstatningslova) skal § 11 første ledd lyde:"
+    )
+    assert head is not None
+    assert head.cited_base_id is None
+
+
+@pytest.mark.parametrize(
+    "lead",
+    [
+        "§ 5 skal lyde:",
+        "Nåværende § 53 annet og tredje ledd blir første og annet ledd.",
+        # A law named anywhere but the head is statutory prose or an address, never a head.
+        "Loven trer i kraft 1. januar 2005.",
+        "Reglene i lov 19. desember 1952 nr. 7 om lønnsnemnd i arbeidstvister får tilsvarende anvendelse.",
+        "Fra samme tid oppheves lov 23. juni 1995 nr. 39 om telekommunikasjon (teleloven).",
+        "Selskapet er undergitt lov 13. juni 1997 nr. 44 om aksjeselskaper (aksjeloven).",
+        "Endringer i følgende lover: Lov 26. juni 1992 nr. 86 om tvangsfullbyrdelse og midlertidig sikring.",
+        "I § 3 skal henvisningen til lov 5. mai 2000 nr. 3 endres.",
+        "I avsnitt I skal andre ledd i endringa av § 37 d i lov 24. juni 1988 nr. 64 om utlendingers adgang lyde:",
+        # The noun must end in ``lov``/``loven``/``lova``, and a compound must carry its number.
+        "I vegtrafikken 18. juni 1965 nr. 4 gjøres følgende endringer:",
+        "Straffeloven 22. mai 1902 endres slik:",
+        # The date must follow the noun immediately.
+        "I lov om endring i lov 6. mai 1988 nr. 22 om lønnsplikt under permittering gjøres følgende endringer:",
+        "Lov 4 dsm 1992 nr 127 om kringkasting",
+        "",
+        "I",
+        "Lov",
+    ],
+)
+def test_no_w68_lead_law_head_does_not_read_nearby_shapes(lead: str) -> None:
+    assert _no_lead_law_head(lead) is None
+
+
+def test_no_w68_stale_carry_is_refused_after_an_unread_law_head() -> None:
+    """The guard, through the production path. Reduced from `no/lovtid/2007-01-26-3` items 82–84.
+
+    Item 83 repeals a whole act — no switch reader reads that — and item 84
+    announces plan- og bygningsloven by a tail outside the closed set. Before
+    W-68 both were walked past and § 58 / § 60 were REPLACEd in konkursloven,
+    which has both. Now the first head binds its own receipt to the act it
+    names and marks the carry-over stale; the leads that follow are refused
+    with the head, its act and the stale act on the receipt.
+    """
+    grouped, adjudications = _w68_ops(
+        _W68_KONKURS_ANNOUNCEMENT,
+        *_W68_KONKURS_ITEM,
+        ("defaultP", "83. Lov 7. juni 1985 nr. 51 om utmarkskommisjon for Nordland og Troms oppheves."),
+        ("defaultP", "84. I lov 14. juni 1985 nr. 77 om plan- og bygningssaker foretas følgende rettelser:"),
+        ("defaultP", "§ 58 første ledd skal lyde:"),
+        ("legalP", "Kommunen kan gi pålegg."),
+        ("defaultP", "§ 60 annet ledd skal lyde:"),
+        ("legalP", "Pålegget kan påklages."),
+    )
+    assert grouped == {_W68_KONKURS: [(StructuralAction.REPLACE, (("section", "154"), ("subsection", "7")))]}
+    assert [(item.kind, item.detail["base_id"]) for item in adjudications] == [
+        ("no_parse_unstructured_lead_unmatched", "no/lov/1985-06-07-51"),
+        (NO_PARSE_UNSTRUCTURED_LEAD_BASE_STALE_AFTER_UNREAD_LAW_HEAD, ""),
+        (NO_PARSE_UNSTRUCTURED_LEAD_BASE_STALE_AFTER_UNREAD_LAW_HEAD, ""),
+    ]
+    stale = adjudications[1].detail
+    assert stale["rule_id"] == NO_PARSE_UNSTRUCTURED_LEAD_BASE_STALE_AFTER_UNREAD_LAW_HEAD
+    assert stale["phase"] == "parse"
+    assert stale["strict_disposition"] == "block"
+    assert stale["source_excerpt"] == "§ 58 første ledd skal lyde:"
+    # The LATEST unread head is the one named: item 84 displaced item 83's.
+    assert stale["unread_law_head"].startswith("84. I lov 14. juni 1985 nr. 77")
+    assert stale["unread_law_head_cited_base_id"] == "no/lov/1985-06-14-77"
+    assert stale["stale_base_id"] == _W68_KONKURS
+
+
+def test_no_w68_a_read_switch_clears_the_stale_mark() -> None:
+    grouped, adjudications = _w68_ops(
+        _W68_KONKURS_ANNOUNCEMENT,
+        ("defaultP", "83. Lov 7. juni 1985 nr. 51 om utmarkskommisjon for Nordland og Troms oppheves."),
+        ("legalP", "84. I lov 14. juni 1985 nr. 77 om plan- og bygningssaker gjøres følgende endringer:"),
+        ("defaultP", "§ 58 første ledd skal lyde:"),
+        ("legalP", "Kommunen kan gi pålegg."),
+    )
+    assert grouped == {"no/lov/1985-06-14-77": [(StructuralAction.REPLACE, (("section", "58"), ("subsection", "1")))]}
+    assert [item.kind for item in adjudications] == ["no_parse_unstructured_lead_unmatched"]
+
+
+def test_no_w68_guard_does_not_fire_when_the_head_names_the_carried_act() -> None:
+    """An unread head that names the act already in force contradicts nothing."""
+    grouped, adjudications = _w68_ops(
+        _W68_KONKURS_ANNOUNCEMENT,
+        ("defaultP", "Lov 8. juni 1984 nr. 58 om gjeldsforhandling og konkurs (konkursloven):"),
+        *_W68_KONKURS_ITEM,
+    )
+    assert grouped == {_W68_KONKURS: [(StructuralAction.REPLACE, (("section", "154"), ("subsection", "7")))]}
+    assert adjudications == []
+
+
+def test_no_w68_guard_ignores_a_law_named_outside_the_head() -> None:
+    """Statutory prose citing another law is not a head; the carry-over stands."""
+    grouped, adjudications = _w68_ops(
+        _W68_KONKURS_ANNOUNCEMENT,
+        ("defaultP", "Reglene i lov 14. juni 1985 nr. 77 om plan- og bygningssaker får tilsvarende anvendelse."),
+        *_W68_KONKURS_ITEM,
+    )
+    assert grouped == {_W68_KONKURS: [(StructuralAction.REPLACE, (("section", "154"), ("subsection", "7")))]}
+    assert adjudications == []
+
+
+def test_no_w68_guard_leaves_a_single_declared_target_alone() -> None:
+    """One declared target is evidence of its own: its followers bind to it, as after an embedded switch."""
+    grouped, adjudications = _w68_ops(
+        ("defaultP", "1. Lov 7. juni 1985 nr. 51 om utmarkskommisjon for Nordland og Troms oppheves."),
+        *_W68_KONKURS_ITEM,
+        targets=("lov/1984-06-08-58",),
+    )
+    assert grouped == {_W68_KONKURS: [(StructuralAction.REPLACE, (("section", "154"), ("subsection", "7")))]}
+    # The unread head's own receipt is still bound to the act it names, not to the declared one.
+    assert [(item.kind, item.detail["base_id"]) for item in adjudications] == [
+        ("no_parse_unstructured_lead_unmatched", "no/lov/1985-06-07-51")
+    ]
+
+
+def test_no_w68_follower_with_nothing_to_inherit_stays_base_unresolved_and_names_the_head() -> None:
+    """No base was carried, so nothing is stale: the old kind, plus the head that would bind it."""
+    grouped, adjudications = _w68_ops(
+        ("defaultP", "2. I lov 26. juni 1992 nr. 86 om tvangsfullbyrdelse:"),
+        ("defaultP", "§ 7-20 nytt tiende ledd skal lyde:"),
+        ("legalP", "Namsmannen kan gi pålegg."),
+        targets=(),
+    )
+    assert grouped == {}
+    assert [item.kind for item in adjudications] == ["no_parse_unstructured_lead_base_unresolved"]
+    assert adjudications[0].detail["unread_law_head"] == "2. I lov 26. juni 1992 nr. 86 om tvangsfullbyrdelse:"
+    assert adjudications[0].detail["unread_law_head_cited_base_id"] == "no/lov/1992-06-26-86"
+    assert "stale_base_id" not in adjudications[0].detail
+
+
+def test_no_w68_unread_head_binds_its_own_lead_to_the_act_it_names() -> None:
+    """Reduced from `no/lovtid/2013-06-21-100` item 23.
+
+    "lov" in lower case and no preposition: no embedded pattern reads it, so the
+    REPLACE landed on item 22's act (plan- og bygningsloven 2008). The section
+    families read the lead regardless of its head; the head decides the law.
+    """
+    grouped, adjudications = _w68_ops(
+        ("legalP", "22. I lov 27. juni 2008 nr. 71 om planlegging og byggesaksbehandling skal § 12-7 annet ledd lyde:"),
+        ("legalP", "Departementet kan gi forskrift."),
+        ("defaultP", "23. lov 26. mars 2010 nr. 9 om vergemål skal § 39 første ledd lyde:"),
+        ("legalP", "Vergen kan kreve sak etter jordskiftelova."),
+        targets=("lov/2008-06-27-71", "lov/2010-03-26-9"),
+    )
+    assert grouped == {
+        "no/lov/2008-06-27-71": [(StructuralAction.REPLACE, (("section", "12-7"), ("subsection", "2")))],
+        "no/lov/2010-03-26-9": [(StructuralAction.REPLACE, (("section", "39"), ("subsection", "1")))],
+    }
+    assert adjudications == []
+
+
+def test_no_w68_compound_noun_announcement_is_a_law_switch() -> None:
+    """Reduced from `no/lovtid/2002-06-28-54`: four parts, each announced by short title.
+
+    The announcement tail matched; the citation grammar wanted the bare word
+    ``lov`` before the date and did not. Every part's sections went to the act
+    the first resolvable announcement named.
+    """
+    assert _extract_no_section_base_id_from_lead(
+        "I utlendingsloven 24. juni 1988 nr. 64 gjøres følgende endringer:"
+    ) == "no/lov/1988-06-24-64"
+    assert _extract_no_section_base_id_from_lead(
+        "84. I plan- og bygningslov 14. juni 1985 nr. 77 gjøres følgende endringer:"
+    ) == "no/lov/1985-06-14-77"
+    assert _extract_no_law_announcement_base_id(
+        "Straffeprosesslova 22. mai 1981 nr. 25 vert endra slik:"
+    ) == "no/lov/1981-05-22-25"
+    # The tail is still the guard: a compound noun does not make a bare title an announcement.
+    assert _extract_no_section_base_id_from_lead("I utlendingsloven 24. juni 1988 nr. 64 § 29:") is None
+    assert _extract_no_law_announcement_base_id("Straffeprosesslova 22. mai 1981 nr. 25:") is None
+    # And a lead the old citation grammar resolves resolves to the same act as before.
+    assert _extract_no_section_base_id_from_lead(
+        "I lov 24. juni 1988 nr. 64 om utlendingers adgang til riket gjøres følgende endringer:"
+    ) == "no/lov/1988-06-24-64"
+
+    grouped, adjudications = _w68_ops(
+        ("legalP", "I lov 3. mars 1961 nr. 1 om varemerker gjøres følgende endring:"),
+        ("defaultP", "§ 4 annet ledd skal lyde:"),
+        ("legalP", "Første tekst."),
+        ("legalP", "I utlendingsloven 24. juni 1988 nr. 64 gjøres følgende endringer:"),
+        ("defaultP", "§ 29 annet ledd første punktum skal lyde:"),
+        ("legalP", "Andre tekst."),
+        ("legalP", "Straffeprosesslova 22. mai 1981 nr. 25 vert endra slik:"),
+        ("defaultP", "§ 100 første ledd skal lyde:"),
+        ("legalP", "Tredje tekst."),
+        targets=("lov/1961-03-03-1", "lov/1988-06-24-64", "lov/1981-05-22-25"),
+    )
+    assert grouped == {
+        "no/lov/1961-03-03-1": [(StructuralAction.REPLACE, (("section", "4"), ("subsection", "2")))],
+        "no/lov/1988-06-24-64": [
+            (StructuralAction.REPLACE, (("section", "29"), ("subsection", "2"), ("sentence", "1")))
+        ],
+        "no/lov/1981-05-22-25": [(StructuralAction.REPLACE, (("section", "100"), ("subsection", "1")))],
+    }
+    assert adjudications == []
+
+
+def test_no_w68_new_patterns_stay_linear_on_adversarial_leads() -> None:
+    """AGENTS.md §2.4: a worst-case lead for the tempered title and address spans."""
+    import time
+
+    head = "12. I lov 13. april 2007 nr. 14 om "
+    worst = [
+        head + "tittel " * 4000 + "oppheves",
+        head + "blir " * 4000 + "§ 3",
+        head + "x" * 30000 + " § 3 " + "ledd " * 4000,
+        head + ("oppheves § 3 annet ledd. A " * 2000),
+        "I plan- og " * 6000 + "bygningslov 14. juni 1985 nr. 77",
+    ]
+    started = time.perf_counter()
+    for lead in worst:
+        assert _extract_no_embedded_multi_act_lead(lead) is None
+        _no_lead_law_head(lead)
+    assert time.perf_counter() - started < 2.0
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w68_plan_og_bygningsloven_no_longer_lands_on_konkursloven() -> None:
+    """W-68 corpus witness: `no/lovtid/2007-01-26-3` items 82–84 (tvisteloven's consequential list).
+
+    "84. I plan- og bygningslov 14. juni 1985 nr. 77 gjøres følgende endringer:"
+    announced nothing, and § 58 første ledd / § 60 annet ledd were REPLACEd in
+    konkursloven — item 82's act, which has a § 58 and a § 60 of its own.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2007-01-26-3", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+    grouped = dict(iter_no_document_change_ops(html_bytes, "no/lovtid/2007-01-26-3"))
+
+    assert [(op.action, op.target.path) for op in grouped["no/lov/1985-06-14-77"]] == [
+        (StructuralAction.REPLACE, (("section", "58"), ("subsection", "1"))),
+        (StructuralAction.REPLACE, (("section", "60"), ("subsection", "2"))),
+    ]
+    konkurs_sections = {op.target.path[0] for op in grouped["no/lov/1984-06-08-58"]}
+    assert ("section", "58") not in konkurs_sections
+    assert ("section", "60") not in konkurs_sections
+    # The same act's two other short-title announcements (items 45 and 63).
+    assert ("section", "31a") in {op.target.path[0] for op in grouped["no/lov/1965-06-18-4"]}
+    assert ("section", "50") in {op.target.path[0] for op in grouped["no/lov/1975-05-30-18"]}
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w68_mineralloven_repeal_and_relabel_leave_naturmangfoldloven() -> None:
+    """W-68 corpus witness: `no/lovtid/2017-05-11-26` item 23, the verb-first repeal and its follower."""
+    html_bytes = load_no_amendment_bytes("no/lovtid/2017-05-11-26", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+    grouped = dict(iter_no_document_change_ops(html_bytes, "no/lovtid/2017-05-11-26"))
+
+    assert [(op.action, op.target.path) for op in grouped["no/lov/2009-06-19-101"]] == [
+        (StructuralAction.REPEAL, (("section", "53"), ("subsection", "1"))),
+        (StructuralAction.RENUMBER, (("section", "53"), ("subsection", "2"))),
+        (StructuralAction.RENUMBER, (("section", "53"), ("subsection", "3"))),
+    ]
+    assert not any(op.target.path[0] == ("section", "53") for op in grouped["no/lov/2009-06-19-100"])
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w68_psykisk_helsevernloven_followers_are_refused_not_bound_to_the_previous_item() -> None:
+    """W-68 guard witness: `no/lovtid/2003-06-20-45` items 119–121.
+
+    "121. Til lov 2. juli 1999 nr. 62 … blir desse endringane gjort:" is an
+    announcement in a spelling the closed tail set does not hold. Its five
+    sections (§ 1-3, § 3-11 ×2, § 5-7, § 5-8) lowered onto item 119's act, an
+    amending act with no such sections. They are refused, each naming item 121.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2003-06-20-45", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+    adjudications: list[CompileAdjudication] = []
+    grouped = dict(iter_no_document_change_ops(html_bytes, "no/lovtid/2003-06-20-45", adjudications_out=adjudications))
+
+    assert "no/lov/1999-04-30-22" not in grouped
+    stale = [
+        item.detail
+        for item in adjudications
+        if item.kind == NO_PARSE_UNSTRUCTURED_LEAD_BASE_STALE_AFTER_UNREAD_LAW_HEAD
+    ]
+    assert [detail["source_excerpt"].split(" skal lyde")[0] for detail in stale] == [
+        "§ 1-3 fjerde ledd",
+        "§ 3-11 første ledd bokstav b",
+        "§ 3-11 tredje ledd første punktum",
+        "§ 5-7",
+        "§ 5-8",
+    ]
+    assert {detail["unread_law_head_cited_base_id"] for detail in stale} == {"no/lov/1999-07-02-62"}
+    assert {detail["stale_base_id"] for detail in stale} == {"no/lov/1999-04-30-22"}
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w68_known_cost_a_list_entry_that_opens_like_a_head_stops_the_carry() -> None:
+    """W-68's one measured over-refusal, pinned so it is not rediscovered as a bug: `no/lovtid/2010-04-09-12`.
+
+    "Lov 17. juni 2005 nr. 62 om arbeidsmiljø, arbeidstid og stillingsvern
+    kapittel 13, med unntak av § 13-1 tredje ledd og § 13-9." is an entry in a
+    quoted list of laws, which Lovdata marks up as a lead-class node. It opens
+    exactly as a bare title heading does, and a heading's followers DO belong to
+    the law it names (`2017-06-16-51` items 3, 7, 8), so the guard cannot tell
+    them apart and refuses the one lead after it. That lead's two REPLACEs on
+    diskrimineringsloven § 3 were right before W-68 and are not lowered now.
+    """
+    html_bytes = load_no_amendment_bytes("no/lovtid/2010-04-09-12", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+    adjudications: list[CompileAdjudication] = []
+    grouped = dict(iter_no_document_change_ops(html_bytes, "no/lovtid/2010-04-09-12", adjudications_out=adjudications))
+
+    assert "no/lov/2005-06-10-40" not in grouped
+    stale = [
+        item.detail
+        for item in adjudications
+        if item.kind == NO_PARSE_UNSTRUCTURED_LEAD_BASE_STALE_AFTER_UNREAD_LAW_HEAD
+    ]
+    assert [detail["source_excerpt"] for detail in stale] == ["§ 3 første ledd første og andre punktum skal lyde:"]
+    assert stale[0]["unread_law_head"].startswith("Lov 17. juni 2005 nr. 62 om arbeidsmiljø")
+    assert stale[0]["stale_base_id"] == "no/lov/2005-06-10-40"
+
+
+@pytest.mark.skipif(
+    _NO_FARCHIVE_PATH is None,
+    reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
+)
+def test_no_w68_unresolvable_head_keeps_the_single_declared_target() -> None:
+    """`no/lovtid/2008-12-19-115`: Lovdata cites valdsoffererstatningslova by date only. One declared target; it binds."""
+    html_bytes = load_no_amendment_bytes("no/lovtid/2008-12-19-115", _NO_FARCHIVE_PATH)
+    assert html_bytes is not None
+    grouped = dict(iter_no_document_change_ops(html_bytes, "no/lovtid/2008-12-19-115"))
+
+    assert [(op.action, op.target.path) for op in grouped["no/lov/2001-04-20-13"]] == [
+        (StructuralAction.REPLACE, (("section", "11"), ("subsection", "1")))
+    ]

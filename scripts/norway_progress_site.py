@@ -47,6 +47,7 @@ WITNESS_HISTORY = [
     ("W-102", "2026-09-06", 62, 14, 28, "ledd-precise section grants"),
     ("W-103", "2026-09-06", 62, 14, 28, "print-era lane promoted: fixture + tests pin 62/75"),
     ("W-104", "2026-09-11", 63, 14, 26, "inline addressed word substitution (2004 Medietilsynet act); § 4-6 closes"),
+    ("W-68", "2026-10-01", 63, 14, 26, "law-switch correctness: a lead binds to the law its head names; witness unmoved"),
 ]
 # Scoreboard rows the ledger records in prose after its table ended.
 SCOREBOARD_EXTRA = [
@@ -82,6 +83,7 @@ ITEMS = {
     102: ("W-102", "2026-09-06", "done", "Ledd-precise section grants; § 2-3 closes; ledd-depth occupied-destination refusal."),
     103: ("W-103", "2026-09-06", "done", "Print-era lane promoted to src/lawvm/norway/print_era.py; 14-act fixture with ladder provenance; tests pin 14/75 source-absent and 62/75 full chain."),
     104: ("W-104", "2026-09-11", "done", "Inline addressed word substitution in the unstructured lane (family 2: the 2004 Medietilsynet act); term-first and address-first shapes, W-102 qualifier grammar widened to several ledd groups."),
+    68: ("W-68", "2026-10-01", "done", "A lead that opens by naming a law binds to that law: self-citing repeals and short-title announcements are law switches, and an unread law head stops the carry-over (79 wrong-law ops withdrawn, 57 of them re-bound; ops 29,925 to 30,274)."),
 }
 
 NEXT_STEPS = [
@@ -99,6 +101,10 @@ NEXT_STEPS = [
     ("Prove the double-application class",
      "W-102 refuses ledd-depth renumbers onto occupied slots but cannot prove a base edition already carries the amendment. "
      "The recorded spike: compare the base edition's date against the op's effective date (4,078 hazard writes in the W-72 census)."),
+    ("Read the law headings W-68 still refuses behind",
+     "W-105: bare title headings ('3. Lov 17. juli 1998 nr. 56 om årsregnskap:') as law switches, about 11 heads and 42 refused followers; "
+     "the discriminator against a quoted list entry is the open question. W-106: announcement tails outside the closed set, about 11 heads and 43 followers. "
+     "W-108: the whole-act repeal ('Lov … oppheves.', 56 leads) has no lane at all."),
     ("Lift the OCR ceiling where it is cheap",
      "A tesstrain fine-tune with § in the charset converts most C lines (146) to A lines; the 40 R lines are almost all § N-N address leads."),
     ("Second pilot law, then the [1997, 2000] window",

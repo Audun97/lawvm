@@ -1559,7 +1559,14 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # (``no/lov/2017-06-16-56``, ``no/lov/2020-04-24-31``): their acts now land
     # per-section dates and skip the rest with a per-op contingent receipt,
     # which is what makes an incomplete base observable.
-    "incomplete_bases": 190,
+    # 190 -> 192 at W-68 (2026-10-01): two replayable laws gain an amender whose
+    # own commencement is undated. ``no/lov/2009-06-19-101`` (mineralloven) takes
+    # ``no/lovtid/2017-05-11-26`` item 23's § 53 repeal and relabel, which had
+    # been lowered onto naturmangfoldloven; ``no/lov/2008-10-17-79`` takes
+    # ``2018-06-15-38`` item 25's "… oppheves § 3.", a verb-first self-citing
+    # repeal that was refused. Neither amender is new — each was always there
+    # and always undated; the base is known-incomplete now that it is visible.
+    "incomplete_bases": 192,
     # 265 -> 266 and 161 -> 162 at W-69c, and it is ONE law ENTERING the census:
     # ``no/lov/2009-06-19-44``. It was already counted incomplete (four
     # `contingent` skips, which the replay receipts before it applies anything,
@@ -1601,7 +1608,10 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # commencement instrument's "§ 11-4 fjerde og femte ledd" now spells two
     # paths under the widened qualifier grammar, so one op is dated and
     # applies at the sweep's as-of on a known-incomplete base.
-    "hazard_bases": 157,
+    # 157 -> 158 at W-68: mineralloven ENTERS with the 23 destructive writes it
+    # already took ([23, 3] — none of them new), because it is now
+    # known-incomplete (note above). ``no/lov/2008-10-17-79`` takes no write.
+    "hazard_bases": 158,
     # 3,713 -> 3,706 at W-75, and exactly one law moves: ``no/lov/2008-06-27-71``
     # [73, 2] -> [66, 2]. Refusing the word-substitution address lists stops seven
     # REPLACEs that had been writing the amendment's own prose into plan- og
@@ -1888,7 +1898,20 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # and the folketrygdloven-adjacent pension acts among them — plus the
     # ``2018-06-01-24`` entrant's one. Firings 8 -> 8; the content-removing
     # column is flat (238 over 76 laws): a substitution never removes a node.
-    "hazard_destructive_writes": 4096,
+    # 4,096 -> 4,122 at W-68 (+26): mineralloven's 23 on entry, and seven other
+    # rows move by one. FIVE gain a write the source commands by name, and each
+    # was verified against today's consolidation, where it CLOSES a divergence
+    # row: stiftelsesloven ``2001-06-15-59`` [11, 0] -> [12, 1] (§ 43 fjerde ledd
+    # repealed), ``2005-04-29-20`` [20, 2] -> [21, 3] (§ 37 tredje ledd),
+    # AIF-loven ``2014-06-20-28`` [14, 2] -> [15, 3] (§ 2-6 første ledd tredje
+    # punktum), ``2017-12-15-107`` [8, 0] -> [9, 1] (§ 12) and ``2019-03-22-7``
+    # [2, 0] -> [3, 0] (§ 1-3 tredje ledd, a REPLACE). TWO lose a write that was
+    # never theirs, and each loss closes a row too: burettslagslova
+    # ``2003-06-06-39`` [33, 0] -> [32, 0] (a "§ 10-4 tredje ledd" belonging to
+    # skipsarbeidsloven, under a bare title heading) and helseforskningsloven
+    # ``2008-06-20-44`` [11, 0] -> [10, 0] (a § 15 belonging to an amending
+    # act's change to helsepersonelloven). Firings 8 -> 8.
+    "hazard_destructive_writes": 4122,
     # 167 -> 168, and the +1 is NOT a relabel op. ``no/lov/2016-05-27-14`` gains
     # ``no/lovtid/2021-12-22-158:1``, a REPEAL of § 7-6 annet ledd that could not
     # bind before because that law's ledd sequence was one slot out of step; with
@@ -1918,8 +1941,12 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # ``hazard_bases_removing_content`` 65 -> 77 is the 11 laws whose row goes
     # from 0 removals to some, plus that entrant.
     # 219 -> 238 / 81 -> 76 at W-100, the same movement in the removing column.
-    "hazard_content_removing_writes": 238,
-    "hazard_bases_removing_content": 76,
+    # 238 -> 245 / 76 -> 79 at W-68: mineralloven's 3 on entry, and the four
+    # repeals named above, each removing content today's consolidation no longer
+    # carries. Three bases go from zero removals to some (mineralloven,
+    # stiftelsesloven, ``2017-12-15-107``).
+    "hazard_content_removing_writes": 245,
+    "hazard_bases_removing_content": 79,
 }
 
 #: Content hash of the per-law hazard list (base_id -> [destructive, removing]).
@@ -2012,7 +2039,9 @@ _NO_INCOMPLETE_BASE_HAZARD_LAWS_DIGEST = (
     # addressed word-substitution ops move the per-law counts of the bases
     # whose acts they are dated on (utlendingsloven [321, 16] -> [325, 16]
     # among them); husbankloven holds [9, 4].
-    "8c2c4d6e0e7c9f5998aa74f020fdf8addcc3fef37a396dc223a99fdf6d083aa5"
+    # W-68: ONE law ENTERS (``no/lov/2009-06-19-101`` [23, 3]) and seven rows
+    # move by one write each, named in the destructive-writes note above.
+    "f03c9154a21ad4c50bea449e62f12782bf34c6e76fd6fc01197e95c518ef3d7d"
 )
 
 _REGENERATE = (
@@ -2151,7 +2180,16 @@ def test_no_occupied_destination_sweep_baseline_is_not_stale(
     # chapter-heading block, Lovdata's structured chapter token lowering for
     # the first time. It has an original-act source and replays (the errored
     # class stays at 443), and it enters the verify scan candidate set too.
-    assert len(swept) == baseline["swept"]["base_laws"] == 790
+    # 790 -> 794 at W-68: seven base laws enter on their first lowered op and
+    # three leave. Entering: ``1894-07-21-5``, ``1939-06-09-17``, ``1958-12-12-7``,
+    # ``1980-05-23-11``, ``2008-10-17-79``, ``2009-02-27-10`` — each named by a
+    # self-citing repeal, a short-title announcement or a head the walk now
+    # binds — and ``2005-05-22-28``, which is NOT a law: ``no/lovtid/2008-06-20-47``
+    # writes "I straffeloven 22. mai 2005 nr. 28", the 1902 act's date on the
+    # 2005 act's number (ledger item 68, finding (a)). Leaving, because their
+    # only ops were lowered onto them from another law's lead: ``1997-01-17-11``,
+    # ``1999-04-30-22``, ``2001-06-15-62``.
+    assert len(swept) == baseline["swept"]["base_laws"] == 794
     assert sorted(set(swept)) == swept
     assert set(_NO_OCCUPIED_DESTINATION_LAWS) <= set(swept)
     # 440 laws error before a single op is applied — F-09's sparse-source class,
@@ -2160,7 +2198,10 @@ def test_no_occupied_destination_sweep_baseline_is_not_stale(
     # 440 -> 442 at W-66c: two of the three entrants above have no original-act
     # bytes either, so they join this class on arrival.
     # 442 -> 443 at W-99: the havbeiteloven entrant above.
-    assert baseline["swept"]["errored_before_any_op"] == 443
+    # 443 -> 446 at W-68: five of the seven entrants have no original-act bytes
+    # (the phantom ``2005-05-22-28`` among them) and two of the three leavers
+    # were in this class.
+    assert baseline["swept"]["errored_before_any_op"] == 446
     # THE SWEEP'S BLIND SPOT, and W-69c has taken it from four laws to THREE.
     # These abort mid-apply on a replay invariant violation, which discards the
     # apply plane's receipts and adjudications along with the statute, so whether
@@ -2475,7 +2516,8 @@ def test_no_incomplete_base_destructive_write_census_is_pinned(
     # dated) and the two entrants are contingent-skip laws (per-op), so the
     # dominance argument stays exact.
     # 156 -> 157 at W-104: the ``2018-06-01-24`` entrant is a contingent base.
-    assert hazard["hazard_by_skip_kind"]["contingent"] == 157
+    # 157 -> 158 at W-68: the mineralloven entrant is a contingent-skip base.
+    assert hazard["hazard_by_skip_kind"]["contingent"] == 158
     assert hazard["hazard_by_skip_kind"]["missing_source"] == 0
     # Husbankloven is the witness this census exists for, and it is STILL IN THE
     # SET — 8 destructive writes, 3 of them content-removing. W-73 repaired the
@@ -3582,7 +3624,7 @@ _W66C_DESTRUCTION_INSTRUCTION = (
 #: ``<base_id>|<address>`` lines joined by newlines and sha256'd. Regenerate with
 #: ``.tmp/w66c/s25_emit_pin.py``.
 _W66C_MINTED_REPEAL_LEGS_DIGEST = (
-    "2a1577d65bddff9732b169e30a69d97adb7b966861953c70472e214a1ddafdfd"
+    "7a6a1c8ff66668677629fc293ab708b7408ed6b1e66ca9d647f85bbe40f2eb79"
 )
 
 # 33 destructions over 29 base acts; 34/30 at W-98; 50/36 at W-100 (2026-09-05).
@@ -3600,6 +3642,16 @@ _W66C_MINTED_REPEAL_LEGS_DIGEST = (
 # § 76 annet ledd annet punktum): an act newly dated EARLIER than the repealing
 # one now rewrites that ledd first, so the ordinal counts to a different
 # sentence at the repeal's moment. See ledger item 100 for what stands.
+# 50/36 -> 52/38 at W-68 (2026-10-01): two entrants, no leaver, both the
+# verb-first self-citing repeal (see the note at tripwire 1). The other eight
+# W-68 entrants sit on pre-2001 acts with no replayable original and destroy
+# nothing. Each ledd was printed as it stood just before the removal:
+# ``no/lov/2002-06-28-57`` § 9-2 annet ledd held two sentences and the second
+# went ("I lov 28. juni 2002 nr. 57 om valg … oppheves § 9-2 annet ledd annet
+# punktum.", `2017-06-09-36`; the act is repealed today, so there is no
+# consolidation to compare); ``no/lov/2014-06-20-28`` § 2-6 første ledd held
+# three and the third went ("… oppheves § 2-6 første ledd tredje punktum.",
+# `2019-12-13-79`), and that sentence is absent from today's consolidation.
 _W66C_CORPUS_DESTRUCTIONS: tuple[tuple[str, str, str], ...] = (
     (
         'no/lov/2001-05-18-21',
@@ -3620,6 +3672,11 @@ _W66C_CORPUS_DESTRUCTIONS: tuple[tuple[str, str, str], ...] = (
         'no/lov/2002-06-21-45',
         'section:37b/subsection:2/sentence:1',
         'Det blir stilt same krav til helse m.m. som for førarkort klasse D og DE.',
+    ),
+    (
+        'no/lov/2002-06-28-57',
+        'section:9-2/subsection:2/sentence:2',
+        'Vedtaket må treffes senest samtidig med budsjettet for det året valget skal holdes.',
     ),
     (
         'no/lov/2003-02-21-12',
@@ -3827,6 +3884,11 @@ _W66C_CORPUS_DESTRUCTIONS: tuple[tuple[str, str, str], ...] = (
         'Skattedirektoratet kan etter søknad samtykke til papirinnlevering for private arbeidsgivere.',
     ),
     (
+        'no/lov/2014-06-20-28',
+        'section:2-6/subsection:1/sentence:3',
+        'Som startkapital regnes ansvarlig kapital som nevnt i forskrift 1. juni 1990 nr. 435 om beregning av ansvarlig kapital for finansinstitusjoner, oppgjørssentraler og verdipapirforetak § 3 nr. 1, 2, 3, 5, 9 og 12.',
+    ),
+    (
         'no/lov/2016-05-27-14',
         'section:7-5/subsection:1/sentence:2',
         'Den som mot godtgjøring har formidlet leie av fast eiendom, skal gi opplysninger om inngåtte kontrakter siste år med den enkelte utleier, avtalt leie og i tilfelle leie som er påløpt, og leie som vedkommende har betalt eller formidlet betaling av.',
@@ -3919,9 +3981,18 @@ def test_no_w66c_minted_punktum_repeal_population_is_pinned(_no_w66c_minted_repe
         + _W66C_DESTRUCTION_INSTRUCTION
     )
     legs = population["legs"]
-    assert len(legs) == 279, _W66C_DESTRUCTION_INSTRUCTION
-    assert len({leg["base_id"] for leg in legs}) == 120, _W66C_DESTRUCTION_INSTRUCTION
-    assert len({leg["lead"] for leg in legs}) == 207, _W66C_DESTRUCTION_INSTRUCTION
+    # 279 / 120 / 207 -> 289 / 128 / 216 at W-68 (2026-10-01): ten entrants, no
+    # leaver. Nine are the VERB-FIRST self-citing repeal W-68 reads ("I lov 28.
+    # juni 2002 nr. 57 om valg … oppheves § 9-2 annet ledd annet punktum.",
+    # rebuilt as "§ 9-2 annet ledd annet punktum oppheves." on the cited act);
+    # the tenth is `2007-06-29-84`'s "§ 31 tredje ledd fjerde punktum oppheves."
+    # under "I vegtrafikkloven 18. juni 1965 nr. 4 gjøres følgende endringer:",
+    # an announcement that had resolved no act. Each SOURCE lead was read off
+    # its node and names the section, ledd and ordinal of the address minted;
+    # the list is in ledger item 68.
+    assert len(legs) == 289, _W66C_DESTRUCTION_INSTRUCTION
+    assert len({leg["base_id"] for leg in legs}) == 128, _W66C_DESTRUCTION_INSTRUCTION
+    assert len({leg["lead"] for leg in legs}) == 216, _W66C_DESTRUCTION_INSTRUCTION
 
     digest = hashlib.sha256(
         "\n".join(sorted(f"{leg['base_id']}|{leg['address']}" for leg in legs)).encode("utf-8")
@@ -4028,8 +4099,9 @@ def test_no_w66c_corpus_destruction_set_is_pinned_by_content(
     # tuple (yrkestransportlova § 37 b andre ledd første punktum).
     # 34/30 -> 50/36 at W-100: eighteen entrants and two leavers, every one a
     # commencement movement — see the note on the pinned tuple.
-    assert len(realized) == 50, _W66C_DESTRUCTION_INSTRUCTION
-    assert len({row[0] for row in realized}) == 36, _W66C_DESTRUCTION_INSTRUCTION
+    # 50/36 -> 52/38 at W-68: two entrants, adjudicated in the note on the tuple.
+    assert len(realized) == 52, _W66C_DESTRUCTION_INSTRUCTION
+    assert len({row[0] for row in realized}) == 38, _W66C_DESTRUCTION_INSTRUCTION
     assert tuple(realized) == _W66C_CORPUS_DESTRUCTIONS, _W66C_DESTRUCTION_INSTRUCTION
 
 

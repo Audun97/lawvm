@@ -581,6 +581,16 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "An unstructured Norway amendment lead looked operative but no base act "
         "could be resolved; recorded as a parse finding, not silently discarded."
     ),
+    "no_parse_unstructured_lead_base_stale_after_unread_law_head": (
+        "An unstructured Norway amendment lead that names no law of its own "
+        "inherits the act its neighbours amend only while no lead since the last "
+        "read law switch OPENS by naming a different law. When one does, in a "
+        "spelling no switch reader reads (a whole-act repeal item, a bare title "
+        "heading, an announcement tail outside the closed set), the carried act "
+        "is contradicted and the following lead is refused rather than lowered "
+        "onto either act; the receipt names the unread head, the act it cites "
+        "and the stale act. Blocking. W-68."
+    ),
     "no_rettelse_lowered": (
         "A published Rettelser correction carried by Lovdata's typed "
         "gazettenote/rettelse marker resolved a clean address and was lowered "

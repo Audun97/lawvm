@@ -4344,15 +4344,205 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    complete the base rather than to refuse writes into it. Carried
    to W-72.
 
-68. **W-68 (law-switch failure — correctness-shaped):** from
-   W-62. 188 refusals / 115 instruments / 111 stale bases where
-   the lead OPENS with a law citation yet is bound to a different
-   act — dominated by `I lov <cite> <verb> <address>` (112), the
-   verb-before-address order the embedded-multi-act extractor
-   does not read; upper bound 335 (147 mid-lead citations are
-   addresses, excluded). Only 3 on candidates — priced as
-   CORRECTNESS (the switch is sticky), not coverage. Artifacts
-   `.tmp/w62/switch_fail.json`.
+68. **W-68 (law-switch failure — a lead that opens by naming a law, bound to
+   another):** DONE (2026-10-01). From W-62, priced there as 188 refusals
+   / 115 instruments / 111 stale bases, "correctness, not coverage — the
+   switch is sticky". **Re-derived at HEAD `ec56711f`** (`.tmp/w62/` no
+   longer exists; scripts and artifacts `.tmp/w68/`): over all 3,089
+   artifacts, 286 refusals — 188 `…_lead_unmatched` and 98
+   `…_lead_base_unresolved`, 191 instruments, 117 stale bases — carry a
+   lead that opens with a law citation and a receipt naming some OTHER act
+   (or none). W-62 counted the receipts. **The damage was in the leads
+   after them.** A walk-order trace shows the unread head leaving
+   `active_base_id` where the previous announcement put it, so every
+   citation-less lead that follows keeps lowering onto that act:
+   `2007-01-26-3` item 84, "I plan- og bygningslov 14. juni 1985 nr. 77
+   gjøres følgende endringer:", sent that law's § 58 første ledd and § 60
+   annet ledd into konkursloven (item 82's act, which has both sections);
+   `2017-05-11-26` item 23's "Nåværende § 53 annet og tredje ledd blir
+   første og annet ledd." renumbered naturmangfoldloven instead of
+   mineralloven; `2013-06-21-100` item 23 ("lov 26. mars 2010 nr. 9 om
+   vergemål skal § 39 … lyde:", lower-case, no preposition) REPLACEd § 39
+   in the 2008 plan- og bygningslov. **Measured: 79 ops on a law their own head contradicts.**
+   **The family is one question the walk could not ask** — does this lead
+   open by naming a law? — because each of the three switch readers
+   recognises a whole construction and answers `None` for everything else,
+   so "names no law" and "names a law in a spelling I do not read" were the
+   same answer and both inherited. **What landed, three pieces.**
+   (i) `_no_lead_law_head` — a closed, token-wise reader of the head and
+   nothing after it: `[ordinal] [I | Til | I endring(en|ene|a|ane) i]
+   [qualifier] NOUN [av] DATE [nr N]`, NOUN bare `lov` or ONE compound
+   token ending `lov`/`loven`/`lova`, the date IMMEDIATELY after the noun
+   (which is what keeps "Loven trer i kraft 1. januar 2005", "Reglene i lov
+   … får tilsvarende anvendelse" and "Fra samme tid oppheves lov …" out); a
+   compound needs its number, only bare `lov` may be numberless (W-28).
+   (ii) **Two self-citing REPEAL spellings become law switches**, rebuilt
+   into the citation-less `§ … oppheves.` form the section families already
+   consume, exactly as the self-citing REPLACE always was: address first
+   ("3. Lov 5. august 1994 nr. 55 om vern mot smittsomme sykdommer § 8-2
+   oppheves." — W-99's head with a repeal tail, same tempering) and verb
+   first ("10. I lov 21. desember 2000 nr. 105 … (angrerettloven) oppheves
+   § 6 bokstav e annet punktum.", "I lov 7. juli 1967 nr. 13 … blir § 16
+   oppheva."). Not read, because the tail is not a plain `§` address and the
+   rebuilt lead would say something the drafter did not: the repeal of a
+   CHANGE ("… oppheves endringen i lov … § 438 annet ledd"), of a part of an
+   amending act ("… oppheves del VII"), a run-on, a colon, a whole-act
+   repeal. (iii) **The two announcement readers accept a law cited by
+   short title** — "I vegtrafikklov 18. juni 1965 nr. 4 gjøres følgende
+   endringer:", "I Almindelig borgerlig Straffelov 22. mai 1902 nr. 10 …",
+   "Straffeprosesslova 22. mai 1981 nr. 25 vert endra slik:". Their tails
+   had matched all along; the citation search wanted the bare word `lov`
+   before the date and returned nothing, so the announcement announced
+   nothing. The head reader is the FALLBACK of that search, so every lead
+   the old grammar resolved resolves identically (measured: 0 leads change
+   answer under any of the three readers; 157 gain one). **And the guard,
+   for every head still unread** (generators propose, the guard only ever
+   refuses): such a lead binds its OWN receipt to the act it names
+   (explicit scope is not overwritten by a carried one, AGENTS.md §2.2),
+   and when that act differs from the one being carried the carry-over is
+   STALE for every citation-less lead after it, until the next read switch
+   or resolved part. Those followers are refused with the new
+   `no_parse_unstructured_lead_base_stale_after_unread_law_head` (blocking;
+   the receipt carries the unread head, the act it cites and the stale act)
+   rather than bound to either act — the unread head might be an
+   announcement (its followers belong to the cited law) or a whole-act
+   repeal (they cannot), and the reader does not know which. A follower with
+   nothing to inherit keeps `…_base_unresolved` and gains the head on its
+   receipt. A head naming the act already carried contradicts nothing. A
+   single declared target is left exactly as it was (its followers return
+   to the declared law, as they already do after an embedded switch), and a
+   head the corpus cannot resolve to an id does not displace it
+   (`2008-12-19-115`, valdsoffererstatningslova cited by date only).
+   **Corpus (parse plane, before/after over 3,089 artifacts):** newly read
+   as switches — 61 verb-first repeals (48 acts), 6 address-first repeals,
+   84 short-title announcements (58 acts, 18 laws) and 6 nominative ones.
+   Ops 29,925 → **30,274**. Of the **81 removed, 57 are RE-BOUND** to the
+   act their head names (the same action and address on the right law; the
+   whole list is `.tmp/w68/`'s diff) **and 24 are refused** (22 behind a heading or announcement tail that is
+   still unread, 2 the known cost below); 430 added = the
+   57 plus 373 new (replace 203, insert 113, repeal 57, renumber 57 by
+   action over all 430), nearly all of them the sections of short-title
+   announcements that had been `…_base_unresolved`: straffeloven 1902 +157,
+   straffeprosessloven +92, straffegjennomføringsloven +31, vegloven +20,
+   sjømannsloven +20, vegtrafikkloven +18. Receipts: `…_base_unresolved`
+   1,595 → **1,051**, `…_lead_unmatched` 7,338 → **7,492** (leads that now
+   have a base and no production), the new kind **52** over 21 heads in 15
+   acts, and 64 `…_base_unresolved` receipts now name an unread head (25
+   heads). The W-62 census re-run: 286 → **0** inside the head grammar (11
+   rows remain and none is a head: six are bilansvarslova's declared id
+   `no/lov/1961-02-03` against the corpus's `…-0`, three open "Endringene i
+   lov …", two have a broken number token). **Commencement index:** entries
+   2,598 → **2,611** (15 acts enter, 2 leave — `2001-12-14-98` and
+   `2011-06-24-39`, whose only ops were wrong-law followers of bare title
+   headings), index ops 29,870 → 30,219, bindings 6,634 → 6,736 (110
+   gained, 8 removed); `dated` 1,068 → 1,073, `instrument_authorized`
+   1,016 → 1,019, `contingent` 511 → 516; shipped route 546 → 548, widened
+   470 → 471 (three in, two out), single-part 33 → 34, generic refusals
+   709 → 720, staged 174 → 175; declared-target gap 903 → 874 receipts and
+   2,363 → 2,268 pairs. The section-scoped lane moves 281 → 282 with one
+   LEAVER, and it is this item's second cost: `2021-12-22-163` now lowers
+   "I lov 10. juni 2005 nr. 44 om forsikringsvirksomhet oppheves § 7-4.",
+   is honestly multi-law, and its two instruments' law-less section terms
+   no longer resolve, so its binding date on finansforetaksloven
+   (2022-01-01) is withdrawn and that law's two ops return to contingent
+   (refusals 107 → 109). The withdrawn grant had also dated "§ 9-2 første
+   ledd", a label finansforetaksloven's ops never carried — it is the new
+   act's own § 9-2, admitted only because the act looked single-law. **Partition (W-23, as-of 2026-07-10, limit 200):**
+   byte-stable in every total — 82 candidates, 30 consistent / 52 divergent
+   / 0 errors, 1,479 / 1,011 / 468. Two candidate laws change composition
+   and neither changes its row count: `no/lov/2001-06-15-65` gains
+   `2003-07-04-79`'s § 12 tredje ledd repeal; `no/lov/2004-12-17-101` LOSES
+   two inserts that were never its (`2009-06-19-103` items 26 and 27, which
+   name eiendomsmeglingsloven and klimakvoteloven's successor) — one of its
+   24 rows moves from "touched" to "untouched", which is the honest reading.
+   The rest of the movement is on pre-2001 laws with no founding text or on
+   `blocked_contingent` laws the scan does not count, which is why W-62
+   priced this as correctness. **Verified where a consolidation exists**
+   (`no-verify`, before/after, 21 laws whose ops moved): 11 divergence rows
+   close and none opens that is not the coarser residue of one that
+   closed. Five new writes each close a row — stiftelsesloven § 43 fjerde
+   ledd, `2005-04-29-20` § 37 tredje ledd, AIF-loven § 2-6 første ledd
+   tredje punktum, `2017-12-15-107` § 12, `2019-03-22-7` § 1-3 tredje ledd
+   — and withdrawing a wrong-law write closes six: burettslagslova § 10-4
+   (skipsarbeidsloven's), helseforskningsloven § 15 ×3 (an amending act's
+   change to helsepersonelloven), vergemålsloven § 78 (straffeloven's) and
+   § 39 bokstav e (its own, back from plan- og bygningsloven; the ledd row
+   that remains is F-04's "fylkesmannens"), eiendomsmeglingsloven § 2-3.
+   **Destroying surface (W-66c's two tripwires, both moved with their
+   adjudication):** minted punktum repeals 279 → 289 over 120 → 128 laws,
+   ten entrants and no leaver — nine verb-first self-citing repeals and
+   one follower of a short-title announcement, each source lead naming the
+   section, ledd and ordinal minted; realized 50 → 52 over 36 → 38 laws:
+   valgloven 2002 § 9-2 annet ledd annet punktum (two sentences stood, the
+   second went; the act is repealed, no consolidation to compare) and
+   AIF-loven § 2-6 første ledd tredje punktum (three stood, the third
+   went; absent from today's text). **Sweep (W-72):** firings 8 → 8, the
+   same three laws in the blind spot; base laws 790 → 794; hazard bases
+   157 → 158 (mineralloven enters, now known-incomplete, with the 23
+   writes it already took), destructive writes 4,096 → 4,122,
+   content-removing 238 → 245 over 76 → 79 laws. **Inventory:** would-be
+   `fully_replayable` 64 → 63, `blocked_contingent` 26 → 27 (mineralloven
+   gains its undated amender; `2009-02-27-10` enters; `2001-06-15-62`
+   leaves with its only, wrong, binding).
+   **Witness (kringkastingsloven, full chain):** unmoved — 63/75, 198/14,
+   26 rows; none of its amending acts carries an affected lead.
+   **Known cost, pinned as a test so it is not rediscovered as a bug:**
+   `2010-04-09-12`. "Lov 17. juni 2005 nr. 62 om arbeidsmiljø, arbeidstid og
+   stillingsvern kapittel 13, med unntak av § 13-1 tredje ledd og § 13-9."
+   is an entry in a quoted list of laws that Lovdata marks up as a
+   lead-class node. It opens exactly as a bare title heading does, and a
+   heading's followers DO belong to the law it names (`2017-06-16-51` items
+   3, 7, 8), so the guard refuses the one lead after it: two REPLACEs on
+   diskrimineringsloven § 3 that were right are no longer lowered
+   (`2005-06-17-62` has the same entry and one refusal, no op). Over-
+   retention, the safe wrong; the fix is the payload cursor's, not the
+   guard's. **Findings on the way, none fixed here:** (a) `2008-06-20-47`
+   writes "I straffeloven 22. mai 2005 nr. 28" — the 1902 law's date on the
+   2005 law's number — and its five ops now bind `no/lov/2005-05-22-28`, an
+   act no corpus holds (before: five `…_base_unresolved`); the bare-`lov`
+   grammar has always had this property for a mistyped citation, and
+   nothing checks a cited id against the corpus. (b) `2013-06-21-100` item
+   22, "… skal § 12-7 nr. 13 lyde: krav om fordeling …" — an embedded lead
+   with its payload inline — yields neither op nor receipt. (c) In an act
+   with ONE declared target the declared law outranks even a read
+   announcement naming another: 9 heads, 40 follower leads; seven are
+   `2008-03-07-4`'s nested § 101 items, where that is W-21's design, and
+   two are not (`2001-01-19-3`, Heimevernet's three sections on the
+   declared sibling act; `2001-03-02-7`, two straffeloven sections on
+   straffeprosessloven). **Tests** (`test_norway_grafter.py`, 20 new
+   functions, 62 cases): the two repeal spellings parametrized (7) with the cursor
+   predicate, eight nearby shapes that must not read; the repeal lowering
+   onto the cited act and carrying its `Nåværende …` follower; the head
+   grammar (15 spellings, an unresolved numberless head, 16 shapes that are
+   not heads); the guard through `iter_no_document_change_ops` — refused
+   with head / cited / stale on the receipt and `strict_disposition ==
+   "block"`, cleared by a read switch, silent when the head names the
+   carried act, when the law is named outside the head, and under a single
+   declared target; the nothing-to-inherit receipt; the own-binding; the
+   short-title announcements in both readers and end to end; an adversarial
+   timing test on the new spans; and five corpus witnesses (`2007-01-26-3`,
+   `2017-05-11-26`, `2003-06-20-45` items 119–121 refused, the
+   `2010-04-09-12` known cost, `2008-12-19-115`). W-99's negative assertion
+   on "Lov 22. mai 1902 nr. 13 § 107 oppheves." is re-pointed at a whole-act
+   repeal: that shape is this item's production now.
+   **Pins moved, each with its note (18 red on the first full shard run,
+   every one a corpus count, every one traced to named acts before it was
+   touched):** the two W-66c tripwires and the sweep census
+   (`test_no_renumber_migration.py`); the shipped / widened / part /
+   section-scope / refused-pair pins (`test_norway_commencement_instruments.py`);
+   the status histogram, staged population, authorized set, entries,
+   bindings, ops and declared-target census (`test_norway_index.py`); the
+   would-be ceiling (`test_norway_inventory.py`, `test_norway_verify.py`);
+   the § 412 witness (228 → 229 groups, ops unmoved, one repeal re-bound to
+   vegloven) and the `2007-06-15-21` witness (`test_norway_grafter.py`).
+   **Verification:** `./scripts/ci.sh --affected` — compile, ruff, `ty`
+   (whole project), shard ownership, boundary guards (47) and the hygiene
+   ratchets (397, the regex and classifier-wrap ratchets among them) green;
+   norway shard **1,304 passed, 0 failed** (38 min 49 s); tools_cli_debug 157
+   passed + the three recorded Finland corpus-absence failures, identical
+   at HEAD; release hygiene green with the uv cache outside the tree. The
+   kringkastingsloven full-chain witness test passes on its W-104 pin.
+   **Recorded follow-ups:** items 105–109 below.
 
 69. **W-69 (RELOCATE + the proper multi-address substitution op):**
    from W-62; absorbs the other half of the re-scoped W-57 and the
@@ -8083,6 +8273,73 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    ledd andre punktum. Lovdata applied § 25 and left § 30 unchanged under
    an inkurie footnote. The op follows the source. No row was rejected.
 
+105. **W-105 (the bare title heading as a law switch):** from W-68. A
+   consequential-amendment list that heads each law with its bare citation
+   — "3. Lov 17. juli 1998 nr. 56 om årsregnskap:", "2. I lov 26. juni 1992
+   nr. 86 om tvangsfullbyrdelse:", "Lov 13. august 1915 nr. 5 om domstolene
+   (domstolloven):" — and puts citation-less section leads under it. No
+   switch reader reads it (W-21 deliberately: "a bare title line … must not
+   seed the part's base act"), so its followers lowered onto the previous
+   item's act until W-68's guard refused them. Sizing at W-68: about 11
+   heads over 4 acts (`2001-12-14-98` ×4, `2011-06-24-39`, `2017-06-16-48`
+   ×2, `2017-06-16-51` ×4), 42 followers; two acts (`2001-12-14-98`,
+   `2011-06-24-39`) are out of the index until it lands. **The whole
+   difficulty is the discriminator**, and W-68's known cost is its negative
+   witness: `2010-04-09-12`'s "Lov 17. juni 2005 nr. 62 om arbeidsmiljø,
+   arbeidstid og stillingsvern kapittel 13, med unntak av § 13-1 tredje ledd
+   og § 13-9." is a list ENTRY in quoted text and opens identically.
+   Candidates to measure, none adopted: a trailing colon, an item ordinal,
+   nothing after the title but a parenthesised short name.
+
+106. **W-106 (announcement tails outside the closed set):** from W-68.
+   W-30's tail grammar is closed on attested spellings, and the population
+   it was measured on excluded every lead whose citation did not resolve.
+   Still unread, each now stopping the carry-over instead of feeding it: "Til
+   lov … blir desse endringane gjort:" (`2003-06-20-45` item 121), "gjøres
+   denne endringen:" (`2003-07-04-79`, `2003-05-09-30`), "blir følgjande
+   endring gjord:" (`2018-06-08-27`), "foretas følgende endringer:"
+   (`2004-05-07-21`), "skal dette endrast:" (`2006-12-22-99` ×2), "skal:"
+   (`2005-06-17-101`), the typo "endinger" (`2022-12-16-90`), the long
+   scope adverbial W-30 named as a deliberate miss (`2008-11-14-80`), and
+   one head with a broken number token ("I lov 28. februar 1997 nr. om
+   folketrygd", `2004-12-17-85`, 20 followers — a source pathology, not a
+   tail). About 11 heads over 10 acts, 43 refused followers.
+
+107. **W-107 (self-citing leads the embedded patterns still do not read):**
+   from W-68. The embedded extractor wants the bare word `lov`, capitalised
+   position and all: "1. I straffeloven 22. mai 1902 nr. 10 skal § 152 b …
+   lyde:", "6. Forurensningsloven 13. mars 1981 nr. 6 § 3 tredje ledd skal
+   lyde:", "26. I lov av 29. juni 2007 nr. 73 …, skal § 2-3 nytt fjerde ledd
+   lyde:", "23. lov 26. mars 2010 nr. 9 … skal § 39 … lyde:". W-68 binds each
+   to the act its head names and the section families lower it, but it is
+   not a SWITCH: a citation-less lead after it is refused. Also here: the
+   split frame "§ 7-3 skal nytt tredje ledd lyde:" under a self-citation (6
+   leads), and — a silent drop found on the way — `2013-06-21-100` item 22,
+   "… skal § 12-7 nr. 13 lyde: krav om fordeling …", an embedded lead with
+   its payload inline, which yields neither op nor receipt. Addresses into
+   an amending act ("skal del III nr. 4 lyde", "skal romertall II lyde")
+   are W-65's, not this item's.
+
+108. **W-108 (the whole-act repeal has no lane):** from W-68. "Lov 23. mai
+   1980 nr. 11 om stiftelser m.m. oppheves.", "… blir oppheva." — 56 leads
+   refused `…_lead_unmatched`, since W-68 each against the act it names
+   rather than the act before it. No canonical op repeals a whole act and
+   the index has no lifecycle event for one; design first.
+
+109. **W-109 (a cited act the corpus does not hold; a declared target
+   outranking a named law):** from W-68, two small identity findings.
+   (a) Nothing checks a cited id against the corpus: `2008-06-20-47` writes
+   "I straffeloven 22. mai 2005 nr. 28" and five ops bind
+   `no/lov/2005-05-22-28`, which is no law; and bilansvarslova's declared
+   id is `no/lov/1961-02-03` where the corpus files it under
+   `no/lov/1961-02-03-0` (six receipts carry the first form). (b) In an act
+   with ONE declared target the declared law outranks even a read
+   announcement naming another. Seven of the nine such heads are
+   `2008-03-07-4`'s nested § 101 items, where that is W-21's design; two
+   are not — `2001-01-19-3` (three Heimevernet sections on the declared
+   sibling act) and `2001-03-02-7` (two straffeloven sections on
+   straffeprosessloven). Five ops.
+
 ## 5. Demo / Inspection Tooling
 
 Browser views of any replayable law across its own amendment dates, plus an
@@ -8100,6 +8357,32 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
 
+- **2026-10-01 (W-68 — a lead that opens by naming a law binds to that
+  law; the carry-over stops at a head nobody read)** — W-62 priced this as
+  188 receipts on the wrong act. Re-derived at HEAD it is 286 receipts and,
+  behind them, **79 ops lowered onto a law the drafter never named**
+  (`2007-01-26-3` item 84 sent plan- og bygningsloven's § 58 and § 60 into
+  konkursloven). Three pieces: a closed token-wise reader of the lead's
+  HEAD (`_no_lead_law_head`); two self-citing REPEAL spellings read as law
+  switches ("… § 8-2 oppheves.", "I lov … oppheves § 6 …"); and the two
+  announcement readers accepting a law cited by short title ("I
+  vegtrafikklov 18. juni 1965 nr. 4 gjøres følgende endringer:"). Whatever
+  head is still unread binds its own receipt to the act it names and makes
+  the carried act STALE: the citation-less leads after it are refused with
+  `no_parse_unstructured_lead_base_stale_after_unread_law_head` instead of
+  being lowered onto either act. Corpus: ops 29,925 → 30,274 — of 81
+  removed, 57 re-bound to the right law and 24 refused; 373 new, mostly the
+  sections of 90 short-title announcements that had bound nothing
+  (`…_base_unresolved` 1,595 → 1,051); 157 leads gain a reading and 0
+  change one. Index 2,598 → 2,611 entries (15 in, 2 out), bindings 6,634 →
+  6,736, declared-target gap 903 → 874 receipts. Partition byte-stable in
+  every total (82 candidates, 30/52/0, 1,479/1,011/468); on the 21 moved
+  laws that have a consolidation, 11 divergence rows close and none opens.
+  Sweep firings 8 → 8. Two costs, both pinned: `2010-04-09-12` loses two
+  correct REPLACEs behind a list entry that opens like a title heading, and
+  `2021-12-22-163`, now honestly multi-law, loses its section-scoped date
+  on finansforetaksloven. Eighteen corpus pins moved, each with its note;
+  follow-ups opened as W-105–W-109.
 - **2026-09-25 (W-104's five missed pins, found by the post-merge gate)** —
   five corpus pins restated a quantity W-104 moved, and W-104 had not moved
   them: the § 412 witness, the staged-population histogram, the
