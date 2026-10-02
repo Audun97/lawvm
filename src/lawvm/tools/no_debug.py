@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any, TYPE_CHECKING, cast
 
@@ -134,6 +135,7 @@ def _build_report(
         index_path=index_path,
         path_filters=path_filters,
         limit=limit,
+        index=index,
     )
 
     sources = tuple(
@@ -232,7 +234,13 @@ def _build_report(
 
 def main(args: "argparse.Namespace") -> None:
     from lawvm.norway.sources import no_consolidation_snapshot_date
+    from lawvm.tools.no_base_id_refusal import exit_if_no_base_id_refused
 
+    exit_if_no_base_id_refused(
+        args.base_id,
+        heading="Norway Debug",
+        json_output=bool(getattr(args, "json", False)),
+    )
     data_dir_arg = getattr(args, "data_dir", None)
     data_dir = Path(data_dir_arg) if data_dir_arg else None
     # F-01: absent --as-of, the comparison horizon comes from the corpus, not a
@@ -259,6 +267,8 @@ def main(args: "argparse.Namespace") -> None:
 
     if getattr(args, "json", False):
         print(json.dumps(report_dict, ensure_ascii=False, indent=2))
+        if report.error:
+            sys.exit(1)
         return
 
     print()
@@ -297,7 +307,7 @@ def main(args: "argparse.Namespace") -> None:
         print(f"  source signal      : {report.source_signal}")
     if report.error:
         print(f"  error              : {report.error}")
-        return
+        sys.exit(1)
     if report.divergence_counts:
         print(
             "  by type            : "

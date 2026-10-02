@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any, TYPE_CHECKING
 
@@ -136,6 +137,7 @@ def build_no_coverage_report(
         "title": getattr(verify_result, "current_title", ""),
         "replay_status": getattr(verify_result, "replay_status", ""),
         "consistent": bool(getattr(verify_result, "consistent", False)),
+        "error": getattr(verify_result, "error", None) or "",
         "source_signal": source_signal or "",
         "source_count": len(entries),
         "touched_source_count": touched_source_count,
@@ -154,6 +156,13 @@ def build_no_coverage_report(
 
 
 def main(args: "argparse.Namespace") -> None:
+    from lawvm.tools.no_base_id_refusal import exit_if_no_base_id_refused
+
+    exit_if_no_base_id_refused(
+        args.base_id,
+        heading="Norway Coverage Attribution",
+        json_output=bool(getattr(args, "json", False)),
+    )
     data_dir_arg = getattr(args, "data_dir", None)
     data_dir = Path(data_dir_arg) if data_dir_arg else None
     index_arg = getattr(args, "index", None)
@@ -173,6 +182,8 @@ def main(args: "argparse.Namespace") -> None:
 
     if getattr(args, "json", False):
         print(json.dumps(report, ensure_ascii=False, indent=2))
+        if report["error"]:
+            sys.exit(1)
         return
 
     print()
@@ -180,6 +191,8 @@ def main(args: "argparse.Namespace") -> None:
     print(f"  base id              : {report['base_id']}")
     print(f"  as of                : {report['as_of']}")
     print(f"  replay status        : {report['replay_status']}")
+    if report["error"]:
+        print(f"  error                : {report['error']}")
     if report["title"]:
         print(f"  title                : {report['title']}")
     print(f"  consistent           : {'yes' if report['consistent'] else 'no'}")
@@ -209,6 +222,10 @@ def main(args: "argparse.Namespace") -> None:
                 print(f"      ops : {item['ops_text']}")
             if item["consolidated_text"]:
                 print(f"      cur : {item['consolidated_text']}")
+    # The source counts above are still true for a law replay could not serve
+    # (its amendments are in the index), so they are printed before the exit.
+    if report["error"]:
+        sys.exit(1)
 
 
 def build_arg_parser() -> argparse.ArgumentParser:

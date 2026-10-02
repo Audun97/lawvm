@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from typing import Any, TYPE_CHECKING, cast
 
@@ -114,8 +115,12 @@ def main(args: "argparse.Namespace") -> None:
             projection.to_dict() for projection in compare_projections if hasattr(projection, "to_dict")
         ]
 
+    # A law that could not be compared exits 1, as ``replay -j no`` does for
+    # the same error. A divergence is a result, not an error, and exits 0.
     if getattr(args, "json", False):
         print(json.dumps(payload, ensure_ascii=False, indent=2))
+        if result.error:
+            sys.exit(1)
         return
 
     print()
@@ -127,7 +132,7 @@ def main(args: "argparse.Namespace") -> None:
         print(f"  current title   : {payload['current_title']}")
     if payload["error"]:
         print(f"  error           : {payload['error']}")
-        return
+        sys.exit(1)
     print(f"  consistent      : {'yes' if payload['consistent'] else 'no'}")
     print(f"  divergence count: {payload['divergence_count']}")
     print(

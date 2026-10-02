@@ -10,6 +10,7 @@ from lawvm.core.mutation_boundary import TreePath
 
 if TYPE_CHECKING:
     from lawvm.core.ir import LegalOperation
+    from lawvm.norway.index import NOAmendmentIndex
 
 
 def _parse_path_filter(raw: str) -> TreePath:
@@ -115,12 +116,16 @@ def build_no_op_trace_report(
     index_path: Path | None = None,
     path_filters: list[str] | None = None,
     limit: int = 20,
+    index: "NOAmendmentIndex | None" = None,
 ) -> dict[str, Any]:
     from lawvm.norway.commencement import build_no_law_report
     from lawvm.norway.grafter import iter_no_document_change_ops
     from lawvm.norway.sources import load_no_amendment_artifact_bytes, resolve_no_source_path
 
-    index = _load_index(data_dir=data_dir, index_path=index_path)
+    # A caller that already holds the index (``no-debug``) hands it over; a
+    # second build is ~90 s and ~800 MB on the full archive.
+    if index is None:
+        index = _load_index(data_dir=data_dir, index_path=index_path)
     source_path = resolve_no_source_path(Path(index.data_dir) if index.data_dir else data_dir)
     law_report = build_no_law_report(index, base_id=base_id)
 
@@ -196,6 +201,13 @@ def build_no_op_trace_report(
 
 
 def main(args: "argparse.Namespace") -> None:
+    from lawvm.tools.no_base_id_refusal import exit_if_no_base_id_refused
+
+    exit_if_no_base_id_refused(
+        args.base_id,
+        heading="Norway Op Trace",
+        json_output=bool(getattr(args, "json", False)),
+    )
     data_dir_arg = getattr(args, "data_dir", None)
     data_dir = Path(data_dir_arg) if data_dir_arg else None
     index_arg = getattr(args, "index", None)

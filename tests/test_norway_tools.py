@@ -2361,6 +2361,51 @@ def test_no_law_tool_emits_json(tmp_path, capsys) -> None:
     assert data["executable_replay_status"] == "blocked_contingent"
 
 
+@pytest.mark.parametrize("json_output", [True, False])
+@pytest.mark.parametrize(
+    ("base_id", "said"),
+    [
+        ("no/lov", "expected no/<kind>/<date>"),
+        ("no/forordning/2024-01-12-1", "unsupported Norway ref kind: forordning"),
+        ("se/sfs/1962:700", "unsupported Norway base_id: 'se/sfs/1962:700'"),
+    ],
+)
+def test_no_law_tool_refuses_a_malformed_id_before_the_index(
+    monkeypatch, capsys, tmp_path, base_id: str, said: str, json_output: bool
+) -> None:
+    """W-110: an id replay refuses on sight names no law the index could bind, so
+    the command says so instead of building the index (~90 s on the full
+    archive) to print a report about nothing."""
+
+    def _index_must_not_be_resolved(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("no-law resolved the amendment index for a law id replay refuses on sight")
+
+    monkeypatch.setattr("lawvm.norway.index.build_no_amendment_index", _index_must_not_be_resolved)
+    monkeypatch.setattr("lawvm.norway.index.load_no_amendment_index", _index_must_not_be_resolved)
+
+    with pytest.raises(SystemExit) as exit_info:
+        no_law_main(
+            Namespace(
+                base_id=base_id,
+                data_dir=None,
+                index=str(tmp_path / "unreadable_index.json"),
+                commencement=None,
+                limit=None,
+                json=json_output,
+            )
+        )
+
+    assert exit_info.value.code == 1
+    output = capsys.readouterr().out
+    if json_output:
+        payload = json.loads(output)
+        assert set(payload) == {"base_id", "error"}
+        assert said in payload["error"]
+    else:
+        assert "Norway Law Report" in output
+        assert said in output
+
+
 def test_no_workqueue_tool_emits_json(tmp_path, monkeypatch, capsys) -> None:
     _write_archive(
         tmp_path / "gjeldende-lover.tar.bz2",

@@ -3421,12 +3421,79 @@ def test_no_verify_command_refuses_a_malformed_id_without_an_index(monkeypatch, 
         json=True,
     )
 
-    no_verify_main(args)
+    with pytest.raises(SystemExit) as exit_info:
+        no_verify_main(args)
 
+    assert exit_info.value.code == 1
     payload = json.loads(capsys.readouterr().out)
     assert "expected no/<kind>/<date>" in payload["error"]
     assert payload["replay_status"] == "error"
     assert payload["indexed_amendment_count"] == 0
+
+
+def _no_verify_args(tmp_path, *, json_output: bool) -> argparse.Namespace:
+    return argparse.Namespace(
+        base_id="no/lov/2025-01-01-1",
+        as_of="2025-02-15",
+        data_dir=str(tmp_path),
+        index=None,
+        commencement=None,
+        verbose=False,
+        json=json_output,
+    )
+
+
+@pytest.mark.parametrize("json_output", [True, False])
+def test_no_verify_command_exits_1_when_it_reports_an_error(tmp_path, capsys, json_output: bool) -> None:
+    """``replay -j no`` exits 1 on an error; ``no-verify`` printed the same error
+    and exited 0, so a script could not tell a verified law from one that was
+    never compared."""
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2001-2025.tar.bz2",
+        [("lti/2025/nl-20250202-005.xml", _amendment_xml())],
+    )
+
+    with pytest.raises(SystemExit) as exit_info:
+        no_verify_main(_no_verify_args(tmp_path, json_output=json_output))
+
+    assert exit_info.value.code == 1
+    output = capsys.readouterr().out
+    reason = "no original-act source available for no/lov/2025-01-01-1 (year 2025)"
+    if json_output:
+        payload = json.loads(output)
+        assert payload["error"] == reason
+        assert payload["indexed_amendment_count"] == 1
+    else:
+        assert f"error           : {reason}" in output
+
+
+@pytest.mark.parametrize("json_output", [True, False])
+def test_no_verify_command_returns_normally_for_a_law_that_diverges(tmp_path, capsys, json_output: bool) -> None:
+    """Negative: a divergence is the command's result, not an error. Only a law
+    that could not be compared at all exits 1."""
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2001-2025.tar.bz2",
+        [
+            ("lti/2025/nl-20250101-001.xml", _BASE_XML),
+            ("lti/2025/nl-20250202-005.xml", _amendment_xml()),
+        ],
+    )
+    _write_archive(
+        tmp_path / "gjeldende-lover.tar.bz2",
+        [("nl/nl-20250101-001.xml", _BASE_XML)],
+    )
+
+    no_verify_main(_no_verify_args(tmp_path, json_output=json_output))
+
+    output = capsys.readouterr().out
+    if json_output:
+        payload = json.loads(output)
+        assert payload["error"] == ""
+        assert payload["consistent"] is False
+        assert payload["divergence_count"] >= 1
+    else:
+        assert "consistent      : no" in output
+        assert "error" not in output
 
 
 def test_real_corpus_index_binds_no_law_id_replay_refuses_on_sight() -> None:

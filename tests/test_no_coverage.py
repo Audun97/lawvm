@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import io
 import json
+import tarfile
 from argparse import Namespace
+from pathlib import Path
 from types import SimpleNamespace
+
+import pytest
 
 from lawvm.core.ir import LegalAddress, LegalOperation, OperationSource, StructuralAction
 from lawvm.norway.index import NOAmendmentIndex, NOAmendmentIndexEntry
@@ -286,3 +291,115 @@ def test_no_coverage_treats_last_item_anchor_as_touching_concrete_final_item(mon
     assert report["touched_divergence_count"] == 1
     assert report["untouched_divergence_count"] == 0
     assert report["divergences"][0]["classification"] == "touched_replay_defect"
+
+
+# ── W-110: a refused id stops before the index; an error is said and exits 1 ─
+
+
+def _write_archive(archive_path: Path, members: list[tuple[str, bytes]]) -> None:
+    with tarfile.open(archive_path, "w:bz2") as tf:
+        for member_name, payload in members:
+            info = tarfile.TarInfo(member_name)
+            info.size = len(payload)
+            tf.addfile(info, io.BytesIO(payload))
+
+
+_AMENDMENT_XML = """<?xml version="1.0" encoding="utf-8"?>
+<html><body><dd class="dateInForce">2025-02-10</dd>
+<article class="document-change" data-document="lov/2025-01-01-1">
+<article class="change" data-change-part="lov/2025-01-01-1/§1">
+<article class="legalArticle" data-name="§1"><article class="legalP">endret tekst</article></article>
+</article></article></body></html>""".encode("utf-8")
+
+
+def _index_must_not_be_resolved(*_args: object, **_kwargs: object) -> NOAmendmentIndex:
+    raise AssertionError("no-coverage resolved the amendment index for a law id replay refuses on sight")
+
+
+@pytest.mark.parametrize("json_output", [True, False])
+@pytest.mark.parametrize(
+    ("base_id", "said"),
+    [
+        ("no/lov", "expected no/<kind>/<date>"),
+        ("no/forordning/2024-01-12-1", "unsupported Norway ref kind: forordning"),
+        ("se/sfs/1962:700", "unsupported Norway base_id: 'se/sfs/1962:700'"),
+    ],
+)
+def test_no_coverage_command_refuses_a_malformed_id_before_the_index(
+    monkeypatch, capsys, tmp_path, base_id: str, said: str, json_output: bool
+) -> None:
+    monkeypatch.setattr("lawvm.norway.index.build_no_amendment_index", _index_must_not_be_resolved)
+    monkeypatch.setattr("lawvm.norway.index.load_no_amendment_index", _index_must_not_be_resolved)
+    monkeypatch.setattr("lawvm.norway.verify.build_no_amendment_index", _index_must_not_be_resolved)
+
+    with pytest.raises(SystemExit) as exit_info:
+        no_coverage_main(
+            Namespace(
+                base_id=base_id,
+                as_of=None,
+                data_dir=None,
+                index=str(tmp_path / "unreadable_index.json"),
+                commencement=None,
+                limit=10,
+                json=json_output,
+            )
+        )
+
+    assert exit_info.value.code == 1
+    output = capsys.readouterr().out
+    if json_output:
+        payload = json.loads(output)
+        assert set(payload) == {"base_id", "error"}
+        assert said in payload["error"]
+    else:
+        assert "Norway Coverage Attribution" in output
+        assert said in output
+
+
+@pytest.mark.parametrize("json_output", [True, False])
+def test_no_coverage_command_says_why_replay_failed_and_exits_1(tmp_path, capsys, json_output: bool) -> None:
+    """A well-formed id whose base act the archive does not hold is not refused on
+    sight: its amendment is in the index and is still counted. But replay could
+    not serve it, and the report used to say only ``replay status: error``."""
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2001-2025.tar.bz2",
+        [("lti/2025/nl-20250202-005.xml", _AMENDMENT_XML)],
+    )
+
+    with pytest.raises(SystemExit) as exit_info:
+        no_coverage_main(
+            Namespace(
+                base_id="no/lov/2025-01-01-1",
+                as_of="2025-02-15",
+                data_dir=str(tmp_path),
+                index=None,
+                commencement=None,
+                limit=10,
+                json=json_output,
+            )
+        )
+
+    assert exit_info.value.code == 1
+    output = capsys.readouterr().out
+    reason = "no original-act source available for no/lov/2025-01-01-1 (year 2025)"
+    if json_output:
+        payload = json.loads(output)
+        assert payload["error"] == reason
+        assert payload["source_count"] == 1
+    else:
+        assert f"error                : {reason}" in output
+        assert "sources=1/1" in output
+
+
+def test_no_coverage_report_carries_no_error_for_a_law_replay_serves() -> None:
+    """Negative: divergences are a result, not an error."""
+    report = build_no_coverage_report(
+        base_id="no/lov/2024-01-12-1",
+        data_dir=None,
+        index=NOAmendmentIndex(data_dir="data/norway.farchive", entries=[]),
+        verify_result=_fake_verify(),
+        limit=10,
+    )
+
+    assert report["divergence_count"] == 2
+    assert report["error"] == ""

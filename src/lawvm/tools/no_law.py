@@ -16,7 +16,13 @@ def main(args: "argparse.Namespace") -> None:
         load_no_commencement_overrides,
     )
     from lawvm.norway.index import build_no_amendment_index, load_no_amendment_index
+    from lawvm.tools.no_base_id_refusal import exit_if_no_base_id_refused
 
+    exit_if_no_base_id_refused(
+        args.base_id,
+        heading="Norway Law Report",
+        json_output=bool(getattr(args, "json", False)),
+    )
     data_dir_arg = getattr(args, "data_dir", None)
     data_dir = Path(data_dir_arg) if data_dir_arg else None
     index_arg = getattr(args, "index", None)

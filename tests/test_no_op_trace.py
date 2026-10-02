@@ -6,6 +6,8 @@ import tarfile
 from argparse import Namespace
 from pathlib import Path
 
+import pytest
+
 from lawvm.norway.index import NOAmendmentIndex, NOAmendmentIndexEntry
 from lawvm.tools.no_op_trace import main as no_op_trace_main
 
@@ -164,3 +166,73 @@ def test_no_op_trace_uses_exact_index_member_witness(tmp_path, capsys) -> None:
     payload = json.loads(capsys.readouterr().out)
 
     assert payload["ops"][0]["payload"]["text"] == "Selected witness."
+
+
+# ── W-110: an id replay refuses on sight is refused before the index ─────────
+
+
+def _index_must_not_be_resolved(*_args: object, **_kwargs: object) -> NOAmendmentIndex:
+    raise AssertionError("no-op-trace resolved the amendment index for a law id replay refuses on sight")
+
+
+@pytest.mark.parametrize("json_output", [True, False])
+@pytest.mark.parametrize(
+    ("base_id", "said"),
+    [
+        ("no/lov", "expected no/<kind>/<date>"),
+        ("no/forordning/2024-01-12-1", "unsupported Norway ref kind: forordning"),
+        ("se/sfs/1962:700", "unsupported Norway base_id: 'se/sfs/1962:700'"),
+    ],
+)
+def test_no_op_trace_command_refuses_a_malformed_id_before_the_index(
+    monkeypatch, capsys, tmp_path, base_id: str, said: str, json_output: bool
+) -> None:
+    monkeypatch.setattr("lawvm.norway.index.build_no_amendment_index", _index_must_not_be_resolved)
+    monkeypatch.setattr("lawvm.norway.index.load_no_amendment_index", _index_must_not_be_resolved)
+
+    with pytest.raises(SystemExit) as exit_info:
+        no_op_trace_main(
+            Namespace(
+                base_id=base_id,
+                data_dir=None,
+                index=str(tmp_path / "unreadable_index.json"),
+                path=[],
+                limit=20,
+                json=json_output,
+            )
+        )
+
+    assert exit_info.value.code == 1
+    output = capsys.readouterr().out
+    if json_output:
+        payload = json.loads(output)
+        assert set(payload) == {"base_id", "error"}
+        assert said in payload["error"]
+    else:
+        assert "Norway Op Trace" in output
+        assert said in output
+
+
+def test_no_op_trace_still_traces_a_law_with_no_base_act(tmp_path, capsys) -> None:
+    """Negative for W-110: only a refusal made from the id alone stops the
+    command. A well-formed id whose base act the archive does not hold has
+    amendments in the index, and their ops are what this command reports."""
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [("lti/2025/nl-20250202-005.xml", _AMENDMENT_XML)],
+    )
+
+    no_op_trace_main(
+        Namespace(
+            base_id="no/lov/2025-01-01-1",
+            data_dir=str(tmp_path),
+            index=None,
+            path=[],
+            limit=20,
+            json=True,
+        )
+    )
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload["source_count"] == 1
+    assert payload["op_count"] == 2

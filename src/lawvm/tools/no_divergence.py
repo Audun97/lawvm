@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any, TYPE_CHECKING
 
@@ -10,6 +11,7 @@ from lawvm.tools.report_models import NorwayDivergenceItem, NorwayDivergencePayl
 
 if TYPE_CHECKING:
     from lawvm.core.timeline_consistency import ConsistencyDivergence
+    from lawvm.norway.index import NOAmendmentIndex
 
 
 def _format_address(path: list[tuple[str, str]]) -> str:
@@ -56,13 +58,19 @@ def _divergence_hint(result: Any, divergence: "ConsistencyDivergence") -> str:
     return divergence.divergence_type.lower()
 
 
-def _build_payload(result: Any, max_divergences: int | None) -> NorwayDivergencePayload:
+def _build_payload(
+    result: Any,
+    max_divergences: int | None,
+    *,
+    index: "NOAmendmentIndex",
+    data_dir: Path | None,
+) -> NorwayDivergencePayload:
     from lawvm.tools.no_coverage import build_no_coverage_report
 
     coverage_report = build_no_coverage_report(
         base_id=result.base_id,
-        data_dir=None,
-        index=None,
+        data_dir=data_dir,
+        index=index,
         verify_result=result,
         limit=max_divergences if isinstance(max_divergences, int) else 20,
     )
@@ -133,9 +141,16 @@ def _build_payload(result: Any, max_divergences: int | None) -> NorwayDivergence
 
 
 def main(args: "argparse.Namespace") -> None:
+    from lawvm.norway.index import build_no_amendment_index, load_no_amendment_index
     from lawvm.norway.sources import no_consolidation_snapshot_date
     from lawvm.norway.verify import verify_no_against_current
+    from lawvm.tools.no_base_id_refusal import exit_if_no_base_id_refused
 
+    exit_if_no_base_id_refused(
+        args.base_id,
+        heading="Norway Divergence Explainer",
+        json_output=bool(getattr(args, "json", False)),
+    )
     data_dir_arg = getattr(args, "data_dir", None)
     data_dir = Path(data_dir_arg) if data_dir_arg else None
     # F-01: absent --as-of, the comparison horizon comes from the corpus, not a
@@ -147,20 +162,30 @@ def main(args: "argparse.Namespace") -> None:
     commencement_arg = getattr(args, "commencement", None)
     commencement_path = Path(commencement_arg) if commencement_arg else None
 
+    # One index for verify and for the coverage split. Left to themselves each
+    # resolved its own: verify from ``--index``/``--data-dir``, coverage always
+    # by a second build from the default archive (~90 s and ~800 MB more).
+    index = (
+        load_no_amendment_index(index_path)
+        if index_path is not None
+        else build_no_amendment_index(data_dir)
+    )
     result = verify_no_against_current(
         args.base_id,
         as_of=as_of,
         data_dir=data_dir,
-        index_path=index_path,
+        index=index,
         commencement_path=commencement_path,
     )
 
     max_divergences = getattr(args, "max_divergences", None)
-    payload = _build_payload(result, max_divergences)
+    payload = _build_payload(result, max_divergences, index=index, data_dir=data_dir)
     payload_dict = payload.to_dict()
 
     if getattr(args, "json", False):
         print(json.dumps(payload_dict, ensure_ascii=False, indent=2))
+        if payload.error:
+            sys.exit(1)
         return
 
     print()
@@ -172,7 +197,7 @@ def main(args: "argparse.Namespace") -> None:
         print(f"  current title   : {payload.current_title}")
     if payload.error:
         print(f"  error           : {payload.error}")
-        return
+        sys.exit(1)
     print(f"  consistent      : {'yes' if payload.consistent else 'no'}")
     print(f"  overall hint    : {payload.overall_hint}")
     print(f"  divergence count: {payload.divergence_count}")

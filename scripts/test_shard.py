@@ -1707,6 +1707,7 @@ TOOL_SOURCE_SHARD_GROUPS: dict[tuple[str, ...], tuple[str, ...]] = {
     ),
     ("norway", "tools_cli_debug"): (
         "src/lawvm/tools/no_anchor_manifest.py",
+        "src/lawvm/tools/no_base_id_refusal.py",
         "src/lawvm/tools/no_bench.py",
         "src/lawvm/tools/no_blockers.py",
         "src/lawvm/tools/no_commencement_backfill.py",

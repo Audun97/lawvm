@@ -8381,11 +8381,53 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    missing still gets its index, because its amendments are in it (446 of
    the 794 bound laws have no base act in the archive). Witness: `lawvm
    no-verify no/lov --as-of 2026-03-29` 87.8 s / 847 MB → 0.58 s / 59 MB,
-   same output. `no-divergence` goes through verify the same way and gets
-   the same. **Not covered:** `no-coverage`, `no-debug` and
-   `no-op-trace` resolve their own index before anything else, and their
-   reports are built from it, so for them a refused id is a separate early
-   exit, not this change.
+   same output. (This entry first said `no-divergence` "goes through
+   verify the same way and gets the same". That was written without
+   running it and was wrong: see the next paragraph.)
+   **The commands, same day (artifacts `.tmp/w110b/`).** Measured on
+   `no/lov` before touching them: `no-divergence` 91 s, `no-coverage` 88 s,
+   `no-op-trace` 96 s, `no-law` 98 s, `no-debug` 203 s, each ~847 MB and
+   exit code 0. `no-divergence` was not helped by the verify change because
+   its coverage split built an index of its own after verify returned.
+   `no-op-trace` and `no-law` printed an ordinary-looking report about a
+   law called `no/lov` ("replay status: no_amendments", "amendment count:
+   0"), and `no-coverage` printed "replay status: error" with no reason.
+   Three changes, all in `src/lawvm/tools/`:
+   (a) **Refused on sight.** `exit_if_no_base_id_refused`
+   (`tools/no_base_id_refusal.py`) asks `read_no_base_id` and, for an id
+   refused from the id alone, prints replay's reason and exits 1 before the
+   index or the corpus is touched. Called first in `no-divergence`,
+   `no-coverage`, `no-debug`, `no-op-trace` and `no-law`: all five now
+   answer in 0.6 s / 55 MB. With `--json` the refusal is the two-key object
+   `{"base_id", "error"}`, not the command's full report. A well-formed id
+   with no base act is not refused: its amendments are in the index and the
+   commands still report them (kringkastingsloven, `no/lov/1992-12-04-127`,
+   22 sources, same output as before for all four).
+   (b) **Exit 1 on an error.** `no-verify`, `no-divergence` and `no-debug`
+   printed an `error` line and exited 0; `replay -j no` exits 1 for the
+   same error. They now exit 1 after printing what they printed before.
+   `no-coverage` dropped verify's error; its report now carries an `error`
+   key, prints it, and exits 1 after the source counts (which stay true
+   for a law with no base act). A divergence is a result, not an error:
+   `no/lov/2022-03-11-9` (8 divergences) exits 0 from all five.
+   (c) **One index per run.** `no-divergence` and `no-debug` each built
+   the index twice on every run: verify's, then a second one for the
+   coverage split (`no-divergence`, always from the DEFAULT archive,
+   whatever `--data-dir` and `--index` said, so `--index FILE` did not
+   save the build either) or for the op trace (`no-debug`). Each now
+   resolves one index and hands it on. Kringkastingsloven, each run alone:
+   `no-divergence` 3 min 08 s → 1 min 54 s, `no-debug` 3 min 17 s →
+   2 min 16 s. Output byte-identical before and after for both, on that
+   law and on `no/lov/2022-03-11-9` (old code from a HEAD worktree); the
+   only difference in any of the five reports is the new `error` key in
+   `no-coverage`.
+   For a non-default `--data-dir`/`--index`, `no-divergence`'s touched /
+   untouched split is now computed from the index the user named and can
+   differ from the old one, which answered from the default archive.
+   **Not covered:** the commands that take a law id as an option rather
+   than as their one argument (`no-blockers`, `no-source`, `no-impact`,
+   …) were not looked at. `no-debug` and `no-divergence --json` still say
+   `overall_hint: consistent` next to an error.
 
 111. **W-111 (a saved index is not the index that was built):** same
    review. `save_no_amendment_index` / `load_no_amendment_index` do not
@@ -8405,6 +8447,22 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    instead of paying a build per process, and the test cache could drop
    its pickle.
 
+112. **W-112 (a law id typed without `no/` is counted as having no
+   amendments):** found while landing W-110. Replay normalizes
+   `lov/1992-12-04-127` to `no/lov/1992-12-04-127`, but
+   `verify_no_against_current` hands the id as typed to
+   `index.entries_for_base`, which matches the normalized form only.
+   Measured on the real index: `indexed_amendment_count` 22 with the
+   prefix, 0 without, for the same law and the same `result.base_id`.
+   `indexed_amendment_count` feeds `_infer_no_source_signal`, so for a law
+   replay serves the short form can also change the source signal. The
+   command-line tools pass the id through as typed (`no-coverage`
+   normalizes it itself; `no-op-trace` and `no-law` do not:
+   `build_no_law_report` gives `lov/2022-03-11-9` 0 amendments and
+   "no_amendments" where `no/lov/2022-03-11-9` has 4). Fix: count under
+   the id `read_no_base_id` returns. One line in `verify.py` plus the two
+   tools; not in the sweep closure.
+
 ## 5. Demo / Inspection Tooling
 
 Browser views of any replayable law across its own amendment dates, plus an
@@ -8421,6 +8479,30 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-10-02 (W-110, the commands — refuse on sight, exit 1 on an
+  error, one index per run; tools only, no replay or verify result
+  moves)** — the six commands that take one law id. Before: on `no/lov`,
+  `no-divergence`, `no-coverage`, `no-op-trace` and `no-law` each took
+  88–98 s and `no-debug` 203 s to build an index nothing was bound in,
+  and all exited 0; two of them printed an ordinary report about a law
+  called `no/lov`. The earlier W-110 entry claimed `no-divergence` was
+  already covered; it was not, and the entry is corrected. Now: those
+  five refuse such an id in 0.6 s with replay's reason and exit 1
+  (`tools/no_base_id_refusal.py`, one owner); `no-verify`,
+  `no-divergence`, `no-debug` and `no-coverage` exit 1 whenever they
+  report an error, as `replay -j no` does, and exit 0 for a law that
+  merely diverges; `no-coverage` now prints the error it used to drop;
+  `no-divergence` and `no-debug` build one index per run instead of two
+  (kringkastingsloven: 3 min 08 s → 1 min 54 s and 3 min 17 s →
+  2 min 16 s), and `no-divergence` computes its coverage split from the
+  index and archive the user named instead of always from the default
+  archive. Outputs for `no/lov/2022-03-11-9` and `no/lov/1992-12-04-127`
+  are byte-identical before and after except `no-coverage`'s new `error`
+  key. Tests: 43 new or changed cases fail on the old commands and three
+  negatives pass on both (a law with no base act is still traced; a law
+  that diverges exits 0, text and JSON). Queued from the same work: W-112
+  (an id typed without `no/` is counted as having no amendments).
 
 - **2026-10-02 (W-110 — replay refuses an id it cannot serve before it
   resolves the index; an order change, no replay result moves)** —
@@ -8450,7 +8532,8 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
   that the index binds no id replay refuses on sight, which is what makes
   0 the true count. Sweep retaken after this second edit to `replay.py`
   (242 s): again only the two digests moved. Three tools still resolve
-  their own index first; see W-110 in §4.
+  their own index first; see W-110 in §4. (Five, not three: see the entry
+  above.)
 
 - **2026-10-02 (test infrastructure — the index cache hardened after
   review; no engine or replay-path change)** — a review of `4a0cc2a3` found
