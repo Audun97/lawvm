@@ -228,6 +228,67 @@ def _no_ref_kind_and_date(norm_base_id: str) -> tuple[str, str, str]:
     return parts[0], parts[1], parts[2]
 
 
+@dataclass(frozen=True, slots=True)
+class NOBaseId:
+    """A law id replay can address: ``no/lov/<YYYY...>``, normalized."""
+
+    base_id: str
+    year: int
+
+
+@dataclass(frozen=True, slots=True)
+class NOBaseIdRefusal:
+    """A law id replay cannot address, with the reason it reports.
+
+    ``base_id`` is normalized where the prefix allowed it and as given otherwise,
+    which is what ``NOReplayResult.base_id`` carries for the refusal.
+    """
+
+    base_id: str
+    error: str
+
+
+def read_no_base_id(base_id: str) -> NOBaseId | NOBaseIdRefusal:
+    """Read a law id as replay does, from the id alone: no archive, no index.
+
+    The one owner of what replay refuses on sight (W-110).  ``replay_no_to_pit``
+    refuses through it before it resolves the index, and
+    ``verify_no_against_current`` asks it whether an index is worth building.
+    """
+    try:
+        norm_base_id = _normalize_base_id(base_id)
+    except ValueError as exc:
+        return NOBaseIdRefusal(base_id=base_id, error=str(exc))
+    try:
+        _no, ref_kind, date_part = _no_ref_kind_and_date(norm_base_id)
+    except ValueError as exc:
+        # Surface a malformed ``no/<single-segment>`` shape (e.g. ``no/lov``)
+        # as a typed ``NOReplayResult.error`` rather than a bare Python
+        # traceback (§1.10: never silently crash; fail loud with a named
+        # diagnostic). Reaches here because ``_normalize_base_id`` accepts
+        # any ``no/...`` prefix; this helper narrows the accepted shape to
+        # the canonical ``no/<kind>/<date>``.
+        return NOBaseIdRefusal(base_id=norm_base_id, error=str(exc))
+    if ref_kind != "lov":
+        return NOBaseIdRefusal(base_id=norm_base_id, error=f"unsupported Norway ref kind: {ref_kind}")
+    try:
+        year = int(date_part[:4])
+    except ValueError:
+        # ``date_part`` does not begin with a 4-digit year. The previous
+        # bare ``int(date_part[:4])`` would crash the whole replay path with
+        # a raw ValueError. Surface the malformed date_part as a typed
+        # error carrying the offending id so triage does not have to
+        # re-run replay to find it.
+        return NOBaseIdRefusal(
+            base_id=norm_base_id,
+            error=(
+                f"unsupported Norway base_id (date segment {date_part!r} in {norm_base_id!r} "
+                "does not begin with a 4-digit year)"
+            ),
+        )
+    return NOBaseId(base_id=norm_base_id, year=year)
+
+
 def _source_date_from_id(source_id: str) -> str:
     try:
         _no, _kind, date_part = source_id.split("/", 2)
@@ -253,6 +314,21 @@ def replay_no_to_pit(
             print(f"  {msg}", file=sys.stderr)
 
     data_dir = resolve_no_source_path(data_dir)
+    # W-110: the id and the base act are checked before the index is resolved.
+    # Neither check reads the index, and building it is the expensive step
+    # (~90 s and ~800 MB on the full archive), so an id replay cannot serve is
+    # refused on sight.
+    read = read_no_base_id(base_id)
+    if isinstance(read, NOBaseIdRefusal):
+        return NOReplayResult(base_id=read.base_id, as_of=as_of, error=read.error)
+    norm_base_id = read.base_id
+    year = read.year
+    result = NOReplayResult(base_id=norm_base_id, as_of=as_of)
+    base_bytes = load_no_original_lti_bytes(norm_base_id, data_dir)
+    if base_bytes is None:
+        result.error = f"no original-act source available for {norm_base_id} (year {year})"
+        return result
+
     if index is None and index_path is not None:
         index = load_no_amendment_index(index_path)
     if index is None:
@@ -260,43 +336,6 @@ def replay_no_to_pit(
     if commencement_path is not None:
         overrides = load_no_commencement_overrides(commencement_path)
         index = apply_no_commencement_overrides(index, overrides)
-    try:
-        norm_base_id = _normalize_base_id(base_id)
-    except ValueError as exc:
-        return NOReplayResult(base_id=base_id, as_of=as_of, error=str(exc))
-
-    result = NOReplayResult(base_id=norm_base_id, as_of=as_of)
-    try:
-        _no, ref_kind, date_part = _no_ref_kind_and_date(norm_base_id)
-    except ValueError as exc:
-        # Surface a malformed ``no/<single-segment>`` shape (e.g. ``no/lov``)
-        # as a typed ``NOReplayResult.error`` rather than a bare Python
-        # traceback (§1.10: never silently crash; fail loud with a named
-        # diagnostic). Reaches here because ``_normalize_base_id`` accepts
-        # any ``no/...`` prefix; this helper narrows the accepted shape to
-        # the canonical ``no/<kind>/<date>``.
-        result.error = str(exc)
-        return result
-    if ref_kind != "lov":
-        result.error = f"unsupported Norway ref kind: {ref_kind}"
-        return result
-    try:
-        year = int(date_part[:4])
-    except ValueError:
-        # ``date_part`` does not begin with a 4-digit year. The previous
-        # bare ``int(date_part[:4])`` would crash the whole replay path with
-        # a raw ValueError. Surface the malformed date_part as a typed
-        # error carrying the offending id so triage does not have to
-        # re-run replay to find it.
-        result.error = (
-            f"unsupported Norway base_id (date segment {date_part!r} in {norm_base_id!r} "
-            "does not begin with a 4-digit year)"
-        )
-        return result
-    base_bytes = load_no_original_lti_bytes(norm_base_id, data_dir)
-    if base_bytes is None:
-        result.error = f"no original-act source available for {norm_base_id} (year {year})"
-        return result
 
     base_source_id = f"no/LTI/{norm_base_id.removeprefix('no/')}"
     result.base_source_id = base_source_id

@@ -5,7 +5,9 @@ from typing import Any, cast
 from lawvm.core.ir import IRStatute, LegalAddress, ProvisionTimeline, ProvisionVersion
 from lawvm.core.ir_helpers import irnode_to_text
 
+import argparse
 import io
+import json
 import tarfile
 
 import pytest
@@ -15,7 +17,9 @@ from lawvm.core.ir import IRNode
 from lawvm.core.semantic_types import IRNodeKind
 from lawvm.core.timeline import ingest_consolidated, verify_consistency
 from lawvm.core.timeline_consistency import ConsistencyDivergence
-from lawvm.norway.sources import ingest_no_public_archives, resolve_no_source_path
+from lawvm.norway.index import NOAmendmentIndex, build_no_amendment_index
+from lawvm.norway.replay import NOBaseIdRefusal, read_no_base_id
+from lawvm.norway.sources import NOReplayStatus, ingest_no_public_archives, resolve_no_source_path
 from lawvm.norway.verify import (
     NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_ADDRESS,
     NO_VERIFY_CEILING_ANNEXED_INSTRUMENT_COUNTERPART,
@@ -41,6 +45,7 @@ from lawvm.norway.verify import (
     normalize_no_comparison_text,
 )
 from lawvm.norway.verify import build_no_verify_partition, build_no_verify_scan, verify_no_against_current
+from lawvm.tools.no_verify import main as no_verify_main
 from tests.norway_index_cache import cached_no_amendment_index
 
 
@@ -3316,3 +3321,130 @@ def test_no_paths_related_container_only_path_relates_to_its_own_rows_only() -> 
         (("chapter", "5"), ("section", "5A-1"), ("subsection", "1")),
         (("chapter", "5A"), ("section", "5A-1"), ("subsection", "1")),
     )
+
+
+# ── W-110: an id replay refuses on sight is not worth an index build ─────────
+#
+# ``verify_no_against_current`` counts the id's index entries before it calls
+# replay, so it used to build the index (~90 s, ~800 MB on the real archive) to
+# count the amendments of an id replay then refused. With no index at hand it now
+# asks replay's own id check first and reports the count as 0 without looking.
+# That 0 is the count a build would give only while the index binds no id replay
+# refuses, which the last test here pins over the real corpus.
+
+
+def _index_must_not_be_built(*_args: object, **_kwargs: object) -> NOAmendmentIndex:
+    raise AssertionError("verify built the amendment index for a law id replay refuses on sight")
+
+
+@pytest.mark.parametrize(
+    ("base_id", "said"),
+    [
+        ("no/lov", "expected no/<kind>/<date>"),
+        ("no/lov/xyz-1", "4-digit year"),
+        ("no/forordning/2024-01-12-1", "unsupported Norway ref kind: forordning"),
+        ("se/sfs/1962:700", "unsupported Norway base_id: 'se/sfs/1962:700'"),
+    ],
+)
+def test_verify_no_against_current_refuses_a_malformed_id_without_an_index(
+    monkeypatch, base_id: str, said: str
+) -> None:
+    monkeypatch.setattr("lawvm.norway.verify.build_no_amendment_index", _index_must_not_be_built)
+    monkeypatch.setattr("lawvm.norway.replay.build_no_amendment_index", _index_must_not_be_built)
+
+    result = verify_no_against_current(base_id, as_of="2026-03-29")
+
+    assert result.error is not None and said in result.error
+    assert result.replay_status == NOReplayStatus.ERROR
+    assert result.indexed_amendment_count == 0
+    assert result.replay is not None and result.replay.replayed is None
+
+
+def test_verify_no_against_current_reports_a_refused_id_the_same_with_and_without_an_index(tmp_path) -> None:
+    """The shortcut changes what verify costs, not what it says: the result for a
+    refused id is field for field the one an index at hand gives."""
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2001-2025.tar.bz2",
+        [
+            ("lti/2025/nl-20250101-001.xml", _BASE_XML),
+            ("lti/2025/nl-20250202-005.xml", _amendment_xml()),
+        ],
+    )
+    index = build_no_amendment_index(tmp_path)
+    assert index.entries_for_base("no/lov/2025-01-01-1")
+
+    for base_id in ("no/lov", "no/lov/xyz-1", "no/forordning/2024-01-12-1", "se/sfs/1962:700"):
+        without = verify_no_against_current(base_id, as_of="2026-03-29", data_dir=tmp_path)
+        given = verify_no_against_current(base_id, as_of="2026-03-29", data_dir=tmp_path, index=index)
+
+        assert without == given
+        assert without.indexed_amendment_count == 0
+
+
+def test_verify_no_against_current_still_counts_the_amendments_of_a_law_with_no_base_act(
+    tmp_path, monkeypatch
+) -> None:
+    """Negative for W-110: only an id replay refuses ON SIGHT skips the build. A
+    well-formed id whose base act the archive does not hold is refused by replay
+    too, but its amendments are in the index and verify still counts them."""
+    built: list[object] = []
+
+    def _recording_builder(data_dir: object) -> NOAmendmentIndex:
+        built.append(data_dir)
+        return build_no_amendment_index(tmp_path)
+
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2001-2025.tar.bz2",
+        [("lti/2025/nl-20250202-005.xml", _amendment_xml())],
+    )
+    monkeypatch.setattr("lawvm.norway.verify.build_no_amendment_index", _recording_builder)
+
+    result = verify_no_against_current("no/lov/2025-01-01-1", as_of="2025-02-15", data_dir=tmp_path)
+
+    assert built == [tmp_path]
+    assert result.indexed_amendment_count == 1
+    assert result.error == "no original-act source available for no/lov/2025-01-01-1 (year 2025)"
+    assert result.replay_status == NOReplayStatus.ERROR
+
+
+def test_no_verify_command_refuses_a_malformed_id_without_an_index(monkeypatch, capsys) -> None:
+    """W-110 through the command a person types: ``lawvm no-verify no/lov``."""
+    monkeypatch.setattr("lawvm.norway.verify.build_no_amendment_index", _index_must_not_be_built)
+    monkeypatch.setattr("lawvm.norway.replay.build_no_amendment_index", _index_must_not_be_built)
+    args = argparse.Namespace(
+        base_id="no/lov",
+        as_of="2026-03-29",
+        data_dir=None,
+        index=None,
+        commencement=None,
+        verbose=False,
+        json=True,
+    )
+
+    no_verify_main(args)
+
+    payload = json.loads(capsys.readouterr().out)
+    assert "expected no/<kind>/<date>" in payload["error"]
+    assert payload["replay_status"] == "error"
+    assert payload["indexed_amendment_count"] == 0
+
+
+def test_real_corpus_index_binds_no_law_id_replay_refuses_on_sight() -> None:
+    """The fact W-110's shortcut in verify rests on, read off the real index.
+
+    Verify reports ``indexed_amendment_count`` 0 for an id replay refuses on sight
+    without building the index. That is the true count exactly as long as no
+    amendment is bound to such an id. If this goes red, the index has started to
+    bind something replay cannot address (a regulation, a malformed citation):
+    the shortcut in ``verify_no_against_current`` then under-reports that id's
+    count and has to go, or count from a real index.
+    """
+    data_dir = resolve_no_source_path(None)
+    if not data_dir.exists():
+        pytest.skip("local Norway corpus is not installed")
+
+    index = cached_no_amendment_index(data_dir)
+    bound = {base_id for entry in index.entries for base_id in entry.base_ids}
+
+    assert bound
+    assert sorted(b for b in bound if isinstance(read_no_base_id(b), NOBaseIdRefusal)) == []

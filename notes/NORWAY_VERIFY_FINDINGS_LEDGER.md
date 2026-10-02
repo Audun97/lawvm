@@ -8351,6 +8351,41 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    first, and give the tests back the default call. Small, but it edits
    `replay.py`, so the occupied-destination sweep baseline has to be
    regenerated with it.
+   **LANDED 2026-10-02 (artifacts `.tmp/w110/`).** A reorder inside
+   `replay_no_to_pit`, nothing else: the id checks and the base-act lookup
+   now run before the index is loaded or built and before the commencement
+   overrides are read. The base-act lookup came along because the likelier
+   slip is a well-formed id with a wrong number, and it is one archive
+   lookup. Witness, same message before and after:
+   `lawvm -j no replay no/lov --as-of 2026-03-29` 87.8 s / 846 MB →
+   0.56 s / 55 MB; `… no/lov/1992-12-04-999` 0.57 s. No result changes: the
+   refusals never read the index, a law that is served gets the same index
+   as before, and a source path that does not exist behaves the same in
+   either order (probed for a directory and a farchive). One difference in
+   which fault is reported: a refused id given together with an unreadable
+   `--index` or `--commencement` file used to raise on the file and now
+   returns the refusal.
+   **Verify, same day, on Audun's decision.** `verify_no_against_current`
+   counts the id's index entries before it calls replay, so `lawvm
+   no-verify <malformed id>` still paid the build. Skipping it there is
+   not a reorder: with no index at hand, verify now reports
+   `indexed_amendment_count` 0 for an id replay refuses on sight, without
+   looking. That is the true count as long as the index binds no such id.
+   On this corpus it binds 794 law ids and none is refused, and
+   `test_real_corpus_index_binds_no_law_id_replay_refuses_on_sight` keeps
+   that a checked fact: it goes red if the index ever binds a regulation or
+   a malformed citation, and says the shortcut then has to go. The id
+   check has one owner for both callers, `read_no_base_id` in `replay.py`
+   (typed result: `NOBaseId` or `NOBaseIdRefusal`). Only a refusal made
+   from the id alone skips the build; a well-formed id whose base act is
+   missing still gets its index, because its amendments are in it (446 of
+   the 794 bound laws have no base act in the archive). Witness: `lawvm
+   no-verify no/lov --as-of 2026-03-29` 87.8 s / 847 MB → 0.58 s / 59 MB,
+   same output. `no-divergence` goes through verify the same way and gets
+   the same. **Not covered:** `no-coverage`, `no-debug` and
+   `no-op-trace` resolve their own index before anything else, and their
+   reports are built from it, so for them a refused id is a separate early
+   exit, not this change.
 
 111. **W-111 (a saved index is not the index that was built):** same
    review. `save_no_amendment_index` / `load_no_amendment_index` do not
@@ -8386,6 +8421,36 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-10-02 (W-110 — replay refuses an id it cannot serve before it
+  resolves the index; an order change, no replay result moves)** —
+  `replay_no_to_pit` loaded or built the amendment index, and read the
+  commencement overrides, before it looked at the id. The id checks and
+  the base-act lookup now come first. `lawvm -j no replay no/lov` went
+  from 87.8 s / 846 MB to 0.56 s / 55 MB with the same message; a
+  well-formed id with no base act in the archive answers in 0.57 s.
+  Tests: the three malformed-id tests take the default call again, with
+  the builder replaced by one that fails the test if it is reached; new
+  ones cover an id from another jurisdiction, a law with no base act, a
+  refused id handed an unreadable saved index and overrides file, the
+  command itself (`no_replay.main`, exit 1), and the negative (a law that
+  is served still gets its index built from the source it named, and a
+  saved index it names is still read). Seven of the eight fail on the old
+  order; the negative passes on both. Sweep baseline regenerated
+  (`--procs 4`, 238 s): of 1,364 values two moved, the code digest and
+  `replay.py`'s own file digest; 8 firings, 158 / 4,122 / 245 hazard
+  counts and the three blind-spot laws are unchanged. Then verify, on
+  Audun's decision: with no index at hand `verify_no_against_current`
+  asks replay's id check (`read_no_base_id`, now the one owner for both)
+  before building, and reports the count as 0 for an id refused on sight;
+  `lawvm no-verify no/lov` 87.8 s → 0.58 s, same output. Tests: the four
+  refusals and the command (five fail on the old verify), field-for-field
+  equality with the result an index at hand gives, the negative (a law
+  with no base act still gets its index and its count), and a corpus pin
+  that the index binds no id replay refuses on sight, which is what makes
+  0 the true count. Sweep retaken after this second edit to `replay.py`
+  (242 s): again only the two digests moved. Three tools still resolve
+  their own index first; see W-110 in §4.
 
 - **2026-10-02 (test infrastructure — the index cache hardened after
   review; no engine or replay-path change)** — a review of `4a0cc2a3` found

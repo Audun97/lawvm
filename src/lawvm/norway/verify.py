@@ -31,7 +31,7 @@ from lawvm.norway.inventory import (
     build_no_no_consolidation_rows,
     summarize_no_no_consolidation_rows,
 )
-from lawvm.norway.replay import NOReplayResult, replay_no_to_pit
+from lawvm.norway.replay import NOBaseIdRefusal, NOReplayResult, read_no_base_id, replay_no_to_pit
 from lawvm.norway.sources import (
     load_no_current_bytes,
     resolve_no_source_path,
@@ -1486,10 +1486,17 @@ def verify_no_against_current(
     data_dir = resolve_no_source_path(data_dir)
     if index is None and index_path is not None:
         index = load_no_amendment_index(index_path)
-    if index is None:
+    # W-110: an id replay refuses on sight is not worth an index build (~90 s
+    # and ~800 MB on the full archive) to count its amendments. With no index at
+    # hand the count is 0 without looking, and replay, handed no index, refuses
+    # before it would build one. The index binds amendments to law ids replay
+    # can address only (pinned over the real corpus by
+    # ``test_real_corpus_index_binds_no_law_id_replay_refuses_on_sight``), so 0
+    # is the count a build would have given.
+    if index is None and not isinstance(read_no_base_id(base_id), NOBaseIdRefusal):
         index = build_no_amendment_index(data_dir)
 
-    indexed_entries = index.entries_for_base(base_id)
+    indexed_entries = index.entries_for_base(base_id) if index is not None else []
 
     replay = replay_no_to_pit(
         base_id,

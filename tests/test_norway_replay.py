@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import hashlib
 import io
 import json
@@ -16,7 +17,15 @@ from lawvm.norway.index import (
     build_no_amendment_index,
     save_no_amendment_index,
 )
-from lawvm.norway.replay import _effective_date_from_amendment, _no_ref_kind_and_date, replay_no_to_pit
+from lawvm.norway.replay import (
+    NOBaseId,
+    NOBaseIdRefusal,
+    _effective_date_from_amendment,
+    _no_ref_kind_and_date,
+    read_no_base_id,
+    replay_no_to_pit,
+)
+from lawvm.tools.no_replay import main as no_replay_main
 from lawvm.tools.replay_payloads import build_no_replay_payload
 from tests.norway_index_cache import cached_no_amendment_index
 
@@ -971,18 +980,51 @@ def test_no_ref_kind_and_date_raises_typed_for_two_segment_id() -> None:
         raise AssertionError("expected ValueError on two-segment base_id")
 
 
-# ``replay_no_to_pit`` builds the amendment index before it looks at the id. With
-# the real archive installed that is a ~90 s build for a test about a malformed
-# id, so these three hand it an empty index; the id check does not read it.
-_NO_EMPTY_INDEX = NOAmendmentIndex(data_dir="unused")
+# W-110. ``replay_no_to_pit`` used to resolve the amendment index before it looked
+# at the id: with the real archive installed, ~90 s and ~800 MB to refuse an id it
+# could have refused on sight. The id and the base act are now checked first.
+# Neither check reads the index. The tests below take the default call (no index
+# given, so the real archive where one is installed) and replace the builder with
+# one that fails the test if replay reaches for it.
 
 
-def test_replay_no_to_pit_surfaces_two_segment_base_id_as_typed_error() -> None:
+def test_read_no_base_id_reads_an_id_from_the_id_alone() -> None:
+    """The one owner of what replay refuses on sight. It normalizes where the
+    prefix allows, and a refusal carries the id as ``NOReplayResult`` reports it."""
+    assert read_no_base_id("no/lov/2024-01-12-1") == NOBaseId(base_id="no/lov/2024-01-12-1", year=2024)
+    assert read_no_base_id("lov/2024-01-12-1") == NOBaseId(base_id="no/lov/2024-01-12-1", year=2024)
+
+    assert read_no_base_id("se/sfs/1962:700") == NOBaseIdRefusal(
+        base_id="se/sfs/1962:700", error="unsupported Norway base_id: 'se/sfs/1962:700'"
+    )
+    assert read_no_base_id("lov/xyz-1") == NOBaseIdRefusal(
+        base_id="no/lov/xyz-1",
+        error=(
+            "unsupported Norway base_id (date segment 'xyz-1' in 'no/lov/xyz-1' "
+            "does not begin with a 4-digit year)"
+        ),
+    )
+    assert read_no_base_id("no/forordning/2024-01-12-1") == NOBaseIdRefusal(
+        base_id="no/forordning/2024-01-12-1", error="unsupported Norway ref kind: forordning"
+    )
+    refused = read_no_base_id("no/lov")
+    assert isinstance(refused, NOBaseIdRefusal)
+    assert refused.base_id == "no/lov"
+    assert "expected no/<kind>/<date>" in refused.error
+
+
+def _index_must_not_be_built(*_args: object, **_kwargs: object) -> NOAmendmentIndex:
+    raise AssertionError("replay built the amendment index before refusing the law id")
+
+
+def test_replay_no_to_pit_surfaces_two_segment_base_id_as_typed_error(monkeypatch) -> None:
     # Before the fix, the bare ``norm_base_id.split("/", 2)`` crash escaped
     # replay_no_to_pit and bubbled to the CLI as a raw traceback. The replay
     # contract is that malformed inputs return NOReplayResult(error=...) —
     # this test pins the contract end-to-end.
-    result = replay_no_to_pit("no/lov", as_of="2026-03-29", index=_NO_EMPTY_INDEX)
+    monkeypatch.setattr("lawvm.norway.replay.build_no_amendment_index", _index_must_not_be_built)
+
+    result = replay_no_to_pit("no/lov", as_of="2026-03-29")
 
     assert result.error is not None
     assert "expected no/<kind>/<date>" in result.error
@@ -992,12 +1034,14 @@ def test_replay_no_to_pit_surfaces_two_segment_base_id_as_typed_error() -> None:
     assert result.replayed is None
 
 
-def test_replay_no_to_pit_surfaces_non_numeric_date_segment_as_typed_error() -> None:
+def test_replay_no_to_pit_surfaces_non_numeric_date_segment_as_typed_error(monkeypatch) -> None:
     # ``year = int(date_part[:4])`` previously crashed with a bare ValueError
     # when ``date_part`` did not begin with a 4-digit year. The try-block now
     # wraps the int parse so any malformed date segment produces a typed
     # NOReplayResult.error carrying the offending id.
-    result = replay_no_to_pit("no/lov/xyz-1", as_of="2026-03-29", index=_NO_EMPTY_INDEX)
+    monkeypatch.setattr("lawvm.norway.replay.build_no_amendment_index", _index_must_not_be_built)
+
+    result = replay_no_to_pit("no/lov/xyz-1", as_of="2026-03-29")
 
     assert result.error is not None
     assert "4-digit year" in result.error
@@ -1005,16 +1049,114 @@ def test_replay_no_to_pit_surfaces_non_numeric_date_segment_as_typed_error() -> 
     assert "no/lov/xyz-1" in result.error
 
 
-def test_replay_no_to_pit_surfaces_unsupported_ref_kind_as_typed_error() -> None:
+def test_replay_no_to_pit_surfaces_unsupported_ref_kind_as_typed_error(monkeypatch) -> None:
     # Pre-existing behaviour for ``ref_kind != "lov"``: typed NOReplayResult.error.
     # Pinned here to ensure the new try-blocks above do not regress it.
-    result = replay_no_to_pit(
-        "no/forordning/2024-01-12-1", as_of="2026-03-29", index=_NO_EMPTY_INDEX
-    )
+    monkeypatch.setattr("lawvm.norway.replay.build_no_amendment_index", _index_must_not_be_built)
+
+    result = replay_no_to_pit("no/forordning/2024-01-12-1", as_of="2026-03-29")
 
     assert result.error is not None
     assert "unsupported Norway ref kind" in result.error
     assert "forordning" in result.error
+
+
+def test_replay_no_to_pit_refuses_an_id_from_another_jurisdiction_without_an_index(monkeypatch) -> None:
+    monkeypatch.setattr("lawvm.norway.replay.build_no_amendment_index", _index_must_not_be_built)
+
+    result = replay_no_to_pit("se/sfs/1962:700", as_of="2026-03-29")
+
+    assert result.error == "unsupported Norway base_id: 'se/sfs/1962:700'"
+    assert result.base_id == "se/sfs/1962:700"
+
+
+def test_replay_no_to_pit_refuses_a_law_with_no_base_act_without_an_index(tmp_path, monkeypatch) -> None:
+    """The likelier slip is a well-formed id with a wrong number. The base act is
+    one archive lookup, so that is refused before the index too."""
+    monkeypatch.setattr("lawvm.norway.replay.build_no_amendment_index", _index_must_not_be_built)
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2001-2025.tar.bz2",
+        [("lti/2025/nl-20250101-001.xml", _BASE_XML)],
+    )
+
+    result = replay_no_to_pit("no/lov/2025-01-01-2", as_of="2026-03-29", data_dir=tmp_path)
+
+    assert result.error == "no original-act source available for no/lov/2025-01-01-2 (year 2025)"
+    assert result.base_id == "no/lov/2025-01-01-2"
+    assert result.replayed is None
+
+
+def test_replay_no_to_pit_refuses_a_malformed_id_before_reading_a_saved_index(tmp_path) -> None:
+    """The same order holds for ``--index FILE`` and ``--commencement FILE``: an id
+    that cannot be served is reported as that, not as whatever is wrong with the
+    files it would have been served from."""
+    result = replay_no_to_pit(
+        "no/lov",
+        as_of="2026-03-29",
+        data_dir=tmp_path,
+        index_path=tmp_path / "absent-index.json",
+        commencement_path=tmp_path / "absent-commencement.json",
+    )
+
+    assert result.error is not None
+    assert "expected no/<kind>/<date>" in result.error
+
+
+def test_replay_no_to_pit_still_resolves_the_index_for_a_law_it_can_serve(tmp_path, monkeypatch) -> None:
+    """Negative for W-110: the reorder skips the index only for an id it refuses.
+    A law whose base act is there gets its index built, from the source it named,
+    and a saved index it names is still read (here: absent, so that is the error)."""
+    built: list[object] = []
+
+    def _recording_builder(data_dir: object) -> NOAmendmentIndex:
+        built.append(data_dir)
+        return build_no_amendment_index(tmp_path)
+
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2001-2025.tar.bz2",
+        [
+            ("lti/2025/nl-20250101-001.xml", _BASE_XML),
+            ("lti/2025/nl-20250202-005.xml", _amendment_xml("2025-02-10")),
+        ],
+    )
+    monkeypatch.setattr("lawvm.norway.replay.build_no_amendment_index", _recording_builder)
+
+    result = replay_no_to_pit("no/lov/2025-01-01-1", as_of="2025-02-15", data_dir=tmp_path)
+
+    assert built == [tmp_path]
+    assert result.error is None
+    assert result.amendments_applied == ["no/lovtid/2025-02-02-5"]
+    with pytest.raises(FileNotFoundError):
+        replay_no_to_pit(
+            "no/lov/2025-01-01-1",
+            as_of="2025-02-15",
+            data_dir=tmp_path,
+            index_path=tmp_path / "absent-index.json",
+        )
+    assert built == [tmp_path]
+
+
+def test_no_replay_command_refuses_a_malformed_id_without_an_index(monkeypatch, capsys) -> None:
+    """W-110 through the command a person types: ``lawvm -j no replay no/lov`` with
+    no ``--index`` reaches the refusal, prints it and exits 1, and never builds."""
+    monkeypatch.setattr("lawvm.norway.replay.build_no_amendment_index", _index_must_not_be_built)
+    args = argparse.Namespace(
+        base_id="no/lov",
+        as_of="2026-03-29",
+        archive=None,
+        index=None,
+        commencement=None,
+        verbose=False,
+        show_text=False,
+        json=True,
+    )
+
+    with pytest.raises(SystemExit) as exited:
+        no_replay_main(args)
+
+    assert exited.value.code == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert "expected no/<kind>/<date>" in json.dumps(payload)
 
 
 # ── W-12: the heading-group fold is temporally ordered ────────────────────────
