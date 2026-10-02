@@ -17,6 +17,12 @@ from typing import Any
 
 import pytest
 
+# Imported here, not first inside a test: the sweep tests below replace
+# ``lawvm.norway.index.build_no_amendment_index``, and a module first imported
+# while that patch is active binds the fake as its own builder for the rest of
+# the process (``from ... import`` copies the name, and monkeypatch only
+# restores the one it set).
+import lawvm.norway.verify  # noqa: F401
 from lawvm.core.bench_contract import BenchStatus, BenchUnitResult, check_residue_reconciliation
 from lawvm.core.ir import IRNode
 from lawvm.core.semantic_types import IRNodeKind
@@ -656,6 +662,46 @@ def test_no_bench_worker_initializer_installs_the_index_beside_the_data_dir(monk
 
     assert no_bench._WORKER_DATA_DIR == _Path("/some/norway.farchive")
     assert no_bench._WORKER_INDEX is the_index
+
+
+def test_no_bench_pool_workers_verify_against_the_sweeps_index_not_their_own(
+    monkeypatch, tmp_path
+) -> None:
+    """The same sharing through a real process pool, on a one-law corpus.
+
+    Pool workers are new processes that re-import the module, so nothing patched
+    here reaches them: the initializer is the only way the sweep's index gets in.
+    The sweep is handed an index with its one amendment removed. A row verified
+    against it replays nothing and matches the current text (0.0); a worker left
+    to build its own finds the amendment and does not (1.0). The curated-corpus
+    smoke test above cannot tell these apart, it only counts crashes, and the
+    difference on the real archive is 18 builds of ~800 MB instead of one.
+    """
+    from lawvm.norway.index import build_no_amendment_index
+    from tests.test_norway_index_cache import _tiny_archive
+
+    db_path = _tiny_archive(tmp_path)
+    rows = [
+        ("no/lov/2025-01-01-1", "2026-07-10", ""),
+        ("no/lov/2025-01-01-1", "2026-07-10", "the same law again, for the second worker"),
+    ]
+    sweeps_index = build_no_amendment_index(db_path)
+    assert len(sweeps_index.entries) == 1
+
+    # Control: with no index installed the worker builds its own and sees the amendment.
+    monkeypatch.setattr(no_bench, "_WORKER_DATA_DIR", db_path)
+    monkeypatch.setattr(no_bench, "_WORKER_INDEX", None)
+    assert no_bench._no_bench_score_one_worker(rows[0]).structural_err == 1.0
+
+    sweeps_index.entries.clear()
+    monkeypatch.setattr(
+        "lawvm.norway.index.build_no_amendment_index", lambda data_dir=None: sweeps_index
+    )
+
+    results = no_bench._run_bench_sweep(rows, db_path, 2)
+
+    assert [r.bench_unit_status for r in results] == [BenchStatus.SCORED] * 2
+    assert [r.structural_err for r in results] == [0.0, 0.0]
 
 
 # ---------------------------------------------------------------------------

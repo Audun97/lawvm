@@ -34,9 +34,10 @@ THREE DECISIONS THAT ARE NOT OBVIOUS
 ------------------------------------
 PICKLE, NOT ``save_no_amendment_index``.  The JSON round trip is lossy on the real
 index: 473 of 15,180 diagnostics come back with ``tuple`` turned into ``list`` and
-``FrozenDict`` into ``dict``.  A pickle round trip is equal, and the builder checks
-that before it stores anything.  The entry is only ever read back from the
-directory this module wrote it to.
+``FrozenDict`` into ``dict``.  A pickle round trip is exact, and the builder checks
+that before it stores anything, with ``first_exact_difference`` rather than ``==``:
+``FrozenDict`` is a ``dict`` subclass, so ``==`` cannot see that half of the loss.
+The entry is only ever read back from the directory this module wrote it to.
 
 THE BUILD RUNS IN A CHILD PROCESS.  A test worker is the wrong place to build a
 shared entry: a ``monkeypatch`` still active in it would be cached for everyone,
@@ -44,9 +45,20 @@ and its modules may have been imported before a file on disk was edited.  The
 child imports the code fresh, computes the key itself before and after the build,
 and stores nothing if the two differ.  The worker then looks the entry up under
 its own key, so an entry is only ever used by a process that agrees on the inputs.
+The child inherits the build lock and stops itself after ``BUILD_TIMEOUT_SECONDS``,
+so a worker killed mid-build leaves neither a second build beside the first nor a
+lock nobody will release.
 
 EVERY CALL GETS ITS OWN OBJECT.  The entry is unpickled per call, so one test
 mutating its index cannot reach another, exactly as when each test built its own.
+The bytes are remembered per process, together with the environment flags they
+were keyed on, and reused only while those flags still hold: a test that sets one
+gets the index built under it, and the next test gets the plain one back.
+
+WHAT THE KEY CANNOT SEE.  The key is read off the files on disk, once per process
+and flag setting.  A process that already imported a module and then has it edited
+under it will pair old replay code with an index built by the new code.  Do not
+edit Norway code while the shard runs; re-run if you did.
 
 ``generated_at_utc`` is the one field that differs from a fresh build: it is the
 time the entry was built.
@@ -63,6 +75,8 @@ tests on this path.
 from __future__ import annotations
 
 import argparse
+import contextlib
+import dataclasses
 import functools
 import hashlib
 import importlib.util
@@ -70,6 +84,7 @@ import json
 import os
 import pickle
 import re
+import signal
 import subprocess
 import sys
 import time
@@ -77,7 +92,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Iterator
+from typing import IO, Any, Iterator
 
 import lawvm
 from lawvm.norway.index import NOAmendmentIndex, build_no_amendment_index
@@ -99,10 +114,16 @@ DEFAULT_CACHE_DIR = _REPO_ROOT / ".tmp" / "norway-index-cache"
 #: two; the rest is slack for switching between branches.
 KEEP_ENTRIES = 4
 
+#: How long the build child may run before it stops itself.  A build is ~90 s and
+#: has been seen at 290 s on a swapping laptop; past this it is hung, and every
+#: other worker is waiting on its lock.
+BUILD_TIMEOUT_SECONDS = 900
+
 _ENV_NAME_RE = re.compile(r"\bLAWVM_[A-Z0-9_]+\b")
 
-#: Pickled entries this process already resolved, by the path string asked for.
-_BLOBS: dict[str, bytes] = {}
+#: Pickled entries this process already resolved, by the path string asked for,
+#: each with the environment-flag values its key was computed from.
+_BLOBS: dict[str, list[tuple[dict[str, str | None], bytes]]] = {}
 
 
 class NOIndexCacheError(RuntimeError):
@@ -205,20 +226,74 @@ def _record(directory: Path, event: str, **fields: Any) -> None:
 
 
 @contextmanager
-def _build_lock(directory: Path) -> Iterator[None]:
+def _build_lock(directory: Path) -> Iterator[IO[str]]:
     """One build at a time per cache directory, across processes.
 
     Also what keeps four xdist workers that miss together from building four
-    times: three wait here and then find the entry.
+    times: three wait here and then find the entry.  Yields the locked file so
+    the build child can be handed it (see ``_build_in_child``).
     """
     import fcntl
 
     with (directory / "build.lock").open("w") as fh:
         fcntl.flock(fh, fcntl.LOCK_EX)
         try:
-            yield
+            yield fh
         finally:
             fcntl.flock(fh, fcntl.LOCK_UN)
+
+
+def _read_entry(entry: Path) -> bytes | None:
+    """The entry's bytes, or ``None`` when there is no such entry.
+
+    Reading is the test for existence.  Another session's build prunes old
+    entries without asking this one, so an ``exists()`` followed by a read can
+    fail in between; here the entry is either read whole or reported missing.
+    """
+    try:
+        blob = entry.read_bytes()
+    except FileNotFoundError:
+        return None
+    # Recency, for _prune.  Pruned since the read: the bytes are still the entry.
+    with contextlib.suppress(FileNotFoundError):
+        os.utime(entry)
+    return blob
+
+
+def first_exact_difference(left: Any, right: Any, where: str = "index") -> str | None:
+    """Where ``right`` first stops being ``left``, exact types included; ``None`` if nowhere.
+
+    ``==`` is too weak for "the cached index is the built index": ``FrozenDict``
+    is a ``dict`` subclass, so a copy that came back with plain dicts still
+    compares equal.  The answer names the place, so a failure says what was lost.
+    """
+    if type(left) is not type(right):
+        return f"{where}: {type(left).__name__} became {type(right).__name__}"
+    if dataclasses.is_dataclass(left):
+        for field in dataclasses.fields(left):
+            found = first_exact_difference(
+                getattr(left, field.name), getattr(right, field.name), f"{where}.{field.name}"
+            )
+            if found is not None:
+                return found
+        return None
+    if isinstance(left, dict):
+        if list(left) != list(right):
+            return f"{where}: keys {list(left)!r:.200} became {list(right)!r:.200}"
+        for key in left:
+            found = first_exact_difference(left[key], right[key], f"{where}[{key!r}]")
+            if found is not None:
+                return found
+        return None
+    if isinstance(left, (list, tuple)):
+        if len(left) != len(right):
+            return f"{where}: {len(left)} items became {len(right)}"
+        for position, (was, now) in enumerate(zip(left, right, strict=True)):
+            found = first_exact_difference(was, now, f"{where}[{position}]")
+            if found is not None:
+                return found
+        return None
+    return None if left == right else f"{where}: {left!r:.200} became {right!r:.200}"
 
 
 def _prune(directory: Path, *, keep: int = KEEP_ENTRIES) -> list[str]:
@@ -251,11 +326,13 @@ def build_entry(data_dir: Path, directory: Path, *, root: Path | None = None) ->
             "once the tree is at rest."
         )
     blob = pickle.dumps(index, protocol=pickle.HIGHEST_PROTOCOL)
-    if pickle.loads(blob) != index:
+    lost = first_exact_difference(index, pickle.loads(blob))
+    if lost is not None:
         raise NOIndexCacheError(
             "The Norway amendment index does not survive a pickle round trip, so it "
-            "cannot be cached. Something in NOAmendmentIndex stopped comparing equal "
-            f"after pickling; set {CACHE_SWITCH_ENV}=off to run without the cache."
+            f"cannot be cached. First difference: {lost}. Give that type a pickle "
+            f"form that restores it, or set {CACHE_SWITCH_ENV}=off to run without "
+            "the cache."
         )
     key = cache_key(before)
     entry = _entry_path(directory, key)
@@ -278,7 +355,15 @@ def build_entry(data_dir: Path, directory: Path, *, root: Path | None = None) ->
     return key
 
 
-def _build_in_child(data_dir: Path, directory: Path) -> None:
+def _build_in_child(data_dir: Path, directory: Path, lock: IO[str]) -> None:
+    """Build the entry in a fresh process that holds ``lock`` for as long as it lives.
+
+    The child inherits the locked file, and a lock is released only when every
+    process holding the file has closed it.  So when this process is killed
+    mid-build (the laptop's out-of-memory killer picks exactly the big ones) the
+    build that is still running keeps the others waiting, instead of a second
+    ~800 MB build starting beside it.
+    """
     cmd = [
         sys.executable,
         "-P",  # keep tests/ off sys.path: this file runs as a script, not a package member
@@ -289,8 +374,17 @@ def _build_in_child(data_dir: Path, directory: Path) -> None:
         str(directory),
         "--expect-lawvm",
         str(_lawvm_package_file()),
+        "--timeout",
+        str(BUILD_TIMEOUT_SECONDS),
     ]
-    done = subprocess.run(cmd, capture_output=True, text=True)
+    done = subprocess.run(cmd, capture_output=True, text=True, pass_fds=(lock.fileno(),))
+    if done.returncode == -signal.SIGALRM:
+        raise NOIndexCacheError(
+            "The Norway amendment index build for the test cache was stopped after "
+            f"{BUILD_TIMEOUT_SECONDS} s without finishing; a build is about 90 s. "
+            "Check free memory (`free -m`) and for leftover build processes "
+            "(`pgrep -af norway_index_cache`), then re-run."
+        )
     if done.returncode != 0:
         raise NOIndexCacheError(
             "The Norway amendment index build for the test cache failed "
@@ -299,8 +393,8 @@ def _build_in_child(data_dir: Path, directory: Path) -> None:
         )
 
 
-def cached_index_blob(data_dir: Path, directory: Path) -> bytes:
-    """The pickled index for ``data_dir``: read from ``directory``, built into it on a miss."""
+def _resolve_entry(data_dir: Path, directory: Path) -> tuple[dict[str, Any], bytes]:
+    """The key inputs this process computes for ``data_dir``, and the entry stored under them."""
     directory.mkdir(parents=True, exist_ok=True)
     key = ""
     # Two attempts: when a file moved between this process computing its key and
@@ -308,27 +402,49 @@ def cached_index_blob(data_dir: Path, directory: Path) -> bytes:
     # second pass recomputes and finds it.
     for _attempt in range(2):
         started = time.perf_counter()
-        key = cache_key(cache_key_inputs(data_dir))
+        inputs = cache_key_inputs(data_dir)
+        key = cache_key(inputs)
         entry = _entry_path(directory, key)
         event = "hit"
-        if not entry.exists():
-            with _build_lock(directory):
-                if entry.exists():
+        blob = _read_entry(entry)
+        if blob is None:
+            with _build_lock(directory) as lock:
+                blob = _read_entry(entry)
+                if blob is not None:
                     event = "hit_after_wait"
                 else:
                     event = "built"
-                    _build_in_child(data_dir, directory)
-        if entry.exists():
-            os.utime(entry)  # recency, for _prune
-            _record(directory, event, key=key, seconds=round(time.perf_counter() - started, 2))
-            return entry.read_bytes()
-        _record(directory, "key_moved", key=key, seconds=round(time.perf_counter() - started, 2))
+                    _build_in_child(data_dir, directory, lock)
+                    blob = _read_entry(entry)
+        seconds = round(time.perf_counter() - started, 2)
+        if blob is not None:
+            _record(directory, event, key=key, seconds=seconds)
+            return inputs, blob
+        _record(directory, "key_moved", key=key, seconds=seconds)
     raise NOIndexCacheError(
         "The Norway amendment index was built twice and neither build matched the key "
         f"this process computes ({key}). The code or corpus is being edited under a "
         f"running test session; re-run once the tree is at rest, or set "
         f"{CACHE_SWITCH_ENV}=off."
     )
+
+
+def cached_index_blob(data_dir: Path, directory: Path) -> bytes:
+    """The pickled index for ``data_dir``: read from ``directory``, built into it on a miss."""
+    return _resolve_entry(data_dir, directory)[1]
+
+
+def _memoized_blob(path: Path) -> bytes | None:
+    """An entry this process already resolved for ``path``, if it is still the answer.
+
+    It is while every environment flag in its key has the value it had then.  A
+    test that sets one (``LAWVM_MAX_ARCHIVE_MEMBER_BYTES``, say) must get the
+    index built under it and must not leave that index behind for the next test.
+    """
+    for env, blob in _BLOBS.get(str(path), ()):
+        if all(os.environ.get(name) == value for name, value in env.items()):
+            return blob
+    return None
 
 
 def cached_no_amendment_index(data_dir: Path | None = None) -> NOAmendmentIndex:
@@ -346,9 +462,10 @@ def cached_no_amendment_index(data_dir: Path | None = None) -> NOAmendmentIndex:
         if directory.is_dir():
             _record(directory, "refused", reason=refusal, data_dir=str(path))
         return build_no_amendment_index(path)
-    blob = _BLOBS.get(str(path))
+    blob = _memoized_blob(path)
     if blob is None:
-        blob = _BLOBS[str(path)] = cached_index_blob(path, cache_dir())
+        inputs, blob = _resolve_entry(path, cache_dir())
+        _BLOBS.setdefault(str(path), []).append((inputs["env"], blob))
     return pickle.loads(blob)
 
 
@@ -364,7 +481,19 @@ def _main(argv: list[str] | None = None) -> int:
         default=None,
         help="Fail unless lawvm was imported from this file (the parent's lawvm).",
     )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=0,
+        help="Stop this process after so many seconds (0: never).",
+    )
     args = parser.parse_args(argv)
+    if args.timeout > 0:
+        # The default action for SIGALRM ends the process, hung or not, which
+        # also closes the inherited build lock.  Nobody else can do this once
+        # the test worker that started the build is gone.
+        signal.signal(signal.SIGALRM, signal.SIG_DFL)
+        signal.alarm(args.timeout)
     if args.expect_lawvm is not None and args.expect_lawvm != _lawvm_package_file():
         print(
             f"lawvm resolved to {_lawvm_package_file()} in the build process but to "
@@ -373,6 +502,7 @@ def _main(argv: list[str] | None = None) -> int:
         )
         return 3
     args.cache_dir.mkdir(parents=True, exist_ok=True)
+    _record(args.cache_dir, "build_started", data_dir=str(args.data_dir))
     print(build_entry(args.data_dir, args.cache_dir))
     return 0
 

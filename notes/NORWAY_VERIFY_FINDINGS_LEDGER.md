@@ -8340,6 +8340,36 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    sibling act) and `2001-03-02-7` (two straffeloven sections on
    straffeprosessloven). Five ops.
 
+110. **W-110 (a malformed law id is refused only after a full index
+   build):** from the 2026-10-01 review of the test index cache.
+   `replay_no_to_pit` resolves and builds the amendment index
+   (`replay.py`, the `index is None` branch) before it looks at `base_id`,
+   so `lawvm -j no replay no/lov` spends one build (87 s, ~800 MB) to
+   report an id it could have refused on sight. The three malformed-id
+   tests in `test_norway_replay.py` pass an empty index since `4a0cc2a3`,
+   so they no longer exercise that default path. Fix: validate the id
+   first, and give the tests back the default call. Small, but it edits
+   `replay.py`, so the occupied-destination sweep baseline has to be
+   regenerated with it.
+
+111. **W-111 (a saved index is not the index that was built):** same
+   review. `save_no_amendment_index` / `load_no_amendment_index` do not
+   round-trip the real index. Measured 2026-10-02 over all 2,611 entries
+   and 15,180 diagnostics with an exact-type comparison
+   (`first_exact_difference` in `tests/norway_index_cache.py`): every
+   entry's `effective_status` comes back a `str` instead of
+   `NOEffectiveStatus`; 2,231 diagnostics change, by 1,758
+   `QuirksDisposition` → `str`, 892 `tuple` → `list` and 380 `FrozenDict`
+   → `dict`. Only 473 of those diagnostics fail `==`; the rest compare
+   equal and differ in type, which is why the first count was 473. Not
+   yet known: whether any consumer reads the changed values in a way that
+   moves an output — measure that first, since 25 CLI commands take
+   `--index FILE` and would then be answering from a different object than
+   a build gives. Payoff beyond correctness: with an exact save/load the
+   CLI, the sweep generator and the probes could share one saved index
+   instead of paying a build per process, and the test cache could drop
+   its pickle.
+
 ## 5. Demo / Inspection Tooling
 
 Browser views of any replayable law across its own amendment dates, plus an
@@ -8357,6 +8387,44 @@ browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
 
+- **2026-10-02 (test infrastructure — the index cache hardened after
+  review; no engine or replay-path change)** — a review of `4a0cc2a3` found
+  ten defects in the cache and its tests; six are fixed here, two are
+  queued as W-110 and W-111, two are accepted. None had produced a wrong
+  result. Fixed: (1) the per-process memo was keyed on the archive path
+  alone, so a test that set a build flag (`LAWVM_MAX_ARCHIVE_MEMBER_BYTES`)
+  would have been served, or left behind, an index keyed without it; each
+  remembered entry now carries the flag values of its key and is reused
+  only while they hold. (2) The round-trip check before storing used `==`,
+  which cannot see `FrozenDict` → `dict` (a subclass compares equal);
+  `first_exact_difference` compares types too and names the place. (3) A
+  cache hit did `exists()` then read, and another session's prune in
+  between was a `FileNotFoundError` out of a corpus test; reading is now
+  the existence test, and a pruned entry is rebuilt. (4) The build lock
+  was held by the test worker only, so a worker killed mid-build released
+  it while its ~800 MB build ran on, and the next worker started a second;
+  the build child now inherits the lock, and stops itself after 900 s so a
+  hung build cannot hold the others for good. (5) The call-site guard
+  matched one call shape and missed seven the review listed; it now
+  follows the real archive by name through each test module and also
+  reports replay/verify/inventory calls given no `index=`. Scanned over
+  the commit before the cache it reports all 45 sites the first entry
+  counted (35 by hand, 10 implicit), and none today. (6) Nothing drove the
+  bench's shared index through a real process pool; a test on a one-law
+  corpus now does, and fails (workers score 1.0, not 0.0) when the index
+  is dropped from the pool's initializer. The tests for (1)–(4) were
+  checked the same way, by removing the fix and seeing the test fail.
+  Found on
+  the way: two of the bench sweep tests patched the index builder before
+  `lawvm.norway.verify` was first imported, which bound the fake as
+  verify's builder for the rest of the process when that file ran alone
+  (the shard imports verify earlier, so the gate never saw it); the module
+  is now imported at the top of the test file. Accepted, with a rule
+  instead of code: the key is read off the files on disk, so editing
+  Norway code while the shard runs can pair old replay code with a new
+  index, or rebuild once per waiting worker — do not edit during a run,
+  re-run if you did. Not done: the ~2 s (tiny corpus) to ~7 s (real
+  archive) each process spends computing its key.
 - **2026-10-01 (test infrastructure — the norway shard goes from 39 minutes
   to under 5; no engine or replay-path change)** — the shard has to be re-run
   after every landing, because corpus pins are restated across files, and it
