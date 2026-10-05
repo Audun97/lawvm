@@ -8550,10 +8550,54 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    corpus digest) lives in `tests/norway_index_cache.py`. Smallest first
    step needs no file: `run_sweep` keeps the index it builds in `_INDEX`
    and the forked workers inherit it, the way they already inherit
-   `_DATA`. By the last run's CPU time (779 s, of which five builds are
-   about 435 s) that is roughly 4.7 min → 3 min; not measured. Then
-   decide whether a saved file should carry the code digest, and only
-   after that whether a command may pick one up without being told.
+   `_DATA`.
+   **First step LANDED 2026-10-05 (artifacts `.tmp/w113/`).** `_init`
+   in `scripts/inventory_no_occupied_destination_sweep.py` now binds the
+   archive and builds its index in the parent, and the pool forks after
+   it. Measured on the real archive with `--procs 4`, every real build
+   logged by pid and memory summed over the process tree once a second:
+
+   | | before | after |
+   |---|---|---|
+   | index builds | 5 (86 s, then four at ~110 s) | 1 (87 s) |
+   | wall time | 4 min 00 s | 2 min 09 s |
+   | CPU time | 650 s | 209 s |
+   | peak memory (PSS) | 3,862 MB | 1,024 MB |
+
+   The estimate above (about 3 min) was too cautious: the replays of all
+   794 laws are about 120 CPU-seconds, and the builds were four fifths of
+   the old cost. At the default of 10 workers the changed sweep takes
+   2 min 06 s and peaks at 1,317 MB, so `--procs 4` is no longer needed
+   to stay inside 12 GB, and more workers buy nothing on 8 cores. Summed
+   RSS still reads 4 GB (8.8 GB at 10 workers) because it counts the
+   shared index once per process; PSS is the physical figure.
+   The baseline the changed script wrote is byte-identical to the
+   committed one. One string in it was then changed on purpose: its
+   `_doc` quoted the sweep at ~10 CPU-minutes and now says ~3.5.
+   A process that reaches `_index()` without an index no longer builds
+   one. It raises `NOSweepIndexNotInherited`, and `sweep_one` asks for
+   the index outside its per-law `try`, so the pool hands that error to
+   the caller instead of one `fatal` row per law. `_init` rebinds both
+   names on every call, so a second `run_sweep` in one process replays
+   against the index of its own archive.
+   **Tests** (`tests/test_no_renumber_migration.py`, corpus-free, through
+   the script's real fork pool with the three corpus calls replaced by
+   ones that log to a file): one build per sweep, made by the parent,
+   with every replay run in another process against that index, and the
+   same for a second sweep of a second archive; and a sweep whose index
+   is taken away just before the fork raises the named error with no
+   replay and no second build. Against the old script both fail (the
+   first sees the workers build as well). With the index lookup moved
+   back inside the `try` the second fails with "DID NOT RAISE".
+   **Still open.** (a) The sweep is now one 87 s build and about 40 s of
+   replays. Given the index the test cache already holds, a full sweep
+   is about 2 CPU-minutes (209 less the 87 s build; not run that way),
+   which raises the question W-72 answered the
+   other way at 10 CPU-minutes: run it live in the norway shard and drop
+   the baseline and its regeneration after every Norway change, or keep
+   the committed census. Not decided, not started. (b) Whether a saved
+   file should carry the code digest. (c) Only after that, whether a
+   command may pick one up without being told.
 
 114. **W-114 (a damaged saved index loads as a smaller index):** found
    while landing W-111. `NOAmendmentIndex.from_dict` skips an entry that
@@ -8583,6 +8627,22 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-10-05 (W-113 first step, the sweep builds one index instead of
+  five; a script and its tests, no replay or verify result moves)** the
+  occupied-destination sweep built the amendment index once in the
+  parent, dropped it, and once more in every worker. Now the parent
+  keeps it and the forked workers inherit it. Measured with `--procs 4`:
+  5 builds → 1, 4 min 00 s → 2 min 09 s, 650 → 209 CPU-seconds, peak
+  memory 3,862 → 1,024 MB (PSS over the process tree). The baseline the
+  changed script writes is byte-identical; its `_doc` string was then
+  updated from ~10 to ~3.5 CPU-minutes. A sweep process without an index
+  raises `NOSweepIndexNotInherited` instead of building. Two corpus-free
+  tests through the real fork pool, each seen to fail with its half of
+  the change removed. Gate: `./scripts/ci.sh --affected` stages 1 to 7
+  green (norway shard 1,397 passed); stage 8 green with `UV_CACHE_DIR`
+  outside the tree. Open, for a decision: at about 2 CPU-minutes with
+  a cached index the sweep could run live in the shard (W-113 (a)).
 
 - **2026-10-02 (W-111, a saved index is the index that was built; no
   replay or verify result moves).** `save_no_amendment_index` then

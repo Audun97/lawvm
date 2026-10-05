@@ -12,10 +12,11 @@ docstring asserted it of the corpus.  W-67 proved the gap is not theoretical: it
 lowered a renumber that destroyed husbankloven § 13, and because husbankloven was
 not on the list the whole ladder stayed GREEN with a destruction in the corpus.
 
-Replaying all 783 base laws is ~10 CPU-minutes, which does not fit the norway
-shard.  So the sweep runs HERE, and commits its result as a baseline the test
-compares against.  A cached measurement is only worth as much as its staleness
-detection, so the baseline carries a receipt of the two things that decide the
+Replaying every base law is ~3.5 CPU-minutes (~10 until W-113, when each worker
+still built its own index), which does not fit the norway shard.  So the sweep
+runs HERE, and commits its result as a baseline the test compares against.  A
+cached measurement is only worth as much as its staleness detection, so the
+baseline carries a receipt of the two things that decide the
 answer, and the test recomputes BOTH cheaply:
 
   * CORPUS IDENTITY — every artifact in every Norway plane, as
@@ -299,12 +300,23 @@ _DATA: Path | None = None
 _INDEX = None
 
 
-def _index():
-    global _INDEX
-    if _INDEX is None:
-        from lawvm.norway.index import build_no_amendment_index
+class NOSweepIndexNotInherited(RuntimeError):
+    """A sweep process was asked for the amendment index and has none (W-113).
 
-        _INDEX = build_no_amendment_index(_DATA)
+    ``run_sweep`` builds the index once and forks its workers afterwards, so each
+    one starts with it.  A process without it used to build its own (87 s and
+    ~800 MB each, five builds for ``--procs 4``); now it stops, because the only
+    way to get here is a worker that was not forked from the process that built.
+    """
+
+
+def _index():
+    if _INDEX is None:
+        raise NOSweepIndexNotInherited(
+            "this sweep process has no amendment index. run_sweep builds one before it "
+            "starts its workers, and they must be forked from that process (a spawned "
+            "worker inherits nothing): call sweep_one only from run_sweep's fork pool."
+        )
     return _INDEX
 
 
@@ -312,9 +324,12 @@ def sweep_one(base_id: str) -> dict[str, Any]:
     """Replay one base law and extract both censuses from the single pass."""
     from lawvm.norway.replay import replay_no_to_pit
 
+    # Outside the ``try``: a process with no index is the sweep's failure, not a
+    # crash of this law, and must not be written down as one ``fatal`` row per law.
+    index = _index()
     row: dict[str, Any] = {"base_id": base_id}
     try:
-        res = replay_no_to_pit(base_id, AS_OF, data_dir=_DATA, index=_index())
+        res = replay_no_to_pit(base_id, AS_OF, data_dir=_DATA, index=index)
     except Exception as exc:  # a crashed law is a sweep that did not see it
         row["fatal"] = f"{type(exc).__name__}: {exc}"
         return row
@@ -361,19 +376,30 @@ def sweep_one(base_id: str) -> dict[str, Any]:
 
 
 def _init(data_dir: Path) -> None:
-    global _DATA
+    """Bind the archive and build its index, once, in the process that will fork.
+
+    W-113.  This used to bind ``_DATA`` only: ``run_sweep`` built an index for the
+    law list and dropped it, and every worker built its own on its first law.
+    Both names are rebound on every call, so a second ``run_sweep`` in one process
+    replays against the index of ITS archive.
+    """
+    global _DATA, _INDEX
+    from lawvm.norway.index import build_no_amendment_index
+
     _DATA = data_dir
+    _INDEX = build_no_amendment_index(data_dir)
 
 
 def run_sweep(data_dir: Path, procs: int) -> dict[str, Any]:
-    from lawvm.norway.index import build_no_amendment_index
     from lawvm.norway.inventory import build_no_inventory
 
     _init(data_dir)
-    inventory = build_no_inventory(data_dir, index=build_no_amendment_index(data_dir))
+    inventory = build_no_inventory(data_dir, index=_index())
     bases = sorted(inventory.base_to_sources)
     print(f"sweeping {len(bases)} base laws at as_of={AS_OF} on {procs} processes", file=sys.stderr)
     rows: list[dict[str, Any]] = []
+    # "fork", and only after ``_init``: that is how the workers come to hold
+    # ``_DATA`` and ``_INDEX``.
     with get_context("fork").Pool(procs) as pool:
         for i, row in enumerate(pool.imap_unordered(sweep_one, bases, chunksize=4), 1):
             rows.append(row)
@@ -407,7 +433,7 @@ def build_baseline(data_dir: Path, procs: int, root: Path | None = None) -> dict
         "_doc": (
             "Corpus-wide (RENUMBER, dest_occupied) firing sweep + the "
             "known-incomplete-base destructive-write census, over EVERY Norway base "
-            "law. Cached because the sweep is ~10 CPU-minutes and the norway shard is "
+            "law. Cached because the sweep is ~3.5 CPU-minutes and the norway shard is "
             "not. `corpus` and `code` are the staleness receipt: "
             "tests/test_no_renumber_migration.py recomputes both and FAILS when either "
             "moved, rather than passing on a stale measurement. Regenerate with "

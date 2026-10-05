@@ -1493,9 +1493,10 @@ def test_no_corpus_occupied_renumber_destinations_are_all_declared(
 # describe firings someone had already found.
 #
 # The repair is a full sweep of all 783 base laws, run out of band by
-# ``scripts/inventory_no_occupied_destination_sweep.py`` (~10 CPU-minutes, which
-# the norway shard does not have) and committed as a baseline. What makes the
-# cached number trustworthy is the receipt it carries: the sweep records the
+# ``scripts/inventory_no_occupied_destination_sweep.py`` (~3.5 CPU-minutes since
+# W-113 and ~10 before it, which the norway shard does not have) and committed
+# as a baseline. What makes the cached number trustworthy is the receipt it
+# carries: the sweep records the
 # LOGICAL content of every Norway corpus plane and the sha256 of every source file
 # in the static import closure of the replay path, and the test below recomputes
 # both in ~2.5s. Corpus moved, or code moved, and the test FAILS with a regenerate
@@ -2648,6 +2649,131 @@ def test_no_sweep_baseline_regenerate_instruction_names_a_real_script() -> None:
     assert _SWEEP_SCRIPT_PATH.name in _REGENERATE
     assert (_REPO_ROOT / sweep.BASELINE_PATH).is_file()
     assert "--update-baseline" in _REGENERATE
+
+
+# ---- W-113: the sweep builds ONE index and its workers inherit it ------------
+#
+# Until W-113 ``run_sweep`` built the index for the law list and dropped it, and
+# each forked worker built its own on its first law: five builds for
+# ``--procs 4``, 87 s and ~800 MB apiece. Now the parent keeps the one it builds
+# and forks after. These two run corpus-free, through the script's real pool.
+
+
+def _w113_sweep_with_logged_fakes(
+    monkeypatch: pytest.MonkeyPatch, log: _Path, *, lose_the_index_before_the_fork: bool = False
+):
+    """The sweep module with its three corpus calls replaced by ones that log.
+
+    The fakes go on the modules the sweep imports from inside its functions,
+    which is where a forked worker finds them too. The log is a file because a
+    worker is another process: one line per call, ending in the pid that made it.
+    """
+    import os
+    import sys
+    import types
+
+    import lawvm.norway.index as no_index
+    import lawvm.norway.inventory as no_inventory
+    import lawvm.norway.replay as no_replay
+
+    sweep = _load_sweep_module()
+    # The pool pickles ``sweep_one`` by module name. Run as a script the module is
+    # ``__main__``; loaded by path it has to be registered to be found.
+    monkeypatch.setitem(sys.modules, sweep.__name__, sweep)
+    log.write_text("", encoding="utf-8")
+
+    def note(*fields: object) -> None:
+        with log.open("a", encoding="utf-8") as handle:
+            handle.write(" ".join(str(field) for field in (*fields, os.getpid())) + "\n")
+
+    def fake_build(data_dir: _Path):
+        note("build", data_dir.name)
+        return types.SimpleNamespace(built_for=data_dir.name)
+
+    def fake_inventory(data_dir: _Path, *, index):
+        note("inventory", index.built_for)
+        if lose_the_index_before_the_fork:
+            monkeypatch.setattr(sweep, "_INDEX", None)
+        return types.SimpleNamespace(
+            base_to_sources={f"no/lov/2000-01-0{day}-1": [] for day in range(1, 9)}
+        )
+
+    def fake_replay(base_id: str, as_of: str, *, data_dir: _Path, index):
+        note("replay", index.built_for, base_id)
+        return types.SimpleNamespace(
+            error="",
+            n_ops=0,
+            adjudications=[],
+            write_receipts=[],
+            amendments_skipped_contingent=[],
+            amendments_skipped_unknown_effective=[],
+            amendments_skipped_missing_source=[],
+        )
+
+    monkeypatch.setattr(no_index, "build_no_amendment_index", fake_build)
+    monkeypatch.setattr(no_inventory, "build_no_inventory", fake_inventory)
+    monkeypatch.setattr(no_replay, "replay_no_to_pit", fake_replay)
+    return sweep
+
+
+def _w113_logged_calls(log: _Path, kind: str) -> list[list[str]]:
+    lines = [line.split() for line in log.read_text(encoding="utf-8").splitlines()]
+    return [fields for fields in lines if fields[0] == kind]
+
+
+def test_no_sweep_builds_one_index_and_every_worker_replays_against_it(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: _Path
+) -> None:
+    """W-113: a sweep builds the index once, in the parent, for any worker count.
+
+    The replays must be seen to run in other processes, or "one build" would also
+    be true of a sweep that never forked. The second sweep is the nearby case the
+    change could have broken: an index kept from the first run would be replayed
+    against for an archive it was not built from.
+    """
+    import os
+
+    log = tmp_path / "calls.log"
+    sweep = _w113_sweep_with_logged_fakes(monkeypatch, log)
+    here = str(os.getpid())
+
+    swept = sweep.run_sweep(tmp_path / "first.farchive", 3)
+
+    assert _w113_logged_calls(log, "build") == [["build", "first.farchive", here]]
+    replays = _w113_logged_calls(log, "replay")
+    assert sorted(fields[2] for fields in replays) == swept["base_ids"]
+    assert len(swept["base_ids"]) == 8
+    assert {fields[1] for fields in replays} == {"first.farchive"}
+    assert here not in {fields[3] for fields in replays}
+    assert [row["base_id"] for row in swept["rows"]] == swept["base_ids"]
+    assert not [row for row in swept["rows"] if row.get("fatal")]
+
+    log.write_text("", encoding="utf-8")
+    sweep.run_sweep(tmp_path / "second.farchive", 3)
+
+    assert _w113_logged_calls(log, "build") == [["build", "second.farchive", here]]
+    assert {fields[1] for fields in _w113_logged_calls(log, "replay")} == {"second.farchive"}
+
+
+def test_no_sweep_worker_with_no_index_stops_the_sweep_instead_of_building(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: _Path
+) -> None:
+    """W-113 guard liveness: a worker that starts without the index says so.
+
+    Driven through ``run_sweep`` and its pool, with the parent's index taken away
+    just before the fork. The worker must not build its own (the cost W-113
+    removed), and the failure must reach the caller as the named error, not as one
+    ``fatal`` row per law, which reads as "every law crashed".
+    """
+    log = tmp_path / "calls.log"
+    sweep = _w113_sweep_with_logged_fakes(monkeypatch, log, lose_the_index_before_the_fork=True)
+
+    with pytest.raises(sweep.NOSweepIndexNotInherited) as raised:
+        sweep.run_sweep(tmp_path / "first.farchive", 2)
+
+    assert "forked" in str(raised.value)
+    assert len(_w113_logged_calls(log, "build")) == 1
+    assert _w113_logged_calls(log, "replay") == []
 
 
 @pytest.mark.skipif(
