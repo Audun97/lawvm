@@ -397,6 +397,22 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "first-match DFS, so a shallow (section, item) address would silently "
         "pick whichever ledd's bokstav carried the label. Refused instead. W-77."
     ),
+    "no_parse_address_path_not_lowered": (
+        "A Norway unstructured lead was read to its end by the address-path "
+        "grammar (section sign, label, any number of ledd / bokstav / nr. / "
+        "punktum steps in the order written, then 'skal lyde' or a repeal verb) "
+        "and was not lowered. The 'refusal' detail says why: a step the tree "
+        "model does not address (overskriften, innledningen, avsnitt, "
+        "strekpunkt), a list or newness marker above the leaf, a 'siste' that is "
+        "not a punktum, or a payload that does not prove which node is which "
+        "(absent, not made of text articles alone, wrong count, a numberedLegalP "
+        "under a nr. address, list structure under an item or punktum leaf, a "
+        "sentence count that differs from the punktum count), or "
+        "'relabel_follows_unlowered': the next lead is a relabel sentence "
+        "('Nåværende andre ledd blir nytt femte ledd.') that itself refused, so "
+        "the labels the new text takes were never vacated and the lead is "
+        "withdrawn. All-or-nothing: no leg of the lead lowers. W-65."
+    ),
     "no_parse_item_insert_payload_extent_unprovable": (
         "A Norway item-depth NEWNESS PAYLOAD announcement resolved its address "
         "but the payload's EXTENT could not be proved against the announced "
@@ -905,6 +921,25 @@ _NO_RULE_SPECS: Dict[str, str] = {
         "(INSERT, target_occupied) disposition the unscoped insert used to take in "
         "place, at the position the amendment names. Non-blocking; the occupant "
         "path is on the receipt. W-101."
+    ),
+    "no_replay_address_path_target_refused": (
+        "A W-65 address-path REPLACE or REPEAL whose target does not resolve to "
+        "exactly one node when it runs. The section must be unique in the law and "
+        "each later step a direct child of the node before it; 'refusal' is "
+        "'unresolved' (no node — and this lane takes none of the missing-target "
+        "recoveries that would insert it), 'ambiguous' (a step matches several "
+        "nodes, which the first-match resolver would settle by tree order), "
+        "'item_host_not_unique' (a ledd-less '§ 2 nr. 2' in a section with "
+        "several ledd) or 'resolver_disagrees'. No write lands and the op is "
+        "rejected with a typed blocking receipt. W-65."
+    ),
+    "no_replay_address_path_insert_occupied_target_refused": (
+        "A W-65 address-path INSERT ('nytt tredje ledd skal lyde') found its "
+        "label already OCCUPIED when it ran. As for W-77's item payloads, the "
+        "relabel that should have vacated the slot did not fire or the archived "
+        "base edition already carries the amendment, and in neither reading is "
+        "the occupant this op's to replace. No write lands, the occupant "
+        "survives, the op is rejected with a typed blocking receipt. W-65."
     ),
     "no_replay_item_insert_payload_occupied_target_refused": (
         "A W-77 item-depth newness payload INSERT found its target label already "

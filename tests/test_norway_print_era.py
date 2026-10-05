@@ -65,17 +65,22 @@ _DASH_ONLY_SECTIONS = frozenset({"9-2", "9-3"})
 # (rejected 11 -> 14) because the replay's § 2-1 still carries the pre-2001 ledd
 # order, so the addressed ledd is the wrong text.
 _FULL_CHAIN_AS_OF = "2026-08-25"
-_FULL_CHAIN_CLEAN_SECTIONS = 63
+# 63 -> 64 at W-65: § 6-1 a closes ("§ 6-1 a første ledd skal lyde:", the spaced
+# label, `no/lovtid/2019-06-21-58`).
+_FULL_CHAIN_CLEAN_SECTIONS = 64
 _FULL_CHAIN_CONTINGENT = frozenset({"no/lovtid/2005-06-17-98", "no/lovtid/2025-02-28-2", "no/lovtid/2025-04-25-12"})
 _FULL_CHAIN_SKIPPED_WHOLE = frozenset({"no/lovtid/2025-04-25-12"})
 _FULL_CHAIN_DIVERGENT_SECTIONS = frozenset(
-    {"2-1", "4-4", "6-1a", "7-1", "8-4", "9-2", "9-3", "10-1", "10-3", "10-4", "10-5", "10-6"}
+    {"2-1", "4-4", "7-1", "8-4", "9-2", "9-3", "10-1", "10-3", "10-4", "10-5", "10-6"}
 )
-# Two of the 26 rows sit on chapter headings, not sections: the print-era heading
+# Three of the 26 rows sit on chapter headings, not sections: the print-era heading
 # replacements land chapter 3's title without the ``Kap. 3.`` prefix the consolidation
 # prints, and chapter 5's re-enactment lands ``Kap. Beriktigelse`` (a lead-grammar gap,
 # not an OCR one; W-98 (f)). ``_section_of`` files them under ``?``.
-_FULL_CHAIN_CHAPTER_ROWS = frozenset({"3", "5"})
+# W-65 adds chapter 6, and it is not a new divergence: its title has always lacked
+# the ``Kap. 6.`` prefix, but the comparator filters a row whose address is a prefix
+# of another row's, and § 6-1 a's row stood under it until that section closed.
+_FULL_CHAIN_CHAPTER_ROWS = frozenset({"3", "5", "6"})
 
 
 def _fixture_inputs():
@@ -288,7 +293,11 @@ def test_print_era_slice_full_chain_pins_the_w104_witness(tmp_path) -> None:
     assert set(replay.amendments_scanned) - set(replay.amendments_applied) == _FULL_CHAIN_SKIPPED_WHOLE
     filtered = replay.apply_filter_result
     assert filtered is not None
-    assert (len(filtered.accepted_items), len(filtered.rejected_items)) == (198, 14)
+    # (198, 14) -> (203, 15) at W-65: five address-path ops land (§ 2-12 første til
+    # tredje ledd, § 10-1 første ledd siste punktum, § 6-1 a første ledd) and one is
+    # refused at apply: `2015-06-19-65` repeals § 10-1 første ledd siste punktum a
+    # second time and finds no sentence to resolve.
+    assert (len(filtered.accepted_items), len(filtered.rejected_items)) == (203, 15)
     _, _, chains = _fixture_inputs()
     kinds = _divergence_kinds(result)
     sections = _all_sections(chains)

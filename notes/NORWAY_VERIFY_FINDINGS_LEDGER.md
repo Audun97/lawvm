@@ -48,6 +48,7 @@ consolidation; every class below is evidence to triage, not a repair license.
 | **2026-08-11, after W-73 (76 candidates; see note)** | **29** | **47** | 0 |
 | **2026-08-12, after W-66 (76 candidates, unmoved)** | **29** | **47** | 0 |
 | **2026-08-12, after W-70 (76 candidates, unmoved)** | **29** | **47** | 0 |
+| **2026-10-05, after W-65 (82 candidates, unmoved since W-101)** | **31** | **51** | 0 |
 
 W-15 commensurability caveat: the candidate set moved 58 → 56, so the 21/35
 row is not row-for-row comparable with the 18/40 row above. On the 54 laws
@@ -3203,20 +3204,117 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    move on, never chase. The norway shard was then run explicitly
    (`--shard norway`, passed).
 
-65. **W-65 (recursive address-path grammar for sub-section
-   replace/repeal):** from W-62. ~4,131 replace + 989 repeal
-   refusals; the triaged sample closes 9/14 via a recursive path
-   grammar (`§` token + composable `<ordinal> <level>` qualifiers,
-   any order, any depth); zero of the sampled refusals are a VERB
-   problem. **HARD DEPENDENCY on W-64**: widening the grammar
-   without the boundary fix converts a loud refusal into a silent
-   empty replace — the worse outcome. Remaining sample residue:
-   conjoined address lists, inline payload, intra-node punktum
-   splitting. Pricing note from the census's second synthesis
-   pass: this surface carries only 17 high-value triples and NONE
-   of the 10 traceable rows — large, but scan-inert; take it
-   after W-64 (much of it is payload-blocked anyway) and price it
-   as receipt honesty.
+65. **W-65 (the address-path lead: one reader for `§ <label> <step>*
+   <verb>`):** DONE (2026-10-05; artifacts `.tmp/w65/`). From W-62,
+   which priced it at ~4,131 replace + 989 repeal refusals and as scan
+   inert. Both halves of that pricing were off. `.tmp/w62/` no longer
+   exists, so the surface was re-measured at HEAD `45234d6f`.
+   **Re-derived surface.** 9,089 unstructured refusals, 7,492 of them
+   `…_lead_unmatched`. A token-scanner prototype of the grammar read
+   2,161 of the 7,492 to the end. The largest groups were not exotic
+   paths. 305 were `§ 28 a tredje ledd skal lyde:`, a section label
+   written with a space, which W-32(c) widened for the punktum grammar
+   only. 168 were `§ 2 nr. 2 skal lyde:`, 144 `§ 12 nr. 1 annet punktum
+   skal lyde:`, 101 `§ 53 nr. 2 første ledd skal lyde:`. The rest were
+   ordinals past `tiende` or in nynorsk, `til` ranges, and the nynorsk
+   repeal verbs. Of the bases those leads amend, 104 have a replayable
+   original.
+   **What was built.** `_no_lead_address_path` reads a section sign, a
+   label, any number of `ledd` / `bokstav` / `nr.` / `punktum` steps in
+   the order written, and `skal lyde` or a repeal verb, in one
+   left-to-right token pass with no regex. Step kinds follow
+   `lovdata_path_to_address` (`ledd` subsection, `bokstav` and `nr.`
+   item, `punktum` sentence). `overskriften`, `innledningen`, `avsnitt`
+   and `strekpunkt` are read so the receipt can name them and are never
+   lowered. The production sits last in the walk, behind every shipped
+   reader, so it converts only leads that were refused. A lead whose
+   middle holds an unknown token returns `None` and keeps its
+   `lead_unmatched` receipt.
+   Lowering is all-or-nothing per lead. A ledd leaf wants one text
+   article per label. An item leaf wants one `legalP` per label and
+   refuses a `numberedLegalP` (a numbered ledd in Lovdata's markup, so
+   the `nr.` reading is unproven) and any list structure. A punktum
+   leaf wants one article whose sentence count equals the punktum
+   count. A repeal consumes no payload. A read lead that does not lower
+   gets `no_parse_address_path_not_lowered` with a `refusal` reason.
+   **Apply plane.** Every op carries `no_address_path`. A tagged
+   REPLACE or REPEAL resolves through `_no_strict_address_path` or is
+   refused (`no_replay_address_path_target_refused`). The section must
+   be unique and each later step a direct child. The one hop allowed is
+   a ledd-less item address in a section with exactly one ledd. The
+   lane takes none of the missing-target recoveries. A tagged INSERT
+   onto an occupied label is refused
+   (`no_replay_address_path_insert_occupied_target_refused`), W-77's
+   reading.
+   **THE STOP CONDITION, found on the first blast.** Replaying the 82
+   reached bases before and after, 35 addresses lost their text. 30
+   were what a lead commands. Five were not. `no/lovtid/2016-12-16-93`
+   says "… skal § 43 første til fjerde ledd lyde:" and then "Nåværende
+   andre, tredje og fjerde ledd blir nye femte, sjette og syvende
+   ledd." The relabel refuses (it names no section), so the
+   replacement landed alone and overwrote finnmarksloven § 43 ledd 2 to
+   4, which the consolidation still prints as ledd 5 to 7. The fix is a
+   post-pass in the walk. A `skal lyde` lead whose payload is followed
+   by a relabel sentence stands only if that sentence lowered a
+   RENUMBER. Otherwise the lead is withdrawn whole with
+   `refusal: relabel_follows_unlowered`. 68 leads are withdrawn this
+   way. The shipped ledd lane has the same exposure and no such guard
+   (W-115).
+   **Two silent drops in shipped code, closed.** (a) The shipped
+   `§ X … ledd oppheves.` block matched a spaced label, resolved no
+   ledd, and consumed the lead with no op and no receipt. 60 ops and 14
+   receipts come out of it. (b) The repeal-then-shift production did
+   the same when every round-trip came back empty ("§ 2-1 b femte ledd
+   oppheves. Nåværende sjette til niende ledd blir …"). Two leads, now
+   `lead_unmatched`.
+   **Measured, whole corpus (3,089 acts).** Ops 30,274 → 32,487, +2,213
+   with 0 removed and 0 re-addressed (identity keyed on base, action,
+   target, patch and tags). 2,211 are address-path ops over 678 acts
+   and 263 base laws. The other 2 are W-68's known cost repaid: the
+   list entry that stopped the carry on `2010-04-09-12` is the payload
+   of a lead that now lowers. `lead_unmatched` 7,492 → 5,260.
+   `address_path_not_lowered` 591: heading 221, relabel follows 68,
+   numbered payload 52, innledningen 50, payload absent 46, list
+   structure 35, `siste ledd` 30, sentence arity 22, and smaller
+   reasons. Unstructured refusals 9,089 → 7,446.
+   Index: entries 2,611 → 2,660 (49 first entries, no status change on
+   any existing entry), bindings 6,736 → 7,043, declared-target gap
+   874 → 749 acts / 2,268 → 1,982 targets. Seven base laws enter
+   (794 → 801).
+   **Blast, final code.** 82 bases replayed before and after. 44 move.
+   0 replay errors appear or change. 30 addresses end without their
+   text, 117 are added, 102 change. Each of the 30 was read against its
+   lead. 27 are absent from today's consolidation. The other three are
+   a bokstav relabelled by a relabel that now runs (yrkestransportlova
+   § 7), a sentence that moved inside its replaced ledd (kommuneloven
+   § 5-1), and utlendingsloven § 66 første ledd bokstav f. That one is
+   repealed by `2013-06-21-92` as written, re-enacted by `2016-06-17-58`
+   whose § 66 is contingent, so the replay ends without it. It is the
+   known-incomplete-base hazard, which moves 245 → 269 content-removing
+   writes over twelve laws and is re-pinned with this list.
+   Apply refusals: 95 `target_refused` (86 unresolved, 9
+   `item_host_not_unique`), 2 insert-occupied.
+   **Scan.** Candidates unmoved at 82. Consistent 30 → 31, divergent
+   52 → 51. Rows 1,479 → 1,460, unexplained 468 → 449, ceiling
+   untouched at 1,011. 19 rows close on five laws and none opens:
+   elsertifikatloven `2011-06-24-39` 4 → 0, våpenlova `2018-04-20-7`
+   14 → 8, eierseksjonsloven `2017-06-16-65` 7 → 2, `2010-06-25-28`
+   24 → 22, `2003-12-19-130` 3 → 1. W-62 predicted none.
+   **Kringkastingsloven witness (full chain to 2026-08-25).** 63/75 →
+   64/75 clean sections, ops 198/14 → 203/15, rows 26 → 26. § 6-1 a
+   closes. The row count holds because chapter 6's title row appears:
+   it has always lacked the `Kap. 6.` prefix (the class chapters 3 and
+   5 are in), and the comparator filters a row whose address is a
+   prefix of another's, so it stood hidden under § 6-1 a's row.
+   **Known cost.** Two section-scoped commencement grants leave
+   (282 → 280). `2017-06-16-56` and `2020-06-19-80` each bind a second
+   law now, the lane refuses a multi-law act, and the ops it had dated
+   on helsepersonelloven and smittevernloven return to contingent.
+   The bindings are right, so the earlier grants rested on an act that
+   only looked single-law (W-116).
+   **Not taken.** W-64 left two populations "for W-65": the 185
+   chapter-level inserts and the 121 heading leads. Neither is in this
+   grammar; they are W-117 with the rest of the residue.
 
 66. **W-66 (atomic sibling set-relabel + address inheritance):**
    DONE (`dc4b3e4e4`, 2026-08-12; artifacts `.tmp/w66/`). From
@@ -8611,6 +8709,40 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    name (which key, which row), as the status coercion now does. In
    `index.py`, so the sweep baseline is regenerated with it.
 
+115. **W-115 (a ledd replacement that lands before its relabel, in
+   the shipped lane):** found by W-65's blast. "§ X annet og tredje ledd
+   skal lyde:" followed by "Nåværende annet ledd blir nytt fjerde ledd."
+   is one instruction in two leads. If the relabel refuses, the shipped
+   ledd, punktum and bokstav productions still lower the first half and
+   overwrite the ledd the relabel would have moved. W-65 withdraws its
+   own leads in that case (68 of them); the shipped readers have no
+   such check. Not yet censused: count shipped `skal lyde` leads whose
+   follower is a refused relabel, replay their bases, and decide
+   between withdrawing and ordering. Destroys in-force text where it
+   fires, so it ranks above coverage items.
+
+116. **W-116 (the section-scoped commencement lane refuses a multi-law
+   act):** from W-65's known cost. `no/lovtid/2017-06-16-56` and
+   `2020-06-19-80` lost their section-scoped grants when their second
+   law's lead began to lower. The instrument dates sections of one
+   named law, so a per-law reading of the grant should hold whatever
+   else the act amends. 112 refusals stand in the lane; how many are
+   this shape is not measured.
+
+117. **W-117 (address-path residue):** what W-65 read and refused, and
+   what it did not read. Read and refused, 591: `§ X overskriften skal
+   lyde:` whose payload is a `futureLegalArticle` (221, still also
+   receipted `payload_unresolved` by the heading production),
+   `innledningen` (50), a `numberedLegalP` under a `nr.` address (52),
+   list structure under an item or punktum leaf (35), `siste ledd` (30).
+   Not read: a comma between steps ("§ 39 nr. 1, første punktum"),
+   conjoined addresses ("§ 27 første ledd … og § 52 e femte ledd …"),
+   labels such as "§ 8 C-1" and "§ 55 A", inline payload after the
+   colon (about 1,300 leads), and the two populations W-64 deferred:
+   185 chapter-level inserts whose body is a run of `defaultP` sections
+   and 121 heading leads ("Lovens tittel skal lyde:", "Overskriften til
+   kapittel N skal lyde:").
+
 ## 5. Demo / Inspection Tooling
 
 Browser views of any replayable law across its own amendment dates, plus an
@@ -8627,6 +8759,21 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-10-05 (W-65, the address-path lead; 19 scan rows close, one
+  over-repeal caught and guarded on the way)** One token-pass reader
+  for `§ <label> <step>* <verb>` replaces nothing and sits behind every
+  shipped production. Ops 30,274 → 32,487 with 0 removed,
+  `lead_unmatched` 7,492 → 5,260, 591 leads read and typed-refused.
+  Tagged ops resolve strictly at apply or are refused (95 target
+  refusals, 2 insert-occupied). The first before/after replay of the 82
+  reached bases showed finnmarksloven § 43 ledd 2 to 4 overwritten by a
+  replacement whose relabel had refused; a post-pass now withdraws such
+  leads (68). Two silent drops in shipped repeal blocks closed. Scan:
+  82 candidates, 30/52 → 31/51, rows 1,479 → 1,460, ceiling 1,011, 19
+  closed and 0 opened. Cost: two section-scoped commencement grants
+  leave because their acts bind a second law now. Opened W-115 (the
+  same hazard in the shipped lane), W-116, W-117. Detail in item 65.
 
 - **2026-10-05 (W-113 first step, the sweep builds one index instead of
   five; a script and its tests, no replay or verify result moves)** the

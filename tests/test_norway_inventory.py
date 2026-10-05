@@ -950,6 +950,9 @@ def test_corpus_no_consolidation_inventory_counters_and_would_be_ceiling() -> No
     # -> None: its only binding was ``2001-12-14-98``'s citation-less leads under
     # a bare title heading naming domstolloven, which the stale-carry guard now
     # refuses. Same -1 as ``test_norway_verify.py``'s ``would_be_candidates``.
+    # 27 -> 28 / ``None`` 2,557 -> 2,556 at W-65: ``no/lov/2010-09-03-56`` gets
+    # its first binding, ``no/lovtid/2012-01-20-7``'s ten address-path ops, and
+    # that act is contingent.
     assert would_be == Counter(
-        {"None": 2557, "fully_replayable": 63, "blocked_contingent": 27}
+        {"None": 2556, "fully_replayable": 63, "blocked_contingent": 28}
     )

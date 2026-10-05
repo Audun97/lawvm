@@ -2709,8 +2709,11 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # two § 24 rows are untouched drift (the op is on chapter 4, the rows are in
     # chapter 5). Nothing leaves; see the membership note below for the three
     # laws whose BUCKET moves with zero row movement.
+    # 30/52 -> 31/51 at W-65 (2026-10-05), candidates unmoved at 82: five laws
+    # close 19 rows between them and no row opens. Elsertifikatloven
+    # ``no/lov/2011-06-24-39`` goes 4 -> 0; see the membership note below.
     assert report["scanned_count"] == 82
-    assert report["summary"] == {"consistent": 30, "divergent": 52, "error": 0}
+    assert report["summary"] == {"consistent": 31, "divergent": 51, "error": 0}
     # W-67 + W-74 (2026-08-11). The first landing in this series that moves the
     # scoreboard by CLOSING rows rather than by admitting laws: the candidate set
     # is unmoved at 76 element for element, the summary is unmoved at 29/47/0, and
@@ -2932,7 +2935,9 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
     # exactly-once rule against a whole-section address is the recorded
     # follow-up. AFP-loven (``2010-06-25-28``) loses one global op to a typed
     # heading refusal, rows unmoved.
-    assert report["divergence_totals"] == {"total": 1479, "ceiling": 1011, "unexplained": 468}
+    # 1,479/1,011/468 -> 1,460/1,011/449 at W-65: 19 rows close on five laws,
+    # none opens, the ceiling is untouched.
+    assert report["divergence_totals"] == {"total": 1460, "ceiling": 1011, "unexplained": 449}
     # 3 -> 2 at W-34: no/lov/2001-01-05-1 gains 4 bound ops from
     # no/lovtid/2015-06-19-65 item 178, so its indexed history is no longer
     # sparse. Its 83 divergences do not move; only the bucket does.
@@ -3008,7 +3013,6 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             "no/lov/2009-05-15-28",
             "no/lov/2009-06-19-103",
             "no/lov/2010-06-04-21",
-            "no/lov/2011-06-24-39",
             "no/lov/2013-06-21-75",
             "no/lov/2015-05-12-27",
             "no/lov/2017-05-22-28",
@@ -3036,12 +3040,16 @@ def test_no_verify_partition_corpus_membership_is_pinned() -> None:
             "no/lov/2017-06-16-51",
             "no/lov/2018-06-15-38",
         ],
+        # W-65: elsertifikatloven ``no/lov/2011-06-24-39`` arrives from
+        # ``untouched_drift``. "§ 8 første til fjerde ledd skal lyde:" lowers
+        # now, and its four § 8 rows close.
         "consistent": [
             "no/lov/2001-01-05-1",
             "no/lov/2004-05-14-25",
             "no/lov/2004-12-17-99",
             "no/lov/2005-06-03-34",
             "no/lov/2006-08-18-61",
+            "no/lov/2011-06-24-39",
             "no/lov/2012-01-27-10",
             "no/lov/2013-06-07-31",
             "no/lov/2016-12-16-92",

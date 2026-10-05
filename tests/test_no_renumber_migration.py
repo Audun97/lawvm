@@ -998,7 +998,7 @@ _NO_OCCUPIED_DESTINATION_VERDICTS: dict[str, tuple[str, str, str, str, str, tupl
         "utenlandsk forsikringsselskap kan gis konsesjon til å drive virksomhet",
         (),
     ),
-    "no/lovtid/2015-04-10-17:120": (
+    "no/lovtid/2015-04-10-17:130": (
         "no/lov/2005-06-10-44",
         "part:6/chapter:16/section:16-1",
         "part:4/chapter:9/section:9-1",
@@ -1567,7 +1567,10 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # ``2018-06-15-38`` item 25's "… oppheves § 3.", a verb-first self-citing
     # repeal that was refused. Neither amender is new — each was always there
     # and always undated; the base is known-incomplete now that it is visible.
-    "incomplete_bases": 192,
+    # 192 -> 194 at W-65: ``no/lov/2005-06-10-40`` and ``2010-09-03-56`` become
+    # visible as incomplete, each through a contingent act whose address-path
+    # leads now lower onto it.
+    "incomplete_bases": 194,
     # 265 -> 266 and 161 -> 162 at W-69c, and it is ONE law ENTERING the census:
     # ``no/lov/2009-06-19-44``. It was already counted incomplete (four
     # `contingent` skips, which the replay receipts before it applies anything,
@@ -1612,7 +1615,8 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # 157 -> 158 at W-68: mineralloven ENTERS with the 23 destructive writes it
     # already took ([23, 3] — none of them new), because it is now
     # known-incomplete (note above). ``no/lov/2008-10-17-79`` takes no write.
-    "hazard_bases": 158,
+    # 158 -> 159 at W-65: ``no/lov/2005-06-10-40`` ENTERS at [13, 0].
+    "hazard_bases": 159,
     # 3,713 -> 3,706 at W-75, and exactly one law moves: ``no/lov/2008-06-27-71``
     # [73, 2] -> [66, 2]. Refusing the word-substitution address lists stops seven
     # REPLACEs that had been writing the amendment's own prose into plan- og
@@ -1912,7 +1916,9 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # skipsarbeidsloven, under a bare title heading) and helseforskningsloven
     # ``2008-06-20-44`` [11, 0] -> [10, 0] (a § 15 belonging to an amending
     # act's change to helsepersonelloven). Firings 8 -> 8.
-    "hazard_destructive_writes": 4122,
+    # 4,122 -> 4,251 at W-65: 129 address-path writes (sub-section REPLACE and
+    # REPEAL) over 39 rows that move, plus the entrant's 13. Firings 8 -> 8.
+    "hazard_destructive_writes": 4251,
     # 167 -> 168, and the +1 is NOT a relabel op. ``no/lov/2016-05-27-14`` gains
     # ``no/lovtid/2021-12-22-158:1``, a REPEAL of § 7-6 annet ledd that could not
     # bind before because that law's ledd sequence was one slot out of step; with
@@ -1946,8 +1952,16 @@ _NO_INCOMPLETE_BASE_HAZARD = {
     # repeals named above, each removing content today's consolidation no longer
     # carries. Three bases go from zero removals to some (mineralloven,
     # stiftelsesloven, ``2017-12-15-107``).
-    "hazard_content_removing_writes": 245,
-    "hazard_bases_removing_content": 79,
+    # 245 -> 269 / 79 -> 80 at W-65: 24 address-path REPEALs over twelve laws,
+    # and each was read against its lead (ledger item 65 lists them): every
+    # repealed ledd, bokstav, punktum or section is the one the lead names. 27
+    # of the 30 addresses that end the replay without their text are absent
+    # from today's consolidation; the other three are a relabelled bokstav, a
+    # sentence that moved inside its replaced ledd, and utlendingsloven § 66
+    # første ledd bokstav f, which a later act re-enacts and a contingent act
+    # blocks. ``no/lov/2003-12-12-108`` goes from zero removals to one.
+    "hazard_content_removing_writes": 269,
+    "hazard_bases_removing_content": 80,
 }
 
 #: Content hash of the per-law hazard list (base_id -> [destructive, removing]).
@@ -2042,7 +2056,9 @@ _NO_INCOMPLETE_BASE_HAZARD_LAWS_DIGEST = (
     # among them); husbankloven holds [9, 4].
     # W-68: ONE law ENTERS (``no/lov/2009-06-19-101`` [23, 3]) and seven rows
     # move by one write each, named in the destructive-writes note above.
-    "f03c9154a21ad4c50bea449e62f12782bf34c6e76fd6fc01197e95c518ef3d7d"
+    # W-65: ONE law ENTERS (``no/lov/2005-06-10-40`` [13, 0]) and 39 rows move,
+    # twelve of them in the removing column (see the note above).
+    "d9999fe685e91b75b23c10cd37a714b55fa955571d7f7da47e5d38b6b0cda3a8"
 )
 
 _REGENERATE = (
@@ -2190,7 +2206,11 @@ def test_no_occupied_destination_sweep_baseline_is_not_stale(
     # 2005 act's number (ledger item 68, finding (a)). Leaving, because their
     # only ops were lowered onto them from another law's lead: ``1997-01-17-11``,
     # ``1999-04-30-22``, ``2001-06-15-62``.
-    assert len(swept) == baseline["swept"]["base_laws"] == 794
+    # 794 -> 801 at W-65: seven base laws enter on their first lowered op, each
+    # through an address-path lead (``1932-06-17-2``, ``1940-03-15-3``,
+    # ``1971-06-18-79``, ``1976-06-04-63``, ``1999-06-25-43``, ``2006-12-15-77``,
+    # ``2010-09-03-56``); none leaves.
+    assert len(swept) == baseline["swept"]["base_laws"] == 801
     assert sorted(set(swept)) == swept
     assert set(_NO_OCCUPIED_DESTINATION_LAWS) <= set(swept)
     # 440 laws error before a single op is applied — F-09's sparse-source class,
@@ -2202,7 +2222,8 @@ def test_no_occupied_destination_sweep_baseline_is_not_stale(
     # 443 -> 446 at W-68: five of the seven entrants have no original-act bytes
     # (the phantom ``2005-05-22-28`` among them) and two of the three leavers
     # were in this class.
-    assert baseline["swept"]["errored_before_any_op"] == 446
+    # 446 -> 451 at W-65: five of the seven entrants have no original-act bytes.
+    assert baseline["swept"]["errored_before_any_op"] == 451
     # THE SWEEP'S BLIND SPOT, and W-69c has taken it from four laws to THREE.
     # These abort mid-apply on a replay invariant violation, which discards the
     # apply plane's receipts and adjudications along with the statute, so whether
@@ -2518,7 +2539,8 @@ def test_no_incomplete_base_destructive_write_census_is_pinned(
     # dominance argument stays exact.
     # 156 -> 157 at W-104: the ``2018-06-01-24`` entrant is a contingent base.
     # 157 -> 158 at W-68: the mineralloven entrant is a contingent-skip base.
-    assert hazard["hazard_by_skip_kind"]["contingent"] == 158
+    # 158 -> 159 at W-65: the ``2005-06-10-40`` entrant is a contingent-skip base.
+    assert hazard["hazard_by_skip_kind"]["contingent"] == 159
     assert hazard["hazard_by_skip_kind"]["missing_source"] == 0
     # Husbankloven is the witness this census exists for, and it is STILL IN THE
     # SET — 8 destructive writes, 3 of them content-removing. W-73 repaired the
@@ -4062,7 +4084,7 @@ def _no_w66c_minted_repeals():
     """
     if not _REAL_ARCHIVE.exists():
         pytest.skip("requires the local Lovdata archive (data/norway.farchive)")
-    from lawvm.norway.grafter import parse_no_amendment_groups
+    from lawvm.norway.grafter import NO_ADDRESS_PATH_PROVENANCE_TAG, parse_no_amendment_groups
     from lawvm.norway.sources import iter_no_amendment_artifacts
 
     legs: list[dict] = []
@@ -4078,6 +4100,12 @@ def _no_w66c_minted_repeals():
                 if op.target.leaf_kind() != "sentence":
                     continue
                 if "fallback:unstructured" not in (op.provenance_tags or ()):
+                    continue
+                # W-65's address-path production also mints sentence repeals. It
+                # is a different grammar with its own tripwire
+                # (``tests/test_norway_address_path.py``), so its legs stay out
+                # of this one, which re-parses every lead through W-66c's reader.
+                if NO_ADDRESS_PATH_PROVENANCE_TAG in (op.provenance_tags or ()):
                     continue
                 legs.append(
                     {

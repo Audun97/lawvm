@@ -52,6 +52,13 @@ _NON_RULE_LITERALS = frozenset(
         #                            not a hypothesis a replay could falsify. The rule it
         #                            gates (no_replay_item_insert_payload_occupied_target_
         #                            refused) IS cataloged.
+        "no_address_path",  # W-65 PROVENANCE TAG stamped on the address-path production's
+        #                     ops (grafter.py NO_ADDRESS_PATH_PROVENANCE_TAG). It is how the
+        #                     apply seam recognises its own ops and resolves them strictly
+        #                     — a carrier mark, not a hypothesis a replay could falsify.
+        #                     The rules it gates (no_replay_address_path_target_refused,
+        #                     no_replay_address_path_insert_occupied_target_refused) ARE
+        #                     cataloged.
         "no_addressed_substitution",  # W-69a PROVENANCE TAG stamped on the addressed
         #                               word-substitution production's TEXT_PATCH ops
         #                               (grafter.py NO_SUBSTITUTION_PROVENANCE_TAG). It is

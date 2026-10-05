@@ -1270,8 +1270,9 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
     # had resolved no law) and carries a mixed date-plus-delegated field. A
     # first-time entry, ``dated`` on its own date; none dropped, no existing
     # entry's shape changed.
-    assert len(staged) == 175
-    assert len([entry for entry in staged if entry.source_id != _WIDENED_MARKER_STAGED_ACT]) == 174
+    # 175 -> 177 at W-65: two staged acts enter on their first lowered op.
+    assert len(staged) == 177
+    assert len([entry for entry in staged if entry.source_id != _WIDENED_MARKER_STAGED_ACT]) == 176
 
     # Total and queryable: one receipt per staged act, no more and no fewer.
     receipts = [
@@ -1413,7 +1414,7 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
     # 546 -> 548 at W-68: ``no/lovtid/2008-12-12-104`` and ``2021-06-18-89`` gain
     # their first index entry and are dated by their own resolutions through the
     # shipped route (see the authorized-entry pin below). Both ``plain``.
-    assert len(authorized_ids) == 548
+    assert len(authorized_ids) == 553
     # W-53: the widened whole-act route. 430 acts whose single operative block
     # commences them as a whole in wording ``_WHOLE_ACT_RE`` does not match.
     # Disjoint from the shipped set by construction, and the two together are
@@ -1455,7 +1456,7 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
     # 470 -> 471 at W-68: three in (``2002-12-20-107``, ``2004-06-25-50``,
     # ``2005-06-17-87``), two out (``2001-12-14-98``, ``2011-06-24-39``); all
     # ``plain``, so the staged-widened set below is unmoved.
-    assert len(widened_ids) == 471
+    assert len(widened_ids) == 477
     assert not (widened_ids & authorized_ids)
     # FIVE of the 430 are staged acts, so the staged re-dating population grows
     # 8 -> 13 — the same offer gate, the same "an official instrument outranks a
@@ -1595,7 +1596,7 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # instrument_authorized: ``2001-12-14-98`` and ``2011-06-24-39``, whose
         # only ops were citation-less leads under a bare title heading, lowered
         # onto the previous item's act — the stale-carry guard refuses them.
-        "contingent": 516,
+        "contingent": 519,
         # 1021 -> 1020 at W-15 (multi-part misbinding fix): the sole moved entry
         # is no/lovtid/2018-12-20-119, whose only "op" was its own part II
         # commencement sentence ("Lova tek til å gjelde straks.") swallowed as a
@@ -1665,7 +1666,11 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # ``instrument_authorized``. No existing entry's status moves.
         # W-98: 1,058 -> 1,067 dated, 979 -> 985 instrument_authorized and
         # 535 -> 537 contingent — the 17 first-entry acts by their own status.
-        "dated": 1073,
+        # W-65: 1,073 -> 1,107 dated, 1,019 -> 1,030 instrument_authorized,
+        # 516 -> 519 contingent, 2 -> 3 unknown — 49 acts gaining their FIRST
+        # index entry through an address-path lead, by their own status. No
+        # existing entry's status moves.
+        "dated": 1107,
         "immediate": 1,
         # 976 -> 977 at W-67, and the whole of this landing's effect on the
         # act-level histogram is ONE act gaining its FIRST index entry — the same
@@ -1720,8 +1725,8 @@ def test_corpus_staged_commencement_population_reconciles() -> None:
         # januar 2005"), ``plain`` rather than staged. Measured W-103 -> W-104:
         # it is the only entrant, nothing leaves, and no PRE-EXISTING entry's
         # ``effective_status`` changes, so every other bucket holds.
-        "instrument_authorized": 1019,
-        "unknown": 2,
+        "instrument_authorized": 1030,
+        "unknown": 3,
     }
 
     # F-03's act is the one act carrying a not-in-force signal, and even it
@@ -1904,7 +1909,9 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     # (``2008-12-12-104``, ``2021-06-18-89``), three by the widened one
     # (``2002-12-20-107``, ``2004-06-25-50``, ``2005-06-17-87``); the leavers
     # (``2001-12-14-98``, ``2011-06-24-39``) were both widened-route grants.
-    assert len(authorized) == 1019
+    # 1,019 -> 1,030 at W-65: eleven acts enter on their first lowered op (five
+    # whole-act grants, six widened); no existing entry changes status.
+    assert len(authorized) == 1030
     assert (
         len([
             entry
@@ -1913,7 +1920,7 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
         ])
         # 973 -> 1,002 at W-100: the 29 acts the title-cited citation form
         # dates are all ``plain`` principal acts (staged unmoved at 13).
-        == 1006
+        == 1017
     )
     assert all(entry.effective_date for entry in authorized)
     authorization_receipts = [
@@ -1961,9 +1968,9 @@ def test_corpus_commencement_authorization_reconciles_with_the_measured_landscap
     # 545 -> 546 at W-99: the ``2017-06-16-51`` entrant above.
     # 546 -> 548 and 470 -> 471 at W-68 (548 + 471 = 1,019): see the entry
     # count above — two shipped entrants, three widened in and two out.
-    assert len(authorization_receipts) == 548
+    assert len(authorization_receipts) == 553
     # 469 -> 470 at W-104: the ``2004-07-02-68`` entrant, one widened receipt.
-    assert len(widened_receipts) == 471
+    assert len(widened_receipts) == 477
     assert {d["source_id"] for d in authorization_receipts + widened_receipts} == {
         entry.source_id for entry in authorized
     }
@@ -2373,9 +2380,11 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # bygningsloven — which the declared list had named all along and the
     # announcement reader could not resolve, plus the targets of the self-citing
     # ``§`` repeals. This is F-10's gap closing from the lowering side.
-    assert len(unbound) == 874
-    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 2268
-    assert len({diagnostic["source_id"] for diagnostic in unbound}) == 874
+    # 874 -> 749 at W-65: 125 acts bind a declared target through an
+    # address-path lead for the first time.
+    assert len(unbound) == 749
+    assert sum(len(diagnostic["unbound_target_ids"]) for diagnostic in unbound) == 1982
+    assert len({diagnostic["source_id"] for diagnostic in unbound}) == 749
 
     # 64 acts gain their FIRST index entry: they announced every one of their
     # parts with an unlisted tail, so they had bound no law at all.
@@ -2486,7 +2495,8 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # sentences with no change markup.
     # 2,598 -> 2,611 at W-68 (2026-10-01): fifteen acts gain their first entry
     # and two leave; each is named at the status histogram above.
-    assert len(index.entries) == 2611
+    # 2,611 -> 2,660 at W-65: 49 acts gain their first entry, none leaves.
+    assert len(index.entries) == 2660
     bindings = {
         (entry.source_id, base_id) for entry in index.entries for base_id in entry.base_ids
     }
@@ -2613,7 +2623,11 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # leavers' ``2001-12-14-98`` × ``2001-06-15-62`` and ``2011-06-24-39`` ×
     # ``1984-06-08-58``), and one is the measured over-refusal
     # (``2010-04-09-12`` × ``2005-06-10-40``; ledger item 68, "known cost").
-    assert len(bindings) == 6736
+    # 6,736 -> 7,043 at W-65: 307 (act, law) pairs bind for the first time, each
+    # through an address-path lead under the head that names the law. The one
+    # over-refusal noted above (``2010-04-09-12`` × ``2005-06-10-40``) is among
+    # them. Nothing is rebound.
+    assert len(bindings) == 7043
     # 26,218 at W-30; +2 at W-24, both reconciled to a named erratum and neither
     # touching this test's own subject. W-24 lowered two Del-scoped Rettelser
     # corrections into the law each part amends — ``2019-12-20-110`` Del I into
@@ -2904,7 +2918,9 @@ def test_corpus_section_intro_widening_pays_down_the_declared_target_gap() -> No
     # head before them is still unread. The 373 genuinely new ops are the
     # sections of short-title announcements (straffeloven 1902 +157,
     # straffeprosessloven +92, …) and 67 self-citing ``§`` repeals. 0 strays.
-    assert sum(entry.n_ops for entry in index.entries) == 30219
+    # 30,219 -> 32,432 at W-65: +2,213, of which 2,211 are address-path ops and
+    # 2 are the diskrimineringsombudsloven follower freed above. 0 removed.
+    assert sum(entry.n_ops for entry in index.entries) == 32432
 
 
 def test_no_amendment_index_staleness_report_detects_archive_change(tmp_path) -> None:

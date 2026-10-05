@@ -5526,7 +5526,9 @@ def test_no_industrial_property_act_splits_across_its_six_announcements() -> Non
 
     assert {base_id: len(ops) for base_id, ops in grouped.items()} == {
         "no/lov/1953-06-26-8": 1,  # item 1, the embedded form, unchanged
-        "no/lov/1967-12-15-9": 9,  # item 2, patentloven (8 + W-32(c)'s § 62 a)
+        # 9 -> 11 at W-65: "§ 39 d første ledd skal lyde:" and "§ 39 d tredje ledd
+        # skal lyde:", the spaced label on the ledd grammar.
+        "no/lov/1967-12-15-9": 11,  # item 2, patentloven (8 + W-32(c)'s § 62 a + W-65's two)
         "no/lov/1985-06-21-79": 2,  # item 3, foretaksnavneloven
         "no/lov/1993-03-12-32": 1,  # item 4, planteforedlerretten
         "no/lov/2003-03-14-15": 4,  # item 5, designloven
@@ -5567,7 +5569,7 @@ def test_no_gjer_ein_folgjande_witness_enters_the_index_at_all() -> None:
         "no/lov/1991-11-08-76": 3,
         "no/lov/1997-02-28-19": 14,
         "no/lov/2005-06-17-58": 3,
-        "no/lov/2005-06-17-62": 5,
+        "no/lov/2005-06-17-62": 6,  # 5 -> 6 at W-65: "§ 15-3 tiande ledd andre punktum skal lyde:"
         # W-68: "I lov 29. april 2005 nr. 20 om innkreving av underholdsbidrag mv.
         # blir § 37 tredje ledd oppheva." — a verb-first self-citing repeal, now a
         # law switch of its own. It had been refused against ``2005-06-17-58``.
@@ -5631,8 +5633,16 @@ def test_no_revisorloven_consequential_items_enter_the_index() -> None:
     # ``Nåværende tredje til sjette ledd blir fjerde til syvende ledd.`` (§ 21-3,
     # three RENUMBERs plus the REPLACE→INSERT promotion of the co-located
     # ``§ 21-3 tredje ledd skal lyde:``). Nothing else in the act moves.
+    # W-65 re-pin: +2 on ``1956-12-07-1`` ("§ 3 a tredje ledd skal lyde:", promoted
+    # to INSERT beside the relabel above, and "§ 4 b nytt tredje ledd skal lyde:"),
+    # and ``1985-06-21-78`` enters on one op ("§ 3-1 første ledd nr. 8 første
+    # punktum skal lyde:"). Each op sits on the law its own item announces.
+    # Verdipapirfondloven's "§ 3-3a ellevte ledd skal lyde:" is read and then
+    # WITHDRAWN: the relabel after its payload refuses, so nothing vacates the
+    # label (``relabel_follows_unlowered``).
     assert {base_id: len(ops) for base_id, ops in grouped.items()} == {
-        "no/lov/1956-12-07-1": 2,
+        "no/lov/1956-12-07-1": 4,
+        "no/lov/1985-06-21-78": 1,
         "no/lov/1985-06-21-83": 1,
         "no/lov/1991-08-30-71": 1,
         "no/lov/1997-06-13-44": 5,
@@ -6824,7 +6834,9 @@ def test_no_w32_eierseksjonsloven_payoff_chain_lowers_the_del_iv_erratum() -> No
     # 4 on base + the two recovered items + the erratum; 7 -> 8 at W-98 (f), the
     # act's ``Overskrifta til kapittel IV skal lyde:`` lowering to a heading-only
     # CHAPTER op. The § 49 item chain below is untouched.
-    assert len(ops) == 8
+    # 8 -> 10 at W-65: "§ 25 første ledd tredje og fjerde punktum blir oppheva."
+    # lowers to two sentence REPEALs (the nynorsk verb).
+    assert len(ops) == 10
     item_ops = [op for op in ops if op.target.path[0] == ("section", "49")]
     assert [(op.action, op.target.path[-1]) for op in item_ops] == [
         (StructuralAction.REPLACE, ("item", "e")),
@@ -7098,7 +7110,11 @@ def test_no_w34_straffeloven_consequential_act_stops_swallowing_its_own_items() 
     ]
     # W-28: the two forvaltningsloven sections leave the stale carry-over for
     # the law item 58 names, and trygderettsloven keeps nothing at all.
-    assert "no/lov/1966-12-16-9" not in grouped
+    # Since W-65 trygderettsloven holds the ONE op item 57 itself states ("§ 17
+    # nr. 5 siste punktum skal lyde:"); nothing of item 58's rides on it.
+    assert [op.target.path for op in grouped["no/lov/1966-12-16-9"]] == [
+        (("section", "17"), ("item", "5"), ("sentence", "last"))
+    ]
     assert [op.target.path for op in grouped["no/lov/1967-02-10-0"]] == [
         (("section", "13b"), ("subsection", "2"), ("sentence", "last")),
         (("section", "13e"), ("subsection", "3"), ("sentence", "1")),
@@ -7389,7 +7405,11 @@ def test_no_w35_w21_section_412_witness_is_byte_identical() -> None:
     # announcement reader did not resolve — so its "§ 61 annet ledd oppheves."
     # rode on item 60's act (``no/lov/1963-06-21-12``, which keeps its own § 4
     # op). It is now vegloven's, the first op this act lowers for it.
-    assert len(grouped) == 229
+    # 229 -> 241 groups and 533 -> 578 ops at W-65: 45 address-path ops over 36
+    # of this act's consequential items, 12 of them the first op the act lowers
+    # for that law. Every one sits on the law its own item announces (audited
+    # lead by lead against the before/after op diff); no shipped op moves.
+    assert len(grouped) == 241
     # 484 -> 493 at W-66: nine sibling-set ledd relabel legs across six of this
     # act's consequential items (straffeloven 2005 § 5, straffeprosessloven
     # § 13, § 41 a, § 32, § 47, § 50). The group COUNT is unmoved, which is the
@@ -7422,7 +7442,7 @@ def test_no_w35_w21_section_412_witness_is_byte_identical() -> None:
     # under the section is a path the W-102 grammar does not place), hence
     # one op fewer. The group count and utleveringsloven's one op are
     # unmoved.
-    assert sum(len(ops) for _base_id, ops in grouped) == 533
+    assert sum(len(ops) for _base_id, ops in grouped) == 578
 
     by_base = dict(grouped)
     # 24 -> 23 at W-104, the same refusal.
@@ -7463,7 +7483,9 @@ def test_no_w35_w21_section_412_witness_is_byte_identical() -> None:
     # W-68 re-digest: the base act is part of the digested key, so the one
     # re-bound repeal above moves it. A repeal carries no payload; every
     # payload the digest already held is byte-identical under it.
-    assert digest.hexdigest()[:32] == "304830c51078ade3a754c922f4b7b221"
+    # W-65 re-digest: the 45 new ops above join the stream; every op the digest
+    # already held is unmoved under it (0 ops removed in the corpus diff).
+    assert digest.hexdigest()[:32] == "f3ab10e44a3f6c90b36cf4808eff3d49"
 
 
 # ---------------------------------------------------------------------------
@@ -14019,9 +14041,12 @@ def test_no_w98_nynorsk_ledd_repeal_lowers_the_witness_and_declines_what_it_cann
     assert _no_nynorsk_ledd_repeal_targets("§ 9-3 første ledd første punktum og andre ledd blir oppheva.") is None
     assert _no_nynorsk_ledd_repeal_targets("§ 6-1 tredje ledd oppheves.") is None
     # ``siste ledd`` keeps its LOUD refusal — the reason the shipped verb was not widened.
+    # Since W-65 the receipt is the address-path one, which names the reason.
     ops, adjudications = _w98_ops('<article class="defaultP">§ 20 siste ledd blir oppheva.</article>')
     assert ops == []
-    assert _w98_unmatched(adjudications) == ["§ 20 siste ledd blir oppheva."]
+    assert [
+        (a.kind, (a.detail or {}).get("refusal"), (a.detail or {}).get("source_excerpt")) for a in adjudications
+    ] == [("no_parse_address_path_not_lowered", "last_not_a_sentence", "§ 20 siste ledd blir oppheva.")]
 
 
 # --- W-99: pre-2001 house-style citations and the address-after-citation lead ---
@@ -15495,31 +15520,33 @@ def test_no_w68_psykisk_helsevernloven_followers_are_refused_not_bound_to_the_pr
     _NO_FARCHIVE_PATH is None,
     reason="norway.farchive not available (set LAWVM_CANONICAL_DATA_ROOT)",
 )
-def test_no_w68_known_cost_a_list_entry_that_opens_like_a_head_stops_the_carry() -> None:
-    """W-68's one measured over-refusal, pinned so it is not rediscovered as a bug: `no/lovtid/2010-04-09-12`.
+def test_no_w68_known_cost_is_repaid_once_the_list_entry_is_payload() -> None:
+    """W-68's one measured over-refusal on `no/lovtid/2010-04-09-12`, repaid at W-65.
 
     "Lov 17. juni 2005 nr. 62 om arbeidsmiljø, arbeidstid og stillingsvern
     kapittel 13, med unntak av § 13-1 tredje ledd og § 13-9." is an entry in a
     quoted list of laws, which Lovdata marks up as a lead-class node. It opens
-    exactly as a bare title heading does, and a heading's followers DO belong to
-    the law it names (`2017-06-16-51` items 3, 7, 8), so the guard cannot tell
-    them apart and refuses the one lead after it. That lead's two REPLACEs on
-    diskrimineringsloven § 3 were right before W-68 and are not lowered now.
+    as a bare title heading does, so W-68's guard refused the one lead after it
+    and its two REPLACEs on diskrimineringsombudsloven § 3 were lost. The entry
+    is the PAYLOAD of "§ 1 andre ledd nr. 4 skal lyde:", a lead no production
+    read before W-65. Now that lead lowers and consumes it, the walk never
+    reads the entry as a head, and the follower lowers again.
     """
     html_bytes = load_no_amendment_bytes("no/lovtid/2010-04-09-12", _NO_FARCHIVE_PATH)
     assert html_bytes is not None
     adjudications: list[CompileAdjudication] = []
     grouped = dict(iter_no_document_change_ops(html_bytes, "no/lovtid/2010-04-09-12", adjudications_out=adjudications))
 
-    assert "no/lov/2005-06-10-40" not in grouped
-    stale = [
-        item.detail
-        for item in adjudications
-        if item.kind == NO_PARSE_UNSTRUCTURED_LEAD_BASE_STALE_AFTER_UNREAD_LAW_HEAD
+    assert [(op.action, op.target.path) for op in grouped["no/lov/2005-06-10-40"]] == [
+        (StructuralAction.REPLACE, (("section", "1"), ("subsection", "2"), ("item", "4"))),
+        (StructuralAction.REPLACE, (("section", "3"), ("subsection", "1"), ("sentence", "1"))),
+        (StructuralAction.REPLACE, (("section", "3"), ("subsection", "1"), ("sentence", "2"))),
     ]
-    assert [detail["source_excerpt"] for detail in stale] == ["§ 3 første ledd første og andre punktum skal lyde:"]
-    assert stale[0]["unread_law_head"].startswith("Lov 17. juni 2005 nr. 62 om arbeidsmiljø")
-    assert stale[0]["stale_base_id"] == "no/lov/2005-06-10-40"
+    entry_payload = grouped["no/lov/2005-06-10-40"][0].payload
+    assert entry_payload is not None and "arbeidsmiljø" in (entry_payload.text or "")
+    assert not [
+        item for item in adjudications if item.kind == NO_PARSE_UNSTRUCTURED_LEAD_BASE_STALE_AFTER_UNREAD_LAW_HEAD
+    ]
 
 
 @pytest.mark.skipif(

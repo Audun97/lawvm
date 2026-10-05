@@ -20,7 +20,7 @@ import tarfile
 from collections import Counter
 from dataclasses import dataclass, replace as dc_replace
 from pathlib import Path
-from typing import Any, Generator, List, Mapping, Optional, Sequence, Tuple, cast
+from typing import Any, Callable, Generator, List, Mapping, Optional, Sequence, Tuple, cast
 
 from lxml import etree
 
@@ -1820,6 +1820,24 @@ NO_NEW_CHAPTER_SECTION_PROVENANCE_TAG = "no_new_chapter_section"
 NO_REPLAY_NEW_CHAPTER_SECTION_RELOCATED_FROM_OCCUPIED_LABEL = (
     "no_replay_new_chapter_section_relocated_from_occupied_label"
 )
+#: Stamped on every op the address-path production mints. The apply seam reads
+#: it to resolve the target strictly and to refuse rather than recover.
+NO_ADDRESS_PATH_PROVENANCE_TAG = "no_address_path"
+#: Blocking, apply plane. An address-path op whose target does not resolve to
+#: exactly one node, step by step, when the op runs (``refusal``): ``unresolved``
+#: (REPLACE on an absent node -- the shipped missing-target recoveries would
+#: insert it, and this lane does not take them), ``ambiguous`` (a step matches
+#: more than one node), ``item_host_not_unique`` (a ledd-less item address in a
+#: section with several ledd) or ``resolver_disagrees`` (the first-match resolver
+#: landed somewhere the strict walk did not). Nothing is written.
+NO_REPLAY_ADDRESS_PATH_TARGET_REFUSED = "no_replay_address_path_target_refused"
+#: Blocking, apply plane. An address-path INSERT ("nytt tredje ledd skal lyde")
+#: whose label is still occupied when it runs. W-66/W-77's reading: the vacate
+#: its other half promises did not happen, so the occupant is not this op's to
+#: delete. Nothing is written.
+NO_REPLAY_ADDRESS_PATH_INSERT_OCCUPIED_TARGET_REFUSED = (
+    "no_replay_address_path_insert_occupied_target_refused"
+)
 #: The (INSERT, target_occupied) refusal, keyed on provenance tag: W-77's tag keeps
 #: W-77's kind byte-for-byte; the W-98 productions share one generic kind and are
 #: told apart by the ``production`` detail key. One branch on the load-bearing
@@ -1828,6 +1846,7 @@ _NO_INSERT_OCCUPIED_REFUSING_TAGS: dict[str, str] = {
     NO_ITEM_INSERT_PAYLOAD_PROVENANCE_TAG: NO_REPLAY_ITEM_INSERT_PAYLOAD_OCCUPIED_TARGET_REFUSED,
     NO_LEDD_REPEAL_REENACT_PROVENANCE_TAG: NO_REPLAY_REENACTMENT_INSERT_OCCUPIED_TARGET_REFUSED,
     NO_CHAPTER_REENACTMENT_PROVENANCE_TAG: NO_REPLAY_REENACTMENT_INSERT_OCCUPIED_TARGET_REFUSED,
+    NO_ADDRESS_PATH_PROVENANCE_TAG: NO_REPLAY_ADDRESS_PATH_INSERT_OCCUPIED_TARGET_REFUSED,
 }
 
 # ── W-69c: the same atomic ordering, generalized to (parent_path, label) ──────
@@ -5855,6 +5874,445 @@ def _no_chapter_reenactment_payload(
     )
 
 
+# W-65. The address-path lead: ``§ <label> <step>* <verb>``.
+#
+# The productions above each spell ONE fixed address shape as its own pattern
+# ("§ X <ord> ledd skal lyde", "§ X <ord> ledd <ord> punktum skal lyde", "§ X
+# <ord> ledd bokstav y skal lyde", ...), so an address one step off any of them
+# -- a section label written with a space ("§ 28 a tredje ledd"), an ordinal past
+# ``tiende`` or in nynorsk, a ``nr.`` step, a step order no pattern spells ("§ 53
+# nr. 2 første ledd"), a nynorsk repeal verb -- lowers nothing. This reader is
+# the grammar those patterns are instances of: a section sign, a label, and any
+# number of composable steps, read in ONE left-to-right token pass.
+#
+#   step  := [newness] <ordinal-list> ("ledd" | "punktum")
+#          | [newness] "bokstav" <letter-list>
+#          | [newness] "nr." <number-list>
+#          | "overskriften" | "innledningen" | <ordinal-list> ("avsnitt" | "strekpunkt")
+#   verb  := "skal lyde" | "oppheves" | "blir oppheva" | "opphevast" | ...
+#
+# The step kinds follow ``lovdata_path_to_address``: ``ledd`` is a subsection,
+# ``bokstav`` and ``nr.`` are items, ``punktum`` is a sentence, in the order the
+# lead writes them. The last four step words are READ so the receipt can name
+# them, and are never lowered: nothing in the tree model addresses them.
+#
+# It sits LAST in the walk, behind every shipped production and immediately
+# ahead of the operative fallback, so it can convert nothing but a lead that
+# carries ``no_parse_unstructured_lead_unmatched`` today. A lead whose head and
+# verb read but whose middle holds a token this grammar does not know returns
+# ``None`` and keeps that receipt: it is some other family's lead ("§ 10-2
+# åttende ledd blir syvende ledd og skal lyde:"), not an address this reader may
+# claim. So does the bare ``§ X skal lyde:``, which is the whole-section
+# production's and fails there on payload, not on grammar.
+#
+# Census at the W-65 base pin (`45234d6f`): 7,492 ``lead_unmatched`` refusals,
+# of which this grammar reads about 2,200 to the end; 591 of those are
+# typed-refused and the rest lower. See ledger item 65.
+_NO_ADDRESS_PATH_ORDINALS: dict[str, str] = {
+    **_NORWEGIAN_ORDINALS,
+    "anna": "2",
+    "sjuande": "7",
+    "åttande": "8",
+    "niande": "9",
+    "tiande": "10",
+    "ellevte": "11",
+    "ellevde": "11",
+    "tolvte": "12",
+    "tolvde": "12",
+    "trettende": "13",
+    "trettande": "13",
+    "fjortende": "14",
+    "fjortande": "14",
+    "femtende": "15",
+    "femtande": "15",
+    "sekstende": "16",
+    "sekstande": "16",
+    "syttende": "17",
+    "syttande": "17",
+    "attende": "18",
+    "attande": "18",
+    "nittende": "19",
+    "nittande": "19",
+    "tjuende": "20",
+    "tjuande": "20",
+}
+_NO_ADDRESS_PATH_NEWNESS = frozenset({"ny", "nytt", "nye"})
+_NO_ADDRESS_PATH_CURRENCY = frozenset({"nåværende", "noverande", "nåverande", "gjeldende"})
+_NO_ADDRESS_PATH_ORDINAL_LEVELS: dict[str, str] = {
+    "ledd": "subsection",
+    "leddet": "subsection",
+    "punktum": "sentence",
+    "punktumet": "sentence",
+    "avsnitt": "avsnitt",
+    "strekpunkt": "strekpunkt",
+}
+_NO_ADDRESS_PATH_WORD_STEPS: dict[str, str] = {
+    "overskriften": "heading",
+    "overskrifta": "heading",
+    "overskrift": "heading",
+    "paragrafoverskriften": "heading",
+    "innledningen": "intro",
+    "innleiinga": "intro",
+}
+_NO_ADDRESS_PATH_LETTER_WORDS = frozenset({"bokstav", "bokstavene", "bokstavane"})
+_NO_ADDRESS_PATH_NUMBER_WORDS = frozenset({"nr.", "nr", "nummer"})
+_NO_ADDRESS_PATH_LETTERS = "abcdefghijklmnopqrstuvwxyzæøå"
+_NO_ADDRESS_PATH_VERBS: tuple[tuple[tuple[str, ...], str], ...] = (
+    (("skal", "lyde"), "replace"),
+    (("skal", "oppheves"), "repeal"),
+    (("skal", "opphevast"), "repeal"),
+    (("blir", "oppheva"), "repeal"),
+    (("blir", "opphevet"), "repeal"),
+    (("vert", "oppheva"), "repeal"),
+    (("oppheves",), "repeal"),
+    (("opphevast",), "repeal"),
+)
+_NO_ADDRESS_PATH_LOWERABLE_KINDS = frozenset({"subsection", "item", "sentence"})
+_NO_ADDRESS_PATH_STRUCTURE_TAGS = frozenset({"ul", "ol", "li", "table", "article"})
+
+#: Blocking, parse plane. The address-path grammar read the lead to its end --
+#: section, every step, verb -- and declined to lower it: a step the tree model
+#: does not address, a list or newness marker above the leaf, or a payload whose
+#: shape does not prove which node is which (``refusal``). Nothing was lowered.
+NO_PARSE_ADDRESS_PATH_NOT_LOWERED = "no_parse_address_path_not_lowered"
+@dataclass(frozen=True, slots=True)
+class _NOAddressPathStep:
+    """One step of an address-path lead: a level, its labels, and which are new."""
+
+    kind: str
+    labels: tuple[str, ...]
+    newness: tuple[bool, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class _NOAddressPathRead:
+    section: str
+    steps: tuple[_NOAddressPathStep, ...]
+    verb: str
+
+
+@dataclass(frozen=True, slots=True)
+class _NOAddressPathLeg:
+    action: StructuralAction
+    target: LegalAddress
+    payload: Optional[IRNode]
+
+
+def _no_address_path_is_section_label(token: str) -> bool:
+    return (
+        bool(token)
+        and token[0].isascii()
+        and token[0].isdigit()
+        and all(char.isascii() and (char.isalnum() or char == "-") for char in token)
+    )
+
+
+def _no_address_path_list(
+    tokens: Sequence[str],
+    start: int,
+    read_label: Callable[[str], Optional[str]],
+    expand_range: Callable[[str, str], Optional[list[str]]],
+    repeatable_words: frozenset[str],
+) -> Optional[tuple[list[str], list[bool], int]]:
+    """Read ``[ny] x, y og [ny] z`` / ``x til z`` from ``start``; ``None`` if no label is there.
+
+    A newness marker is sticky to the end of the list and a currency marker
+    ("nåværende") clears it, which is how the shipped ledd grammar reads "annet
+    og nytt tredje ledd". ``repeatable_words`` are the level words a list may
+    re-spell between members ("nr. 3 og nr. 4", "bokstav e og ny bokstav f").
+    """
+    labels: list[str] = []
+    newness: list[bool] = []
+    new = False
+    position = start
+    while True:
+        while position < len(tokens):
+            token = tokens[position].lower()
+            if token in _NO_ADDRESS_PATH_NEWNESS:
+                new = True
+            elif token in _NO_ADDRESS_PATH_CURRENCY:
+                new = False
+            elif not (labels and token in repeatable_words):
+                break
+            position += 1
+        label = read_label(tokens[position].lower()) if position < len(tokens) else None
+        if label is None:
+            # Nothing here, or a separator or marker with no member after it.
+            return None
+        labels.append(label)
+        newness.append(new)
+        position += 1
+        if position + 1 < len(tokens) and tokens[position].lower() == "til":
+            high = read_label(tokens[position + 1].lower())
+            expanded = expand_range(label, high) if high is not None else None
+            if expanded is None:
+                return None
+            labels.extend(expanded)
+            newness.extend([new] * len(expanded))
+            position += 2
+        if position < len(tokens) and tokens[position].lower() in {",", "og"}:
+            position += 1
+            continue
+        return labels, newness, position
+
+
+def _no_address_path_numeric_range(low: str, high: str) -> Optional[list[str]]:
+    if not (low.isdigit() and high.isdigit()) or int(high) <= int(low):
+        return None
+    return [str(value) for value in range(int(low) + 1, int(high) + 1)]
+
+
+def _no_address_path_letter_range(low: str, high: str) -> Optional[list[str]]:
+    start = _NO_ADDRESS_PATH_LETTERS.find(low)
+    end = _NO_ADDRESS_PATH_LETTERS.find(high)
+    if start < 0 or end <= start:
+        return None
+    return list(_NO_ADDRESS_PATH_LETTERS[start + 1 : end + 1])
+
+
+def _no_address_path_letter(token: str) -> Optional[str]:
+    token = token.removesuffix(")")
+    return token if len(token) == 1 and token in _NO_ADDRESS_PATH_LETTERS else None
+
+
+def _no_address_path_number(token: str) -> Optional[str]:
+    return token if token.isascii() and token.isdigit() else None
+
+
+def _no_address_path_ordinal(token: str) -> Optional[str]:
+    if token == "siste":
+        return "last"
+    return _NO_ADDRESS_PATH_ORDINALS.get(token)
+
+
+def _no_lead_address_path(lead: str) -> Optional[_NOAddressPathRead]:
+    """``§ 53 nr. 2 første ledd skal lyde:`` → section ``53``, steps item 2 / subsection 1, ``replace``.
+
+    ``None`` when the lead is not an address-path lead this grammar reads to its
+    end; the caller then leaves the lead to the operative fallback unchanged.
+    """
+    text = _normalize_space(lead)
+    if not text.startswith("§") or text.startswith("§§"):
+        return None
+    tokens = text[1:].replace(",", " , ").split()
+    if not tokens:
+        return None
+    last = tokens[-1]
+    if last.endswith((":", ".")):
+        tokens[-1] = last[:-1]
+        if not tokens[-1]:
+            tokens.pop()
+    lowered = [token.lower() for token in tokens]
+    verb = ""
+    for verb_tokens, verb_name in _NO_ADDRESS_PATH_VERBS:
+        if len(lowered) > len(verb_tokens) and tuple(lowered[-len(verb_tokens) :]) == verb_tokens:
+            verb = verb_name
+            tokens = tokens[: -len(verb_tokens)]
+            break
+    if not verb or not _no_address_path_is_section_label(tokens[0]):
+        return None
+    section = tokens[0]
+    position = 1
+    # "§ 28 a": Lovtidend writes a letter-suffixed label with a space (W-32(c)).
+    if position < len(tokens) and _no_address_path_letter(tokens[position]) == tokens[position]:
+        section += tokens[position]
+        position += 1
+    steps: list[_NOAddressPathStep] = []
+    while position < len(tokens):
+        probe = position
+        while probe < len(tokens) and tokens[probe].lower() in (_NO_ADDRESS_PATH_NEWNESS | _NO_ADDRESS_PATH_CURRENCY):
+            probe += 1
+        if probe >= len(tokens):
+            return None
+        word = tokens[probe].lower()
+        if word in _NO_ADDRESS_PATH_WORD_STEPS:
+            newness = any(tokens[at].lower() in _NO_ADDRESS_PATH_NEWNESS for at in range(position, probe))
+            steps.append(_NOAddressPathStep(_NO_ADDRESS_PATH_WORD_STEPS[word], (), (newness,)))
+            position = probe + 1
+            continue
+        if word in _NO_ADDRESS_PATH_LETTER_WORDS or word in _NO_ADDRESS_PATH_NUMBER_WORDS:
+            is_letter = word in _NO_ADDRESS_PATH_LETTER_WORDS
+            lead_newness = any(tokens[at].lower() in _NO_ADDRESS_PATH_NEWNESS for at in range(position, probe))
+            read = _no_address_path_list(
+                tokens,
+                probe + 1,
+                _no_address_path_letter if is_letter else _no_address_path_number,
+                _no_address_path_letter_range if is_letter else _no_address_path_numeric_range,
+                _NO_ADDRESS_PATH_LETTER_WORDS if is_letter else _NO_ADDRESS_PATH_NUMBER_WORDS,
+            )
+            if read is None:
+                return None
+            labels, flags, position = read
+            if lead_newness:
+                # "ny bokstav f og g": the marker ahead of the level word covers the list.
+                flags = [True] * len(flags)
+            steps.append(_NOAddressPathStep("item", tuple(labels), tuple(flags)))
+            continue
+        read = _no_address_path_list(
+            tokens, position, _no_address_path_ordinal, _no_address_path_numeric_range, frozenset()
+        )
+        if read is None:
+            return None
+        labels, flags, position = read
+        if position >= len(tokens):
+            return None
+        kind = _NO_ADDRESS_PATH_ORDINAL_LEVELS.get(tokens[position].lower())
+        if kind is None:
+            return None
+        position += 1
+        # The repeated-noun list ("tredje punktum og nytt fjerde punktum"), W-98
+        # (a)'s shape at any depth. Read only as the LEAF: a member followed by
+        # more address is a second address ("første ledd og tredje ledd første
+        # punktum"), which this grammar does not conjoin.
+        while position < len(tokens) and tokens[position].lower() in {",", "og"}:
+            member = _no_address_path_list(
+                tokens, position + 1, _no_address_path_ordinal, _no_address_path_numeric_range, frozenset()
+            )
+            if member is None:
+                return None
+            member_labels, member_flags, member_end = member
+            if member_end >= len(tokens) or _NO_ADDRESS_PATH_ORDINAL_LEVELS.get(tokens[member_end].lower()) != kind:
+                return None
+            labels.extend(member_labels)
+            flags.extend(member_flags)
+            position = member_end + 1
+            if position < len(tokens) and tokens[position].lower() not in {",", "og"}:
+                return None
+        steps.append(_NOAddressPathStep(kind, tuple(labels), tuple(flags)))
+    if verb == "replace" and not steps:
+        return None
+    return _NOAddressPathRead(section=_normalize_no_section_label(section), steps=tuple(steps), verb=verb)
+
+
+def _no_address_path_relabel_follows(follower: str) -> bool:
+    """Is the lead after the payload the OTHER half of a two-part instruction?
+
+    "§ 43 første til fjerde ledd skal lyde:" followed by "Nåværende andre, tredje
+    og fjerde ledd blir nye femte, sjette og syvende ledd." states an end state:
+    the standing ledd move out of the way and the new text takes their labels.
+    Lowered alone, the first half overwrites three ledd that are still in force
+    (measured on ``no/lovtid/2016-12-16-93``, finnmarksloven § 43, where the
+    relabel refused and the replacement had already landed). A prefilter only:
+    it can withhold an op, never mint one.
+    """
+    # Only the lead sentence counts: an inline payload after the colon is
+    # statute prose ("§ 20 nr. 2 og 3 skal lyde: Blir hun på ny enke …"). A
+    # ``blir`` whose sentence goes on to a repeal verb is the nynorsk repeal
+    # ("blir § 14 siste ledd oppheva"), not a relabel.
+    tokens = _normalize_space(follower).lower().partition(":")[0].split()
+    return any(
+        token == "blir" and not any(later.startswith("opphev") for later in tokens[at + 1 :])
+        for at, token in enumerate(tokens)
+    )
+
+
+def _no_address_path_detail(read: _NOAddressPathRead) -> str:
+    return "/".join(
+        [f"section:{read.section}"]
+        + [
+            f"{step.kind}:" + ",".join(("+" if new else "") + label for label, new in zip(step.labels, step.newness, strict=True))
+            if step.labels
+            else step.kind
+            for step in read.steps
+        ]
+    )
+
+
+def _no_address_path_refusal(read: _NOAddressPathRead) -> str:
+    """Why a fully read address cannot be lowered at all, payload aside; ``""`` if it can."""
+    for depth, step in enumerate(read.steps):
+        leaf = depth == len(read.steps) - 1
+        if step.kind not in _NO_ADDRESS_PATH_LOWERABLE_KINDS:
+            return f"step_not_lowerable:{step.kind}"
+        if step.kind == "sentence" and not leaf:
+            return "sentence_not_leaf"
+        if not leaf and len(step.labels) != 1:
+            return "list_above_leaf"
+        if not leaf and any(step.newness):
+            return "newness_above_leaf"
+        if "last" in step.labels and step.kind != "sentence":
+            return "last_not_a_sentence"
+        if len(set(step.labels)) != len(step.labels):
+            return "repeated_label"
+    if read.verb == "repeal" and any(new for step in read.steps for new in step.newness):
+        return "repeal_of_new_provision"
+    return ""
+
+
+def _lower_no_address_path(
+    read: _NOAddressPathRead,
+    payload_nodes: Sequence[etree._Element],
+) -> tuple[list[_NOAddressPathLeg], str]:
+    """The legs an address-path lead lowers to, or ``([], reason)``; all-or-nothing (W-19)."""
+    refusal = _no_address_path_refusal(read)
+    if refusal:
+        return [], refusal
+    prefix: tuple[tuple[str, str], ...] = (("section", read.section),)
+    if not read.steps:
+        return [_NOAddressPathLeg(StructuralAction.REPEAL, LegalAddress(path=prefix), None)], ""
+    for step in read.steps[:-1]:
+        prefix = (*prefix, (step.kind, step.labels[0]))
+    leaf = read.steps[-1]
+    targets = [LegalAddress(path=(*prefix, (leaf.kind, label))) for label in leaf.labels]
+    if read.verb == "repeal":
+        # Highest first, for W-66c's reason: ``remove_at`` relabels nothing today,
+        # and this order stays right under any future sibling compaction.
+        return [_NOAddressPathLeg(StructuralAction.REPEAL, target, None) for target in reversed(targets)], ""
+    articles = [
+        node
+        for node in payload_nodes
+        if _local_name(node) == "article" and {"legalP", "numberedLegalP"} & _classes(node)
+    ]
+    if not payload_nodes:
+        return [], "payload_absent"
+    if len(articles) != len(payload_nodes):
+        return [], "payload_not_text_articles"
+    payloads: list[IRNode] = []
+    if leaf.kind == "subsection":
+        if len(articles) != len(targets):
+            return [], "payload_arity"
+        for article, target in zip(articles, targets, strict=True):
+            subsection = _payload_from_direct_text_article(article, target)
+            if subsection is None:
+                return [], "payload_empty"
+            payloads.append(subsection)
+    else:
+        if any(
+            _local_name(inner) in _NO_ADDRESS_PATH_STRUCTURE_TAGS
+            for article in articles
+            for inner in _direct_children(article)
+        ):
+            return [], "payload_has_structure"
+        texts = [_node_text_without_structural_children(article) for article in articles]
+        if not all(texts):
+            return [], "payload_empty"
+        if leaf.kind == "item":
+            # A ``numberedLegalP`` under a ``nr.`` address is a numbered LEDD in
+            # Lovdata's markup, so the address's ``item`` reading is unproven.
+            if any("numberedLegalP" in _classes(article) for article in articles):
+                return [], "numbered_payload_for_item"
+            if len(texts) != len(targets):
+                return [], "payload_arity"
+            payloads = [
+                IRNode(kind=IRNodeKind.ITEM, label=target.leaf_label(), text=text)
+                for target, text in zip(targets, texts, strict=True)
+            ]
+        else:
+            if len(texts) != 1:
+                return [], "payload_arity"
+            sentences = _split_no_sentences(texts[0])
+            if len(sentences) != len(targets):
+                return [], "payload_sentence_arity"
+            payloads = [
+                IRNode(kind=IRNodeKind.SENTENCE, label=target.leaf_label() or None, text=sentence)
+                for target, sentence in zip(targets, sentences, strict=True)
+            ]
+    return [
+        _NOAddressPathLeg(StructuralAction.INSERT if new else StructuralAction.REPLACE, target, payload)
+        for target, payload, new in zip(targets, payloads, leaf.newness, strict=True)
+    ], ""
+
+
 def _iter_unstructured_no_change_groups(
     root: etree._Element,
     source_id: str,
@@ -5994,6 +6452,9 @@ def _iter_unstructured_no_change_groups(
     idx = 0
     active_base_id: str | None = None
     active_part_index: int | None = None
+    # W-65: address-path leads whose payload is followed by a relabel sentence,
+    # held until the walk knows whether that sentence lowered. See the post-pass.
+    address_path_awaiting_relabel: list[tuple[str, str, str, str, str]] = []
     # W-68: the last lead that opened by naming a law no switch reader read,
     # while the act it names differs from the one being carried. Set, it marks
     # the carry-over stale for every citation-less lead until the next read
@@ -6420,6 +6881,11 @@ def _iter_unstructured_no_change_groups(
         # count of ``no_parse_unstructured_renumber_arity_mismatch_skipped`` is a
         # pin (8), and the first cut drove it to 0.
         repeal_renumber_legs = _no_unstructured_repeal_renumber_legs(lead)
+        # W-65: a read that names nothing at all (a spaced label, "§ 2-1 b femte
+        # ledd oppheves. Nåværende …", empties every round-trip) used to consume
+        # the lead with neither op nor receipt. It now falls through.
+        if repeal_renumber_legs is not None and not any(repeal_renumber_legs[1:]):
+            repeal_renumber_legs = None
         if repeal_renumber_legs is not None:
             section_label, repeal_targets, source_targets, dest_targets = repeal_renumber_legs
             paired_renumber_count = min(len(source_targets), len(dest_targets))
@@ -6695,10 +7161,19 @@ def _iter_unstructured_no_change_groups(
             continue
 
         repeal_match = re.match(r"^§\s*([0-9A-Za-z-]+)\s+(.+?)\s+ledd\s+oppheves\.?$", lead, re.IGNORECASE)
-        if repeal_match:
-            for target in _infer_same_base_subsection_targets_from_lead(
+        # W-65: only when the round-trip names a ledd. It names none for a
+        # spaced label ("§ 28 a annet ledd oppheves." reads as § 28, "a annet")
+        # or an ordinal past ``tiende``, and this block then consumed the lead
+        # with neither op nor receipt. Such a lead now falls through.
+        repeal_ledd_targets = (
+            _infer_same_base_subsection_targets_from_lead(
                 f"§ {repeal_match.group(1)} {repeal_match.group(2)} ledd skal lyde"
-            ):
+            )
+            if repeal_match
+            else []
+        )
+        if repeal_ledd_targets:
+            for target in repeal_ledd_targets:
                 doc_ops.append(
                     LegalOperation(
                         op_id=f"{source_id}:{sequence}",
@@ -7783,6 +8258,73 @@ def _iter_unstructured_no_change_groups(
             idx = read.end_index
             continue
 
+        # W-65, and it sits LAST for the reason W-66c's and W-74's blocks give:
+        # every shipped production has already declined the lead, so this one
+        # converts nothing but leads that carry ``lead_unmatched`` today. See the
+        # block comment on ``_NO_ADDRESS_PATH_ORDINALS``.
+        address_path = _no_lead_address_path(lead)
+        if address_path is not None:
+            address_legs, address_refusal = _lower_no_address_path(address_path, payload_nodes)
+            if address_refusal:
+                _append_no_unstructured_parse_adjudication(
+                    adjudications_out,
+                    kind=NO_PARSE_ADDRESS_PATH_NOT_LOWERED,
+                    message=(
+                        "Norway address-path lead was read to its end, but its address or its "
+                        "payload does not lower; nothing was lowered."
+                    ),
+                    source_id=source_id,
+                    lead=lead,
+                    base_id=lead_base_id,
+                    detail={
+                        "refusal": address_refusal,
+                        "verb": address_path.verb,
+                        "address": _no_address_path_detail(address_path),
+                        "payload_classes": tuple(
+                            f"{_local_name(node)}.{'+'.join(sorted(_classes(node)))}" for node in payload_nodes
+                        ),
+                    },
+                )
+                idx += 1
+                continue
+            address_group = sequence
+            if address_path.verb == "replace" and cursor < len(children) and _part_index(cursor) == child_part_index:
+                follower = _repair_no_mojibake(
+                    _normalize_space(" ".join(str(_t) for _t in children[cursor].itertext()))
+                )
+                if _no_address_path_relabel_follows(follower):
+                    address_path_awaiting_relabel.append(
+                        (
+                            lead_base_id,
+                            f"{source_id}:{lead_base_id}:{address_group}",
+                            lead,
+                            follower,
+                            _no_address_path_detail(address_path),
+                        )
+                    )
+            for leg in address_legs:
+                doc_ops.append(
+                    LegalOperation(
+                        op_id=f"{source_id}:{sequence}",
+                        sequence=sequence,
+                        action=leg.action,
+                        target=leg.target,
+                        payload=leg.payload,
+                        source=OperationSource(statute_id=source_id, raw_text=lead, title=lead_base_id),
+                        provenance_tags=(
+                            f"base_act:{lead_base_id}",
+                            "fallback:unstructured",
+                            NO_ADDRESS_PATH_PROVENANCE_TAG,
+                        ),
+                        group_id=f"{source_id}:{lead_base_id}:{address_group}",
+                    )
+                )
+                sequence += 1
+            # A repeal announces no payload, so it consumes none: whatever
+            # follows it is read as a lead of its own.
+            idx = cursor if address_path.verb == "replace" else idx + 1
+            continue
+
         if _no_unstructured_lead_looks_operative(lead):
             _append_no_unstructured_parse_adjudication(
                 adjudications_out,
@@ -7794,6 +8336,44 @@ def _iter_unstructured_no_change_groups(
                 detail={},
             )
         idx += 1
+
+    # W-65 post-pass. An address-path lead followed by a relabel sentence lowers
+    # only if that sentence lowered too: its RENUMBERs are what vacate the labels
+    # the new text takes (the promotion below then turns the overlapping
+    # REPLACEs into INSERTs). If the relabel refused, the lead is withdrawn whole
+    # with a typed receipt, because nothing says which standing ledd its legs
+    # would overwrite.
+    for held_base_id, held_group_id, held_lead, held_follower, held_address in address_path_awaiting_relabel:
+        held_ops = doc_ops_by_base.get(held_base_id, [])
+        if any(
+            op.action is StructuralAction.RENUMBER and op.source is not None and op.source.raw_text == held_follower
+            for op in held_ops
+        ):
+            continue
+        withdrawn = [
+            op
+            for op in held_ops
+            if op.group_id == held_group_id and NO_ADDRESS_PATH_PROVENANCE_TAG in (op.provenance_tags or ())
+        ]
+        doc_ops_by_base[held_base_id] = [op for op in held_ops if op not in withdrawn]
+        _append_no_unstructured_parse_adjudication(
+            adjudications_out,
+            kind=NO_PARSE_ADDRESS_PATH_NOT_LOWERED,
+            message=(
+                "Norway address-path lead is followed by a relabel sentence that did not lower; "
+                "the lead was withdrawn rather than written over provisions the relabel would have moved."
+            ),
+            source_id=source_id,
+            lead=held_lead,
+            base_id=held_base_id,
+            detail={
+                "refusal": "relabel_follows_unlowered",
+                "verb": "replace",
+                "address": held_address,
+                "follower": held_follower[:400],
+                "withdrawn_targets": tuple(_no_address_detail(op.target) for op in withdrawn),
+            },
+        )
 
     return [
         (base_id, _promote_no_replace_with_following_renumber_insert(doc_ops))
@@ -11703,6 +12283,46 @@ def _resolve_no_path(body: IRNode, target: LegalAddress) -> Optional[tree_ops.Pa
     return full_path
 
 
+def _no_strict_address_path(body: IRNode, target: LegalAddress) -> tuple[Optional[tree_ops.Path], str]:
+    """Resolve ``target`` step by step, each step to exactly ONE node; ``(None, refusal)`` otherwise.
+
+    ``_resolve_no_path`` takes the first depth-first match at every step, which
+    is a guess whenever a step matches twice below its parent ("§ 5 nr. 2" in a
+    section whose first and second ledd each carry a nr. 2). Here the section
+    must be unique in the law and every later step must be a DIRECT child of the
+    node before it. The one hop allowed is the ledd-less item address ("§ 2 nr.
+    2"): items hang below a ledd, never straight off a section (W-76's census),
+    so the step resolves through the section's ledd only when the section has
+    exactly one -- the unique-host rule the shallow sentence target already uses.
+    A sentence leaf is left to the caller: sentence children are materialized on
+    demand and ``last`` is positional.
+    """
+    steps = target.path[:-1] if target.leaf_kind() == "sentence" else target.path
+    node = body
+    path: tree_ops.Path = ()
+    for depth, (kind, label) in enumerate(steps):
+        if depth == 0:
+            matches = tree_ops.find_all(node, kind, label)
+        else:
+            if kind == "item" and _no_kind_value(node.kind) == "section":
+                hosts = [child for child in node.children if _no_kind_value(child.kind) == "subsection"]
+                if len(hosts) != 1:
+                    return None, "item_host_not_unique"
+                path = path + ((_no_kind_value(hosts[0].kind), hosts[0].label or ""),)
+                node = hosts[0]
+            matches = [match for match in tree_ops.find_all(node, kind, label) if len(match) == 1]
+        if not matches:
+            return None, "unresolved"
+        if len(matches) != 1:
+            return None, "ambiguous"
+        resolved = tree_ops.resolve(node, matches[0])
+        if resolved is None:
+            return None, "unresolved"
+        path = path + matches[0]
+        node = resolved
+    return path, ""
+
+
 def _find_insert_parent(scope_node: IRNode, content_kind: str) -> Optional[tree_ops.Path]:
     """Find a unique descendant container whose direct children match content kind."""
     matches: list[tree_ops.Path] = []
@@ -13325,6 +13945,47 @@ def _apply_no_ops_fold(
                         },
                     )
 
+            # W-65: an address-path op resolves strictly or not at all. The lane
+            # is new, so it takes none of the missing-target recoveries below (a
+            # REPLACE the tree cannot place is refused, not inserted), and a step
+            # the first-match resolver had to choose among candidates for is not
+            # a resolved address. INSERT is left to the occupied-target refusal
+            # (``_NO_INSERT_OCCUPIED_REFUSING_TAGS``) and the shipped parent walk.
+            if NO_ADDRESS_PATH_PROVENANCE_TAG in (op.provenance_tags or ()) and op.action in {
+                StructuralAction.REPLACE,
+                StructuralAction.REPEAL,
+            }:
+                strict_path, strict_refusal = _no_strict_address_path(body, op.target)
+                if not strict_refusal and resolved_path is None:
+                    strict_refusal = "unresolved"
+                if (
+                    not strict_refusal
+                    and resolved_path is not None
+                    and strict_path is not None
+                    and tuple(resolved_path[: len(strict_path)]) != tuple(strict_path)
+                ):
+                    strict_refusal = "resolver_disagrees"
+                if strict_refusal:
+                    _append_no_replay_adjudication(
+                        adjudications_out,
+                        kind=NO_REPLAY_ADDRESS_PATH_TARGET_REFUSED,
+                        message=(
+                            "Norway replay refused an address-path operation: its target does "
+                            "not resolve to exactly one node."
+                        ),
+                        op=op,
+                        detail={
+                            "rule_id": NO_REPLAY_ADDRESS_PATH_TARGET_REFUSED,
+                            "family": "unsupported_or_unresolved_action",
+                            "refusal": strict_refusal,
+                            "action": _no_action_value(op.action),
+                            "target": str(op.target),
+                            "resolved_path": _no_path_label(resolved_path) if resolved_path is not None else "",
+                        },
+                    )
+                    _assert_no_invariant_violations(op)
+                    return
+
             if op.action is StructuralAction.REPLACE and op.payload is not None:
                 payload = op.payload
                 if resolved_path is not None and _no_kind_value(payload.kind) == "sentence" and payload.label == "last":
@@ -13727,6 +14388,9 @@ def _apply_no_ops_fold(
                             "Norway replay refused an item-depth newness payload whose target "
                             "label is still occupied when the insert runs."
                             if refusing_tag == NO_ITEM_INSERT_PAYLOAD_PROVENANCE_TAG
+                            else "Norway replay refused an address-path insert whose target label "
+                            "is still occupied when the insert runs."
+                            if refusing_tag == NO_ADDRESS_PATH_PROVENANCE_TAG
                             else "Norway replay refused a re-enactment insert whose target label "
                             "is still occupied when the insert runs."
                         ),
@@ -14539,6 +15203,9 @@ _NO_SKIP_ADJUDICATION_KINDS = frozenset(
         # a REFUSAL, no write, so the conserved partition sees them as rejected.
         NO_REPLAY_CHAPTER_REENACTMENT_UNCARRIED_SECTIONS_REFUSED,
         NO_REPLAY_REENACTMENT_INSERT_OCCUPIED_TARGET_REFUSED,
+        # W-65: the two address-path refusals. Same shape: a REFUSAL, no write.
+        NO_REPLAY_ADDRESS_PATH_TARGET_REFUSED,
+        NO_REPLAY_ADDRESS_PATH_INSERT_OCCUPIED_TARGET_REFUSED,
     }
 )
 

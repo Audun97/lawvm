@@ -48,12 +48,14 @@ WITNESS_HISTORY = [
     ("W-103", "2026-09-06", 62, 14, 28, "print-era lane promoted: fixture + tests pin 62/75"),
     ("W-104", "2026-09-11", 63, 14, 26, "inline addressed word substitution (2004 Medietilsynet act); § 4-6 closes"),
     ("W-68", "2026-10-01", 63, 14, 26, "law-switch correctness: a lead binds to the law its head names; witness unmoved"),
+    ("W-65", "2026-10-05", 64, 15, 26, "address-path leads (§ label + ledd/bokstav/nr./punktum steps); § 6-1 a closes, chapter 6 title row unmasked"),
 ]
 # Scoreboard rows the ledger records in prose after its table ended.
 SCOREBOARD_EXTRA = [
     ("2026-08-17, after W-84 (75 candidates)", 30, 45, 0),
     ("2026-08-18, after W-86 (75 candidates)", 30, 45, 0),
     ("2026-09-06, after W-102 (82 candidates)", 30, 52, 0),
+    ("2026-10-05, after W-65 (82 candidates)", 31, 51, 0),
 ]
 # Second-channel word agreement against NB ALTO over the pilot pages.
 OCR_CHANNELS = [
@@ -65,6 +67,7 @@ OCR_CHANNELS = [
 LADDER_SHARE = [("A", 72.7), ("A+B", 87.2), ("A+B+C", 97.1), ("R", 2.8)]
 
 ITEMS = {
+    65: ("W-65", "2026-10-05", "done", "Address-path leads: +2,213 ops, 19 scan rows closed (31/51/0); a replacement-before-relabel over-repeal caught and guarded."),
     87: ("W-81", "2026-08-20", "blocked", "Pre-2001 format probe re-chartered: no Lovdata pre-2001 dataset exists; born-digital corroboration only by agreement."),
     88: ("W-82", "2026-08-17", "done", "Own-text fallback payload reach: 35 declared ops lower with real payloads."),
     89: ("W-83", "2026-08-17", "done", "Klimaloven audit: the 'Lovdata defect' was a superseded (utgått) announcement."),
