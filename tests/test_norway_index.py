@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import json
 import tarfile
 from typing import Any, cast
 
@@ -29,6 +30,8 @@ from lawvm.norway.index import (
     NO_RESANCTIONED_ACT_SUPERSEDED,
     NO_RESANCTIONED_ACT_UNPAIRED,
     NOAmendmentIndex,
+    NOIndexDiagnosticNotJsonNative,
+    _no_index_saved_diagnostic,
     build_no_amendment_index,
     load_no_amendment_index,
     save_no_amendment_index,
@@ -36,6 +39,7 @@ from lawvm.norway.index import (
 from lawvm.norway.sources import (
     NO_UNRESOLVED_EFFECTIVE_STATUSES,
     NOCommencementShape,
+    NOEffectiveStatus,
     NOLocatedArtifact,
     declared_change_targets_from_amendment,
     load_available_lti_law_ids,
@@ -44,7 +48,8 @@ from lawvm.norway.sources import (
     parse_header_value,
     resolve_no_source_path,
 )
-from tests.norway_index_cache import cached_no_amendment_index
+from lawvm.replay_adjudication import CompileAdjudication
+from tests.norway_index_cache import cached_no_amendment_index, first_exact_difference
 
 # Lovdata's declared ``changesToDocuments`` list for no/lovtid/2022-12-20-115, in
 # document order, and the six targets the index actually binds from extracted ops.
@@ -271,7 +276,9 @@ def test_build_no_amendment_index_records_identical_duplicate_logical_locator(tm
         "selected_source_locator": (
             "lovtidend-avd1-2025-2026.tar.bz2:lti/2025/nl-20250202-005.xml"
         ),
-        "source_lane_attempts": (
+        # A list since W-111: the core evidence carrier hands over a tuple, and
+        # the index holds it as a saved index gives it back.
+        "source_lane_attempts": [
             {
                 "lane": "norway_lovtidend_archive_member",
                 "lane_attempt_status": "selected_identical_duplicate",
@@ -288,7 +295,7 @@ def test_build_no_amendment_index_records_identical_duplicate_logical_locator(tm
                 "logical_locator": "no://lovtid/2025-02-02-5/amendment.xml",
                 "payload_digest": diagnostic["payload_digests"][0],
             },
-        ),
+        ],
         "logical_id": "no/lovtid/2025-02-02-5",
         "logical_locator": "no://lovtid/2025-02-02-5/amendment.xml",
         "identical_payloads": True,
@@ -659,6 +666,227 @@ def test_no_amendment_index_from_dict_loads_json_written_before_declared_targets
 
     assert loaded.entries[0].base_ids == ("no/lov/2025-01-01-1",)
     assert loaded.entries[0].declared_target_ids == ()
+
+
+# ── W-111: a saved index is the index that was built ─────────────────────────
+#
+# One act and one instrument that between them produce every kind of value the
+# JSON file used to give back as something else: the act's parse receipts carry
+# tuples (and tuples of ``FrozenDict``) in their detail, the instrument's scope
+# residual a ``QuirksDisposition``, and the entry a ``NOEffectiveStatus``.
+
+
+def _w111_sentence_rebind_amendment_xml() -> bytes:
+    return """<?xml version="1.0" encoding="utf-8"?>
+<html lang="nb">
+  <body>
+    <dd class="dateInForce">2025-02-10</dd>
+    <article class="document-change" data-document="lov/2022-05-12-28">
+      <article class="change"
+               data-change-part="lov/2022-05-12-28/§45/ledd/2"
+               data-add-new-part="lov/2022-05-12-28/§45/ledd/3 lov/2022-05-12-28/§45/ledd/4">
+        <article class="defaultP">§ 45 andre ledd nytt tredje og fjerde punktum skal lyde:</article>
+        <article class="legalP">Første nye punktum. Andre nye punktum.</article>
+      </article>
+    </article>
+  </body>
+</html>
+""".encode("utf-8")
+
+
+def _w111_partial_instrument_xml() -> bytes:
+    return (
+        "<html><body>\n"
+        '<dd class="title">Delt ikraftsetting av lov 2. februar 2025 nr. 5</dd>\n'
+        '<dd class="basedOn"><a href="lov/2025-02-02-5">endringsloven</a></dd>\n'
+        '<dd class="dateInForce">2025-04-01 og 2025-06-01</dd>\n'
+        '<main class="documentBody">Loven § 2 trer i kraft 1. april 2025. '
+        "Resten trer i kraft 1. juni 2025.</main>\n"
+        "</body></html>"
+    ).encode("utf-8")
+
+
+def _w111_build_index(tmp_path) -> NOAmendmentIndex:
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [
+            ("lti/2025/nl-20250202-005.xml", _w111_sentence_rebind_amendment_xml()),
+            ("lti/2025/sf-20250301-0101.xml", _w111_partial_instrument_xml()),
+        ],
+    )
+    return build_no_amendment_index(tmp_path)
+
+
+def test_a_saved_no_amendment_index_loads_as_the_index_that_was_built(tmp_path) -> None:
+    """Build, save, load: the same object, exact types included.
+
+    ``==`` cannot be the comparison here. A ``StrEnum`` equals its string and a
+    ``FrozenDict`` equals a ``dict``, which is how the loss went unseen.
+    """
+    index = _w111_build_index(tmp_path)
+    index_path = tmp_path / "no_index.json"
+
+    save_no_amendment_index(index, index_path)
+    loaded = load_no_amendment_index(index_path)
+
+    assert first_exact_difference(index, loaded) is None
+    # The witness is what it is meant to be: each kind of value is in the index.
+    by_rule = {row["rule_id"]: row for row in index.diagnostics}
+    assert set(by_rule) == {
+        "no_parse_structured_target_rebound_from_lead",
+        "no_parse_action_recovered_from_structured_lead",
+        "no_lovtidend_commencement_scope_unresolved",
+    }
+    rebind = by_rule["no_parse_structured_target_rebound_from_lead"]["detail"]
+    assert type(rebind["original_specs"]) is list
+    assert {type(spec) for spec in rebind["original_specs"]} == {dict}
+    recovered = by_rule["no_parse_action_recovered_from_structured_lead"]["detail"]
+    assert type(recovered["original_actions"]) is list
+    assert type(by_rule["no_lovtidend_commencement_scope_unresolved"]["quirks_disposition"]) is str
+    assert [type(entry.effective_status) for entry in loaded.entries] == [NOEffectiveStatus]
+    assert [type(entry.effective_status) for entry in index.entries] == [NOEffectiveStatus]
+
+
+def test_the_saved_form_of_an_index_diagnostic_changes_no_value(tmp_path) -> None:
+    """Only the containers change: each receipt still says what the parser said.
+
+    The parser's own adjudications are read straight off the same bytes and
+    compared as JSON text, which is what a saved index holds, so the file is
+    what it was before the build put its rows in the saved form.
+    """
+    index = _w111_build_index(tmp_path)
+    adjudications: list[CompileAdjudication] = []
+    iter_no_document_change_ops(
+        _w111_sentence_rebind_amendment_xml(),
+        "no/lovtid/2025-02-02-5",
+        adjudications_out=adjudications,
+    )
+
+    assert [type(item.detail["original_specs"]) for item in adjudications] == [tuple, tuple]
+    indexed = [row["detail"] for row in index.diagnostics if row["source_id"] == "no/lovtid/2025-02-02-5"]
+    assert [json.dumps(detail, ensure_ascii=False) for detail in indexed] == [
+        json.dumps(dict(item.detail), ensure_ascii=False) for item in adjudications
+    ]
+    assert indexed[0]["original_specs"] == [
+        {"action": "replace", "target": "section:45/subsection:2"},
+        {"action": "insert", "target": "section:45/subsection:3"},
+        {"action": "insert", "target": "section:45/subsection:4"},
+    ]
+
+
+def test_an_index_diagnostic_already_in_the_saved_form_is_copied_unchanged() -> None:
+    """The negative: plain JSON data goes through as itself, in new containers."""
+    row = {
+        "rule_id": "no_amendment_index_no_change_ops",
+        "blocking": True,
+        "strict_disposition": "block",
+        "quirks_disposition": "record",
+        "count": 3,
+        "ratio": 0.5,
+        "absent": None,
+        "detail": {"targets": ["section:1", "section:2"], "nested": [{"flag": False}]},
+    }
+
+    saved = _no_index_saved_diagnostic(row)
+
+    assert first_exact_difference(row, saved) is None
+    assert saved is not row
+    assert saved["detail"] is not row["detail"]
+    assert saved["detail"]["targets"] is not row["detail"]["targets"]
+
+
+@pytest.mark.parametrize(
+    ("detail", "where", "type_name"),
+    [
+        ({"labels": frozenset({"1", "2"})}, "diagnostic['detail']['labels']", "frozenset"),
+        ({"by_position": {1: "første"}}, "diagnostic['detail']['by_position'] (mapping key)", "int"),
+        ({"pairs": (("a", b"b"),)}, "diagnostic['detail']['pairs'][0][1]", "bytes"),
+    ],
+)
+def test_build_refuses_an_index_diagnostic_value_a_saved_index_cannot_hold(
+    tmp_path, monkeypatch, detail, where, type_name
+) -> None:
+    """The guard, driven through the build: a set, a non-string key, bytes.
+
+    ``json.dumps`` rejects the first and the third only when the index is
+    saved, and writes the second as ``"1"`` without a word. The build names the
+    rule and the place instead.
+    """
+    _write_archive(
+        tmp_path / "lovtidend-avd1-2025.tar.bz2",
+        [("lti/2025/nl-20250202-005.xml", _amendment_xml("2025-02-10"))],
+    )
+
+    def _ops_with_an_unsaveable_receipt(payload, source_id, adjudications_out=None):
+        if adjudications_out is not None:
+            adjudications_out.append(
+                CompileAdjudication(
+                    kind="no_parse_w111_unsaveable_receipt",
+                    message="a receipt whose detail JSON cannot hold",
+                    source_statute=source_id,
+                    blocking=True,
+                    phase="parse",
+                    detail=detail,
+                )
+            )
+        return iter_no_document_change_ops(payload, source_id)
+
+    monkeypatch.setattr(
+        "lawvm.norway.index.iter_no_document_change_ops", _ops_with_an_unsaveable_receipt
+    )
+
+    with pytest.raises(NOIndexDiagnosticNotJsonNative) as raised:
+        build_no_amendment_index(tmp_path)
+
+    assert raised.value.rule_id == "no_parse_w111_unsaveable_receipt"
+    assert raised.value.where == where
+    assert raised.value.type_name == type_name
+    assert "no_parse_w111_unsaveable_receipt" in str(raised.value)
+
+
+def test_load_no_amendment_index_refuses_a_status_outside_the_closed_set(tmp_path) -> None:
+    """A saved status is read back as the enum, and a string that is no member
+    of it is refused rather than carried into replay as a status nothing knows."""
+    data = _w111_build_index(tmp_path).to_dict()
+    entries = cast(list[dict[str, Any]], data["entries"])
+    assert entries[0]["effective_status"] == "dated"
+
+    loaded = NOAmendmentIndex.from_dict(data)
+    assert loaded.entries[0].effective_status is NOEffectiveStatus.DATED
+
+    entries[0]["effective_status"] = "date"
+    with pytest.raises(ValueError, match="'date' is not a valid NOEffectiveStatus"):
+        NOAmendmentIndex.from_dict(data)
+
+
+def test_real_corpus_saved_index_loads_as_the_index_that_was_built(tmp_path) -> None:
+    """W-111 over the real archive: every entry, instrument and diagnostic.
+
+    Before the fix 2,611 entries came back with a ``str`` status and 2,231
+    diagnostics with a changed type somewhere (473 of them unequal under
+    ``==``); 25 commands take ``--index FILE`` and were answering from that.
+    """
+    data_dir = resolve_no_source_path(None)
+    if not data_dir.exists():
+        pytest.skip("local Norway corpus is not installed")
+    index = cached_no_amendment_index(data_dir)
+    if not index.entries:
+        pytest.skip("local Norway corpus is not installed")
+    index_path = tmp_path / "no_index.json"
+
+    save_no_amendment_index(index, index_path)
+    loaded = load_no_amendment_index(index_path)
+
+    assert first_exact_difference(index, loaded) is None
+    # The population the loss lived in is still there to be compared.
+    assert any(
+        isinstance(row.get("detail"), dict) and "original_specs" in row["detail"]
+        for row in index.diagnostics
+    )
+    assert any(
+        row["rule_id"] == "no_lovtidend_commencement_scope_unresolved"
+        for row in index.diagnostics
+    )
 
 
 def test_build_no_amendment_index_authorizes_a_whole_act_commencement_instrument(tmp_path) -> None:

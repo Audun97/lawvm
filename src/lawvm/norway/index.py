@@ -37,6 +37,7 @@ from lawvm.norway.sources import (
     NOEffectiveStatus,
     NOLocatedArtifact,
     coerce_no_commencement_shape,
+    coerce_no_effective_status,
     declared_change_targets_from_amendment,
     effective_date_from_amendment,
     iter_no_amendment_artifacts,
@@ -261,7 +262,7 @@ class NOAmendmentIndex:
                 source_id=entry["source_id"],
                 archive=entry["archive"],
                 member_name=entry["member_name"],
-                effective_status=entry["effective_status"],
+                effective_status=coerce_no_effective_status(entry["effective_status"]),
                 effective_date=entry.get("effective_date"),
                 raw_date_in_force=entry.get("raw_date_in_force", ""),
                 title=entry.get("title", ""),
@@ -1060,7 +1061,81 @@ def build_no_amendment_index(data_dir: Optional[Path] = None) -> NOAmendmentInde
     _authorize_no_commencement_instruments_into_index(
         index, parsed_instruments, act_part_evidence
     )
+    # W-111. Last step, after every producer above has appended: the index a
+    # build returns is the index ``load_no_amendment_index`` returns for the
+    # file ``save_no_amendment_index`` writes from it.
+    index.diagnostics = [_no_index_saved_diagnostic(row) for row in index.diagnostics]
     return index
+
+
+class NOIndexDiagnosticNotJsonNative(TypeError):
+    """An index diagnostic carries a value a saved index has no form for.
+
+    Raised by the build instead of leaving it to ``json.dumps``, which rejects
+    most such values only when the index is saved and rewrites a non-string
+    mapping key without saying so. The fix is at the producer of ``rule_id``:
+    hand the index a list, dict, string or number.
+    """
+
+    def __init__(self, *, rule_id: str, where: str, value: object) -> None:
+        self.rule_id = rule_id
+        self.where = where
+        self.type_name = type(value).__name__
+        super().__init__(
+            f"Norway amendment index diagnostic {rule_id!r} carries a {self.type_name} "
+            f"at {where} ({value!r:.200}), which a saved index (JSON) cannot hold; give "
+            "it a list, dict, string or number form where the diagnostic is produced"
+        )
+
+
+def _no_index_saved_diagnostic(row: dict[str, Any]) -> dict[str, Any]:
+    """One diagnostic in the form a saved index gives back. W-111.
+
+    A saved index is JSON, and JSON has one sequence, one mapping and no enums.
+    Diagnostics reach the index from many producers, and some hand over what
+    they had in memory: the grafter's adjudication detail carries tuples and
+    ``FrozenDict`` values, a commencement residual a ``QuirksDisposition``.
+    Written and read back those are lists, dicts and strings, so a command
+    given ``--index FILE`` answered from a different object than a build
+    returns (2,231 of the 15,180 corpus diagnostics differed, 473 of them under
+    ``==``). The build puts every row in the saved form here, which is the form
+    ``diagnostic_detail`` already gives the envelope fields. The two are then
+    the same object by construction, whichever producer wrote the row. No value
+    changes, only its container, so the saved file is byte-for-byte what it was.
+    """
+    rule_id = str(row.get("rule_id") or row.get("kind") or "")
+    return cast(dict[str, Any], _no_index_json_native(row, rule_id=rule_id, where="diagnostic"))
+
+
+def _no_index_json_native(value: Any, *, rule_id: str, where: str) -> Any:
+    """``value`` as JSON holds it; always a new container, never the producer's own."""
+    if value is None or type(value) in (str, bool, int, float):
+        return value
+    if isinstance(value, str):
+        # ``StrEnum`` and any other ``str`` subclass: its text, as a plain ``str``.
+        return str.__str__(value)
+    if isinstance(value, int):
+        return int(value)
+    if isinstance(value, float):
+        return float(value)
+    if isinstance(value, dict):
+        native: dict[str, Any] = {}
+        for key, inner in value.items():
+            if not isinstance(key, str):
+                # JSON would write ``1`` as ``"1"`` and read it back a string.
+                raise NOIndexDiagnosticNotJsonNative(
+                    rule_id=rule_id, where=f"{where} (mapping key)", value=key
+                )
+            native[str.__str__(key)] = _no_index_json_native(
+                inner, rule_id=rule_id, where=f"{where}[{key!r}]"
+            )
+        return native
+    if isinstance(value, (list, tuple)):
+        return [
+            _no_index_json_native(inner, rule_id=rule_id, where=f"{where}[{position}]")
+            for position, inner in enumerate(value)
+        ]
+    raise NOIndexDiagnosticNotJsonNative(rule_id=rule_id, where=where, value=value)
 
 
 def _authorize_no_commencement_instruments_into_index(

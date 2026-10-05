@@ -210,6 +210,20 @@ NO_PARTIALLY_RESOLVED_EFFECTIVE_STATUSES: frozenset[NOEffectiveStatus] = frozens
 )
 
 
+def coerce_no_effective_status(value: object) -> NOEffectiveStatus:
+    """Coerce a stored/loaded value to a ``NOEffectiveStatus``, failing loud.
+
+    W-111. Used where ``effective_status`` re-enters from a saved index
+    (mirrors :func:`coerce_no_commencement_shape`): the build puts the enum on
+    every entry, so a load that kept the bare string returned a different
+    object than the build did. An unrecognized string is a registration gap,
+    never a silently-carried status outside the closed set.
+    """
+    if isinstance(value, NOEffectiveStatus):
+        return value
+    return NOEffectiveStatus(str(value))
+
+
 class NOCommencementShape(StrEnum):
     """Closed set of shapes a *resolved* ``dateInForce`` field can have.
 

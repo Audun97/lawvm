@@ -32,11 +32,15 @@ miss costs one build; that is why the key is wide.
 
 THREE DECISIONS THAT ARE NOT OBVIOUS
 ------------------------------------
-PICKLE, NOT ``save_no_amendment_index``.  The JSON round trip is lossy on the real
-index: 473 of 15,180 diagnostics come back with ``tuple`` turned into ``list`` and
-``FrozenDict`` into ``dict``.  A pickle round trip is exact, and the builder checks
-that before it stores anything, with ``first_exact_difference`` rather than ``==``:
-``FrozenDict`` is a ``dict`` subclass, so ``==`` cannot see that half of the loss.
+PICKLE, NOT ``save_no_amendment_index``.  When this was written the JSON round trip
+was lossy on the real index (every entry's status came back a ``str``, and 2,231 of
+15,180 diagnostics had ``tuple`` turned into ``list``, ``FrozenDict`` into ``dict``
+or an enum into ``str``).  W-111 made it exact, and
+``test_real_corpus_saved_index_loads_as_the_index_that_was_built`` pins that, so
+the choice is now one of speed only: an entry is unpickled once per call, 0.09 s
+against 0.3 s for the JSON.  The builder checks the pickle round trip before it
+stores anything, with ``first_exact_difference`` rather than ``==``: ``FrozenDict``
+is a ``dict`` subclass, so ``==`` cannot see a copy that came back with plain dicts.
 The entry is only ever read back from the directory this module wrote it to.
 
 THE BUILD RUNS IN A CHILD PROCESS.  A test worker is the wrong place to build a

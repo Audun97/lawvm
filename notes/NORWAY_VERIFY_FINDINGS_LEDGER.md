@@ -8446,6 +8446,78 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    CLI, the sweep generator and the probes could share one saved index
    instead of paying a build per process, and the test cache could drop
    its pickle.
+   **LANDED 2026-10-02 (artifacts `.tmp/w111/`).**
+   **Measured first, as the item asked.** Replay and verify were run for
+   all 794 bound laws as of 2026-07-10 (348 have a base act and replay,
+   the other 446 are refused before any op), once with the index a build
+   returns and once with its saved-and-loaded copy, and the two results
+   were compared with exact types. No value differed and nothing raised.
+   1,254 values differed in type only, over 192 laws, all in one field:
+   `adjudications[*].detail["effective_status"]`, which replay copies off
+   the entry at three sites, so it was the enum after a build and a plain
+   string after `--index FILE`. Both print as the same JSON.
+   Then the commands: all 25 that take `--index FILE` (the 24 `no-*`
+   ones and `replay -j no`) were run in text and `--json` mode with each
+   object, on `no/lov/2022-03-11-9`, `no/lovtid/2024-06-21-50` or the
+   whole corpus as the command takes. 5.3 MB of output, identical apart
+   from the run timestamp two of the JSON reports print.
+   So no command was giving a wrong answer. The two objects differed
+   where nothing yet looked.
+   **The fix has two halves.** (a) The build now ends by putting every
+   diagnostic in the form a saved index gives back
+   (`_no_index_saved_diagnostic` in `index.py`): tuple → list,
+   `FrozenDict` → dict, `StrEnum` → str, always in new containers. The
+   diagnostics moved to the saved form and not the other way because a
+   diagnostic has no schema that tells a loader which lists were tuples,
+   and core's `diagnostic_detail` already stores its own fields as plain
+   strings. 12,949 of the 15,180 rows were in that form already. A value
+   JSON has no form for (a set, bytes, a mapping key that is not a
+   string) now stops the build with `NOIndexDiagnosticNotJsonNative`,
+   which names the rule, the place and the type. Before, `json.dumps`
+   raised for the first two only when the index was saved, and wrote the
+   key `1` as `"1"`. (b) `from_dict` reads `effective_status` back as
+   `NOEffectiveStatus` (`coerce_no_effective_status` in `sources.py`,
+   beside the one for `commencement_shape`) and refuses a string outside
+   the enum.
+   **Witness, after.** Built against save-then-load over the real index:
+   5,641 differences → 0. The saved file is 24,394,920 bytes before and
+   after and identical except `generated_at_utc`, so files already on
+   disk stay valid and `no-index --json` prints what it printed. The
+   index the old code built against the index the new code builds: 3,030
+   type changes, all in diagnostics (1,758 enum → str, 892 tuple → list,
+   380 `FrozenDict` → dict). Entries, instruments and coverage are
+   identical, and the diagnostics are equal as JSON text. The extra step
+   costs 0.23 s on an 87 s build.
+   **What a reader of a built index sees differently.** A sequence inside
+   a diagnostic is always a list. One test pinned a tuple, the
+   duplicate-locator receipt's `source_lane_attempts` (core's
+   `SourceLaneSelectionEvidence` hands over a tuple), and now pins a
+   list. The real corpus has none of those receipts. Nothing in `src/` or
+   `scripts/` compares a diagnostic value against a tuple: the readers are
+   `no-frontier` (prints them), `apply_no_commencement_overrides` (copies
+   them) and two probes (rule id, locator, unbound target ids).
+   **Sweep baseline** regenerated (`--procs 4`, 279 s): three values
+   moved, the code digest and the file digests of `index.py` and
+   `sources.py`. 8 firings, the 158 / 4,122 / 245 hazard counts and the
+   three blind-spot laws are unchanged.
+   **Tests** (`tests/test_norway_index.py`): one act and one instrument
+   that between them produce each kind of lost value, built, saved and
+   loaded, compared with `first_exact_difference`; the same over the real
+   index; the three refusals driven through `build_no_amendment_index`; a
+   status outside the enum refused on load; the parser's own receipts
+   against the indexed ones as JSON text. Six of the eight cases fail
+   with their half of the fix removed (each half was taken out and the
+   tests rerun). The real-corpus case fails on the old code by the
+   measurement above. The eighth is the negative: a diagnostic already in
+   the saved form comes back unchanged.
+   **Not done.** The test cache keeps its pickle: it loads in 0.09 s
+   against 0.3 s for the JSON, once per call, and its docstring now gives
+   that as the reason. One saved index for the commands, the sweep
+   and the probes is W-113. `from_dict` still drops a malformed row
+   without a word: W-114. Replay writes the enum into that adjudication
+   field at three sites and `str()` of it at three others
+   (`replay.py`); that is untidy and harmless now that both indexes hand
+   it the enum.
 
 112. **W-112 (a law id typed without `no/` is counted as having no
    amendments):** found while landing W-110. Replay normalizes
@@ -8463,6 +8535,38 @@ acquisition ceilings, not replay failures; excluded from engine-defect counts.
    the id `read_no_base_id` returns. One line in `verify.py` plus the two
    tools; not in the sweep closure.
 
+113. **W-113 (one saved index for the commands, the sweep and the
+   probes):** opened by W-111, which made a saved index exact. Every
+   process still pays its own build: the sweep generator builds one per
+   worker and one more in the parent (five with `--procs 4`, 87 s and
+   ~800 MB each; `run_sweep` builds for the law list and drops it, then
+   each forked worker's `_index()` builds again), each single-law command
+   builds one unless it is given `--index FILE`, and the test cache
+   stores a pickle no command can read. Loading the saved file takes
+   0.3 s. The open question is staleness. A saved index records the
+   archive's size and mtime (`staleness_report`) but not the code that
+   built it, so a file from before a parser change reports
+   `index_stale: False`; the only complete key in the repo (code and
+   corpus digest) lives in `tests/norway_index_cache.py`. Smallest first
+   step needs no file: `run_sweep` keeps the index it builds in `_INDEX`
+   and the forked workers inherit it, the way they already inherit
+   `_DATA`. By the last run's CPU time (779 s, of which five builds are
+   about 435 s) that is roughly 4.7 min → 3 min; not measured. Then
+   decide whether a saved file should carry the code digest, and only
+   after that whether a command may pick one up without being told.
+
+114. **W-114 (a damaged saved index loads as a smaller index):** found
+   while landing W-111. `NOAmendmentIndex.from_dict` skips an entry that
+   is not a mapping, a date pair of the wrong length and a diagnostic that
+   is not a mapping, and reads a file with no `entries` key as an index
+   with no entries, all without a word. Checked on a hand-made file: 1 of
+   3 entries, 1 of 2 date pairs and 1 of 2 diagnostics kept, no error. A
+   truncated or hand-edited `--index FILE` would then report "no
+   amendments" for a law that has them. No real file does this: every
+   file `save_no_amendment_index` writes is well formed. Fix: refuse by
+   name (which key, which row), as the status coercion now does. In
+   `index.py`, so the sweep baseline is regenerated with it.
+
 ## 5. Demo / Inspection Tooling
 
 Browser views of any replayable law across its own amendment dates, plus an
@@ -8479,6 +8583,30 @@ feed anything back into replay. The index page's verdict grouping is a
 browsing aid; `no-verify-partition` remains the authoritative classifier.
 
 ## 6. Changelog
+
+- **2026-10-02 (W-111, a saved index is the index that was built; no
+  replay or verify result moves).** `save_no_amendment_index` then
+  `load_no_amendment_index` gave back a different object than the build
+  returned: a plain string for every entry's status, and lists, dicts and
+  strings where 2,231 diagnostics held tuples, `FrozenDict`s and an enum.
+  Measured before changing anything: replay and verify over all 794 bound
+  laws with both objects gave no value difference (1,254 type-only
+  differences, all one adjudication field, same JSON), and all 25
+  commands that take `--index FILE` printed the same text and JSON for
+  both. Nothing was answering wrongly; the loss was latent.
+  Now the build puts every diagnostic in the saved form as its last step,
+  and refuses by name a value JSON cannot hold; the load reads the status
+  back as the enum. Built against save-then-load over the real index:
+  5,641 differences → 0. The saved file is byte-identical apart from its
+  timestamp, so existing files stay valid. One test that pinned a tuple
+  in a diagnostic now pins a list. Tests: eight new cases in
+  `test_norway_index.py`, one of them the real-corpus round trip. Sweep
+  baseline regenerated, three digests moved and nothing else. Gate:
+  `./scripts/ci.sh --affected` stages 1 to 7 green (norway shard 1,395
+  passed); stage 8 green with `UV_CACHE_DIR` outside the tree. Queued
+  from the same work: W-113 (one saved index for the commands, the sweep
+  and the probes) and W-114 (a damaged saved index loads as a smaller
+  index).
 
 - **2026-10-02 (W-110, the commands — refuse on sight, exit 1 on an
   error, one index per run; tools only, no replay or verify result
